@@ -19,7 +19,7 @@ module.exports = {
         extensions: [".webpack.js", ".web.js", ".ts", ".tsx", ".js"]
     },
     module: {
-        loaders: [
+        rules: [
             // all files with a '.ts' or '.tsx' extension will be handled by 'ts-loader'
             { test: /\.tsx?$/, loader: "ts-loader" },
             { test: /\.css$/, loader: ['style-loader', 'css-loader'] },
@@ -33,7 +33,6 @@ module.exports = {
     },
     plugins: [
         new webpack.optimize.AggressiveMergingPlugin(),
-        new webpack.optimize.UglifyJsPlugin({ minimize: true }),
         new webpack.DefinePlugin({
             'process.env': {
                 'NODE_ENV': JSON.stringify('production')
@@ -53,5 +52,8 @@ module.exports = {
             Tooltip: "exports-loader?Tooltip!bootstrap/js/dist/tooltip",
             Util: "exports-loader?Util!bootstrap/js/dist/util",
         })
-    ]
+    ],
+    optimization: {
+        minimize: true,
+    },
 }
