@@ -1,4 +1,6 @@
-// Copyright 2017 Free Chess Club.
+// Copyright 2018 Free Chess Club.
+// Use of this source code is governed by a GPL-style
+// license that can be found in the LICENSE file.
 
 // enable tooltips
 $(() => {
