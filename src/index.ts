@@ -137,6 +137,7 @@ function messageHandler(data) {
     return;
   }
 
+  console.log(data);
   const type = GetMessageType(data);
   switch (type) {
     case MessageType.Control:
@@ -159,8 +160,8 @@ function messageHandler(data) {
       chat.newMessage(data.user, data);
       break;
     case MessageType.GameMove:
-      game.btime = data.btime;
-      game.wtime = data.wtime;
+      game.btime = data.black_time;
+      game.wtime = data.white_time;
 
       if (game.chess === null) {
         game.chess = Chess();
@@ -181,8 +182,8 @@ function messageHandler(data) {
           board.orientation('white');
           game.wclock = clock.startWhiteClock(game, $('#player-time'));
           game.bclock = clock.startBlackClock(game, $('#opponent-time'));
-          $('#player-name').text(data.wname);
-          $('#opponent-name').text(data.bname);
+          $('#player-name').text(data.white_name);
+          $('#opponent-name').text(data.black_name);
           if (data.role === 0) {
             const nextMove = data.turn === 'W' ? 'b' : 'w';
             const fen = data.fen + ' ' + nextMove + ' - - 0 1';
@@ -197,8 +198,8 @@ function messageHandler(data) {
           board.orientation('black');
           game.bclock = clock.startBlackClock(game, $('#player-time'));
           game.wclock = clock.startWhiteClock(game, $('#opponent-time'));
-          $('#player-name').text(data.bname);
-          $('#opponent-name').text(data.wname);
+          $('#player-name').text(data.black_name);
+          $('#opponent-name').text(data.white_name);
         }
       }
 
@@ -236,10 +237,10 @@ function messageHandler(data) {
       break;
     case MessageType.GameStart:
       const user = session.getUser();
-      if (data.playerone === user) {
-        chat.createTab(data.playertwo);
+      if (data.player_one === user) {
+        chat.createTab(data.player_two);
       } else {
-        chat.createTab(data.playerone);
+        chat.createTab(data.player_one);
       }
       break;
     case MessageType.GameEnd:
