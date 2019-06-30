@@ -137,7 +137,6 @@ function messageHandler(data) {
     return;
   }
 
-  console.log(data);
   const type = GetMessageType(data);
   switch (type) {
     case MessageType.Control:
