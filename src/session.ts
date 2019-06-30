@@ -19,7 +19,7 @@ export function GetMessageType(msg: any): MessageType {
     return MessageType.Control;
   } else if (msg.player_one !== undefined) {
     return MessageType.GameStart;
-  } else if (msg.reason !== undefined) {
+  } else if (msg.winner !== undefined) {
     return MessageType.GameEnd;
   } else if (msg.channel !== undefined) {
     return MessageType.ChannelTell;
