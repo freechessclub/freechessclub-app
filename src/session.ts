@@ -94,8 +94,7 @@ export class Session {
     this.websocket.onclose = this.reset;
     if (login) {
       this.websocket.onopen = () => {
-        this.websocket.send(
-          JSON.stringify({ type: MessageType.Control, command: 1, text }));
+        this.websocket.send(text);
       };
     }
   }
