@@ -84,12 +84,12 @@ const channels = {
 };
 
 export class Chat {
-  private handle: string;
+  private user: string;
   private tabs: object;
   private emojisLoaded: boolean;
   private autoscrollToggle: boolean;
 
-  constructor(handle: string) {
+  constructor(user: string) {
     this.autoscrollToggle = true;
     // load emojis
     this.emojisLoaded = false;
@@ -97,7 +97,7 @@ export class Chat {
       this.emojisLoaded = true;
     });
 
-    this.handle = handle;
+    this.user = user;
 
     // initialize tabs
     this.tabs = {
@@ -180,15 +180,15 @@ export class Chat {
   public newMessage(from: string, data: any) {
     const tab = this.createTab(from);
     let who = '';
-    if (data.handle !== undefined) {
+    if (data.user !== undefined) {
       let textclass = '';
-      if (this.handle === data.handle) {
+      if (this.user === data.user) {
         textclass = ' class="mine"';
       }
-      who = '<strong' + textclass + '>' + $('<span/>').text(data.handle).html() + '</strong>: ';
+      who = '<strong' + textclass + '>' + $('<span/>').text(data.user).html() + '</strong>: ';
     }
 
-    let text = data.text;
+    let text = data.message;
     if (this.emojisLoaded) {
       text = parseEmojis(text);
     }

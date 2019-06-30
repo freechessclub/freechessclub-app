@@ -12,28 +12,46 @@ export const enum MessageType {
   Unknown,
 }
 
+export function GetMessageType(msg: any): MessageType {
+  if (msg.fen !== undefined) {
+    return MessageType.GameMove;
+  } else if (msg.control !== undefined) {
+    return MessageType.Control;
+  } else if (msg.player_one !== undefined) {
+    return MessageType.GameStart;
+  } else if (msg.reason !== undefined) {
+    return MessageType.GameEnd;
+  } else if (msg.channel !== undefined) {
+    return MessageType.ChannelTell;
+  } else if (msg.user !== undefined && msg.message !== undefined) {
+    return MessageType.PrivateTell;
+  } else {
+    return MessageType.Unknown;
+  }
+}
+
 export class Session {
   private connected: boolean;
-  private handle: string;
+  private user: string;
   private websocket: WebSocket;
   private onRecv: (msg: any) => void;
 
   constructor(onRecv: (msg: any) => void, user?: string, pass?: string) {
     this.connected = false;
-    this.handle = '';
+    this.user = '';
     this.onRecv = onRecv;
     this.connect(user, pass);
   }
 
-  public getHandle(): string {
-    return this.handle;
+  public getUser(): string {
+    return this.user;
   }
 
-  public setHandle(handle: string): void {
+  public setUser(user: string): void {
     this.connected = true;
-    this.handle = handle;
+    this.user = user;
     $('#chat-status').html('<span class="badge badge-success">Connected</span><span class="h6 align-middle"> '
-      + handle + '</span>');
+      + user + '</span>');
   }
 
   public isConnected(): boolean {
@@ -87,7 +105,7 @@ export class Session {
       $('#chat-status').html('<span class="badge badge-info">Disconnecting...</span>');
       this.websocket.close();
       this.connected = false;
-      this.handle = '';
+      this.user = '';
     }
   }
 
@@ -95,11 +113,11 @@ export class Session {
     $('#chat-status').html('<span class="badge badge-danger">Disconnected</span>');
   }
 
-  public send(payload: string | object) {
+  public send(command: string) {
     if (!this.isConnected()) {
       throw new Error('Session not connected.');
     }
-    this.websocket.send(JSON.stringify(payload));
+    this.websocket.send(command);
   }
 }
 

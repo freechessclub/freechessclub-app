@@ -11,7 +11,7 @@ import * as clock from './clock';
 import game from './game';
 import * as highlight from './highlight';
 import History from './history';
-import { MessageType, Session } from './session';
+import { MessageType, Session, GetMessageType } from './session';
 import * as Sounds from './sounds';
 import './ui';
 
@@ -83,7 +83,7 @@ export function movePiece(source, target) {
     return 'snapback';
   }
 
-  session.send({ type: MessageType.Control, command: 0, text: source + '-' + target });
+  session.send(source + '-' + target);
   game.history.add(move, game.chess.fen());
   highlight.highlightMove(move.from, move.to);
   if (move.captured) {
@@ -137,25 +137,26 @@ function messageHandler(data) {
     return;
   }
 
-  switch (data.type) {
+  const type = GetMessageType(data);
+  switch (type) {
     case MessageType.Control:
       if (!session.isConnected() && data.command === 1) {
-        session.setHandle(data.text);
-        chat = new Chat(session.getHandle());
-        session.send({ type: MessageType.Control, command: 0, text: '=ch' });
+        session.setUser(data.control);
+        chat = new Chat(session.getUser());
+        session.send('=ch');
       } else if (data.command === 2) {
         if (session.isConnected()) {
           session.disconnect();
         }
         session.reset(undefined);
-        showStatusMsg(data.text);
+        showStatusMsg(data.control);
       }
       break;
     case MessageType.ChannelTell:
       chat.newMessage(data.channel, data);
       break;
     case MessageType.PrivateTell:
-      chat.newMessage(data.handle, data);
+      chat.newMessage(data.user, data);
       break;
     case MessageType.GameMove:
       game.btime = data.btime;
@@ -234,8 +235,8 @@ function messageHandler(data) {
       }
       break;
     case MessageType.GameStart:
-      const handle = session.getHandle();
-      if (data.playerone === handle) {
+      const user = session.getUser();
+      if (data.playerone === user) {
         chat.createTab(data.playertwo);
       } else {
         chat.createTab(data.playerone);
@@ -273,12 +274,12 @@ function messageHandler(data) {
       let takeBacker = null;
       let action = null;
       if (pendingTakeback) {
-        let takebackMatches = data.text.match(/(\w+) (\w+) the takeback request\./);
+        let takebackMatches = data.message.match(/(\w+) (\w+) the takeback request\./);
         if (takebackMatches !== null && takebackMatches.length > 1) {
           takeBacker = takebackMatches[1];
           action = takebackMatches[2];
         } else {
-          takebackMatches = data.text.match(/You (\w+) the takeback request from (\w+)\./);
+          takebackMatches = data.message.match(/You (\w+) the takeback request from (\w+)\./);
           if (takebackMatches !== null && takebackMatches.length > 1) {
             takeBacker = takebackMatches[2];
             action = takebackMatches[1];
@@ -306,7 +307,7 @@ function messageHandler(data) {
         }
       }
 
-      const takebackReq = data.text.match(/(\w+) would like to take back (\d+) half move\(s\)\./);
+      const takebackReq = data.message.match(/(\w+) would like to take back (\d+) half move\(s\)\./);
       if (takebackReq != null && takebackReq.length > 1) {
         if (takebackReq[1] === $('#opponent-name').text()) {
           pendingTakeback = Number(takebackReq[2]);
@@ -317,9 +318,9 @@ function messageHandler(data) {
       }
 
       const gameCreateMsg =
-        data.text.match(/Creating: (\w+) \(([\d\+\-\s]{4})\) (\w+) \(([\d\-\+\s]{4})\).+/);
+        data.message.match(/Creating: (\w+) \(([\d\+\-\s]{4})\) (\w+) \(([\d\-\+\s]{4})\).+/);
       if (gameCreateMsg != null && gameCreateMsg.length > 4) {
-        if (gameCreateMsg[1] === session.getHandle()) {
+        if (gameCreateMsg[1] === session.getUser()) {
           if (!isNaN(gameCreateMsg[2])) {
             $('#player-rating').text(gameCreateMsg[2]);
           } else {
@@ -330,7 +331,7 @@ function messageHandler(data) {
           } else {
             $('#opponent-rating').text('');
           }
-        } else if (gameCreateMsg[3] === session.getHandle()) {
+        } else if (gameCreateMsg[3] === session.getUser()) {
           if (!isNaN(gameCreateMsg[2])) {
             $('#opponent-rating').text(gameCreateMsg[2]);
           } else {
@@ -345,18 +346,18 @@ function messageHandler(data) {
         return;
       }
 
-      const challengeMsg = data.text.match(
+      const challengeMsg = data.message.match(
         // tslint:disable-next-line:max-line-length
         /Challenge: (\w+) \(([\d\+\-\s]{4})\) (\w+) \(([\d\-\+\s]{4})\)\s((?:.+[\.\r\n])+)You can "accept" or "decline", or propose different parameters./m);
       if (challengeMsg != null && challengeMsg.length > 3) {
-        const [opponentName, opponentRating] = (challengeMsg[1] === session.getHandle()) ?
+        const [opponentName, opponentRating] = (challengeMsg[1] === session.getUser()) ?
           challengeMsg.slice(3, 5) : challengeMsg.slice(1, 3);
         showGameReq('Match', opponentName + '(' + opponentRating + ')',
           challengeMsg[5], ['decline', 'Decline'], ['accept', 'Accept']);
         return;
       }
 
-      const abortMsg = data.text.match(
+      const abortMsg = data.message.match(
         /(\w+) would like to abort the game; type "abort" to accept./);
       if (abortMsg != null && abortMsg.length > 1) {
         if (abortMsg[1] === $('#opponent-name').text()) {
@@ -366,7 +367,7 @@ function messageHandler(data) {
         return;
       }
 
-      const drawMsg = data.text.match(
+      const drawMsg = data.message.match(
         /(\w+) offers you a draw./);
       if (drawMsg != null && drawMsg.length > 1) {
         if (drawMsg[1] === $('#opponent-name').text()) {
@@ -376,15 +377,15 @@ function messageHandler(data) {
         return;
       }
 
-      const chListMatches = data.text.match(/-- channel list: \d+ channels --(?:\n)([\d\s]*)/);
+      const chListMatches = data.message.match(/-- channel list: \d+ channels --(?:\n)([\d\s]*)/);
       if (chListMatches !== null && chListMatches.length > 1) {
         return chat.addChannels(chListMatches[1].split(/\s+/));
       }
 
       if (
-        data.text === 'Style 12 set.' ||
-        data.text === 'You will not see seek ads.' ||
-        data.text === 'You will now hear communications echoed.'
+        data.message === 'Style 12 set.' ||
+        data.message === 'You will not see seek ads.' ||
+        data.message === 'You will now hear communications echoed.'
       ) {
         return;
       }
@@ -399,12 +400,12 @@ function getValue(elt: string): string {
 }
 
 $('body').on('click', '#accept', (event) => {
-  session.send({ type: MessageType.Control, command: 0, text: 'accept' });
+  session.send('accept');
   $('#game-requests').html('');
 });
 
 $('body').on('click', '#decline', (event) => {
-  session.send({ type: MessageType.Control, command: 0, text: 'decline' });
+  session.send('decline');
   $('#game-requests').html('');
 });
 
@@ -413,7 +414,7 @@ $('body').on('click', '#close-request', (event) => {
 });
 
 $('body').on('click', '#abort', (event) => {
-  session.send({ type: MessageType.Control, command: 0, text: 'abort' });
+  session.send('abort');
   $('#game-requests').html('');
 });
 
@@ -443,14 +444,14 @@ $('#input-form').on('submit', (event) => {
   if (cmd.length > 2 && (cmd[0] === 't' || cmd[0].startsWith('te')) && (!/^\d+$/.test(cmd[1]))) {
     chat.newMessage(cmd[1], {
       type: MessageType.PrivateTell,
-      handle: session.getHandle(),
-      text: cmd.slice(2).join(' '),
+      user: session.getUser(),
+      message: cmd.slice(2).join(' '),
     });
   } else if (cmd.length > 1 && cmd[0].startsWith('ta') && (/^\d+$/.test(cmd[1]))) {
     pendingTakeback = parseInt(cmd[1], 10);
   }
 
-  session.send({ type: MessageType.Control, command: 0, text });
+  session.send(text);
   $('#input-text').val('');
 });
 
@@ -480,7 +481,7 @@ $(document).ready(() => {
 
 $('#resign').on('click', (event) => {
   if (game.chess !== null) {
-    session.send({ type: MessageType.Control, command: 0, text: 'resign' });
+    session.send('resign');
   } else {
     showStatusMsg('You are not playing a game');
   }
@@ -488,7 +489,7 @@ $('#resign').on('click', (event) => {
 
 $('#abort').on('click', (event) => {
   if (game.chess !== null) {
-    session.send({ type: MessageType.Control, command: 0, text: 'abort' });
+    session.send('abort');
   } else {
     showStatusMsg('You are not playing a game');
   }
@@ -498,10 +499,10 @@ $('#takeback').on('click', (event) => {
   if (game.chess !== null) {
     if (game.chess.turn() === game.color) {
       pendingTakeback = 2;
-      session.send({ type: MessageType.Control, command: 0, text: 'take 2'});
+      session.send('take 2');
     } else {
       pendingTakeback = 1;
-      session.send({ type: MessageType.Control, command: 0, text: 'take 1'});
+      session.send('take 1');
     }
   } else {
     showStatusMsg('You are not playing a game');
@@ -510,7 +511,7 @@ $('#takeback').on('click', (event) => {
 
 $('#draw').on('click', (event) => {
   if (game.chess !== null) {
-    session.send({ type: MessageType.Control, command: 0, text: 'draw' });
+    session.send('draw');
   } else {
     showStatusMsg('You are not playing a game');
   }
@@ -519,13 +520,13 @@ $('#draw').on('click', (event) => {
 function getGame(opponent: string, min: string, sec: string) {
   if (game.chess === null) {
     const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek';
-    session.send({ type: MessageType.Control, command: 0, text: cmd + ' ' + min + ' ' + sec });
+    session.send(cmd + ' ' + min + ' ' + sec);
   }
 }
 
 $('#new-game').on('click', (event) => {
   if (game.chess === null) {
-    session.send({ type: MessageType.Control, command: 0, text: 'getgame' });
+    session.send('getgame');
   }
 });
 
