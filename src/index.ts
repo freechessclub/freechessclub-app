@@ -630,11 +630,11 @@ $('#connect-guest').on('click', (event) => {
   }
 });
 
-$(window).focus(() => {
-  if (game.chess) {
-    board.position(game.chess.fen());
-  }
-});
+// $(window).focus(() => {
+//   if (game.chess) {
+//     board.position(game.chess.fen());
+//   }
+// });
 
 $(window).resize(() => {
   board.resize();
