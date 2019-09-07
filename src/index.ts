@@ -11,7 +11,7 @@ import * as clock from './clock';
 import game from './game';
 import * as highlight from './highlight';
 import History from './history';
-import { MessageType, Session, GetMessageType } from './session';
+import { GetMessageType, MessageType, Session } from './session';
 import * as Sounds from './sounds';
 import './ui';
 
