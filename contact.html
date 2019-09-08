@@ -5,7 +5,7 @@
     Free Chess Club: Play Online Chess on the Free Internet Chess Server
   </title>
   <meta charSet="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
   <meta name="description" content="Free Chess Club. Play chess on the Free Internet Chess Server (FICS) using a modern web-based client. No downloads, no hassles—maximum chess guaranteed!" >
   <meta property="og:title" content="Free Chess Club: Play Online Chess on the Free Internet Chess Server"/>
   <meta property="og:description" content="Free Chess Club. Play chess on the Free Internet Chess Server (FICS) using a modern web-based client. No downloads, no hassles—maximum chess guaranteed!"/>
@@ -18,8 +18,7 @@
   <meta name="twitter:description" content="Free Chess Club. Play chess on the Free Internet Chess Server (FICS) using a modern web-based client. No downloads, no hassles—maximum chess guaranteed!"/>
   <meta name="twitter:site" content="@freechessclub"/>
   <meta name="twitter:image" content="https://www.freechess.club/www/img/tfcc.png"/>
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="www/css/main.css">
   <link href="https://fonts.googleapis.com/css?family=Signika" rel="stylesheet">
   <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Fredoka+One&text=Free%20Chess%20Club">
@@ -38,7 +37,7 @@
     <div class="container-lrg center">
       <div class="col-sm-8">
         <div class="card">
-          <div class="card-block">
+          <div class="card-body">
             <form id="contact-form" role="form" data-toggle="validator">
               <div class="form-group">
                 <label for="email">Email address</label>
@@ -131,9 +130,9 @@
       </div>
     </div>
   </div>
-  <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous" onload="window.$ = window.jQuery;"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.slim.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
   <script>
   $(function() {
     $("#contact-form :input").change(function() {

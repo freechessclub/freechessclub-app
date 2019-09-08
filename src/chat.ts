@@ -143,9 +143,9 @@ export class Chat {
       chName = channels[name];
     }
 
-    $('<a class="flex-sm-fill text-sm-center nav-link" data-toggle="tab" href="#content-' +
+    $('<li class="nav-item"><a class="text-sm-center nav-link" data-toggle="tab" href="#content-' +
       from + '" id="' + from + '" role="tab">' + chName +
-      '<span class="btn btn-default btn-sm closeTab">×</span></a>').appendTo('#tabs');
+      '<span class="btn btn-default btn-sm closeTab">×</span></a></li>').appendTo('#tabs');
     $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('.tab-content');
     $('.chat-text').height($('#board').height() - 60);
     this.tabs[from] = $('#content-' + from);

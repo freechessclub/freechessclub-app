@@ -50,7 +50,7 @@ export class Session {
   public setUser(user: string): void {
     this.connected = true;
     this.user = user;
-    $('#chat-status').html('<span class="badge badge-success">Connected</span><span class="h6 align-middle"> '
+    $('#chat-status').html('<span class="fa fa-circle text-success" aria-hidden="false"></span> <span class="h6 align-middle"> '
       + user + '</span>');
   }
 
@@ -59,7 +59,7 @@ export class Session {
   }
 
   public connect(user?: string, pass?: string) {
-    $('#chat-status').html('<span class="badge badge-info">Connecting...</span>');
+    $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span>Connecting...');
     const login = (user !== undefined && pass !== undefined);
     let loginOptions = '';
     if (login) {
@@ -101,7 +101,7 @@ export class Session {
 
   public disconnect() {
     if (this.isConnected()) {
-      $('#chat-status').html('<span class="badge badge-info">Disconnecting...</span>');
+      $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-danger" role="status" aria-hidden="true"></span>Disconnecting...');
       this.websocket.close();
       this.connected = false;
       this.user = '';
@@ -109,7 +109,7 @@ export class Session {
   }
 
   public reset(evt) {
-    $('#chat-status').html('<span class="badge badge-danger">Disconnected</span>');
+    $('#chat-status').html('<span class="fa fa-circle text-danger" aria-hidden="false"></span> Offline');
   }
 
   public send(command: string) {

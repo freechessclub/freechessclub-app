@@ -636,14 +636,14 @@ $('#connect-guest').on('click', (event) => {
 //   }
 // });
 
-$(window).resize(() => {
+$(window).on('resize', () => {
   board.resize();
   $('.chat-text').height($('#board').height() - 60);
   $('#left-panel').height($('#board').height() - 50);
 });
 
 // prompt before unloading page if in a game
-$(window).bind('beforeunload', () => {
+$(window).on('beforeunload', () => {
   if (game.chess) {
     return true;
   }
