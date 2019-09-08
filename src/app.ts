@@ -95,7 +95,7 @@ const template = [{
           buttons: ['Ok'],
           message: 'This demo is for the Menu section.',
         };
-        dialog.showMessageBox(focusedWindow, options, () => undefined);
+        dialog.showMessageBox(focusedWindow, options);
       }
     },
   }],
@@ -239,8 +239,8 @@ function findReopenMenuItem() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 713,
+    width: 1230,
+    height: 680,
     center: true,
     resizable: false,
     title: app.getName(),
