@@ -243,14 +243,14 @@ function messageHandler(data) {
       }
       break;
     case MessageType.GameEnd:
-      if (data.reason < 4 && $('#player-name').text() === data.winner) {
+      if (data.reason <= 4 && $('#player-name').text() === data.winner) {
         // player won
         $('#player-status').css('background-color', '#d4f9d9');
         $('#opponent-status').css('background-color', '#f9d4d4');
         if (soundToggle) {
           Sounds.winSound.play();
         }
-      } else if (data.reason < 4 && $('#player-name').text() === data.loser) {
+      } else if (data.reason <= 4 && $('#player-name').text() === data.loser) {
         // opponent won
         $('#player-status').css('background-color', '#f9d4d4');
         $('#opponent-status').css('background-color', '#d4f9d9');
