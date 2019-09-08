@@ -96,7 +96,7 @@ var template = [{
                             buttons: ['Ok'],
                             message: 'This demo is for the Menu section.'
                         };
-                        electron_1.dialog.showMessageBox(focusedWindow, options, function () { return undefined; });
+                        electron_1.dialog.showMessageBox(focusedWindow, options);
                     }
                 }
             }]
@@ -230,8 +230,8 @@ function findReopenMenuItem() {
 }
 function createWindow() {
     mainWindow = new electron_1.BrowserWindow({
-        width: 1200,
-        height: 713,
+        width: 1230,
+        height: 680,
         center: true,
         resizable: false,
         title: electron_1.app.getName(),

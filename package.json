@@ -1,6 +1,6 @@
 {
   "name": "freechessclub",
-  "version": "1.1.5",
+  "version": "1.2.0",
   "license": "MIT",
   "description": "Free Chess Club: A modern web client for FICS.",
   "main": "src/app.js",
@@ -11,7 +11,7 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "build": "node app.js && electron-builder -mwl -p always",
-    "release": "build"
+    "release": "yarn build"
   },
   "repository": {
     "type": "git",
@@ -64,8 +64,8 @@
     "@types/jquery": "^3.3.31",
     "@types/websocket": "^0.0.39",
     "css-loader": "^3.2.0",
-    "electron": "^5.0.5",
-    "electron-builder": "^20.44.4",
+    "electron": "^6.0.7",
+    "electron-builder": "^21.2.0",
     "exports-loader": "^0.7.0",
     "file-loader": "^4.2.0",
     "style-loader": "^1.0.0",
