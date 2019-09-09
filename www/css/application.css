@@ -22,7 +22,7 @@ html, body {
   width: 100%;
   height: auto;
   overflow: auto;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 100;
   color: rgba(0, 0, 0, 0.5);
   white-space: pre-wrap;
@@ -163,4 +163,10 @@ html, body {
   margin-top: -5px;
   width: 18px;
   height: 18px;
+}
+
+#textsize-range {
+  width: 60px;
+  height: auto;
+  padding-left: 5px;
 }
