@@ -421,10 +421,13 @@ $('body').on('click', '#abort', (event) => {
 $('#input-form').on('submit', (event) => {
   event.preventDefault();
   let text;
-  const val: string = getValue('#input-text');
+  let val: string = getValue('#input-text');
+  val = val.replace(/["“‘”]/g, "'");
+  val = val.replace(/[^ -~]+/g, '#');
   if (val === '' || val === '\n') {
     return;
   }
+
   const tab = chat.currentTab();
   if (tab !== 'console') {
     if (val.charAt(0) !== '@') {
