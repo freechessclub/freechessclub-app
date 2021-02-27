@@ -191,7 +191,7 @@ function messageHandler(data) {
             game.history = new History(board, game.chess.fen());
             game.obs = true;
             $('#new-game').text('Unobserve game');
-            $('#new-game-menu').prop("disabled", true);
+            $('#new-game-menu').prop('disabled', true);
           }
         // role -1: I am playing and it is NOW my opponent's move
         } else if (data.role === -1) {
@@ -385,7 +385,7 @@ function messageHandler(data) {
       const unobsMsg = data.message.match(/Removing game (\d+) from observation list./);
       if (unobsMsg != null && unobsMsg.length > 1) {
         $('#new-game').text('Start a new game');
-        $('#new-game-menu').prop("disabled", false);
+        $('#new-game-menu').prop('disabled', false);
         clearInterval(game.wclock);
         clearInterval(game.bclock);
         delete game.chess;
