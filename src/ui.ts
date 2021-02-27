@@ -32,6 +32,6 @@ $('#colortheme-gray').on('click', (event) => {
   $('#colortheme').attr('href', 'www/css/themes/gray.css');
 });
 
-$('#textsize-range').on('input change', (event) => {
+$('#textsize-range').on('change', (event) => {
   $('.chat-text').css('font-size', String($(event.target).val()) + 'px');
 });
