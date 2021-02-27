@@ -422,7 +422,7 @@ $('#input-form').on('submit', (event) => {
   event.preventDefault();
   let text;
   let val: string = getValue('#input-text');
-  val = val.replace(/["“‘”]/g, "'");
+  val = val.replace(/[“‘”]/g, "'");
   val = val.replace(/[^ -~]+/g, '#');
   if (val === '' || val === '\n') {
     return;
