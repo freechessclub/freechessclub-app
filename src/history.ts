@@ -39,7 +39,6 @@ export class History {
 
   public add(move: any, fen: string): void {
     this.moves.push(fen);
-    this.id = this.moves.length - 1;
     this.update(move);
   }
 
@@ -51,6 +50,10 @@ export class History {
     } else {
       $('#move-history tr:last').remove();
     }
+  }
+
+  public isCurrent(): boolean {
+    return this.id === this.moves.length - 1;
   }
 
   public length(): number {

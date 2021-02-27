@@ -176,20 +176,22 @@ function messageHandler(data) {
 
         // role 0: I am observing
         // role 1: I am playing and it is NOW my move
-        if (data.role >= 0) {
+        if (data.role === undefined || data.role >= 0) {
           game.color = 'w';
           board.orientation('white');
           game.wclock = clock.startWhiteClock(game, $('#player-time'));
           game.bclock = clock.startBlackClock(game, $('#opponent-time'));
           $('#player-name').text(data.white_name);
           $('#opponent-name').text(data.black_name);
-          if (data.role === 0) {
+          if (data.role === undefined || data.role === 0) {
             const nextMove = data.turn === 'W' ? 'b' : 'w';
             const fen = data.fen + ' ' + nextMove + ' - - 0 1';
             const loaded = game.chess.load(fen);
             board.position(game.chess.fen(), false);
             game.history = new History(board, game.chess.fen());
             game.obs = true;
+            $('#new-game').text('Unobserve game');
+            $('#new-game-menu').prop("disabled", true);
           }
         // role -1: I am playing and it is NOW my opponent's move
         } else if (data.role === -1) {
@@ -202,8 +204,11 @@ function messageHandler(data) {
         }
       }
 
-      board.position(data.fen);
-      if (data.role >= 0) {
+      if (game.history.isCurrent() || !game.obs) {
+        board.position(data.fen);
+      }
+
+      if (data.role === undefined || data.role >= 0) {
         if (data.move !== 'none') {
           const move = game.chess.move(data.move);
           if (move !== null) {
@@ -318,27 +323,27 @@ function messageHandler(data) {
       }
 
       const gameCreateMsg =
-        data.message.match(/Creating: (\w+) \(([\d\+\-\s]{4})\) (\w+) \(([\d\-\+\s]{4})\).+/);
+        data.message.match(/(Creating|Game\s\d*): (\w+) \(([\d\+\-\s]{4})\) (\w+) \(([\d\-\+\s]{4})\).+/);
       if (gameCreateMsg != null && gameCreateMsg.length > 4) {
-        if (gameCreateMsg[1] === session.getUser()) {
-          if (!isNaN(gameCreateMsg[2])) {
-            $('#player-rating').text(gameCreateMsg[2]);
+        if (gameCreateMsg[2] === session.getUser() || gameCreateMsg[1].startsWith('Game')) {
+          if (!isNaN(gameCreateMsg[3])) {
+            $('#player-rating').text(gameCreateMsg[3]);
           } else {
             $('#player-rating').text('');
           }
-          if (!isNaN(gameCreateMsg[4])) {
-            $('#opponent-rating').text(gameCreateMsg[4]);
+          if (!isNaN(gameCreateMsg[5])) {
+            $('#opponent-rating').text(gameCreateMsg[5]);
           } else {
             $('#opponent-rating').text('');
           }
-        } else if (gameCreateMsg[3] === session.getUser()) {
-          if (!isNaN(gameCreateMsg[2])) {
-            $('#opponent-rating').text(gameCreateMsg[2]);
+        } else if (gameCreateMsg[4] === session.getUser()) {
+          if (!isNaN(gameCreateMsg[3])) {
+            $('#opponent-rating').text(gameCreateMsg[3]);
           } else {
             $('#opponent-rating').text('');
           }
-          if (!isNaN(gameCreateMsg[4])) {
-            $('#player-rating').text(gameCreateMsg[4]);
+          if (!isNaN(gameCreateMsg[5])) {
+            $('#player-rating').text(gameCreateMsg[5]);
           } else {
             $('#player-rating').text('');
           }
@@ -375,6 +380,17 @@ function messageHandler(data) {
             ['decline', 'Decline'], ['accept', 'Accept']);
         }
         return;
+      }
+
+      const unobsMsg = data.message.match(/Removing game (\d+) from observation list./);
+      if (unobsMsg != null && unobsMsg.length > 1) {
+        $('#new-game').text('Start a new game');
+        $('#new-game-menu').prop("disabled", false);
+        clearInterval(game.wclock);
+        clearInterval(game.bclock);
+        delete game.chess;
+        game.chess = null;
+        game.obs = false;
       }
 
       const chListMatches = data.message.match(/-- channel list: \d+ channels --(?:\n)([\d\s]*)/);
@@ -530,6 +546,8 @@ function getGame(opponent: string, min: string, sec: string) {
 $('#new-game').on('click', (event) => {
   if (game.chess === null) {
     session.send('getgame');
+  } else if (game.obs) {
+    session.send('unobserve');
   }
 });
 
