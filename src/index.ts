@@ -204,9 +204,7 @@ function messageHandler(data) {
         }
       }
 
-      if (game.history.isCurrent() || !game.obs) {
-        board.position(data.fen);
-      }
+      board.position(data.fen);
 
       if (data.role === undefined || data.role >= 0) {
         if (data.move !== 'none') {

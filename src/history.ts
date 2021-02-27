@@ -39,6 +39,7 @@ export class History {
 
   public add(move: any, fen: string): void {
     this.moves.push(fen);
+    this.id = this.moves.length - 1;
     this.update(move);
   }
 
@@ -50,10 +51,6 @@ export class History {
     } else {
       $('#move-history tr:last').remove();
     }
-  }
-
-  public isCurrent(): boolean {
-    return this.id === this.moves.length - 1;
   }
 
   public length(): number {
@@ -100,7 +97,7 @@ export class History {
     const id: number = this.length();
     if (id % 2 === 1) {
       $('#move-history').append('<tr><td><div class="moveNumber">'
-        + (id + 1) / 2 + '.</div><a href="javascript:void(0);" onclick="showMove(' + id + ')">'
+        + (id + 1) / 2 + '</div><a href="javascript:void(0);" onclick="showMove(' + id + ')">'
         + move.san + '</a></td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>');
       $('#left-panel').scrollTop(document.getElementById('left-panel').scrollHeight);
     } else {

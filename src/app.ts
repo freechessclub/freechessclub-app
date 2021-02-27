@@ -2,7 +2,7 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import { app, BrowserWindow, dialog, Menu, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, Menu, session, screen, shell } from 'electron';
 import * as Electron from 'electron';
 import * as path from 'path';
 import * as url from 'url';
@@ -238,11 +238,16 @@ function findReopenMenuItem() {
 }
 
 function createWindow() {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  const minWidth = 1280;
+  const minHeight = 800;
   mainWindow = new BrowserWindow({
-    width: 1230,
-    height: 680,
+    width: Math.max(width * 0.8, minWidth),
+    height: Math.max(height * 0.8, minHeight),
+    minWidth: minWidth,
+    minHeight: minHeight,
     center: true,
-    resizable: false,
+    resizable: true,
     title: app.getName(),
     icon: path.join(__dirname, '../www/img/tfcc-small.png'),
     webPreferences: {

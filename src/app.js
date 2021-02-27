@@ -229,11 +229,16 @@ function findReopenMenuItem() {
     return reopenMenuItem;
 }
 function createWindow() {
+    var _a = electron_1.screen.getPrimaryDisplay().workAreaSize, width = _a.width, height = _a.height;
+    var minWidth = 1280;
+    var minHeight = 800;
     mainWindow = new electron_1.BrowserWindow({
-        width: 1230,
-        height: 680,
+        width: Math.max(width * 0.8, minWidth),
+        height: Math.max(height * 0.8, minHeight),
+        minWidth: minWidth,
+        minHeight: minHeight,
         center: true,
-        resizable: false,
+        resizable: true,
         title: electron_1.app.getName(),
         icon: path.join(__dirname, '../www/img/tfcc-small.png'),
         webPreferences: {
