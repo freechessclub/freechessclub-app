@@ -19,7 +19,7 @@ let session: Session;
 let chat: Chat;
 
 // toggle game sounds
-let soundToggle: boolean = (Cookies.get('sound') === 'true');
+let soundToggle: boolean = (Cookies.get('sound') !== 'false');
 
 // pending takeback requests
 let pendingTakeback = 0;

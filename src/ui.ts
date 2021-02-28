@@ -37,7 +37,7 @@ $('#colortheme-gray').on('click', (event) => {
 const textSize = Cookies.get('text-size');
 if (textSize !== undefined) {
   $('.chat-text').css('font-size', textSize + 'px');
-  $("#textsize-range").val(parseInt(textSize));
+  $('#textsize-range').val(parseInt(textSize, 10));
 }
 
 $('#textsize-range').on('change', (event) => {
