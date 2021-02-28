@@ -7,21 +7,12 @@ export class History {
   private moves: string[];
   private id: number;
 
-  constructor(board: any, initialPosition: string) {
+  constructor(board: any) {
     this.board = board;
-    this.moves = [ initialPosition ];
+    this.moves = [ board.fen() ];
     this.id = 0;
 
     $('#move-history').empty();
-
-    $('#fast-backward').off('click');
-    $('#fast-backward').on('click', () => this.beginning());
-    $('#backward').off('click');
-    $('#backward').on('click', () => this.backward());
-    $('#forward').off('click');
-    $('#forward').on('click', () => this.forward());
-    $('#fast-forward').off('click');
-    $('#fast-forward').on('click', () => this.end());
 
     (window as any).showMove = (id: number) => {
       if (this) {

@@ -244,8 +244,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: Math.max(width * 0.8, minWidth),
     height: Math.max(height * 0.8, minHeight),
-    minWidth: minWidth,
-    minHeight: minHeight,
+    minWidth,
+    minHeight,
     center: true,
     resizable: true,
     title: app.getName(),

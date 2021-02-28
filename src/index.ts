@@ -165,7 +165,7 @@ function messageHandler(data) {
       if (game.chess === null) {
         game.chess = Chess();
         board.start(false);
-        game.history = new History(board, game.chess.fen());
+        game.history = new History(board);
         game.playerCaptured = {};
         game.oppCaptured = {};
         $('#player-captured').text('');
@@ -176,25 +176,32 @@ function messageHandler(data) {
 
         // role 0: I am observing
         // role 1: I am playing and it is NOW my move
-        if (data.role === undefined || data.role >= 0) {
+        if (data.role !== -1) {
           game.color = 'w';
           board.orientation('white');
-          game.wclock = clock.startWhiteClock(game, $('#player-time'));
-          game.bclock = clock.startBlackClock(game, $('#opponent-time'));
+          if (data.role !== 2 || data.role !== -2 || data.role !== -3) {
+            game.wclock = clock.startWhiteClock(game, $('#player-time'));
+            game.bclock = clock.startBlackClock(game, $('#opponent-time'));
+          }
           $('#player-name').text(data.white_name);
           $('#opponent-name').text(data.black_name);
-          if (data.role === undefined || data.role === 0) {
-            const nextMove = data.turn === 'W' ? 'b' : 'w';
-            const fen = data.fen + ' ' + nextMove + ' - - 0 1';
+          if (data.role === undefined || data.role === 0 || data.role === 2 || data.role === -2) {
+            const turn = data.turn === 'W' ? 'w' : 'b';
+            const fen = data.fen + ' ' + turn + ' - - 0 1';
             const loaded = game.chess.load(fen);
             board.position(game.chess.fen(), false);
-            game.history = new History(board, game.chess.fen());
-            game.obs = true;
-            $('#new-game').text('Unobserve game');
+            game.history = new History(board);
+            if (data.role === 2) {
+              game.examine = true;
+              $('#new-game').text('Unexamine game');
+            } else {
+              game.obs = true;
+              $('#new-game').text('Unobserve game');
+            }
             $('#new-game-menu').prop('disabled', true);
           }
         // role -1: I am playing and it is NOW my opponent's move
-        } else if (data.role === -1) {
+        } else {
           game.color = 'b';
           board.orientation('black');
           game.bclock = clock.startBlackClock(game, $('#player-time'));
@@ -391,6 +398,15 @@ function messageHandler(data) {
         game.obs = false;
       }
 
+      const unexMsg = data.message.match(/You are no longer examining game (\d+)./);
+      if (unexMsg != null && unexMsg.length > 1) {
+        $('#new-game').text('Start a new game');
+        $('#new-game-menu').prop('disabled', false);
+        delete game.chess;
+        game.chess = null;
+        game.examine = false;
+      }
+
       const chListMatches = data.message.match(/-- channel list: \d+ channels --(?:\n)([\d\s]*)/);
       if (chListMatches !== null && chListMatches.length > 1) {
         return chat.addChannels(chListMatches[1].split(/\s+/));
@@ -543,9 +559,11 @@ function getGame(opponent: string, min: string, sec: string) {
 
 $('#new-game').on('click', (event) => {
   if (game.chess === null) {
-    session.send('getgame');
+    session.send('getga');
   } else if (game.obs) {
-    session.send('unobserve');
+    session.send('unobs');
+  } else if (game.examine) {
+    session.send('unex');
   }
 });
 
@@ -582,6 +600,42 @@ $('#custom-control').on('click', (event) => {
     const min: string = getValue('#custom-control-min');
     const sec: string = getValue('#custom-control-sec');
     getGame(getValue('#opponent-player-name'), min, sec);
+  }
+});
+
+$('#fast-backward').off('click');
+$('#fast-backward').on('click', () => {
+  if (game.examine) {
+    session.send('back 999');
+  } else {
+    game.history.beginning();
+  }
+});
+
+$('#backward').off('click');
+$('#backward').on('click', () => {
+  if (game.examine) {
+    session.send('back');
+  } else {
+    game.history.backward();
+  }
+});
+
+$('#forward').off('click');
+$('#forward').on('click', () => {
+  if (game.examine) {
+    session.send('for');
+  } else {
+    game.history.forward();
+  }
+});
+
+$('#fast-forward').off('click');
+$('#fast-forward').on('click', () => {
+  if (game.examine) {
+    session.send('for 999');
+  } else {
+    game.history.end();
   }
 });
 
