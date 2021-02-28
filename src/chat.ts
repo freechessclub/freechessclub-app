@@ -91,7 +91,7 @@ export class Chat {
   private autoscrollToggle: boolean;
 
   constructor(user: string) {
-    this.autoscrollToggle = (Cookies.get('autoscroll') === 'true');
+    this.autoscrollToggle = (Cookies.get('autoscroll') !== 'false');
     // load emojis
     this.emojisLoaded = false;
     loadEmojis().then(() => {
