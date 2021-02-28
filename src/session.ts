@@ -52,6 +52,13 @@ export class Session {
     this.user = user;
     $('#chat-status').html('<span class="fa fa-circle text-success" aria-hidden="false"></span> <span class="h6 align-middle"> '
       + user + '</span>');
+    $('#chat-status').popover({
+      animation: true,
+      content: 'Connected as ' + user + '. Click here to connect as a different user!',
+      placement: 'top',
+    });
+    $('#chat-status').popover('show');
+    setInterval(() => $('#chat-status').popover('dispose'), 3600);
   }
 
   public isConnected(): boolean {
