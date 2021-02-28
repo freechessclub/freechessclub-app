@@ -1,11 +1,18 @@
 .feature3 {
-  background-color: #d3d3d3;
+  background-color: #666666;
 }
 .card-body {
-  background-color: #d3d3d3;
+  background-color: #666666;
 }
 .chat-text {
-  color: #666666;
+  color: #d3d3d3;
+  background-color: #666666;
+}
+.chat-text strong {
+  color: rgba(160, 180, 200, 0.75);
+}
+.chat-text strong.mine {
+  color: rgba(160, 180, 220, 0.95);
 }
 .header,.footer,.black-3c85d {
   background-color: #666666;
