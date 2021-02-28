@@ -19,7 +19,7 @@ let session: Session;
 let chat: Chat;
 
 // toggle game sounds
-let soundToggle: boolean = true;
+let soundToggle: boolean = (Cookies.get('sound') === 'true');
 
 // pending takeback requests
 let pendingTakeback = 0;
@@ -639,12 +639,17 @@ $('#fast-forward').on('click', () => {
   }
 });
 
+if (!soundToggle) {
+  const iconClass = 'dropdown-icon fa fa-volume-off';
+  $('#sound-toggle').html('<span id="sound-toggle-icon" class="' + iconClass +
+    '" aria-hidden="false"></span>Sounds OFF');
+}
 $('#sound-toggle').on('click', (event) => {
-  // todo: disable sound
+  soundToggle = !soundToggle;
   const iconClass = 'dropdown-icon fa fa-volume-' + (soundToggle ? 'up' : 'off');
   $('#sound-toggle').html('<span id="sound-toggle-icon" class="' + iconClass +
     '" aria-hidden="false"></span>Sounds ' + (soundToggle ? 'ON' : 'OFF'));
-  soundToggle = !soundToggle;
+  Cookies.set('sound', String(soundToggle), { expires: 365 })
 });
 
 $('#disconnect').on('click', (event) => {
@@ -663,8 +668,8 @@ $('#login').on('click', (event) => {
     }
   }
   if ($('#remember-me').prop('checked')) {
-    Cookies.set('user', user);
-    Cookies.set('pass', btoa(pass));
+    Cookies.set('user', user, { expires: 365 });
+    Cookies.set('pass', btoa(pass), { expires: 365 });
   } else {
     Cookies.remove('user');
     Cookies.remove('pass');
