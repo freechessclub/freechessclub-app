@@ -2,6 +2,7 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
+import * as Cookies from 'js-cookie';
 import { autoLink } from 'autolink-js';
 import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
 
@@ -90,7 +91,7 @@ export class Chat {
   private autoscrollToggle: boolean;
 
   constructor(user: string) {
-    this.autoscrollToggle = true;
+    this.autoscrollToggle = (Cookies.get('autoscroll') === 'true');
     // load emojis
     this.emojisLoaded = false;
     loadEmojis().then(() => {
@@ -124,11 +125,17 @@ export class Chat {
       $('#chat-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
     });
 
+    if (!this.autoscrollToggle) {
+      const iconClass = 'dropdown-icon fa fa-toggle-off';
+      $('#autoscroll-toggle').html('<span id="autoscroll-toggle-icon" class="' + iconClass +
+        '" aria-hidden="false"></span>Auto-scroll OFF');
+    }
     $('#autoscroll-toggle').on('click', (event) => {
+      this.autoscrollToggle = !this.autoscrollToggle;
       const iconClass = 'dropdown-icon fa fa-toggle-' + (this.autoscrollToggle ? 'on' : 'off');
       $('#autoscroll-toggle').html('<span id="autoscroll-toggle-icon" class="' + iconClass +
         '" aria-hidden="false"></span>Auto-scroll ' + (this.autoscrollToggle ? 'ON' : 'OFF'));
-      this.autoscrollToggle = !this.autoscrollToggle;
+      Cookies.set('autoscroll', String(this.autoscrollToggle), { expires: 365 })
     });
   }
 
