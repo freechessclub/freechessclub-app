@@ -260,118 +260,15 @@ a.logo img {
   .header	.col-6 {
     width: 100%;
   }
-}.ctas-button,
-.ctas-button-2 {
-  display: inline-block;
-  height: 40px;
-  line-height: 38px;
-  padding: 0 30px;
-  background: white;
-  border-radius: 3px;
-  font-size: 15px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .3px;
-  border: 1px solid white;
-  text-decoration: none;
 }
-.ctas-button-2 {
-  background: transparent;
-  color: white;
-  margin: 0 0 0 10px;
-}
-.ctas-input {
-  outline: none;
-  border: none;
-  letter-spacing: .3px;
-  border-radius: 3px;
-  font-size: 18px;
-  height: 40px;
-  line-height: 40px;
-  padding: 0 15px;
-  width: 360px;
-  display: inline-block;
-}
-@media (max-width: 440px) {
-  .ctas-input,
-  .ctas-button,
-  .ctas-button-2 {
-    display: block;
-    width: 100%;
-    text-align: center;
-  }
-  .ctas-button-2 {
-    margin: 10px 0 0 0;
-  }
-}
-.ctas-button,
-.ctas-button-2 {
-  display: inline-block;
-  height: 40px;
-  line-height: 38px;
-  padding: 0 30px;
-  background: #fff;
-  border-radius: 3px;
-  font-size: 15px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .3px;
-  border: 1px solid white;
-  text-decoration: none;
-}
-.ctas-button-2 {
-  background: transparent;
-  color: white;
-  margin: 0 0 0 10px;
-}
-
-@media (max-width: 440px) {
-  .ctas-button,
-  .ctas-button-2 {
-    display: block;
-    width: 100%;
-    text-align: center;
-  }
-  .ctas-button-2 {
-    margin: 10px 0 0 0;
-  }
-}.footer {
+.footer {
   padding: 40px 0;
 }
 .footer .nav-link {
   display: inline-block;
   margin: 0 10px;
-}.ctas-button,
-.ctas-button-2 {
-  display: inline-block;
-  height: 40px;
-  line-height: 38px;
-  padding: 0 30px;
-  background: white;
-  border-radius: 3px;
-  font-size: 15px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .3px;
-  border: 1px solid white;
-  text-decoration: none;
 }
-.ctas-button-2 {
-  background: transparent;
-  color: white;
-  margin: 0 0 0 10px;
-}
-@media (max-width: 440px) {
-  .ctas-button,
-  .ctas-button-2 {
-    display: block;
-    width: 100%;
-    text-align: center;
-  }
-  .ctas-button-2 {
-    margin: 10px 0 0 0;
-  }
-}.feature3 {
+.feature3 {
   padding: 100px 0;
   border-bottom: 1px solid rgba(0,0,0,.1);
   background-color: aliceblue;
