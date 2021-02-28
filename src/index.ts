@@ -499,8 +499,8 @@ function onDeviceReady() {
 
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
-  $('.chat-text').height($('#board').height() - 60);
-  $('#left-panel').height($('#board').height() - 50);
+  $('.chat-text').height($('#board').height() - 80);
+  $('#left-panel').height($('#board').height() - 90);
   board.start(false);
 }
 

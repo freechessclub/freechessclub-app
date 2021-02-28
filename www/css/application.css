@@ -62,10 +62,6 @@ html, body {
   line-height: 20px;
 }
 
-#board {
-  margin: -20px;
-}
-
 .name {
   display: inline-block;
   font-size: 20px;
