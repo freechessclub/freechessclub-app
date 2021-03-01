@@ -19,17 +19,16 @@
   <meta name="twitter:site" content="@freechessclub"/>
   <meta name="twitter:image" content="https://www.freechess.club/www/img/tfcc.png"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="www/css/main.css">
   <link rel="stylesheet" type="text/css" href="www/css/devices.css">
   <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Fredoka+One&text=Free%20Chess%20Club">
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
 </head>
 <body>
-  <header class="header">
-    <div class="container-fluid" id="topbar">
-      <div class="col-12">
-        <a class="logo" href="/"><img src="www/img/tfcc-small.png">Free Chess Club</a>
-      </div>
+  <header class="header container-fluid">
+    <div class="col-12">
+      <a class="logo" href="/"><img src="www/img/tfcc-small.png">Free Chess Club</a>
     </div>
     <div class="container-lrg flex">
       <div class="col-sm-5 centervertical">
@@ -67,11 +66,11 @@
     </div>
   <div><br/><br/></div>
   </header>
-  <div class="feature3" style="background-color: #2980b9; color: aliceblue">
+  <div class="feature3" style="background-color: #85b5e9; color: aliceblue">
     <div class="container-lrg center flex">
         <div class="col-sm-6 text-center centervertical">
           <h5 class="paragraph">
-            Alternatively, extend your chess experience beyond the browser with our cross-platform desktop client. Try out the Free Chess Club Desktop App:
+            Alternatively, extend your chess experience beyond the browser with our cross-platform desktop client. Try out our Free Chess Club Desktop App:
           </h5>
           <div class="download">
             <div class="ribbon"><span>NEW</span></div>
@@ -122,8 +121,8 @@
       </div>
     </div>
   </div>
-  <div class="feature3" style="background-color: oldlace">
-    <div class="container-lrg center flex">
+  <div class="feature3">
+    <div class="container-lrg center">
       <div class="col-sm-4">
         <blockquote class="blockquote">
           <p class="mb-0">
@@ -157,35 +156,28 @@
       </div>
     </div>
   </div>
-  <div class="footer">
-    <div class="container-fluid">
-      <div class="col-sm-12 text-center">
-        <div>
-          <a class="nav-link" href="https://twitter.com/freechessclub">
-            <span class="fa fa-twitter" style="font-size: 32px" aria-hidden="false"></span>
-          </a>
-          <a class="nav-link" href="https://github.com/freechessclub">
-            <span class="fa fa-github" style="font-size: 32px" aria-hidden="false"></span>
-          </a>
-          <br/><br/>
-          <a class="nav-link" href="http://www.freechess.org">
-            FICS
-          </a>
-          <a class="nav-link" href="/privacy">
-            Privacy
-          </a>
-          <a class="nav-link" href="/contact">
-            Contact
-          </a>
-        </div>
-        <div>
-          <span style="opacity: 0.5">
-            © 2021 Free Chess Club
-          </span>
-        </div>
-      </div>
-    </div>
-  </div>
+  <footer class="footer container-fluid text-center">
+    <a class="nav-link" href="https://twitter.com/freechessclub">
+      <span class="fa fa-twitter" style="font-size: 32px" aria-hidden="false"></span>
+    </a>
+    <a class="nav-link" href="https://github.com/freechessclub">
+      <span class="fa fa-github" style="font-size: 32px" aria-hidden="false"></span>
+    </a>
+    <br/>
+    <a class="nav-link" href="http://www.freechess.org">
+      FICS
+    </a>
+    <a class="nav-link" href="/privacy">
+      Privacy
+    </a>
+    <a class="nav-link" href="/contact">
+      Contact
+    </a>
+    <br/>
+    <span style="opacity: 0.5">
+      © 2021 Free Chess Club
+    </span>
+  </footer>
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-Piv4xVNRyMGpqkS2by6br4gNJ7DXjqk09RmUpJ8jgGtD7zP9yug3goQfGII0yAns" crossorigin="anonymous"></script>
   <script>
@@ -194,22 +186,22 @@
       var macPlatforms = ['Macintosh', 'MacIntel', 'MacPPC', 'Mac68K'];
       var winPlatforms = ['Win32', 'Win64', 'Windows', 'WinCE'];
       if (macPlatforms.indexOf(platform) !== -1)
-        return "mac";
+        return "Mac";
       else if (winPlatforms.indexOf(platform) !== -1)
-        return "windows";
+        return "Windows";
       else if (!os && /Linux/.test(platform))
-        return "linux";
+        return "Linux";
       return "";
     }
     let platform = getPlatform();
     function getDownloadLink() {
       let version = '1.1.4';
       let baseLink = 'https://github.com/freechessclub/freechessclub/releases/';
-      if (platform === 'mac')
+      if (platform === 'Mac')
         return baseLink + 'download/v' + version + '/freechessclub-' + version + '.dmg';
-      else if (platform === 'linux')
+      else if (platform === 'Linux')
         return baseLink + 'download/v' + version + '/freechessclub-' + version + '.tar.gz';
-      else if (platform ==='windows')
+      else if (platform ==='Windows')
         return baseLink + 'download/v' + version + '/freechessclub-setup-' + version + '.exe';
       else
         return baseLink;

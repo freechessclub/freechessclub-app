@@ -1,7 +1,7 @@
 /*neutral*/
 .footer,
 .header {
-  background-color: #345d87;
+  background-color: rgb(130, 162, 205);
   background-image: url("data:image/svg+xml,%3Csvg width='6' height='6' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2397e3f9' fill-opacity='0.15' fill-rule='evenodd'%3E%3Cpath d='M5 0h1L0 6V5zM6 5v1H5z'/%3E%3C/g%3E%3C/svg%3E");
   color: aliceblue;
 }
@@ -109,7 +109,6 @@
 }
 .paragraph {
   font-size: 18px;
-  font-weight: 300;
   line-height: 32px;
 }
 .heading + .paragraph {
@@ -129,7 +128,7 @@ a.logo {
   font-weight: 600;
   text-decoration: none;
   text-shadow: 0 0.032em 0 #32230B, 0px 0.15em 0.11em rgba(0,0,0,0.15), 0px 0.25em 0.021em rgba(0,0,0,0.1), 0px 0.32em 0.32em rgba(0,0,0,0.1);
-  color: #97E3F9;
+  color: #E4F4FF;
 }
 
 a.logo img {
@@ -262,14 +261,14 @@ a.logo img {
   }
 }
 .footer {
-  padding: 40px 0;
+  padding: 20px 0;
 }
 .footer .nav-link {
   display: inline-block;
   margin: 0 10px;
 }
 .feature3 {
-  padding: 100px 0;
+  padding: 60px 0;
   border-bottom: 1px solid rgba(0,0,0,.1);
   background-color: aliceblue;
 }

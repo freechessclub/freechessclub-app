@@ -9,20 +9,10 @@
                                   supported by Chrome and Opera */
 }
 
-html, body {
-  height: 100%;
-}
-
-.fill {
-  min-height: 85%;
-  height: 85%;
-}
-
 .chat-text {
   width: 100%;
   height: auto;
   overflow: auto;
-  font-size: 14px;
   color: rgba(0, 0, 0, 0.65);
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -63,7 +53,7 @@ html, body {
 
 .name {
   display: inline-block;
-  font-size: 20px;
+  font-size: 2em;
   line-height: 21px;
   color: rgba(0, 0, 0, 0.4);
 }
@@ -84,7 +74,7 @@ html, body {
 
 .clock {
   display: inline-block;
-  font-size: 24px;
+  font-size: 2em;
   line-height: 21px;
   color: rgba(0, 0, 0, 0.4);
 }
@@ -92,8 +82,6 @@ html, body {
 .history {
   height: auto;
   overflow: auto;
-  font-size: 14px;
-  font-weight: 60;
 }
 
 .history td {
@@ -116,7 +104,7 @@ html, body {
   opacity: 0;
   margin-right: 0px;
   padding-right: 0px;
-  font-size: 18px;
+  font-size: 0.85em;
 }
 
 .nav-tabs .nav-link:hover .closeTab {
@@ -124,13 +112,9 @@ html, body {
 }
 
 .nav-tabs .nav-link {
-  font-size: 12px;
+  font-size: 0.85em;
   padding-top: 1px;
   padding-bottom: 1px;
-}
-
-.dropdown-menu, .dropdown-header {
-  font-size: 14px;
 }
 
 .dropdown-icon {
@@ -139,10 +123,6 @@ html, body {
 
 .dropdown-toggle::after {
   display: none;
-}
-
-.feature3 {
-  background-color: whitesmoke;
 }
 
 .color-box {
