@@ -16,7 +16,8 @@
   <meta name="twitter:description" content="Free Chess Club. Play chess on the Free Internet Chess Server (FICS) using a modern web-based client. No downloads, no hassles—maximum chess guaranteed!"/>
   <meta name="twitter:site" content="@freechessclub"/>
   <meta name="twitter:image" content="https://www.freechess.club/www/img/tfcc.png"/>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Fredoka+One&text=Free%20Chess%20Club">
   <link href="www/css/chessboard-0.3.0.min.css" rel="stylesheet">
   <link href="www/css/main.css" rel="stylesheet">
@@ -25,13 +26,9 @@
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
 </head>
 <body>
-  <header class="header">
-    <div class="container-fluid">
-      <div class="col-xl-12 spread">
-        <div>
-          <a class="logo" href="/"><img src="www/img/tfcc-small.png" alt="Free Chess Club">Free Chess Club</a>
-        </div>
-      </div>
+  <header class="header container-fluid">
+    <div class="col-12">
+      <a class="logo" href="/"><img src="www/img/tfcc-small.png" alt="Free Chess Club">Free Chess Club</a>
     </div>
   </header>
   <div class="feature3">
@@ -41,57 +38,63 @@
           <div class="card">
             <div class="card-header center" id="left-panel-header">
               <div class="btn-toolbar">
-                <button type="button" id="fast-backward" class="btn btn-outline-secondary btn-sm" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Beginning">
+                <button type="button" id="fast-backward" class="btn btn-outline-secondary btn-md" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Beginning">
                   <span class="fa fa-fast-backward" aria-hidden="false"></span>
                 </button>
-                <button type="button" id="backward" class="btn btn-outline-secondary btn-sm" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Back">
+                <button type="button" id="backward" class="btn btn-outline-secondary btn-md" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Back">
                   <span class="fa fa-backward" aria-hidden="false"></span>
                 </button>
-                <button type="button" id="forward" class="btn btn-outline-secondary btn-sm" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Forward">
+                <button type="button" id="forward" class="btn btn-outline-secondary btn-md" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Forward">
                   <span class="fa fa-forward" aria-hidden="false"></span>
                 </button>
-                <button type="button" id="fast-forward" class="btn btn-outline-secondary btn-sm" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Current">
+                <button type="button" id="fast-forward" class="btn btn-outline-secondary btn-md" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Current">
                   <span class="fa fa-fast-forward" aria-hidden="false"></span>
                 </button>
-                <button id="history-toggle-btn" class="btn btn-outline-secondary btn-sm" type="button" data-toggle="collapse" data-target="#collapse-history" data-placement="top" aria-expanded="true" aria-controls="collapse-history" title="Toggle Game History">
+                <button id="history-toggle-btn" class="btn btn-outline-secondary btn-md" type="button" data-toggle="collapse" data-target="#collapse-history" data-placement="top" aria-expanded="true" aria-controls="collapse-history" title="Toggle Game History">
                   <span id="history-toggle-icon" class="fa fa-toggle-up" aria-hidden="false"></span>
                 </button>
               </div>
             </div>
             <div class="card-header">
               <div class="dropdown center">
-                <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" id="new-game-menu">
+                <button type="button" class="btn btn-outline-secondary btn-md dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" id="new-game-menu">
                   <span class="fa fa-toggle-down"></span>
                 </button>
-                <div class="dropdown-menu" aria-labelledby="new-game-menu" style="border-width: 0; padding-top: 0">
+                <div class="dropdown-menu pt-0" aria-labelledby="new-game-menu" style="border-width: 0">
                   <div class="btn-group-vertical btn-block center" role="group" aria-label="New Game Menu">
                     <div class="input-group">
                       <span class="input-group-text" id="opponent-player">Play against</span>
-                      <input type="text" class="form-control" id="opponent-player-name" placeholder="Player" aria-describedby="opponent-player">
+                      <input type="text" class="form-control" id="opponent-player-name" placeholder="Player name" aria-describedby="opponent-player">
                     </div>
-                    <a href="#" class="btn btn-primary btn-sm disabled" role="button" aria-disabled="true">Lightning</a>
-                    <button type="button" class="btn btn-outline-secondary btn-block btn-sm" id="onezero">1 + 0</button>
-                    <a href="#" class="btn btn-success btn-sm disabled" role="button" aria-disabled="true">Blitz</a>
-                    <button type="button" class="btn btn-outline-secondary btn-block btn-sm" id="threezero">3 + 0</button>
-                    <button type="button" class="btn btn-outline-secondary btn-block btn-sm" id="threetwo">3 + 2</button>
-                    <button type="button" class="btn btn-outline-secondary btn-block btn-sm" id="fivezero">5 + 0</button>
-                    <button type="button" class="btn btn-outline-secondary btn-block btn-sm" id="fivefive">5 + 5</button>
-                    <a href="#" class="btn btn-warning btn-sm disabled" role="button" aria-disabled="true">Standard</a>
-                    <button type="button" class="btn btn-outline-secondary btn-block btn-sm" id="tenfive">10 + 5</button>
-                    <button type="button" class="btn btn-outline-secondary btn-block btn-sm" id="fifteenzero">15 + 0</button>
-                    <a href="#" class="btn btn-danger btn-sm disabled" role="button" aria-disabled="true">Custom</a>
+                    <a href="#" class="btn btn-outline-primary btn-md disabled" role="button" aria-disabled="true">Lightning</a>
+                    <div class="btn-group" role="group" aria-label="Lightning">
+                      <button type="button" class="btn btn-outline-secondary btn-md" id="onezero">1 + 0</button>
+                    </div>
+                    <a href="#" class="btn btn-outline-success btn-md disabled" role="button" aria-disabled="true">Blitz</a>
+                    <div class="btn-group" role="group" aria-label="Blitz">
+                      <button type="button" class="btn btn-outline-secondary btn-md" id="threezero">3 + 0</button>
+                      <button type="button" class="btn btn-outline-secondary btn-md" id="threetwo">3 + 2</button>
+                      <button type="button" class="btn btn-outline-secondary btn-md" id="fivezero">5 + 0</button>
+                      <button type="button" class="btn btn-outline-secondary btn-md" id="fivefive">5 + 5</button>
+                    </div>
+                    <a href="#" class="btn btn-outline-info btn-md disabled" role="button" aria-disabled="true">Standard</a>
+                    <div class="btn-group" role="group" aria-label="Standard">
+                      <button type="button" class="btn btn-outline-secondary btn-md" id="tenfive">10 + 5</button>
+                      <button type="button" class="btn btn-outline-secondary btn-md" id="fifteenzero">15 + 0</button>
+                    </div>
+                    <a href="#" class="btn btn-outline-danger btn-md disabled" role="button" aria-disabled="true">Custom</a>
                     <div class="input-group">
                       <input type="text" class="form-control text-center" placeholder="5" id="custom-control-min">
                       <span class="input-group-text"> min </span>
                       <input type="text" class="form-control text-center" placeholder="10" id="custom-control-sec">
                       <span class="input-group-text"> sec </span>
                       <span class="input-group-append">
-                        <button class="btn btn-outline-secondary btn-sm" type="button" id="custom-control">Go</button>
+                        <button class="btn btn-outline-secondary btn-md" type="button" id="custom-control">Go</button>
                       </span>
                     </div>
                   </div>
                 </div>
-                <button type="button" class="btn btn-outline-secondary btn-block btn-sm" aria-haspopup="true" aria-expanded="false" id="new-game">
+                <button type="button" class="btn btn-outline-secondary btn-block btn-md" aria-haspopup="true" aria-expanded="false" id="new-game">
                   Start a new game
                 </button>
               </div>
@@ -107,23 +110,23 @@
             </div>
             <div class="card-footer center">
               <div class="btn-toolbar">
-                <button type="button" id="takeback" class="btn btn-outline-secondary btn-sm" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Takeback">
+                <button type="button" id="takeback" class="btn btn-outline-secondary btn-md" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Takeback">
                   <span class="fa fa-undo" aria-hidden="false"></span>
                 </button>
-                <button type="button" id="draw" class="btn btn-outline-secondary btn-sm" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Draw">
+                <button type="button" id="draw" class="btn btn-outline-secondary btn-md" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Draw">
                   <span class="fa fa-handshake-o" aria-hidden="false"></span>
                 </button>
-                <button type="button" id="abort" class="btn btn-outline-secondary btn-sm" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Abort">
+                <button type="button" id="abort" class="btn btn-outline-secondary btn-md" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Abort">
                   <span class="fa fa-times-circle" aria-hidden="false"></span>
                 </button>
-                <button type="button" id="resign" class="btn btn-outline-secondary btn-sm" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Resign">
+                <button type="button" id="resign" class="btn btn-outline-secondary btn-md" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Resign">
                   <span class="fa fa-flag-o" aria-hidden="false"></span>
                 </button>
               </div>
             </div>
           </div>
         </div>
-        <div class="col-xl-4 align-self-center">
+        <div class="col-xl-5 align-self-center">
           <div class="card">
             <div class="d-flex justify-content-between align-items-center card-header status" id="opponent-status">
               <div class="p-2 name noselect" id="opponent-name"></div>
@@ -131,7 +134,7 @@
               <div class="p-2 captured noselect" id="opponent-captured"></div>
               <div class="p-2 clock noselect" id="opponent-time"></div>
             </div>
-            <div class="card-body p-1 m-1 center" id="board"></div>
+            <div class="card-body p-1 m-1 center noselect" id="board"></div>
             <div class="d-flex justify-content-between align-items-center card-footer status" id="player-status">
               <div class="p-2 name noselect" id="player-name"></div>
               <div class="mr-auto badge badge-secondary noselect align-middle" id="player-rating"></div>
@@ -140,11 +143,11 @@
             </div>
           </div>
         </div>
-        <div class="col-xl-3 align-self-center">
+        <div class="col-xl-4 align-self-center">
           <div class="card">
             <div class="card-header status" id="right-panel-header">
               <div id="user-dropdown" class="dropdown btn-toolbar inline-block pull-left">
-                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="connectButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="User">
+                <button class="btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="connectButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="User">
                   <div id="chat-status"></div>
                 </button>
                 <div class="dropdown-menu" aria-labelledby="connectButton">
@@ -155,7 +158,7 @@
               </div>
               <div class="btn-toolbar inline-block pull-right">
                 <div id="settings-dropdown" class="dropdown" data-toggle="tooltip" data-placement="top" data-trigger="hover" title="Settings">
-                  <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="settingsButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Settings">
+                  <button class="btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="settingsButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Settings">
                     <span class="fa fa-gear" aria-hidden="false"></span>
                   </button>
                   <div class="dropdown-menu" aria-labelledby="settingsButton">
@@ -172,7 +175,7 @@
                     <div class="dropdown-item noselect" style="background-color: white" id="colortheme-gray" onmouseover="this.style.background='#c9cbd1';" onmouseout="this.style.background='white';"><div class="color-box" style="background-color: #9298a5"></div>Space Gray</div>
                   </div>
                 </div>
-                <button id="chat-toggle-btn" class="btn btn-outline-secondary btn-sm" type="button" data-toggle="collapse" data-target="#collapse-chat" data-placement="top" aria-expanded="true" aria-controls="collapse-chat" title="Toggle Chat">
+                <button id="chat-toggle-btn" class="btn btn-outline-secondary btn-md" type="button" data-toggle="collapse" data-target="#collapse-chat" data-placement="top" aria-expanded="true" aria-controls="collapse-chat" title="Toggle Chat">
                   <span id="chat-toggle-icon" class="fa fa-toggle-up" aria-hidden="false"></span>
                 </button>
               </div>
@@ -237,36 +240,29 @@
       </div>
     </div>
   </div>
-  <div class="footer">
-    <div class="container-fluid">
-      <div class="col-xl-12 text-center">
-        <div>
-          <a class="nav-link" href="https://twitter.com/freechessclub">
-            <span class="fa fa-twitter" style="font-size: 32px" aria-hidden="false"></span>
-          </a>
-          <a class="nav-link" href="https://github.com/freechessclub">
-            <span class="fa fa-github" style="font-size: 32px" aria-hidden="false"></span>
-          </a>
-          <br/><br/>
-          <a class="nav-link" href="http://www.freechess.org">
-            FICS
-          </a>
-          <a class="nav-link" href="/privacy">
-            Privacy
-          </a>
-          <a class="nav-link" href="/contact">
-            Contact
-          </a>
-        </div>
-        <div>
-          <span style="opacity: 0.5">
-            © 2021 Free Chess Club
-          </span>
-        </div>
-      </div>
-    </div>
-  </div>
-  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+  <footer class="footer container-fluid text-center">
+    <a class="nav-link" href="https://twitter.com/freechessclub">
+      <span class="fa fa-twitter" style="font-size: 32px" aria-hidden="false"></span>
+    </a>
+    <a class="nav-link" href="https://github.com/freechessclub">
+      <span class="fa fa-github" style="font-size: 32px" aria-hidden="false"></span>
+    </a>
+    <br/>
+    <a class="nav-link" href="http://www.freechess.org">
+      FICS
+    </a>
+    <a class="nav-link" href="/privacy">
+      Privacy
+    </a>
+    <a class="nav-link" href="/contact">
+      Contact
+    </a>
+    <br/>
+    <span style="opacity: 0.5">
+      © 2021 Free Chess Club
+    </span>
+  </footer>
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-Piv4xVNRyMGpqkS2by6br4gNJ7DXjqk09RmUpJ8jgGtD7zP9yug3goQfGII0yAns" crossorigin="anonymous"></script>
   <script defer type="text/javascript" src="www/js/bundle.js"></script>
   <script>
