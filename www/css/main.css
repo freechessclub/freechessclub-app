@@ -222,17 +222,6 @@ a.logo img {
 .col-12 {width: 100%;}
 
 /*containers*/
-.container-lrg,
-.container-sml {
-  margin: auto;
-  width: 100%;
-}
-.container-lrg {
-  max-width: 1080px;
-}
-.container-sml {
-  max-width: 700px;
-}
 .ctas {
   margin: 40px 0 0 0;
 }
