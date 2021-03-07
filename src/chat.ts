@@ -217,7 +217,7 @@ export class Chat {
         tab.scrollTop(tab[0].scrollHeight);
       }
     } else {
-      tabheader.css('color', 'red');
+      tabheader.css('color', 'tomato');
     }
   }
 }
