@@ -9,7 +9,6 @@ export const game = {
   chess: null,
   color: '',
   history: null,
-  premove: null,
   bclock: null,
   btime: 0,
   wclock: null,

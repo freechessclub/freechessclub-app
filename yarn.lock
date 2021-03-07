@@ -677,6 +677,11 @@ chess.js@^0.11.0:
   resolved "https://registry.yarnpkg.com/chess.js/-/chess.js-0.11.0.tgz#e1802179b944eab5daf11b5d4bce08cdcadbeffa"
   integrity sha512-yTpi6XbRMkBtnjSvbt6wEp9Y7JzhJl1MC3GNn67q5ClyccXxCRf5cMPSUg4OblrUapg1kLHm7WzxxEVp20NK1Q==
 
+chessground@^7.11.0:
+  version "7.11.0"
+  resolved "https://registry.yarnpkg.com/chessground/-/chessground-7.11.0.tgz#57628b4f9d4e1e2137e182801b16c90c28fba139"
+  integrity sha512-W50zZpARwwLwKo26mES+VzA8xvrMyLtjpaqz6umOX8ZkaZ+GPeEDeVj2f75scPVo1wRu7c8HR+gCSJtt9Vl38Q==
+
 chrome-trace-event@^1.0.2:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/chrome-trace-event/-/chrome-trace-event-1.0.2.tgz#234090ee97c7d4ad1a2c4beae27505deffc608a4"
@@ -2014,12 +2019,6 @@ nth-check@^2.0.0:
   integrity sha512-i4sc/Kj8htBrAiH1viZ0TgU8Y5XqCaV/FziYK6TBczxmeKm3AEFWqqF3195yKudrarqy7Zu80Ra5dobFjn9X/Q==
   dependencies:
     boolbase "^1.0.0"
-
-oakmac-chessboard@freechessclub/chessboardjs#update:
-  version "1.0.0"
-  resolved "https://codeload.github.com/freechessclub/chessboardjs/tar.gz/73072d875a05d0f8288b55d9f13bade5e12d558b"
-  dependencies:
-    jquery "^3.5.1"
 
 object-keys@^1.0.12:
   version "1.1.1"

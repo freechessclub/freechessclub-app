@@ -84,15 +84,16 @@
   overflow: auto;
 }
 
-.history td {
-  width: 60px;
+.history th {
+  width: 20%;
+  text-align: center;
+  font-weight: bold;
+  color: rgba(0, 0, 0, 0.4);
 }
 
-.moveNumber {
-  display: inline;
-  font-weight: bold;
-  padding: 0 35px 0 30px;
-  color: rgba(0, 0, 0, 0.4);
+.history td {
+  width: 40%;
+  text-align: center;
 }
 
 .history a:hover {
