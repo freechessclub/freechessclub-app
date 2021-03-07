@@ -1,9 +1,6 @@
-.header,.footer,.black-3c85d {
-  background-color: #C6AB8E;
+.header,.footer {
+  background-color: #c6ab8e;
 }
-.white-1e1d7 {
-  background-color:#F4EDE1;
-}
-a.logo {
-  color: #F4EDE1;
+.blue .cg-wrap {
+  background-image: url('../images/board/yellow.svg');
 }
