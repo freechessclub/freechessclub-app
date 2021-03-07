@@ -9,7 +9,7 @@ export class History {
 
   constructor(board: any) {
     this.board = board;
-    this.moves = [ board.fen() ];
+    this.moves = [ board.getFen() ];
     this.id = 0;
 
     $('#move-history').empty();
@@ -44,6 +44,12 @@ export class History {
     }
   }
 
+  public removeAll(): void {
+    $('#move-history').empty();
+    this.id = 0;
+    this.moves = [ this.board.getFen() ];
+  }
+
   public length(): number {
     return this.moves.length - 1;
   }
@@ -53,7 +59,7 @@ export class History {
       this.id = id;
     }
     if (this.id >= 0 && this.id < this.moves.length) {
-      this.board.position(this.moves[this.id]);
+      this.board.set({ fen: this.moves[this.id] });
     }
   }
 
@@ -87,9 +93,9 @@ export class History {
   private update(move: any): void {
     const id: number = this.length();
     if (id % 2 === 1) {
-      $('#move-history').append('<tr><td><div class="moveNumber">'
-        + (id + 1) / 2 + '</div><a href="javascript:void(0);" onclick="showMove(' + id + ')">'
-        + move.san + '</a></td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>');
+      $('#move-history').append('<tr><th scope="row">'
+        + (id + 1) / 2 + '</th><td><a href="javascript:void(0);" onclick="showMove(' + id + ')">'
+        + move.san + '</a></td><td></td></tr>');
       $('#left-panel').scrollTop(document.getElementById('left-panel').scrollHeight);
     } else {
       $('#move-history tr:last td').eq(1).html('<a href="javascript:void(0);" onclick="showMove(' +

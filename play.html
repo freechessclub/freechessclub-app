@@ -19,7 +19,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Fredoka+One&text=Free%20Chess%20Club">
-  <link href="www/css/chessboard-0.3.0.min.css" rel="stylesheet">
+  <link href="www/css/chessground.css" rel="stylesheet">
+  <link href="www/css/theme.css" rel="stylesheet">
+  <link href="www/css/3d.css" rel="stylesheet">
   <link href="www/css/main.css" rel="stylesheet">
   <link href="www/css/application.css" rel="stylesheet">
   <link href="www/css/themes/default.css" rel="stylesheet" id="colortheme">
@@ -130,14 +132,20 @@
           <div class="card">
             <div class="d-flex justify-content-between align-items-center card-header status" id="opponent-status">
               <div class="p-2 name noselect" id="opponent-name"></div>
-              <div class="mr-auto badge badge-secondary noselect align-middle" id="opponent-rating"></div>
+              <div class="badge badge-secondary noselect align-middle" id="opponent-rating"></div>
+              <div class="mr-auto p-2"></div>
               <div class="p-2 captured noselect" id="opponent-captured"></div>
               <div class="p-2 clock noselect" id="opponent-time"></div>
             </div>
-            <div class="card-body p-1 m-1 center noselect" id="board"></div>
+            <div class="card-body p-2 noselect">
+              <div class="blue merida mw-100">
+                <div class="cg-wrap mw-100" id="board"></div>
+              </div>
+            </div>
             <div class="d-flex justify-content-between align-items-center card-footer status" id="player-status">
               <div class="p-2 name noselect" id="player-name"></div>
-              <div class="mr-auto badge badge-secondary noselect align-middle" id="player-rating"></div>
+              <div class="badge badge-secondary noselect align-middle" id="player-rating"></div>
+              <div class="mr-auto p-2"></div>
               <div class="p-2 captured noselect" id="player-captured"></div>
               <div class="p-2 clock noselect" id="player-time"></div>
             </div>

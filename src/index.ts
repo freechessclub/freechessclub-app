@@ -4,12 +4,12 @@
 
 import * as Chess from 'chess.js';
 import * as Cookies from 'js-cookie';
+import { Chessground } from 'chessground';
+import { Color, Key } from 'chessground/types';
 
-import board from './board';
 import Chat from './chat';
 import * as clock from './clock';
 import game from './game';
-import * as highlight from './highlight';
 import History from './history';
 import { GetMessageType, MessageType, Session } from './session';
 import * as Sounds from './sounds';
@@ -49,9 +49,9 @@ function showCapturePiece(color: string, p: string): void {
   $('#opponent-captured').empty();
   for (const key in game.playerCaptured) {
     if (game.playerCaptured.hasOwnProperty(key) && game.playerCaptured[key] > 0) {
-      const piece = highlight.swapColor(game.color) + key.toUpperCase();
+      const piece = swapColor(game.color) + key.toUpperCase();
       $('#player-captured').append(
-        '<img id="' + piece + '" src="www/img/chesspieces/wikipedia-svg/' +
+        '<img id="' + piece + '" src="www/css/images/pieces/merida/' +
           piece + '.svg"/><small>' + game.playerCaptured[key] + '</small>');
     }
   }
@@ -59,37 +59,74 @@ function showCapturePiece(color: string, p: string): void {
     if (game.oppCaptured.hasOwnProperty(key) && game.oppCaptured[key] > 0) {
       const piece = game.color + key.toUpperCase();
       $('#opponent-captured').append(
-        '<img id="' + piece + '" src="www/img/chesspieces/wikipedia-svg/' +
+        '<img id="' + piece + '" src="www/css/images/pieces/merida/' +
           piece + '.svg"/><small>' + game.oppCaptured[key] + '</small>');
     }
   }
 }
 
-export function movePiece(source, target) {
-  if (!game.chess) {
-    return;
-  }
+const board: any = Chessground(document.getElementById('board'), {
+  movable: {
+    free: false,
+    color: undefined,
+  },
+});
 
-  // see if the move is legal
-  const move = game.chess.move({
-    from: source,
-    to: target,
-    promotion: 'q', // TODO: Allow non-queen promotes
+function toDests(chess: any): Map<Key, Key[]> {
+  const dests = new Map();
+  chess.SQUARES.forEach(s => {
+    const ms = chess.moves({square: s, verbose: true});
+    if (ms.length) dests.set(s, ms.map(m => m.to));
   });
+  return dests;
+}
 
-  // illegal move
-  if (move === null) {
-    highlight.unHighlightSquare();
-    return 'snapback';
+export function swapColor(color: string): string {
+  return (color === 'w') ? 'b' : 'w';
+}
+
+function toColor(chess: any): Color {
+  return (chess.turn() === 'w') ? 'white' : 'black';
+}
+
+function inCheck(san: string) {
+  return (san.slice(-1) === '+');
+}
+
+function movePieceAfter(move: any) {
+  board.move(move.from, move.to);
+  if (move.flags !== 'n') {
+    board.set({ fen: game.chess.fen() });
   }
 
-  session.send(source + '-' + target);
+  let movable : any = {};
+  if (game.examine) {
+    movable = {
+      color: 'both',
+      dests: toDests(game.chess)
+    };
+  } else if (!game.obs) {
+    movable = {
+      color: game.color === 'w' ? 'white' : 'black',
+      dests: toDests(game.chess)
+    };
+  }
+
+  board.set({
+    turnColor: toColor(game.chess),
+    movable,
+  });
+  board.playPremove();
   game.history.add(move, game.chess.fen());
-  highlight.highlightMove(move.from, move.to);
+
   if (move.captured) {
     showCapturePiece(move.color, move.captured);
   }
-  if (highlight.showCheck(move.color, move.san)) {
+
+  if (inCheck(move.san)) {
+    board.set({
+      check: true,
+    });
     if (soundToggle) {
       Sounds.checkSound.play();
     }
@@ -102,6 +139,23 @@ export function movePiece(source, target) {
       }
     }
   }
+}
+
+export function movePiece(source: any, target: any, metadata: any) {
+  if (!game.chess) {
+    return;
+  }
+
+  if (game.examine || game.chess.turn() === game.color) {
+    session.send(source + '-' + target);
+  }
+
+  const move = game.chess.move({
+    from: source,
+    to: target,
+    promotion: 'q', // TODO: Allow non-queen promotions
+  });
+  movePieceAfter(move);
 }
 
 function showStatusMsg(msg: string) {
@@ -164,7 +218,27 @@ function messageHandler(data) {
 
       if (game.chess === null) {
         game.chess = Chess();
-        board.start(false);
+        let movableColor : any;
+        if (data.role === -1) {
+          movableColor = 'black';
+        } else if (data.role === 1) {
+          movableColor = 'white';
+        } else if (data.role === 2) {
+          movableColor = 'both';
+        }
+        board.set({
+          fen: game.chess.fen(),
+          orientation: data.role === -1 ? 'black' : 'white',
+          turnColor: 'white',
+          movable: {
+            free: false,
+            dests: data.role === -1 || data.role === 1 ? toDests(game.chess) : undefined,
+            color: movableColor,
+            events: {
+              after: movePiece,
+            }
+          }
+        });
         game.history = new History(board);
         game.playerCaptured = {};
         game.oppCaptured = {};
@@ -178,7 +252,6 @@ function messageHandler(data) {
         // role 1: I am playing and it is NOW my move
         if (data.role !== -1) {
           game.color = 'w';
-          board.orientation('white');
           if (data.role !== 2 || data.role !== -2 || data.role !== -3) {
             game.wclock = clock.startWhiteClock(game, $('#player-time'));
             game.bclock = clock.startBlackClock(game, $('#opponent-time'));
@@ -186,10 +259,9 @@ function messageHandler(data) {
           $('#player-name').text(data.white_name);
           $('#opponent-name').text(data.black_name);
           if (data.role === undefined || data.role === 0 || data.role === 2 || data.role === -2) {
-            const turn = data.turn === 'W' ? 'w' : 'b';
-            const fen = data.fen + ' ' + turn + ' - - 0 1';
+            const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
             const loaded = game.chess.load(fen);
-            board.position(game.chess.fen(), false);
+            board.set({ fen: game.chess.fen() });
             game.history = new History(board);
             if (data.role === 2) {
               game.examine = true;
@@ -203,7 +275,6 @@ function messageHandler(data) {
         // role -1: I am playing and it is NOW my opponent's move
         } else {
           game.color = 'b';
-          board.orientation('black');
           game.bclock = clock.startBlackClock(game, $('#player-time'));
           game.wclock = clock.startWhiteClock(game, $('#opponent-time'));
           $('#player-name').text(data.black_name);
@@ -211,36 +282,17 @@ function messageHandler(data) {
         }
       }
 
-      board.position(data.fen);
-
       if (data.role === undefined || data.role >= 0) {
         if (data.move !== 'none') {
           const move = game.chess.move(data.move);
           if (move !== null) {
-            highlight.highlightMove(move.from, move.to);
-            if (move.captured) {
-              showCapturePiece(move.color, move.captured);
-            }
-            if (highlight.showCheck(move.color, move.san)) {
-              if (soundToggle) {
-                Sounds.checkSound.play();
-              }
-            } else {
-              if (soundToggle) {
-                if (move.captured) {
-                  Sounds.captureSound.play();
-                } else {
-                  Sounds.moveSound.play();
-                }
-              }
-            }
-            game.history.add(move, game.chess.fen());
+            movePieceAfter(move);
+          } else {
+            board.set({ fen: data.fen });
           }
-
-          if (game.premove !== null) {
-            movePiece(game.premove.source, game.premove.target);
-            game.premove = null;
-          }
+        } else {
+          board.set({ fen: data.fen });
+          game.chess.reset();
         }
       }
       break;
@@ -278,6 +330,12 @@ function messageHandler(data) {
       clearInterval(game.bclock);
       delete game.chess;
       game.chess = null;
+      board.set({
+        movable: {
+          free: false,
+          color: undefined,
+        },
+      });
       break;
     case MessageType.Unknown:
     default:
@@ -302,7 +360,6 @@ function messageHandler(data) {
               pendingTakeback = 0;
               return;
             }
-            game.premove = null;
             for (let i = 0; i < pendingTakeback; i++) {
               if (game.chess) {
                 game.chess.undo();
@@ -402,8 +459,16 @@ function messageHandler(data) {
       if (unexMsg != null && unexMsg.length > 1) {
         $('#new-game').text('Start a new game');
         $('#new-game-menu').prop('disabled', false);
+        clearInterval(game.wclock);
+        clearInterval(game.bclock);
         delete game.chess;
         game.chess = null;
+        board.set({
+          movable: {
+            free: false,
+            color: undefined,
+          },
+        });
         game.examine = false;
       }
 
@@ -501,7 +566,6 @@ function onDeviceReady() {
   $('#player-time').text('00:00');
   $('.chat-text').height($('#board').height() - 85);
   $('#left-panel').height($('#board').height() - 90);
-  board.start(false);
 }
 
 $(document).ready(() => {
@@ -606,6 +670,8 @@ $('#custom-control').on('click', (event) => {
 $('#fast-backward').off('click');
 $('#fast-backward').on('click', () => {
   if (game.examine) {
+    game.chess.reset();
+    game.history.removeAll();
     session.send('back 999');
   } else {
     game.history.beginning();
@@ -615,6 +681,8 @@ $('#fast-backward').on('click', () => {
 $('#backward').off('click');
 $('#backward').on('click', () => {
   if (game.examine) {
+    game.chess.undo();
+    game.history.removeLast();
     session.send('back');
   } else {
     game.history.backward();
@@ -708,14 +776,7 @@ $('#connect-guest').on('click', (event) => {
   }
 });
 
-// $(window).focus(() => {
-//   if (game.chess) {
-//     board.position(game.chess.fen());
-//   }
-// });
-
 $(window).on('resize', () => {
-  board.resize();
   $('.chat-text').height($('#board').height() - 85);
   $('#left-panel').height($('#board').height() - 90);
 });
