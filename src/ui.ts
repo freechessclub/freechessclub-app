@@ -36,11 +36,11 @@ $('#colortheme-gray').on('click', (event) => {
 
 const textSize = Cookies.get('text-size');
 if (textSize !== undefined) {
-  $('.chat-text').css('font-size', textSize + 'em');
+  $('.tab-content').css('font-size', textSize + 'em');
   $('#textsize-range').val(parseInt(textSize, 10));
 }
 
 $('#textsize-range').on('change', (event) => {
-  $('.chat-text').css('font-size', String($(event.target).val()) + 'em');
+  $('.tab-content').css('font-size', String($(event.target).val()) + 'em');
   Cookies.set('text-size', String($(event.target).val()), { expires: 365 })
 });
