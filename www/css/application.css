@@ -53,7 +53,7 @@
 
 .name {
   display: inline-block;
-  font-size: 2em;
+  font-size: 1.6rem;
   line-height: 21px;
   color: rgba(0, 0, 0, 0.4);
 }
@@ -74,7 +74,7 @@
 
 .clock {
   display: inline-block;
-  font-size: 2em;
+  font-size: 1.6rem;
   line-height: 21px;
   color: rgba(0, 0, 0, 0.4);
 }
