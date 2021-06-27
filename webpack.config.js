@@ -29,6 +29,7 @@ module.exports = {
             { test: /\.svg(\?v=\d+\.\d+\.\d+)?$/, use: "url-loader?limit=10000&mimetype=image/svg+xml" },
             { test: /\.html$/, use: 'raw', exclude: /node_modules/},
             { test: /\.(ttf|eot|svg|woff(2)?)(\?[a-z0-9=&.]+)?$/, use: 'file-loader' },
+            { test: /\.m?js/, resolve: { fullySpecified: false } },
         ]
     },
     plugins: [
