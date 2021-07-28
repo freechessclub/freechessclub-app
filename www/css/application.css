@@ -63,6 +63,7 @@
   margin: -15px 0 -4px -4px;
   width: 23px;
   opacity: 0.6;
+  pointer-events: none;
 }
 
 .captured small {
