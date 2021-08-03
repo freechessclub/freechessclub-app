@@ -70,6 +70,7 @@ const board: any = Chessground(document.getElementById('board'), {
     free: false,
     color: undefined,
   },
+  blockTouchScroll: false,
 });
 
 function toDests(chess: any): Map<Key, Key[]> {
@@ -237,7 +238,8 @@ function messageHandler(data) {
             events: {
               after: movePiece,
             }
-          }
+          },
+          blockTouchScroll: true,
         });
         game.history = new History(board);
         game.playerCaptured = {};
@@ -335,6 +337,7 @@ function messageHandler(data) {
           free: false,
           color: undefined,
         },
+        blockTouchScroll: false,
       });
       break;
     case MessageType.Unknown:

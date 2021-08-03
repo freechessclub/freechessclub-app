@@ -4,3 +4,4 @@ platforms
 plugins
 package-lock.json
 yarn-error.log
+www/js/bundle.js
