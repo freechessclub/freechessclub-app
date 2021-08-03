@@ -18,20 +18,29 @@ if ($(window).width() < 767) {
 }
 
 // color theme controls
+const colorTheme = Cookies.get('theme');
+if (colorTheme !== undefined) {
+  $('#colortheme').attr('href', 'www/css/themes/' + colorTheme + '.css');
+}
+
 $('#colortheme-default').on('click', (event) => {
   $('#colortheme').attr('href', 'www/css/themes/default.css');
+  Cookies.set('theme', 'default', { expires: 365 });
 });
 
 $('#colortheme-green').on('click', (event) => {
   $('#colortheme').attr('href', 'www/css/themes/green.css');
+  Cookies.set('theme', 'green', { expires: 365 });
 });
 
 $('#colortheme-yellow').on('click', (event) => {
   $('#colortheme').attr('href', 'www/css/themes/yellow.css');
+  Cookies.set('theme', 'yellow', { expires: 365 });
 });
 
 $('#colortheme-gray').on('click', (event) => {
   $('#colortheme').attr('href', 'www/css/themes/gray.css');
+  Cookies.set('theme', 'gray', { expires: 365 });
 });
 
 const textSize = Cookies.get('text-size');
