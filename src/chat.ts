@@ -86,6 +86,7 @@ const channels = {
 
 export class Chat {
   private user: string;
+  private userRE: RegExp;
   private tabs: object;
   private emojisLoaded: boolean;
   private autoscrollToggle: boolean;
@@ -99,6 +100,7 @@ export class Chat {
     });
 
     this.user = user;
+    this.userRE = new RegExp('\\b' + user + '\\b', 'ig')
 
     // initialize tabs
     this.tabs = {
@@ -199,6 +201,8 @@ export class Chat {
     if (this.emojisLoaded) {
       text = parseEmojis(text);
     }
+
+    text = text.replace(this.userRE, '<strong class="mention">' + this.user + '</strong>');
 
     text = autoLink(text, {
       target: '_blank',

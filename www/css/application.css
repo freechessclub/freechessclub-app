@@ -34,6 +34,12 @@
   color: rgba(30, 60, 180, 0.8);
 }
 
+.chat-text strong.mention {
+  font-weight: bold;
+  color: rgba(240, 120, 120, 0.7);
+}
+
+
 .chat-text a {
   text-decoration: none;
 }
