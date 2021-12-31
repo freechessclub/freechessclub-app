@@ -2,8 +2,8 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import * as Chess from 'chess.js';
-import * as Cookies from 'js-cookie';
+import Chess from 'chess.js';
+import Cookies from 'js-cookie';
 import { Chessground } from 'chessground';
 import { Color, Key } from 'chessground/types';
 

@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import * as bootstrap from 'bootstrap';
-import * as Cookies from 'js-cookie';
+import Cookies from 'js-cookie';
 
 // enable tooltips
 $(() => {
