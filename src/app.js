@@ -138,7 +138,7 @@ function addUpdateMenuItems(items, position) {
     }
     var version = electron_1.app.getVersion();
     var updateItems = [{
-            label: "Version " + version,
+            label: "Version ".concat(version),
             enabled: false
         }, {
             label: 'Checking for Update',
@@ -167,7 +167,7 @@ if (process.platform === 'darwin') {
     template.unshift({
         label: name_1,
         submenu: [{
-                label: "About " + name_1,
+                label: "About ".concat(name_1),
                 role: 'about'
             }, {
                 type: 'separator'
@@ -178,7 +178,7 @@ if (process.platform === 'darwin') {
             }, {
                 type: 'separator'
             }, {
-                label: "Hide " + name_1,
+                label: "Hide ".concat(name_1),
                 accelerator: 'Command+H',
                 role: 'hide'
             }, {
