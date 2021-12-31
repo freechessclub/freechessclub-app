@@ -567,7 +567,7 @@ function onDeviceReady() {
 
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
-  $('.chat-text').height($('#board').height() - 85);
+  $('.chat-text').height($('#board').height() - 90);
   $('#left-panel').height($('#board').height() - 90);
 }
 
@@ -782,7 +782,7 @@ $('#connect-guest').on('click', (event) => {
 });
 
 $(window).on('resize', () => {
-  $('.chat-text').height($('#board').height() - 85);
+  $('.chat-text').height($('#board').height() - 90);
   $('#left-panel').height($('#board').height() - 90);
 });
 
