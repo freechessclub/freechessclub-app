@@ -107,7 +107,7 @@ export class Chat {
       console: $('#content-console'),
     };
 
-    $(document).on('shown.bs.tab', 'a[data-toggle="tab"]', (e) => {
+    $(document).on('shown.bs.tab', 'a[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
       tab.css('color', 'black');
     });
@@ -152,7 +152,7 @@ export class Chat {
       chName = channels[name];
     }
 
-    $('<li class="nav-item"><a class="text-sm-center nav-link" data-toggle="tab" href="#content-' +
+    $('<li class="nav-item"><a class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-' +
       from + '" id="' + from + '" role="tab">' + chName +
       '<span class="btn btn-default btn-sm closeTab">×</span></a></li>').appendTo('#tabs');
     $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('.tab-content');

@@ -724,8 +724,10 @@ $('#sound-toggle').on('click', (event) => {
 });
 
 $('#disconnect').on('click', (event) => {
-  session.disconnect();
-  session = null;
+  if (session) {
+    session.disconnect();
+    session = null;
+  }
 });
 
 $('#login').on('click', (event) => {

@@ -2,11 +2,12 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
+import * as bootstrap from 'bootstrap';
 import * as Cookies from 'js-cookie';
 
 // enable tooltips
 $(() => {
-  $('[data-toggle="tooltip"]').tooltip();
+  $('[data-bs-toggle="tooltip"]').tooltip();
 });
 
 if ($(window).width() < 767) {
