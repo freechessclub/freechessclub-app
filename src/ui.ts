@@ -11,11 +11,11 @@ $(() => {
 });
 
 if ($(window).width() < 767) {
-  $('#collapse-chat').collapse('hide');
+  $('#collapse-chat').hide();
 }
 
 if ($(window).width() < 767) {
-  $('#collapse-history').collapse('hide');
+  $('#collapse-history').hide();
 }
 
 // color theme controls
