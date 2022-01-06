@@ -89,6 +89,7 @@ export class Chat {
   private userRE: RegExp;
   private tabs: object;
   private emojisLoaded: boolean;
+  private maximized: boolean;
   private autoscrollToggle: boolean;
 
   constructor(user: string) {
@@ -101,6 +102,7 @@ export class Chat {
 
     this.user = user;
     this.userRE = new RegExp('\\b' + user + '\\b', 'ig')
+    this.maximized = false;
 
     // initialize tabs
     this.tabs = {
@@ -118,6 +120,20 @@ export class Chat {
       this.deleteTab(name);
       $('#tabs a:last').tab('show');
       $('#content-' + name).remove();
+    });
+
+    $('#chat-maximize-btn').on('click', () => {
+      if (this.maximized) {
+        $('#right-col').width('33.33333333%');
+        $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
+        this.maximized = false;
+      } else {
+        $('#right-col').width('100%');
+        $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
+        this.maximized = true;
+      }
+      $("#left-col").toggleClass('d-none');
+      $("#mid-col").toggleClass('d-none');
     });
 
     $('#collapse-chat').on('hidden.bs.collapse', () => {
