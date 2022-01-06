@@ -124,11 +124,15 @@ export class Chat {
 
     $('#chat-maximize-btn').on('click', () => {
       if (this.maximized) {
-        $('#right-col').width('33.33333333%');
+        if ($(window).width() > 767) {
+          $('#right-col').width('33.33333333%');
+        }
         $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
         this.maximized = false;
       } else {
-        $('#right-col').width('100%');
+        if ($(window).width() > 767) {
+          $('#right-col').width('100%');
+        }
         $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
         this.maximized = true;
       }
