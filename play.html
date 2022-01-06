@@ -52,7 +52,7 @@
                 <button type="button" id="fast-forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Current">
                   <span class="fa fa-fast-forward" aria-hidden="false"></span>
                 </button>
-                <button id="history-toggle-btn" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-history" data-bs-placement="top" aria-expanded="true" aria-controls="collapse-history" title="Toggle Game History">
+                <button id="history-toggle-btn" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-history" aria-expanded="true" aria-controls="collapse-history">
                   <span id="history-toggle-icon" class="fa fa-toggle-up" aria-hidden="false"></span>
                 </button>
               </div>
@@ -101,7 +101,7 @@
                 </button>
               </div>
             </div>
-            <div id="collapse-history" class="collapse show" aria-labelledby="left-panel-header">
+            <div id="collapse-history" class="collapse show">
               <div class="card-body history noselect" id="left-panel">
                 <table class="table table-sm table-striped table-hover">
                   <tbody id="move-history"></tbody>
@@ -186,12 +186,12 @@
                     <div class="dropdown-item noselect" style="background-color: white" id="colortheme-gray" onmouseover="this.style.background='#c9cbd1';" onmouseout="this.style.background='white';"><div class="color-box" style="background-color: #9298a5"></div>Space Gray</div>
                   </div>
                 </div>
-                <button id="chat-toggle-btn" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-chat" data-bs-placement="top" aria-expanded="true" aria-controls="collapse-chat" title="Toggle Chat">
+                <button id="chat-toggle-btn" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-chat" aria-expanded="true" aria-controls="collapse-chat">
                   <span id="chat-toggle-icon" class="fa fa-toggle-up" aria-hidden="false"></span>
                 </button>
               </div>
             </div>
-            <div id="collapse-chat" class="collapse show" aria-labelledby="right-panel-header">
+            <div id="collapse-chat" class="collapse show">
               <div class="card-body">
                 <ul class="nav nav-tabs d-flex flex-wrap justify-content-start" role="tablist" id="tabs">
                   <div id="chan-dropdown" class="d-flex dropdown" data-bs-toggle="tooltip" data-bs-placement="top" title="Join Channel">

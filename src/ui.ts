@@ -11,11 +11,8 @@ $(() => {
 });
 
 if ($(window).width() < 767) {
-  $('#collapse-chat').hide();
-}
-
-if ($(window).width() < 767) {
-  $('#collapse-history').hide();
+  $('#collapse-chat').removeClass('show');
+  $('#collapse-history').removeClass('show');
 }
 
 // color theme controls
