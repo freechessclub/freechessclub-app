@@ -128,16 +128,18 @@ export class Chat {
           $('#right-col').width('33.33333333%');
         }
         $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
+        $('#chat-maximize-btn').attr('data-bs-original-title', 'Maximize');
         this.maximized = false;
       } else {
         if ($(window).width() > 767) {
           $('#right-col').width('100%');
         }
         $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
+        $('#chat-maximize-btn').attr('data-bs-original-title', 'Minimize');
         this.maximized = true;
       }
-      $("#left-col").toggleClass('d-none');
-      $("#mid-col").toggleClass('d-none');
+      $('#left-col').toggleClass('d-none');
+      $('#mid-col').toggleClass('d-none');
     });
 
     $('#collapse-chat').on('hidden.bs.collapse', () => {
@@ -176,7 +178,7 @@ export class Chat {
       from + '" id="' + from + '" role="tab">' + chName +
       '<span class="btn btn-default btn-sm closeTab">×</span></a></li>').appendTo('#tabs');
     $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('.tab-content');
-    $('.chat-text').height($('#board').height() - 60);
+    $('.chat-text').height($('#board').height() - 90);
     this.tabs[from] = $('#content-' + from);
     return this.tabs[from];
   }
