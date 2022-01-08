@@ -567,8 +567,11 @@ function onDeviceReady() {
 
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
-  $('.chat-text').height($('#board').height() - 90);
-  $('#left-panel').height($('#board').height() - 90);
+  let boardHeight = $('#board').height();
+  if (boardHeight) {
+    $('.chat-text').height(boardHeight - 90);
+    $('#left-panel').height(boardHeight - 90);
+  }
 }
 
 $(document).ready(() => {
@@ -782,8 +785,11 @@ $('#connect-guest').on('click', (event) => {
 });
 
 $(window).on('resize', () => {
-  $('.chat-text').height($('#board').height() - 90);
-  $('#left-panel').height($('#board').height() - 90);
+  let boardHeight = $('#board').height();
+  if (boardHeight) {
+    $('.chat-text').height(boardHeight - 90);
+    $('#left-panel').height(boardHeight - 90);
+  }
 });
 
 // prompt before unloading page if in a game
