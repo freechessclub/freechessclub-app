@@ -449,7 +449,7 @@ function messageHandler(data) {
 
       const unobsMsg = data.message.match(/Removing game (\d+) from observation list./);
       if (unobsMsg != null && unobsMsg.length > 1) {
-        $('#new-game').text('Start a new game');
+        $('#new-game').text('New game');
         $('#new-game-menu').prop('disabled', false);
         clearInterval(game.wclock);
         clearInterval(game.bclock);
@@ -460,7 +460,7 @@ function messageHandler(data) {
 
       const unexMsg = data.message.match(/You are no longer examining game (\d+)./);
       if (unexMsg != null && unexMsg.length > 1) {
-        $('#new-game').text('Start a new game');
+        $('#new-game').text('New game');
         $('#new-game-menu').prop('disabled', false);
         clearInterval(game.wclock);
         clearInterval(game.bclock);
