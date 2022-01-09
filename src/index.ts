@@ -173,7 +173,7 @@ function showGameReq(type: string, title: string, msg: string, btnFailure: strin
       `</p><p class="card-text">` + msg + `</p>`;
 
   if (btnSuccess !== undefined) {
-    req += `<button type="button" id="` + btnSuccess[0] + `" class="btn btn-sm btn-outline-success mr-2">
+    req += `<button type="button" id="` + btnSuccess[0] + `" class="btn btn-sm btn-outline-success me-2">
         <span class="fa fa-check-circle-o" aria-hidden="false"></span> ` + btnSuccess[1] + `</button>`;
   }
 
