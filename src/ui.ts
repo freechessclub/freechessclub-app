@@ -4,6 +4,7 @@
 
 import * as bootstrap from 'bootstrap';
 import Cookies from 'js-cookie';
+import {version} from '../package.json';
 
 // enable tooltips
 $(() => {
@@ -14,6 +15,8 @@ if ($(window).width() < 767) {
   $('#collapse-chat').removeClass('show');
   $('#collapse-history').removeClass('show');
 }
+
+$('#version').text('Version: ' + version);
 
 // color theme controls
 const colorTheme = Cookies.get('theme');

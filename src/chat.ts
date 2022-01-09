@@ -178,7 +178,12 @@ export class Chat {
       from + '" id="' + from + '" role="tab">' + chName +
       '<span class="btn btn-default btn-sm closeTab">×</span></a></li>').appendTo('#tabs');
     $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('.tab-content');
-    $('#content-' + from).height($('.tab-content').height());
+    let boardHeight = $('#board').height();
+    if (boardHeight) {
+      $('.chat-text').height(boardHeight - 90);
+    } else {
+      $('#content-' + from).height($('.tab-content').height());
+    }
     this.tabs[from] = $('#content-' + from);
     return this.tabs[from];
   }
