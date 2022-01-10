@@ -166,25 +166,25 @@ function showStatusMsg(msg: string) {
 
 function showGameReq(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[]) {
   let req = `
-  <div class="card text-center mt-3" id="match-request">
-    <p class="card-header p-0">` + type + ` Request</p>
-    <div class="card-block p-2">
-      <p class="card-title text-primary">` + title +
-      `</p><p class="card-text">` + msg + `</p>`;
+  <div class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
+    <div class="toast-header"><strong class="me-auto">` + type + ` Request</strong>
+    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button></div>
+    <div class="toast-body">
+    <p class="text-primary">` + title + ' ' + msg + `</p><div class="mt-2 pt-2 border-top center">`;
 
   if (btnSuccess !== undefined) {
-    req += `<button type="button" id="` + btnSuccess[0] + `" class="btn btn-sm btn-outline-success me-2">
+    req += `<button type="button" id="` + btnSuccess[0] + `" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
         <span class="fa fa-check-circle-o" aria-hidden="false"></span> ` + btnSuccess[1] + `</button>`;
   }
 
   if (btnFailure !== undefined) {
-    req += `<button type="button" id="` + btnFailure[0] + `" class="btn btn-sm btn-outline-danger">
+    req += `<button type="button" id="` + btnFailure[0] + `" class="btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
         <span class="fa fa-times-circle-o" aria-hidden="false"></span> ` + btnFailure[1] + `</button>`;
   }
 
-  req += `</div></div>`;
+  req += `</div></div></div>`;
   $('#game-requests').html(req);
-  $('#left-panel').scrollTop(document.getElementById('left-panel').scrollHeight);
+  $('.toast').toast('show');
 }
 
 function messageHandler(data) {
@@ -328,6 +328,7 @@ function messageHandler(data) {
       }
 
       showStatusMsg(data.message);
+      showGameReq('Match', '', data.message, ['rematch', 'Rematch'], ['exl', 'Examine']);
       clearInterval(game.wclock);
       clearInterval(game.bclock);
       delete game.chess;
@@ -499,21 +500,22 @@ function getValue(elt: string): string {
 
 $('body').on('click', '#accept', (event) => {
   session.send('accept');
-  $('#game-requests').html('');
 });
 
 $('body').on('click', '#decline', (event) => {
   session.send('decline');
-  $('#game-requests').html('');
-});
-
-$('body').on('click', '#close-request', (event) => {
-  $('#game-requests').html('');
 });
 
 $('body').on('click', '#abort', (event) => {
   session.send('abort');
-  $('#game-requests').html('');
+});
+
+$('body').on('click', '#rematch', (event) => {
+  session.send('rematch');
+});
+
+$('body').on('click', '#exl', (event) => {
+  session.send('exl');
 });
 
 $('#input-form').on('submit', (event) => {
@@ -567,7 +569,7 @@ function onDeviceReady() {
 
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
-  let boardHeight = $('#board').height();
+  const boardHeight = $('#board').height();
   if (boardHeight) {
     $('.chat-text').height(boardHeight - 90);
     $('#left-panel').height(boardHeight - 90);
@@ -586,7 +588,7 @@ $('#resign').on('click', (event) => {
   if (game.chess !== null) {
     session.send('resign');
   } else {
-    showStatusMsg('You are not playing a game');
+    showStatusMsg('You are not playing a game.');
   }
 });
 
@@ -594,7 +596,7 @@ $('#abort').on('click', (event) => {
   if (game.chess !== null) {
     session.send('abort');
   } else {
-    showStatusMsg('You are not playing a game');
+    showStatusMsg('You are not playing a game.');
   }
 });
 
@@ -608,7 +610,7 @@ $('#takeback').on('click', (event) => {
       session.send('take 1');
     }
   } else {
-    showStatusMsg('You are not playing a game');
+    showStatusMsg('You are not playing a game.');
   }
 });
 
@@ -616,7 +618,7 @@ $('#draw').on('click', (event) => {
   if (game.chess !== null) {
     session.send('draw');
   } else {
-    showStatusMsg('You are not playing a game');
+    showStatusMsg('You are not playing a game.');
   }
 });
 
@@ -785,7 +787,7 @@ $('#connect-guest').on('click', (event) => {
 });
 
 $(window).on('resize', () => {
-  let boardHeight = $('#board').height();
+  const boardHeight = $('#board').height();
   if (boardHeight) {
     $('.chat-text').height(boardHeight - 90);
     $('#left-panel').height(boardHeight - 90);

@@ -178,7 +178,7 @@ export class Chat {
       from + '" id="' + from + '" role="tab">' + chName +
       '<span class="btn btn-default btn-sm closeTab">×</span></a></li>').appendTo('#tabs');
     $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('.tab-content');
-    let boardHeight = $('#board').height();
+    const boardHeight = $('#board').height();
     if (boardHeight) {
       $('.chat-text').height(boardHeight - 90);
     } else {
