@@ -172,13 +172,13 @@ function showGameReq(type: string, title: string, msg: string, btnFailure: strin
     <div class="toast-body">
     <p class="text-primary">` + title + ' ' + msg + `</p><div class="mt-2 pt-2 border-top center">`;
 
-  if (btnSuccess !== undefined) {
-    req += `<button type="button" id="` + btnSuccess[0] + `" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
+  if (btnSuccess !== undefined && btnSuccess.length == 2) {
+    req += `<button type="button" id="btn-success" onclick="sessionSend('` + btnSuccess[0] + `');" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
         <span class="fa fa-check-circle-o" aria-hidden="false"></span> ` + btnSuccess[1] + `</button>`;
   }
 
-  if (btnFailure !== undefined) {
-    req += `<button type="button" id="` + btnFailure[0] + `" class="btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
+  if (btnFailure !== undefined && btnFailure.length == 2) {
+    req += `<button type="button" id="btn-failure" onclick="sessionSend('` + btnFailure[0] + `');" class="btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
         <span class="fa fa-times-circle-o" aria-hidden="false"></span> ` + btnFailure[1] + `</button>`;
   }
 
@@ -328,7 +328,11 @@ function messageHandler(data) {
       }
 
       showStatusMsg(data.message);
-      showGameReq('Match', '', data.message, ['rematch', 'Rematch'], ['exl', 'Examine']);
+      let rematch = [];
+      if ($('#player-name').text() == session.getUser()) {
+        rematch = ['rematch', 'Rematch']
+      }
+      showGameReq('Match', '', data.message, ['ex ' + data.winner + ' -1', 'Examine'], rematch);
       clearInterval(game.wclock);
       clearInterval(game.bclock);
       delete game.chess;
@@ -498,25 +502,9 @@ function getValue(elt: string): string {
   return $(elt).val() as string;
 }
 
-$('body').on('click', '#accept', (event) => {
-  session.send('accept');
-});
-
-$('body').on('click', '#decline', (event) => {
-  session.send('decline');
-});
-
-$('body').on('click', '#abort', (event) => {
-  session.send('abort');
-});
-
-$('body').on('click', '#rematch', (event) => {
-  session.send('rematch');
-});
-
-$('body').on('click', '#exl', (event) => {
-  session.send('exl');
-});
+(window as any).sessionSend = (cmd: string) => {
+  session.send(cmd);
+};
 
 $('#input-form').on('submit', (event) => {
   event.preventDefault();
