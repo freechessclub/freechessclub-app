@@ -174,12 +174,12 @@ function showGameReq(type: string, title: string, msg: string, btnFailure: strin
     <div class="toast-body">
     <p class="text-primary">` + title + ' ' + msg + `</p><div class="mt-2 pt-2 border-top center">`;
 
-  if (btnSuccess !== undefined && btnSuccess.length == 2) {
+  if (btnSuccess !== undefined && btnSuccess.length === 2) {
     req += `<button type="button" id="btn-success" onclick="sessionSend('` + btnSuccess[0] + `');" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
         <span class="fa fa-check-circle-o" aria-hidden="false"></span> ` + btnSuccess[1] + `</button>`;
   }
 
-  if (btnFailure !== undefined && btnFailure.length == 2) {
+  if (btnFailure !== undefined && btnFailure.length === 2) {
     req += `<button type="button" id="btn-failure" onclick="sessionSend('` + btnFailure[0] + `');" class="btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
         <span class="fa fa-times-circle-o" aria-hidden="false"></span> ` + btnFailure[1] + `</button>`;
   }
@@ -334,7 +334,7 @@ function messageHandler(data) {
 
       showStatusMsg(data.message);
       let rematch = [];
-      if ($('#player-name').text() == session.getUser()) {
+      if ($('#player-name').text() === session.getUser()) {
         rematch = ['rematch', 'Rematch']
       }
       showGameReq('Match', '', data.message, ['ex ' + data.winner + ' -1', 'Examine'], rematch);
