@@ -163,7 +163,7 @@ export function movePiece(source: any, target: any, metadata: any) {
 
 function showStatusMsg(msg: string) {
   $('#game-status').html(msg + '<br/>');
-  $('#left-panel').scrollTop(document.getElementById('left-panel').scrollHeight);
+  // $('#left-panel').scrollTop(document.getElementById('left-panel').scrollHeight);
 }
 
 function showGameReq(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[]) {
@@ -253,7 +253,6 @@ function messageHandler(data) {
         game.oppCaptured = {};
         $('#player-captured').text('');
         $('#opponent-captured').text('');
-        showStatusMsg('');
         $('#player-status').css('background-color', '');
         $('#opponent-status').css('background-color', '');
 
@@ -400,6 +399,7 @@ function messageHandler(data) {
       const gameCreateMsg =
         data.message.match(/(Creating|Game\s\d*): (\w+) \(([\d\+\-\s]{4})\) (\w+) \(([\d\-\+\s]{4})\).+/);
       if (gameCreateMsg != null && gameCreateMsg.length > 4) {
+        showStatusMsg(gameCreateMsg[0].substring(gameCreateMsg[0].indexOf(':')+1));
         if (gameCreateMsg[2] === session.getUser() || gameCreateMsg[1].startsWith('Game')) {
           if (!isNaN(gameCreateMsg[3])) {
             $('#player-rating').text(gameCreateMsg[3]);
@@ -571,7 +571,7 @@ function onDeviceReady() {
   const boardHeight = $('#board').height();
   if (boardHeight) {
     $('.chat-text').height(boardHeight - 90);
-    $('#left-panel').height(boardHeight - 90);
+    $('#left-panel').height(boardHeight - 240);
   }
 }
 
@@ -789,7 +789,7 @@ $(window).on('resize', () => {
   const boardHeight = $('#board').height();
   if (boardHeight) {
     $('.chat-text').height(boardHeight - 90);
-    $('#left-panel').height(boardHeight - 90);
+    $('#left-panel').height(boardHeight - 240);
   }
 });
 

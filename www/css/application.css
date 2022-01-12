@@ -160,3 +160,9 @@
   height: auto;
   padding-left: 5px;
 }
+
+#game-status {
+  height: 133px;
+  width: 100%;
+  text-align: center;
+}
