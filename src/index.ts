@@ -156,7 +156,9 @@ export function movePiece(source: any, target: any, metadata: any) {
     to: target,
     promotion: 'q', // TODO: Allow non-queen promotions
   });
-  movePieceAfter(move);
+  if (move !== null) {
+    movePieceAfter(move);
+  }
 }
 
 function showStatusMsg(msg: string) {
@@ -227,13 +229,18 @@ function messageHandler(data) {
         } else if (data.role === 2) {
           movableColor = 'both';
         }
+
+        if (data.role === 0 || data.role === 2 || data.role === -2) {
+          const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
+          const loaded = game.chess.load(fen);
+        }
         board.set({
           fen: game.chess.fen(),
           orientation: data.role === -1 ? 'black' : 'white',
           turnColor: 'white',
           movable: {
             free: false,
-            dests: data.role === -1 || data.role === 1 ? toDests(game.chess) : undefined,
+            dests: (data.role === -1 || data.role === 1 || data.role === 2) ? toDests(game.chess) : undefined,
             color: movableColor,
             events: {
               after: movePiece,
@@ -261,9 +268,6 @@ function messageHandler(data) {
           $('#player-name').text(data.white_name);
           $('#opponent-name').text(data.black_name);
           if (data.role === undefined || data.role === 0 || data.role === 2 || data.role === -2) {
-            const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
-            const loaded = game.chess.load(fen);
-            board.set({ fen: game.chess.fen() });
             game.history = new History(board);
             if (data.role === 2) {
               game.examine = true;
@@ -294,7 +298,8 @@ function messageHandler(data) {
           }
         } else {
           board.set({ fen: data.fen });
-          game.chess.reset();
+          const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
+          const loaded = game.chess.load(fen);
         }
       }
       break;
@@ -460,6 +465,12 @@ function messageHandler(data) {
         clearInterval(game.bclock);
         delete game.chess;
         game.chess = null;
+        board.set({
+          movable: {
+            free: false,
+            color: undefined,
+          },
+        });
         game.obs = false;
       }
 
