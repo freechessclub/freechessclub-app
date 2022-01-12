@@ -7,7 +7,7 @@
       <g id="d">
         <rect width="1" height="1" fill="#d3d3d3" id="e"/>
         <use x="1" y="1" href="#e" x:href="#e"/>
-        <rect y="1" width="1" height="1" fill="#666666" id="f"/>
+        <rect y="1" width="1" height="1" fill="#555555" id="f"/>
         <use x="1" y="-1" href="#f" x:href="#f"/>
       </g>
       <use x="2" href="#d" x:href="#d"/>

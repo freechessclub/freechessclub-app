@@ -1,16 +1,22 @@
 .header,.footer,.feature3,.card-body {
-  background-color: #666666;
+  background-color: #555555;
 }
 .blue .cg-wrap {
   background-image: url('../images/board/gray.svg');
 }
 .chat-text {
   color: #d3d3d3;
-  background-color: #666666;
+  background-color: #555555;
 }
 .chat-text strong, a {
   color: rgba(159, 184, 228, 0.75);
 }
 .chat-text strong.mine {
   color: rgba(240, 159, 67, 0.95);
+}
+#game-status {
+  color: rgba(180, 180, 240, 0.85);
+}
+.nav-link {
+  color: lightgray;
 }

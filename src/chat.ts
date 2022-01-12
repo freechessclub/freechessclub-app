@@ -111,7 +111,7 @@ export class Chat {
 
     $(document).on('shown.bs.tab', 'a[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
-      tab.css('color', 'black');
+      tab.css('color', '');
     });
 
     $(document.body).on('click', '.closeTab', (event) => {
