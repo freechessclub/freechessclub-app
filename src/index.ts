@@ -395,6 +395,19 @@ function messageHandler(data) {
         return;
       }
 
+      const backupMsg = data.message.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
+      if (backupMsg != null && backupMsg.length > 1) {
+        const numMoves: number = +backupMsg[1];
+        if (numMoves >= game.chess.history().length) {
+          game.chess.reset();
+          game.history.removeAll();
+        } else {
+          game.chess.undo();
+          game.history.removeLast();
+        }
+        return;
+      }
+
       const gameCreateMsg =
         data.message.match(/(Creating|Game\s\d*): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
       if (gameCreateMsg != null && gameCreateMsg.length > 4) {
@@ -676,8 +689,6 @@ $('#custom-control').on('click', (event) => {
 $('#fast-backward').off('click');
 $('#fast-backward').on('click', () => {
   if (game.examine) {
-    game.chess.reset();
-    game.history.removeAll();
     session.send('back 999');
   } else {
     game.history.beginning();
@@ -687,8 +698,6 @@ $('#fast-backward').on('click', () => {
 $('#backward').off('click');
 $('#backward').on('click', () => {
   if (game.examine) {
-    game.chess.undo();
-    game.history.removeLast();
     session.send('back');
   } else {
     game.history.backward();
