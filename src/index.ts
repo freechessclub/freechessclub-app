@@ -163,7 +163,6 @@ export function movePiece(source: any, target: any, metadata: any) {
 
 function showStatusMsg(msg: string) {
   $('#game-status').html(msg + '<br/>');
-  // $('#left-panel').scrollTop(document.getElementById('left-panel').scrollHeight);
 }
 
 function showGameReq(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[]) {
@@ -397,7 +396,7 @@ function messageHandler(data) {
       }
 
       const gameCreateMsg =
-        data.message.match(/(Creating|Game\s\d*): (\w+) \(([\d\+\-\s]{4})\) (\w+) \(([\d\-\+\s]{4})\).+/);
+        data.message.match(/(Creating|Game\s\d*): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
       if (gameCreateMsg != null && gameCreateMsg.length > 4) {
         showStatusMsg(gameCreateMsg[0].substring(gameCreateMsg[0].indexOf(':')+1));
         if (gameCreateMsg[2] === session.getUser() || gameCreateMsg[1].startsWith('Game')) {
