@@ -24,7 +24,7 @@
   "build": {
     "appId": "club.freechess.FreeChessClub",
     "productName": "Free Chess Club",
-    "copyright": "Copyright © 2021 Free Chess Club Author(s)",
+    "copyright": "Copyright © 2022 Free Chess Club Author(s)",
     "mac": {
       "category": "public.app-category.board-games"
     },
