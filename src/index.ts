@@ -295,9 +295,16 @@ function messageHandler(data) {
             board.set({ fen: data.fen });
           }
         } else {
-          board.set({ fen: data.fen });
           const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
           const loaded = game.chess.load(fen);
+          board.set({
+            fen: data.fen,
+            turnColor: data.turn === 'W' ? 'white' : 'black',
+            movable: {
+              color: data.turn === 'W' ? 'white' : 'black',
+              dests: toDests(game.chess),
+            },
+          });
         }
       }
       break;
@@ -398,7 +405,7 @@ function messageHandler(data) {
       const backupMsg = data.message.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
       if (backupMsg != null && backupMsg.length > 1) {
         const numMoves: number = +backupMsg[1];
-        if (numMoves >= game.chess.history().length) {
+        if (numMoves > game.chess.history().length) {
           game.chess.reset();
           game.history.removeAll();
         } else {
