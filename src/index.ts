@@ -433,12 +433,20 @@ function messageHandler(data) {
       if (backupMsg != null && backupMsg.length > 1) {
         const numMoves: number = +backupMsg[1];
         if (numMoves > game.chess.history().length) {
-          game.chess.reset();
-          game.history.removeAll();
+          if (game.chess) {
+            game.chess.reset();
+          }
+          if (game.history) {
+            game.history.removeAll();
+          }
         } else {
           for (let i = 0; i < numMoves; i++) {
-            game.chess.undo();
-            game.history.removeLast();
+            if (game.chess) {
+              game.chess.undo();
+            }
+            if (game.history) {
+              game.history.removeLast();
+            }
           }
         }
         return;
