@@ -409,8 +409,10 @@ function messageHandler(data) {
           game.chess.reset();
           game.history.removeAll();
         } else {
-          game.chess.undo();
-          game.history.removeLast();
+          for (let i = 0; i < numMoves; i++) {
+            game.chess.undo();
+            game.history.removeLast();
+          }
         }
         return;
       }
