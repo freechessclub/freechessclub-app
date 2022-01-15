@@ -4,6 +4,7 @@
 
 // An online chess game
 export const game = {
+  id: 0,
   playerCaptured: {},
   oppCaptured: {},
   chess: null,
@@ -15,6 +16,7 @@ export const game = {
   wtime: 0,
   obs: false,
   examine: false,
+  watchers: null,
 };
 
 export default game;

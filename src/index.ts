@@ -315,6 +315,11 @@ function messageHandler(data) {
       } else {
         chat.createTab(data.player_one);
       }
+      game.id = +data.game_id;
+      session.send('allobs ' + data.game_id);
+      game.watchers = setInterval(() => {
+        session.send('allobs ' + data.game_id);
+      }, 30000);
       break;
     case MessageType.GameEnd:
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
@@ -345,6 +350,9 @@ function messageHandler(data) {
       showGameReq('Match', '', data.message, ['ex ' + data.winner + ' -1', 'Examine'], rematch);
       clearInterval(game.wclock);
       clearInterval(game.bclock);
+      clearInterval(game.watchers);
+      game.watchers = null;
+      game.id = 0;
       delete game.chess;
       game.chess = null;
       board.set({
@@ -357,6 +365,7 @@ function messageHandler(data) {
       break;
     case MessageType.Unknown:
     default:
+      data.message = data.message.replace(/\n/g, '');
       let takeBacker = null;
       let action = null;
       if (pendingTakeback) {
@@ -390,6 +399,24 @@ function messageHandler(data) {
             return;
           }
         }
+      }
+
+      const watchersReq = data.message.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
+      if (watchersReq != null && watchersReq.length > 1) {
+        if (+watchersReq[1] === game.id) {
+          watchersReq[2] = watchersReq[2].replace(/\(U\)/g, '');
+          const watchers = watchersReq[2].split(' ');
+          let req = 'Watchers: ';
+          for (let i = 0; i < watchers.length; i++) {
+            req += `<span class="badge rounded-pill bg-secondary noselect">` + watchers[i] + `</span> `;
+            if (i > 5) {
+              req += ` + ` + (watchers.length - i) + ` more.`;
+              break;
+            }
+          }
+          $('#game-watchers').html(req);
+        }
+        return;
       }
 
       const takebackReq = data.message.match(/(\w+) would like to take back (\d+) half move\(s\)\./);
@@ -512,7 +539,7 @@ function messageHandler(data) {
         game.examine = false;
       }
 
-      const chListMatches = data.message.match(/-- channel list: \d+ channels --(?:\n)([\d\s]*)/);
+      const chListMatches = data.message.match(/-- channel list: \d+ channels --([\d\s]*)/);
       if (chListMatches !== null && chListMatches.length > 1) {
         return chat.addChannels(chListMatches[1].split(/\s+/));
       }

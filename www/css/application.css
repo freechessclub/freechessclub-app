@@ -33,12 +33,14 @@
 }
 
 #game-status {
-  height: 133px;
-  width: 100%;
   text-align: center;
-  display: inline;
   font-weight: bold;
   color: rgba(80, 80, 120, 0.65);
+}
+
+#left-panel-bottom {
+  height: 150px;
+  width: 100%;
 }
 
 .chat-text strong.mine {
