@@ -365,16 +365,16 @@ function messageHandler(data) {
       break;
     case MessageType.Unknown:
     default:
-      data.message = data.message.replace(/\n/g, '');
+      let msg = data.message.replace(/\n/g, '');
       let takeBacker = null;
       let action = null;
       if (pendingTakeback) {
-        let takebackMatches = data.message.match(/(\w+) (\w+) the takeback request\./);
+        let takebackMatches = msg.match(/(\w+) (\w+) the takeback request\./);
         if (takebackMatches !== null && takebackMatches.length > 1) {
           takeBacker = takebackMatches[1];
           action = takebackMatches[2];
         } else {
-          takebackMatches = data.message.match(/You (\w+) the takeback request from (\w+)\./);
+          takebackMatches = msg.match(/You (\w+) the takeback request from (\w+)\./);
           if (takebackMatches !== null && takebackMatches.length > 1) {
             takeBacker = takebackMatches[2];
             action = takebackMatches[1];
@@ -401,7 +401,7 @@ function messageHandler(data) {
         }
       }
 
-      const watchersReq = data.message.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
+      const watchersReq = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
       if (watchersReq != null && watchersReq.length > 1) {
         if (+watchersReq[1] === game.id) {
           watchersReq[2] = watchersReq[2].replace(/\(U\)/g, '');
@@ -419,7 +419,7 @@ function messageHandler(data) {
         return;
       }
 
-      const takebackReq = data.message.match(/(\w+) would like to take back (\d+) half move\(s\)\./);
+      const takebackReq = msg.match(/(\w+) would like to take back (\d+) half move\(s\)\./);
       if (takebackReq != null && takebackReq.length > 1) {
         if (takebackReq[1] === $('#opponent-name').text()) {
           pendingTakeback = Number(takebackReq[2]);
@@ -429,7 +429,7 @@ function messageHandler(data) {
         return;
       }
 
-      const backupMsg = data.message.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
+      const backupMsg = msg.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
       if (backupMsg != null && backupMsg.length > 1) {
         const numMoves: number = +backupMsg[1];
         if (numMoves > game.chess.history().length) {
@@ -453,7 +453,7 @@ function messageHandler(data) {
       }
 
       const gameCreateMsg =
-        data.message.match(/(Creating|Game\s\d*): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
+        msg.match(/(Creating|Game\s\d*): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
       if (gameCreateMsg != null && gameCreateMsg.length > 4) {
         showStatusMsg(gameCreateMsg[0].substring(gameCreateMsg[0].indexOf(':')+1));
         if (gameCreateMsg[2] === session.getUser() || gameCreateMsg[1].startsWith('Game')) {
@@ -482,7 +482,7 @@ function messageHandler(data) {
         return;
       }
 
-      const challengeMsg = data.message.match(
+      const challengeMsg = msg.match(
         // tslint:disable-next-line:max-line-length
         /Challenge: (\w+) \(([\d\+\-\s]{4})\) (\w+) \(([\d\-\+\s]{4})\)\s((?:.+[\.\r\n])+)You can "accept" or "decline", or propose different parameters./m);
       if (challengeMsg != null && challengeMsg.length > 3) {
@@ -493,7 +493,7 @@ function messageHandler(data) {
         return;
       }
 
-      const abortMsg = data.message.match(
+      const abortMsg = msg.match(
         /(\w+) would like to abort the game; type "abort" to accept./);
       if (abortMsg != null && abortMsg.length > 1) {
         if (abortMsg[1] === $('#opponent-name').text()) {
@@ -503,7 +503,7 @@ function messageHandler(data) {
         return;
       }
 
-      const drawMsg = data.message.match(
+      const drawMsg = msg.match(
         /(\w+) offers you a draw./);
       if (drawMsg != null && drawMsg.length > 1) {
         if (drawMsg[1] === $('#opponent-name').text()) {
@@ -513,7 +513,7 @@ function messageHandler(data) {
         return;
       }
 
-      const unobsMsg = data.message.match(/Removing game (\d+) from observation list./);
+      const unobsMsg = msg.match(/Removing game (\d+) from observation list./);
       if (unobsMsg != null && unobsMsg.length > 1) {
         $('#new-game').text('New game');
         $('#new-game-menu').prop('disabled', false);
@@ -530,7 +530,7 @@ function messageHandler(data) {
         game.obs = false;
       }
 
-      const unexMsg = data.message.match(/You are no longer examining game (\d+)./);
+      const unexMsg = msg.match(/You are no longer examining game (\d+)./);
       if (unexMsg != null && unexMsg.length > 1) {
         $('#new-game').text('New game');
         $('#new-game-menu').prop('disabled', false);
@@ -547,15 +547,15 @@ function messageHandler(data) {
         game.examine = false;
       }
 
-      const chListMatches = data.message.match(/-- channel list: \d+ channels --([\d\s]*)/);
+      const chListMatches = msg.match(/-- channel list: \d+ channels --([\d\s]*)/);
       if (chListMatches !== null && chListMatches.length > 1) {
         return chat.addChannels(chListMatches[1].split(/\s+/));
       }
 
       if (
-        data.message === 'Style 12 set.' ||
-        data.message === 'You will not see seek ads.' ||
-        data.message === 'You will now hear communications echoed.'
+        msg === 'Style 12 set.' ||
+        msg === 'You will not see seek ads.' ||
+        msg === 'You will now hear communications echoed.'
       ) {
         return;
       }
