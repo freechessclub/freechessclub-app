@@ -528,6 +528,7 @@ function messageHandler(data) {
           },
         });
         game.obs = false;
+        return;
       }
 
       const unexMsg = msg.match(/You are no longer examining game (\d+)./);
@@ -545,6 +546,7 @@ function messageHandler(data) {
           },
         });
         game.examine = false;
+        return;
       }
 
       const chListMatches = msg.match(/-- channel list: \d+ channels --([\d\s]*)/);
