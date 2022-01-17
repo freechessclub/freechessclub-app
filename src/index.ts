@@ -229,10 +229,8 @@ function messageHandler(data) {
           movableColor = 'both';
         }
 
-        if (data.role === 0 || data.role === 2 || data.role === -2) {
-          const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
-          const loaded = game.chess.load(fen);
-        }
+        const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
+        const loaded = game.chess.load(fen);
         board.set({
           fen: game.chess.fen(),
           orientation: data.role === -1 ? 'black' : 'white',
@@ -285,20 +283,17 @@ function messageHandler(data) {
         }
       }
 
-      if (data.role === 0 || data.role === -2) {
-        const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
-        const loaded = game.chess.load(fen);
-      }
-
       if (data.role === undefined || data.role >= 0) {
+        let move = null;
         if (data.move !== 'none') {
-          const move = game.chess.move(data.move);
+          move = game.chess.move(data.move);
           if (move !== null) {
             movePieceAfter(move);
-          } else {
-            board.set({ fen: data.fen });
           }
-        } else {
+        }
+        if (data.move === 'none' || move === null) {
+          const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
+          const loaded = game.chess.load(fen);
           board.set({
             fen: data.fen,
             turnColor: data.turn === 'W' ? 'white' : 'black',
