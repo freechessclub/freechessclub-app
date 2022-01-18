@@ -861,6 +861,10 @@ $('#login-screen').on('show.bs.modal', (e) => {
   }
 });
 
+$('#sign-in').on('click', (event) => {
+  $('#login-screen').modal('show');
+});
+
 $('#connect-user').on('click', (event) => {
   $('#login-screen').modal('show');
 });
