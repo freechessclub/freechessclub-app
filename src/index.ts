@@ -379,6 +379,7 @@ function messageHandler(data) {
       clearInterval(game.bclock);
       clearInterval(game.watchers);
       game.watchers = null;
+      $('#game-watchers').empty();
       game.id = 0;
       delete game.chess;
       game.chess = null;
@@ -429,6 +430,7 @@ function messageHandler(data) {
       }
 
       const watchersReq = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
+      $('#game-watchers').empty();
       if (watchersReq != null && watchersReq.length > 1) {
         if (+watchersReq[1] === game.id) {
           watchersReq[2] = watchersReq[2].replace(/\(U\)/g, '');
@@ -461,6 +463,7 @@ function messageHandler(data) {
         if (+movelistReq[1] === game.id) {
           parseMovelist(movelistReq[0]);
         }
+        return;
       }
 
       const backupMsg = msg.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
