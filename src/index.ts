@@ -834,9 +834,10 @@ $('#login').on('click', (event) => {
   if (!session) {
     session = new Session(messageHandler, user, pass);
   } else {
-    if (!session.isConnected()) {
-      session.connect(user, pass);
+    if (session.isConnected()) {
+      session.disconnect();
     }
+    session.connect(user, pass);
   }
   if ($('#remember-me').prop('checked')) {
     Cookies.set('user', user, { expires: 365 });
@@ -861,11 +862,6 @@ $('#login-screen').on('show.bs.modal', (e) => {
 });
 
 $('#connect-user').on('click', (event) => {
-  if (session && session.isConnected()) {
-    session.disconnect();
-    session = null;
-  }
-
   $('#login-screen').modal('show');
 });
 

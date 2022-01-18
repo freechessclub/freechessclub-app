@@ -112,6 +112,7 @@ export class Session {
       this.websocket.close();
       this.connected = false;
       this.user = '';
+      this.reset(null);
     }
   }
 
