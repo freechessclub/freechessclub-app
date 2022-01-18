@@ -188,6 +188,29 @@ function showGameReq(type: string, title: string, msg: string, btnFailure: strin
   $('.toast').toast('show');
 }
 
+export function parseMovelist(movelist: string) {
+  const moves = [];
+  let found : string[] & { index?: number } = [''];
+  let n = 1;
+  const chess = Chess();
+  while (found !== null) {
+    found = movelist.match(new RegExp(n + '\\.\\s*(\\w*)\\s*(?:\\(\\d+:\\d+\\))\\s*(\\w*)\\s*(?:\\(\\d+:\\d+\\))?.*', 'm'));
+    if (found !== null && found.length > 1) {
+      const m1 = found[1].trim();
+      moves.push({move: m1, fen: chess.fen()});
+      chess.move(m1);
+      if (found.length > 2 && found[2] !== null) {
+        const m2 = found[2].trim();
+        moves.push({move: m2, fen: chess.fen()});
+        chess.move(m2);
+      }
+      n++;
+      movelist += movelist[found.index];
+    }
+  }
+  game.history.addPrev(moves);
+}
+
 function messageHandler(data) {
   if (data === undefined || data === null) {
     return;
@@ -217,6 +240,7 @@ function messageHandler(data) {
     case MessageType.GameMove:
       game.btime = data.black_time;
       game.wtime = data.white_time;
+      game.moveNo = data.move_no;
 
       if (game.chess === null) {
         game.chess = Chess();
@@ -245,7 +269,10 @@ function messageHandler(data) {
           },
           blockTouchScroll: true,
         });
-        game.history = new History(board);
+        game.history = new History(game.moveNo, board);
+        if (game.moveNo > 1) {
+          session.send('moves ' + data.game_id);
+        }
         game.playerCaptured = {};
         game.oppCaptured = {};
         $('#player-captured').text('');
@@ -270,6 +297,9 @@ function messageHandler(data) {
             } else {
               game.obs = true;
               $('#new-game').text('Unobserve game');
+              if (game.id === 0) {
+                game.id = data.game_id;
+              }
             }
             $('#new-game-menu').prop('disabled', true);
           }
@@ -362,7 +392,7 @@ function messageHandler(data) {
       break;
     case MessageType.Unknown:
     default:
-      let msg = data.message.replace(/\n/g, '');
+      const msg = data.message.replace(/\n/g, '');
       let takeBacker = null;
       let action = null;
       if (pendingTakeback) {
@@ -426,6 +456,13 @@ function messageHandler(data) {
         return;
       }
 
+      const movelistReq = msg.match(/^Movelist for game (\d+):.*/m);
+      if (movelistReq != null && movelistReq.length > 1) {
+        if (+movelistReq[1] === game.id) {
+          parseMovelist(movelistReq[0]);
+        }
+      }
+
       const backupMsg = msg.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
       if (backupMsg != null && backupMsg.length > 1) {
         const numMoves: number = +backupMsg[1];
@@ -450,10 +487,13 @@ function messageHandler(data) {
       }
 
       const gameCreateMsg =
-        msg.match(/(Creating|Game\s\d*): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
+        msg.match(/(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
       if (gameCreateMsg != null && gameCreateMsg.length > 4) {
         showStatusMsg(gameCreateMsg[0].substring(gameCreateMsg[0].indexOf(':')+1));
         if (gameCreateMsg[2] === session.getUser() || gameCreateMsg[1].startsWith('Game')) {
+          if (game.id === 0) {
+            game.id = +gameCreateMsg[2];
+          }
           if (!isNaN(gameCreateMsg[3])) {
             $('#player-rating').text(gameCreateMsg[3]);
           } else {

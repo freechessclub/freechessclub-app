@@ -7,6 +7,7 @@ export const game = {
   id: 0,
   playerCaptured: {},
   oppCaptured: {},
+  moveNo: 1,
   chess: null,
   color: '',
   history: null,

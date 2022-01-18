@@ -7,16 +7,17 @@ export class History {
   private moves: string[];
   private id: number;
 
-  constructor(board: any) {
+  constructor(id: number, board: any) {
     this.board = board;
-    this.moves = [ board.getFen() ];
-    this.id = 0;
+    this.moves = new Array(id);
+    this.moves[id-1] = board.getFen()
+    this.id = id-1;
 
     $('#move-history').empty();
 
-    (window as any).showMove = (id: number) => {
+    (window as any).showMove = (n: number) => {
       if (this) {
-        this.display(id);
+        this.display(n);
       }
     };
 
@@ -28,10 +29,18 @@ export class History {
     });
   }
 
+  public addPrev(moves: any[]): void {
+    for (let i = 0; i < moves.length; i++) {
+      const {move, fen} = moves[i];
+      this.moves[i] = fen;
+      this.update(move, i+1);
+    }
+  }
+
   public add(move: any, fen: string): void {
     this.moves.push(fen);
     this.id = this.moves.length - 1;
-    this.update(move);
+    this.update(move.san);
   }
 
   public removeLast(): void {
@@ -90,16 +99,18 @@ export class History {
     }
   }
 
-  private update(move: any): void {
-    const id: number = this.length();
+  private update(move: any, id?: number): void {
+    if (id === undefined) {
+      id = this.length();
+    }
     if (id % 2 === 1) {
       $('#move-history').append('<tr><th scope="row">'
         + (id + 1) / 2 + '</th><td><a href="javascript:void(0);" onclick="showMove(' + id + ')">'
-        + move.san + '</a></td><td></td></tr>');
+        + move + '</a></td><td></td></tr>');
       $('#left-panel').scrollTop(document.getElementById('left-panel').scrollHeight);
     } else {
       $('#move-history tr:last td').eq(1).html('<a href="javascript:void(0);" onclick="showMove(' +
-        id + ')">' + move.san + '</a>');
+        id + ')">' + move + '</a>');
     }
   }
 }
