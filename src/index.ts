@@ -221,7 +221,9 @@ function messageHandler(data) {
     case MessageType.Control:
       if (!session.isConnected() && data.command === 1) {
         session.setUser(data.control);
-        chat = new Chat(session.getUser());
+        if (!chat) {
+          chat = new Chat(session.getUser());
+        }
         session.send('=ch');
       } else if (data.command === 2) {
         if (session.isConnected()) {
@@ -873,10 +875,18 @@ $('#connect-guest').on('click', (event) => {
   if (!session) {
     session = new Session(messageHandler);
   } else {
-    if (!session.isConnected()) {
-      session.connect();
+    if (session.isConnected()) {
+      session.disconnect();
     }
+    session.connect();
   }
+});
+
+$('#login-as-guest').on('click', (event) => {
+  $('#login-user').val('guest');
+  $('#login-user').prop('disabled', true);
+  $('#login-pass').val('');
+  $('#login-pass').prop('disabled', true);
 });
 
 $(window).on('resize', () => {

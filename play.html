@@ -239,18 +239,27 @@
                   </button>
                 </div>
                 <div class="modal-body">
-                  <input id="login-user" type="text" class="form-control" placeholder="Username" autocomplete="off">
-                  <br/>
-                  <input id="login-pass" type="password" class="form-control" placeholder="Password" autocomplete="off">
-                  <br/>
-                  <div class="form-check">
-                    <label class="form-check-label">
-                      <input id="remember-me" type="checkbox" class="form-check-input">
-                      Remember me
-                    </label>
-                  </div>
-                  </br>
-                  Not a member? <a href="https://www.freechess.org/cgi-bin/Register/FICS_register.cgi?Language=English" target="_blank">Register</a> here.
+                  <form>
+                    <div class="mb-3">
+                      <input id="login-user" type="text" class="form-control" placeholder="Username" autocomplete="off">
+                    </div>
+                    <div class="mb-3">
+                      <input id="login-pass" type="password" class="form-control" placeholder="Password" autocomplete="off">
+                    </div>
+                    <div class="mb-3 form-check">
+                      <label class="form-check-label">
+                        <input id="login-as-guest" type="checkbox" class="form-check-input">
+                        Login as Guest
+                      </label>
+                    </div>
+                    <div class="mb-3 form-check">
+                      <label class="form-check-label">
+                        <input id="remember-me" type="checkbox" class="form-check-input">
+                        Remember me
+                      </label>
+                    </div>
+                    Not a member? <a href="https://www.freechess.org/cgi-bin/Register/FICS_register.cgi?Language=English" target="_blank">Register</a> here.
+                  </form>
                 </div>
                 <div class="modal-footer center">
                   <button type="button" id="login" class="btn btn-primary">Login</button>

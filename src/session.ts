@@ -107,13 +107,13 @@ export class Session {
   }
 
   public disconnect() {
+    $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-danger" role="status" aria-hidden="true"></span>Disconnecting...');
     if (this.isConnected()) {
-      $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-danger" role="status" aria-hidden="true"></span>Disconnecting...');
       this.websocket.close();
       this.connected = false;
       this.user = '';
-      this.reset(null);
     }
+    this.reset(null);
   }
 
   public reset(evt) {
