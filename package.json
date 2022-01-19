@@ -10,7 +10,7 @@
     "bundle": "webpack --mode production",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
-    "build": "node app.js && electron-builder -mwl -p always",
+    "build": "node app.js && electron-builder -mwl --x64 --arm64 -p always",
     "release": "yarn build"
   },
   "repository": {
