@@ -677,10 +677,10 @@ chess.js@^0.12.0:
   resolved "https://registry.yarnpkg.com/chess.js/-/chess.js-0.12.0.tgz#ffca1773b93a4aa044891de81286e264ca229b00"
   integrity sha512-eF1xf4j88r/AwIRxqV1FXZbVgMt4yUx05xrL+ZMqUrY+snFrUxGVHs0VgEd3AvngujDE9th7XZqqCwEKEQ7mWQ==
 
-chessground@^8.1.9:
-  version "8.1.9"
-  resolved "https://registry.yarnpkg.com/chessground/-/chessground-8.1.9.tgz#92e0c8113ca8cd45adf8a2a68c839fbc8cc5d5a8"
-  integrity sha512-IZSgOzNtQFE1YNAwtYJYqHwIY/+fHK5ZLhg6qq0nLM/580S1A3hcinfz7mxDwMMeIkcnM4n11IOQfrco9fcJIg==
+chessground@^8.2.0:
+  version "8.2.0"
+  resolved "https://registry.yarnpkg.com/chessground/-/chessground-8.2.0.tgz#11fe0393e53f94759fdaa6c407ebc64b4ce1bfd6"
+  integrity sha512-vEJCVD+ea9KZy0HuPvHA9QUhxElbaBChId44UZ0+cl90svP2EImgqeJkuX8ExC+dBKYn1FvzpNh10jrNX81jcQ==
 
 chrome-trace-event@^1.0.2:
   version "1.0.2"
