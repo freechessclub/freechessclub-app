@@ -495,28 +495,28 @@ function messageHandler(data) {
         msg.match(/(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
       if (gameCreateMsg != null && gameCreateMsg.length > 4) {
         showStatusMsg(gameCreateMsg[0].substring(gameCreateMsg[0].indexOf(':')+1));
-        if (gameCreateMsg[2] === session.getUser() || gameCreateMsg[1].startsWith('Game')) {
+        if (gameCreateMsg[3] === session.getUser() || gameCreateMsg[1].startsWith('Game')) {
           if (game.id === 0) {
             game.id = +gameCreateMsg[2];
           }
-          if (!isNaN(gameCreateMsg[3])) {
-            $('#player-rating').text(gameCreateMsg[3]);
+          if (!isNaN(gameCreateMsg[4])) {
+            $('#player-rating').text(gameCreateMsg[4]);
           } else {
             $('#player-rating').text('');
           }
-          if (!isNaN(gameCreateMsg[5])) {
-            $('#opponent-rating').text(gameCreateMsg[5]);
+          if (!isNaN(gameCreateMsg[6])) {
+            $('#opponent-rating').text(gameCreateMsg[6]);
           } else {
             $('#opponent-rating').text('');
           }
-        } else if (gameCreateMsg[4] === session.getUser()) {
-          if (!isNaN(gameCreateMsg[3])) {
-            $('#opponent-rating').text(gameCreateMsg[3]);
+        } else if (gameCreateMsg[5] === session.getUser()) {
+          if (!isNaN(gameCreateMsg[4])) {
+            $('#opponent-rating').text(gameCreateMsg[4]);
           } else {
             $('#opponent-rating').text('');
           }
-          if (!isNaN(gameCreateMsg[5])) {
-            $('#player-rating').text(gameCreateMsg[5]);
+          if (!isNaN(gameCreateMsg[6])) {
+            $('#player-rating').text(gameCreateMsg[6]);
           } else {
             $('#player-rating').text('');
           }
