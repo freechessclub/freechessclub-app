@@ -240,7 +240,7 @@ function findReopenMenuItem() {
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
   const minWidth = 1280;
-  const minHeight = 800;
+  const minHeight = 560;
   mainWindow = new BrowserWindow({
     width: Math.max(width * 0.8, minWidth),
     height: Math.max(height * 0.8, minHeight),

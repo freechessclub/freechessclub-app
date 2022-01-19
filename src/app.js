@@ -231,7 +231,7 @@ function findReopenMenuItem() {
 function createWindow() {
     var _a = electron_1.screen.getPrimaryDisplay().workAreaSize, width = _a.width, height = _a.height;
     var minWidth = 1280;
-    var minHeight = 800;
+    var minHeight = 560;
     mainWindow = new electron_1.BrowserWindow({
         width: Math.max(width * 0.8, minWidth),
         height: Math.max(height * 0.8, minHeight),
