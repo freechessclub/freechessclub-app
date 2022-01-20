@@ -92,10 +92,12 @@ export class Chat {
   private maximized: boolean;
   private autoscrollToggle: boolean;
   private notificationsToggle: boolean;
+  private timestampToggle: boolean;
 
   constructor(user: string) {
     this.autoscrollToggle = (Cookies.get('autoscroll') !== 'false');
     this.notificationsToggle = (Cookies.get('notifications') !== 'false');
+    this.timestampToggle = (Cookies.get('timestamp') !== 'true');
     // load emojis
     this.emojisLoaded = false;
     loadEmojis().then(() => {
@@ -176,6 +178,17 @@ export class Chat {
         '" aria-hidden="false"></span>Notifications ' + (this.notificationsToggle ? 'ON' : 'OFF'));
       Cookies.set('notifications', String(this.notificationsToggle), { expires: 365 })
     });
+
+    const timestampIcon = '<span id="timestamp-toggle-icon" class="fa fa-clock-o dropdown-icon" aria-hidden="false"></span>';
+    if (!this.timestampToggle) {
+      $('#timestamp-toggle').html(timestampIcon + 'Timestamp OFF');
+    }
+    $('#timestamp-toggle').on('click', (event) => {
+      this.timestampToggle = !this.timestampToggle;
+      $('#timestamp-toggle').html(timestampIcon + 'Timestamp ' + (this.timestampToggle ? 'ON' : 'OFF'));
+      Cookies.set('timestamp', String(this.timestampToggle), { expires: 365 })
+    });
+
   }
 
   public createTab(name: string) {
@@ -255,7 +268,13 @@ export class Chat {
           : null;
       },
     }) + '</br>';
-    tab.append(who + text);
+
+    let timestamp = '';
+    if (this.timestampToggle) {
+      timestamp = '<span class="timestamp">[' + new Date().toLocaleTimeString() + ']</span> ';
+    }
+
+    tab.append(timestamp + who + text);
 
     const tabheader = $('#' + from.toLowerCase().replace(/\s/g, '-'));
     if (tabheader.hasClass('active')) {
@@ -272,7 +291,12 @@ export class Chat {
       const currentTab = this.currentTab().toLowerCase().replace(/\s/g, '-');
       const tab = this.tabs[currentTab];
       msg = '<strong class="notification">' + msg + '</strong>';
-      tab.append(msg + '</br>');
+
+      let timestamp = '';
+      if (this.timestampToggle) {
+        timestamp = '<span class="timestamp">[' + new Date().toLocaleTimeString() + ']</span> ';
+      }
+      tab.append(timestamp + msg + '</br>');
     } else {
       this.newMessage('console', {message: msg});
     }

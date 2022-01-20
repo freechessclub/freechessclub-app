@@ -893,7 +893,7 @@ $('#connect-guest').on('click', (event) => {
 });
 
 $('#login-as-guest').on('click', (event) => {
-  if ($('#login-as-guest').is(":checked")) {
+  if ($('#login-as-guest').is(':checked')) {
     $('#login-user').val('guest');
     $('#login-user').prop('disabled', true);
     $('#login-pass').val('');

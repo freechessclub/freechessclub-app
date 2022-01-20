@@ -58,6 +58,12 @@
   color: rgba(140, 140, 140, 0.8);
 }
 
+.chat-text span.timestamp {
+  font-size: 0.75em;
+  font-variant: small-caps;
+  color: rgba(140, 140, 140, 0.8);
+}
+
 .chat-text a {
   text-decoration: none;
 }
