@@ -101,7 +101,7 @@ export class Chat {
     });
 
     this.user = user;
-    this.userRE = new RegExp('\\b' + user + '\\b', 'ig')
+    this.userRE = new RegExp('\\b' + user + '\\b', 'ig');
     this.maximized = false;
 
     // initialize tabs
@@ -164,7 +164,7 @@ export class Chat {
   }
 
   public createTab(name: string) {
-    const from = name.toLowerCase();
+    const from = name.toLowerCase().replace(/\s/g, '-');
     if (this.tabs.hasOwnProperty(from)) {
       return this.tabs[from];
     }
@@ -242,7 +242,7 @@ export class Chat {
     }) + '</br>';
     tab.append(who + text);
 
-    const tabheader = $('#' + from.toLowerCase());
+    const tabheader = $('#' + from.toLowerCase().replace(/\s/g, '-'));
     if (tabheader.hasClass('active')) {
       if (this.autoscrollToggle) {
         tab.scrollTop(tab[0].scrollHeight);

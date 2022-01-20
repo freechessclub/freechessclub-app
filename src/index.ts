@@ -630,7 +630,11 @@ $('#input-form').on('submit', (event) => {
   const tab = chat.currentTab();
   if (tab !== 'console') {
     if (val.charAt(0) !== '@') {
-      text = 't ' + tab + ' ' + val;
+      if (tab.startsWith('game-')) {
+        text = 'kib ' + val;
+      } else {
+        text = 't ' + tab + ' ' + val;
+      }
     } else {
       text = val.substr(1);
     }
