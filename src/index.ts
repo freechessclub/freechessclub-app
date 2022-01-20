@@ -596,6 +596,12 @@ function messageHandler(data) {
         return chat.addChannels(chListMatches[1].split(/\s+/));
       }
 
+      const notifyMsg = msg.match(/^Notification: .*/);
+      if (notifyMsg != null && notifyMsg.length > 0) {
+        chat.newNotification(notifyMsg[0]);
+        return;
+      }
+
       if (
         msg === 'Style 12 set.' ||
         msg === 'You will not see seek ads.' ||

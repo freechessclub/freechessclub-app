@@ -91,9 +91,11 @@ export class Chat {
   private emojisLoaded: boolean;
   private maximized: boolean;
   private autoscrollToggle: boolean;
+  private notificationsToggle: boolean;
 
   constructor(user: string) {
     this.autoscrollToggle = (Cookies.get('autoscroll') !== 'false');
+    this.notificationsToggle = (Cookies.get('notifications') !== 'false');
     // load emojis
     this.emojisLoaded = false;
     loadEmojis().then(() => {
@@ -160,6 +162,19 @@ export class Chat {
       $('#autoscroll-toggle').html('<span id="autoscroll-toggle-icon" class="' + iconClass +
         '" aria-hidden="false"></span>Auto-scroll ' + (this.autoscrollToggle ? 'ON' : 'OFF'));
       Cookies.set('autoscroll', String(this.autoscrollToggle), { expires: 365 })
+    });
+
+    if (!this.notificationsToggle) {
+      const iconClass = 'dropdown-icon fa fa-bell-slash';
+      $('#notifications-toggle').html('<span id="notifications-toggle-icon" class="' + iconClass +
+        '" aria-hidden="false"></span>Notifications OFF');
+    }
+    $('#notifications-toggle').on('click', (event) => {
+      this.notificationsToggle = !this.notificationsToggle;
+      const iconClass = 'dropdown-icon fa fa-bell' + (this.notificationsToggle ? '' : '-slash');
+      $('#notifications-toggle').html('<span id="notifications-toggle-icon" class="' + iconClass +
+        '" aria-hidden="false"></span>Notifications ' + (this.notificationsToggle ? 'ON' : 'OFF'));
+      Cookies.set('notifications', String(this.notificationsToggle), { expires: 365 })
     });
   }
 
@@ -249,6 +264,17 @@ export class Chat {
       }
     } else {
       tabheader.css('color', 'tomato');
+    }
+  }
+
+  public newNotification(msg: string) {
+    if (this.notificationsToggle) {
+      const currentTab = this.currentTab().toLowerCase().replace(/\s/g, '-');
+      const tab = this.tabs[currentTab];
+      msg = '<strong class="notification">' + msg + '</strong>';
+      tab.append(msg + '</br>');
+    } else {
+      this.newMessage('console', {message: msg});
     }
   }
 }
