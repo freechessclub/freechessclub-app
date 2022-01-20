@@ -97,7 +97,7 @@ export class Chat {
   constructor(user: string) {
     this.autoscrollToggle = (Cookies.get('autoscroll') !== 'false');
     this.notificationsToggle = (Cookies.get('notifications') !== 'false');
-    this.timestampToggle = (Cookies.get('timestamp') !== 'true');
+    this.timestampToggle = (Cookies.get('timestamp') !== 'false');
     // load emojis
     this.emojisLoaded = false;
     loadEmojis().then(() => {
