@@ -887,10 +887,17 @@ $('#connect-guest').on('click', (event) => {
 });
 
 $('#login-as-guest').on('click', (event) => {
-  $('#login-user').val('guest');
-  $('#login-user').prop('disabled', true);
-  $('#login-pass').val('');
-  $('#login-pass').prop('disabled', true);
+  if ($('#login-as-guest').is(":checked")) {
+    $('#login-user').val('guest');
+    $('#login-user').prop('disabled', true);
+    $('#login-pass').val('');
+    $('#login-pass').prop('disabled', true);
+  } else {
+    $('#login-user').val('');
+    $('#login-user').prop('disabled', false);
+    $('#login-pass').val('');
+    $('#login-pass').prop('disabled', false);
+  }
 });
 
 $(window).on('resize', () => {
