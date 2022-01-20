@@ -348,7 +348,7 @@ function messageHandler(data) {
       session.send('allobs ' + data.game_id);
       game.watchers = setInterval(() => {
         session.send('allobs ' + data.game_id);
-      }, 30000);
+      }, 60000);
       break;
     case MessageType.GameEnd:
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
