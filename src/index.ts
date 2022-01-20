@@ -347,7 +347,10 @@ function messageHandler(data) {
       game.id = +data.game_id;
       session.send('allobs ' + data.game_id);
       game.watchers = setInterval(() => {
-        session.send('allobs ' + data.game_id);
+        const time = game.color == 'b' ? game.btime : game.wtime;
+        if (time > 60) {
+          session.send('allobs ' + data.game_id);
+        }
       }, 60000);
       break;
     case MessageType.GameEnd:
