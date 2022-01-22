@@ -66,7 +66,7 @@ export class Session {
   }
 
   public connect(user?: string, pass?: string) {
-    $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span>Connecting...');
+    $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');
     const login = (user !== undefined && pass !== undefined);
     let loginOptions = '';
     if (login) {
@@ -101,19 +101,19 @@ export class Session {
     this.websocket.onclose = this.reset;
     if (login) {
       this.websocket.onopen = () => {
+        $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');
         this.websocket.send(text);
       };
     }
   }
 
   public disconnect() {
-    $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-danger" role="status" aria-hidden="true"></span>Disconnecting...');
+    $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-danger" role="status" aria-hidden="true"></span> Disconnecting...');
     if (this.isConnected()) {
       this.websocket.close();
       this.connected = false;
       this.user = '';
     }
-    this.reset(null);
   }
 
   public reset(evt) {
