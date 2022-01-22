@@ -726,7 +726,7 @@ function onDeviceReady() {
   const boardHeight = $('#board').height();
   if (boardHeight) {
     $('.chat-text').height(boardHeight - 90);
-    $('#left-panel').height(boardHeight - 255);
+    $('#left-panel').height(boardHeight - 215);
   }
 }
 
@@ -955,7 +955,7 @@ $(window).on('resize', () => {
   const boardHeight = $('#board').height();
   if (boardHeight) {
     $('.chat-text').height(boardHeight - 90);
-    $('#left-panel').height(boardHeight - 255);
+    $('#left-panel').height(boardHeight - 215);
   }
 });
 
