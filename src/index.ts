@@ -356,7 +356,7 @@ function messageHandler(data) {
         if (time > 60) {
           session.send('allobs ' + data.game_id);
         }
-      }, 60000);
+      }, 90000);
       break;
     case MessageType.GameEnd:
       $('#playing-game').show();
