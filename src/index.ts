@@ -1019,7 +1019,7 @@ function showGames(games: string) {
   if (!$('#pills-observe').hasClass('show')) {
     return;
   }
-  for (const g of games.split('\n').slice(0, -2)) {
+  for (const g of games.split('\n').slice(0, -2).reverse()) {
     const gg = g.trim();
     const id = gg.split(' ')[0];
     $('#games-table').append(
