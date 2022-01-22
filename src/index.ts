@@ -338,6 +338,8 @@ function messageHandler(data) {
       }
       break;
     case MessageType.GameStart:
+      $('#playing-game').hide();
+      $('#pills-game-tab').tab('show');
       const user = session.getUser();
       if (data.player_one === user) {
         chat.createTab(data.player_two);
@@ -347,13 +349,14 @@ function messageHandler(data) {
       game.id = +data.game_id;
       session.send('allobs ' + data.game_id);
       game.watchers = setInterval(() => {
-        const time = game.color == 'b' ? game.btime : game.wtime;
+        const time = game.color === 'b' ? game.btime : game.wtime;
         if (time > 60) {
           session.send('allobs ' + data.game_id);
         }
       }, 60000);
       break;
     case MessageType.GameEnd:
+      $('#playing-game').show();
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
         // player won
         $('#player-status').css('background-color', '#d4f9d9');
@@ -460,6 +463,20 @@ function messageHandler(data) {
           showGameReq('Takeback', takebackReq[1], 'would like to take back ' + takebackReq[2] + ' half move(s).',
             ['decline', 'Decline'], ['accept', 'Accept']);
         }
+        return;
+      }
+
+      const gamesReq = msg.match(/.*\d+\s[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s+\[\s*[bsl]r.*\]\s+\d+:\d+\s\-\s+\d+:\d+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed./g);
+      if (gamesReq != null && gamesReq.length > 0) {
+        showGames(data.message);
+        chat.newMessage('console', data);
+        return;
+      }
+
+      const historyReq = msg.match(/^History for (\w+):.*/m);
+      if (historyReq != null && historyReq.length > 1) {
+        showHistory(historyReq[1], data.message);
+        chat.newMessage('console', data);
         return;
       }
 
@@ -921,5 +938,83 @@ $(window).on('resize', () => {
 $(window).on('beforeunload', () => {
   if (game.chess) {
     return true;
+  }
+});
+
+function getHistory(user: string) {
+  if (session && session.isConnected()) {
+    session.send('hist ' + user);
+  }
+}
+
+export function parseHistory(history: string) {
+  const h = history.split('\n');
+  h.splice(0, 2);
+  return h;
+}
+
+(window as any).showGameTab = () => {
+  $('#pills-game-tab').tab('show');
+};
+
+function showHistory(user: string, history: string) {
+  if (!$('#pills-examine').hasClass('show')) {
+    return;
+  }
+  const exUser = getValue('#examine-username');
+  if (exUser !== user) {
+    return;
+  }
+  for (const g of parseHistory(history)) {
+    const id = g.slice(0, g.indexOf(':'));
+    $('#history-table').append(
+      `<button type="button" class="btn btn-outline-secondary" onclick="sessionSend('ex ` + user + ' ' +
+      + id + `'); showGameTab();">` + g + `</button>`);
+  }
+}
+
+$(document).on('shown.bs.tab', 'button[data-bs-target="#pills-examine"]', (e) => {
+  $('#history-table').html('');
+  let username = getValue('#examine-username');
+  if (username === undefined || username === '') {
+    if (session) {
+      username = session.getUser();
+      $('#examine-username').val(username);
+    }
+  }
+  getHistory(username);
+});
+
+$('#examine-go').on('click', (event) => {
+  const username = getValue('#examine-username');
+  getHistory(username);
+});
+
+$('#examine-username').on('change', () => {
+  $('#history-table').html('');
+});
+
+$('#observe-go').on('click', (event) => {
+  const username = getValue('#observe-username');
+  session.send('obs ' + username);
+});
+
+function showGames(games: string) {
+  if (!$('#pills-observe').hasClass('show')) {
+    return;
+  }
+  for (const g of games.split('\n').slice(0, -2)) {
+    const gg = g.trim();
+    const id = gg.split(' ')[0];
+    $('#games-table').append(
+      `<button type="button" class="btn btn-outline-secondary" onclick="sessionSend('obs ` +
+      + id + `'); showGameTab();">` + gg + `</button>`);
+  }
+}
+
+$(document).on('shown.bs.tab', 'button[data-bs-target="#pills-observe"]', (e) => {
+  $('#games-table').html('');
+  if (session && session.isConnected()) {
+    session.send('games /bsl');
   }
 });

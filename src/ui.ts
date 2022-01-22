@@ -2,7 +2,6 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import * as bootstrap from 'bootstrap';
 import Cookies from 'js-cookie';
 import {version} from '../package.json';
 

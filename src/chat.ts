@@ -205,12 +205,12 @@ export class Chat {
     $('<li class="nav-item"><a class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-' +
       from + '" id="' + from + '" role="tab">' + chName +
       '<span class="btn btn-default btn-sm closeTab">×</span></a></li>').appendTo('#tabs');
-    $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('.tab-content');
+    $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('#chat-tabContent');
     const boardHeight = $('#board').height();
     if (boardHeight) {
       $('.chat-text').height(boardHeight - 90);
     } else {
-      $('#content-' + from).height($('.tab-content').height());
+      $('#content-' + from).height($('#chat-tabContent').height());
     }
     this.tabs[from] = $('#content-' + from);
     return this.tabs[from];

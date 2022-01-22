@@ -151,8 +151,6 @@ a.logo img {
 .nav-link2,
 .nav-link {
   text-decoration: none;
-  font-size: 22px;
-  line-height: 30px;
   color: inherit;
 }
 .nav-link:not(:first-of-type) {
