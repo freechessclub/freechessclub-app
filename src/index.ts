@@ -21,8 +21,10 @@ let chat: Chat;
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
 
-// pending takeback requests
 let pendingTakeback = 0;
+let historyRequested = false;
+let gamesRequested = false;
+let movelistRequested = false;
 
 function showCapturePiece(color: string, p: string): void {
   if (game.color === color) {
@@ -273,6 +275,7 @@ function messageHandler(data) {
         });
         game.history = new History(game.moveNo, board);
         if (game.moveNo > 1) {
+          movelistRequested = true;
           session.send('moves ' + data.game_id);
         }
         game.playerCaptured = {};
@@ -404,16 +407,17 @@ function messageHandler(data) {
       const msg = data.message.replace(/\n/g, '');
       let takeBacker = null;
       let action = null;
+      let match = null;
       if (pendingTakeback) {
-        let takebackMatches = msg.match(/(\w+) (\w+) the takeback request\./);
-        if (takebackMatches !== null && takebackMatches.length > 1) {
-          takeBacker = takebackMatches[1];
-          action = takebackMatches[2];
+        match = msg.match(/(\w+) (\w+) the takeback request\./);
+        if (match !== null && match.length > 1) {
+          takeBacker = match[1];
+          action = match[2];
         } else {
-          takebackMatches = msg.match(/You (\w+) the takeback request from (\w+)\./);
-          if (takebackMatches !== null && takebackMatches.length > 1) {
-            takeBacker = takebackMatches[2];
-            action = takebackMatches[1];
+          match = msg.match(/You (\w+) the takeback request from (\w+)\./);
+          if (match !== null && match.length > 1) {
+            takeBacker = match[2];
+            action = match[1];
           }
         }
 
@@ -437,12 +441,12 @@ function messageHandler(data) {
         }
       }
 
-      const watchersReq = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
+      match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
       $('#game-watchers').empty();
-      if (watchersReq != null && watchersReq.length > 1) {
-        if (+watchersReq[1] === game.id) {
-          watchersReq[2] = watchersReq[2].replace(/\(U\)/g, '');
-          const watchers = watchersReq[2].split(' ');
+      if (match != null && match.length > 1) {
+        if (+match[1] === game.id) {
+          match[2] = match[2].replace(/\(U\)/g, '');
+          const watchers = match[2].split(' ');
           let req = 'Watchers: ';
           for (let i = 0; i < watchers.length; i++) {
             req += `<span class="badge rounded-pill bg-secondary noselect">` + watchers[i] + `</span> `;
@@ -456,41 +460,55 @@ function messageHandler(data) {
         return;
       }
 
-      const takebackReq = msg.match(/(\w+) would like to take back (\d+) half move\(s\)\./);
-      if (takebackReq != null && takebackReq.length > 1) {
-        if (takebackReq[1] === $('#opponent-name').text()) {
-          pendingTakeback = Number(takebackReq[2]);
-          showGameReq('Takeback', takebackReq[1], 'would like to take back ' + takebackReq[2] + ' half move(s).',
+      match = msg.match(/(\w+) would like to take back (\d+) half move\(s\)\./);
+      if (match != null && match.length > 1) {
+        if (match[1] === $('#opponent-name').text()) {
+          pendingTakeback = Number(match[2]);
+          showGameReq('Takeback', match[1], 'would like to take back ' + match[2] + ' half move(s).',
             ['decline', 'Decline'], ['accept', 'Accept']);
         }
         return;
       }
 
-      const gamesReq = msg.match(/.*\d+\s[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s+\[\s*[bsl]r.*\]\s+\d+:\d+\s\-\s+\d+:\d+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed./g);
-      if (gamesReq != null && gamesReq.length > 0) {
+      match = msg.match(/.*\d+\s[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s+\[\s*[bsl]r.*\]\s+\d+:\d+\s\-\s+\d+:\d+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed./g);
+      if (match != null && match.length > 0) {
         showGames(data.message);
-        chat.newMessage('console', data);
-        return;
-      }
-
-      const historyReq = msg.match(/^History for (\w+):.*/m);
-      if (historyReq != null && historyReq.length > 1) {
-        showHistory(historyReq[1], data.message);
-        chat.newMessage('console', data);
-        return;
-      }
-
-      const movelistReq = msg.match(/^Movelist for game (\d+):.*/m);
-      if (movelistReq != null && movelistReq.length > 1) {
-        if (+movelistReq[1] === game.id) {
-          parseMovelist(movelistReq[0]);
+        if (!gamesRequested) {
+          chat.newMessage('console', data);
+        } else {
+          gamesRequested = false;
         }
         return;
       }
 
-      const backupMsg = msg.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
-      if (backupMsg != null && backupMsg.length > 1) {
-        const numMoves: number = +backupMsg[1];
+      match = msg.match(/^History for (\w+):.*/m);
+      if (match != null && match.length > 1) {
+        showHistory(match[1], data.message);
+        if (!historyRequested) {
+          chat.newMessage('console', data);
+        } else {
+          historyRequested = false;
+        }
+        return;
+      }
+
+      match = msg.match(/^Movelist for game (\d+):.*/m);
+      if (match != null && match.length > 1) {
+        if (+match[1] === game.id) {
+          parseMovelist(match[0]);
+          if (!movelistRequested) {
+            chat.newMessage('console', data);
+          } else {
+            movelistRequested = false;
+          }
+
+        }
+        return;
+      }
+
+      match = msg.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
+      if (match != null && match.length > 1) {
+        const numMoves: number = +match[1];
         if (numMoves > game.chess.history().length) {
           if (game.chess) {
             game.chess.reset();
@@ -511,32 +529,31 @@ function messageHandler(data) {
         return;
       }
 
-      const gameCreateMsg =
-        msg.match(/(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
-      if (gameCreateMsg != null && gameCreateMsg.length > 4) {
-        showStatusMsg(gameCreateMsg[0].substring(gameCreateMsg[0].indexOf(':')+1));
-        if (gameCreateMsg[3] === session.getUser() || gameCreateMsg[1].startsWith('Game')) {
+      match = msg.match(/(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
+      if (match != null && match.length > 4) {
+        showStatusMsg(match[0].substring(match[0].indexOf(':')+1));
+        if (match[3] === session.getUser() || match[1].startsWith('Game')) {
           if (game.id === 0) {
-            game.id = +gameCreateMsg[2];
+            game.id = +match[2];
           }
-          if (!isNaN(gameCreateMsg[4])) {
-            $('#player-rating').text(gameCreateMsg[4]);
+          if (!isNaN(match[4])) {
+            $('#player-rating').text(match[4]);
           } else {
             $('#player-rating').text('');
           }
-          if (!isNaN(gameCreateMsg[6])) {
-            $('#opponent-rating').text(gameCreateMsg[6]);
+          if (!isNaN(match[6])) {
+            $('#opponent-rating').text(match[6]);
           } else {
             $('#opponent-rating').text('');
           }
-        } else if (gameCreateMsg[5] === session.getUser()) {
-          if (!isNaN(gameCreateMsg[4])) {
-            $('#opponent-rating').text(gameCreateMsg[4]);
+        } else if (match[5] === session.getUser()) {
+          if (!isNaN(match[4])) {
+            $('#opponent-rating').text(match[4]);
           } else {
             $('#opponent-rating').text('');
           }
-          if (!isNaN(gameCreateMsg[6])) {
-            $('#player-rating').text(gameCreateMsg[6]);
+          if (!isNaN(match[6])) {
+            $('#player-rating').text(match[6]);
           } else {
             $('#player-rating').text('');
           }
@@ -544,39 +561,37 @@ function messageHandler(data) {
         return;
       }
 
-      const challengeMsg = msg.match(
+      match = msg.match(
         // tslint:disable-next-line:max-line-length
         /Challenge: (\w+) \(([\d\+\-\s]{4})\) (\w+) \(([\d\-\+\s]{4})\)\s((?:.+[\.\r\n])+)You can "accept" or "decline", or propose different parameters./m);
-      if (challengeMsg != null && challengeMsg.length > 3) {
-        const [opponentName, opponentRating] = (challengeMsg[1] === session.getUser()) ?
-          challengeMsg.slice(3, 5) : challengeMsg.slice(1, 3);
+      if (match != null && match.length > 3) {
+        const [opponentName, opponentRating] = (match[1] === session.getUser()) ?
+          match.slice(3, 5) : match.slice(1, 3);
         showGameReq('Match', opponentName + '(' + opponentRating + ')',
-          challengeMsg[5], ['decline', 'Decline'], ['accept', 'Accept']);
+          match[5], ['decline', 'Decline'], ['accept', 'Accept']);
         return;
       }
 
-      const abortMsg = msg.match(
-        /(\w+) would like to abort the game; type "abort" to accept./);
-      if (abortMsg != null && abortMsg.length > 1) {
-        if (abortMsg[1] === $('#opponent-name').text()) {
-          showGameReq('Abort', abortMsg[1], 'would like to abort the game.',
+      match = msg.match(/(\w+) would like to abort the game; type "abort" to accept./);
+      if (match != null && match.length > 1) {
+        if (match[1] === $('#opponent-name').text()) {
+          showGameReq('Abort', match[1], 'would like to abort the game.',
             ['decline', 'Decline'], ['accept', 'Accept']);
         }
         return;
       }
 
-      const drawMsg = msg.match(
-        /(\w+) offers you a draw./);
-      if (drawMsg != null && drawMsg.length > 1) {
-        if (drawMsg[1] === $('#opponent-name').text()) {
-          showGameReq('Draw', drawMsg[1], 'offers you a draw.',
+      match = msg.match(/(\w+) offers you a draw./);
+      if (match != null && match.length > 1) {
+        if (match[1] === $('#opponent-name').text()) {
+          showGameReq('Draw', match[1], 'offers you a draw.',
             ['decline', 'Decline'], ['accept', 'Accept']);
         }
         return;
       }
 
-      const unobsMsg = msg.match(/Removing game (\d+) from observation list./);
-      if (unobsMsg != null && unobsMsg.length > 1) {
+      match = msg.match(/Removing game (\d+) from observation list./);
+      if (match != null && match.length > 1) {
         $('#new-game').text('New game');
         $('#new-game-menu').prop('disabled', false);
         clearInterval(game.wclock);
@@ -593,8 +608,8 @@ function messageHandler(data) {
         return;
       }
 
-      const unexMsg = msg.match(/You are no longer examining game (\d+)./);
-      if (unexMsg != null && unexMsg.length > 1) {
+      match = msg.match(/You are no longer examining game (\d+)./);
+      if (match != null && match.length > 1) {
         $('#new-game').text('New game');
         $('#new-game-menu').prop('disabled', false);
         clearInterval(game.wclock);
@@ -611,14 +626,14 @@ function messageHandler(data) {
         return;
       }
 
-      const chListMatches = msg.match(/-- channel list: \d+ channels --([\d\s]*)/);
-      if (chListMatches !== null && chListMatches.length > 1) {
-        return chat.addChannels(chListMatches[1].split(/\s+/));
+      match = msg.match(/-- channel list: \d+ channels --([\d\s]*)/);
+      if (match !== null && match.length > 1) {
+        return chat.addChannels(match[1].split(/\s+/));
       }
 
-      const notifyMsg = msg.match(/^Notification: .*/);
-      if (notifyMsg != null && notifyMsg.length > 0) {
-        chat.newNotification(notifyMsg[0]);
+      match = msg.match(/^Notification: .*/);
+      if (match != null && match.length > 0) {
+        chat.newNotification(match[0]);
         return;
       }
 
@@ -943,6 +958,7 @@ $(window).on('beforeunload', () => {
 
 function getHistory(user: string) {
   if (session && session.isConnected()) {
+    historyRequested = true;
     session.send('hist ' + user);
   }
 }
@@ -1015,6 +1031,7 @@ function showGames(games: string) {
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-observe"]', (e) => {
   $('#games-table').html('');
   if (session && session.isConnected()) {
+    gamesRequested = true;
     session.send('games /bsl');
   }
 });
