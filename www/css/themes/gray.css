@@ -17,3 +17,6 @@
 .nav-link {
   color: lightgray;
 }
+#left-menu .btn-outline-secondary {
+  color: lightgray;
+}
