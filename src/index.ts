@@ -636,6 +636,16 @@ function messageHandler(data) {
         chat.newNotification(match[0]);
         return;
       }
+      match = msg.match(/^\w+ is not logged in./);
+      if (match != null && match.length > 0) {
+        chat.newNotification(match[0]);
+        return;
+      }
+      match = msg.match(/^Player \w+ is censoring you./);
+      if (match != null && match.length > 0) {
+        chat.newNotification(match[0]);
+        return;
+      }
 
       if (
         msg === 'Style 12 set.' ||
