@@ -88,23 +88,23 @@
                           <span class="input-group-text" id="opponent-player">Play against</span>
                           <input type="text" class="form-control" id="opponent-player-name" placeholder="Player name" aria-describedby="opponent-player">
                         </div>
-                        <a href="#" class="btn btn-primary btn-md disabled p-0" role="button" aria-disabled="true">Lightning</a>
+                        <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Lightning</a>
                         <div class="btn-group" role="group" aria-label="Lightning">
                           <button type="button" class="btn btn-outline-secondary btn-md" id="onezero">1 + 0</button>
                         </div>
-                        <a href="#" class="btn btn-success btn-md disabled p-0" role="button" aria-disabled="true">Blitz</a>
+                        <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Blitz</a>
                         <div class="btn-group" role="group" aria-label="Blitz">
                           <button type="button" class="btn btn-outline-secondary btn-md" id="threezero">3 + 0</button>
                           <button type="button" class="btn btn-outline-secondary btn-md" id="threetwo">3 + 2</button>
                           <button type="button" class="btn btn-outline-secondary btn-md" id="fivezero">5 + 0</button>
                           <button type="button" class="btn btn-outline-secondary btn-md" id="fivefive">5 + 5</button>
                         </div>
-                        <a href="#" class="btn btn-info btn-md disabled p-0" role="button" aria-disabled="true">Standard</a>
+                        <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Standard</a>
                         <div class="btn-group" role="group" aria-label="Standard">
                           <button type="button" class="btn btn-outline-secondary btn-md" id="tenfive">10 + 5</button>
                           <button type="button" class="btn btn-outline-secondary btn-md" id="fifteenzero">15 + 0</button>
                         </div>
-                        <a href="#" class="btn btn-danger btn-md disabled p-0" role="button" aria-disabled="true">Custom</a>
+                        <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Custom</a>
                         <div class="input-group">
                           <input type="text" class="form-control text-center" placeholder="5" id="custom-control-min">
                           <span class="input-group-text"> min </span>
@@ -113,6 +113,22 @@
                           <span class="input-group-append">
                             <button class="btn btn-outline-secondary btn-md" type="button" id="custom-control">Go</button>
                           </span>
+                        </div>
+                        <div class="btn-group dropup" role="group" aria-label="Study">
+                          <button type="button" class="btn btn-outline-secondary btn-md" id="puzzlebot">Puzzle</button>
+                          <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Endgames</button>
+                          <ul class="dropdown-menu dropdown-menu-end" id="endgamebot">
+                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kpk'); showGameTab();">kpk</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kbnk'); showGameTab();">kbnk</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kbbk'); showGameTab();">kbbk</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqk'); showGameTab();">kqk</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play krpkr'); showGameTab();">krpkr</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play krk'); showGameTab();">krk</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqkr'); showGameTab();">kqkr</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kpkp'); showGameTab();">kpkp</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqpkq'); showGameTab();">kqpkq</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play knnkp'); showGameTab();">knnkp</a></li>
+                          </ul>
                         </div>
                       </div>
                     </div>
@@ -126,7 +142,7 @@
                     </div>
                     <div class="tab-pane fade" id="pills-examine" role="tabpanel" aria-labelledby="pills-examine-tab">
                       <div class="input-group">
-                        <span class="input-group-text" id="examine-user">Examine</span>
+                        <span class="input-group-text" id="examine-user">History</span>
                         <input type="text" class="form-control" id="examine-username" placeholder="Player name" aria-describedby="examine-user">
                         <button type="button" class="btn btn-outline-secondary btn-md" id="examine-go">Go</button>
                       </div>
