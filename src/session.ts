@@ -116,7 +116,7 @@ export class Session {
     }
   }
 
-  public reset(evt) {
+  public reset(_e: any) {
     $('#chat-status').html('<span class="fa fa-circle text-danger" aria-hidden="false"></span> Offline');
   }
 

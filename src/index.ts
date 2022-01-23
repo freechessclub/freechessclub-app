@@ -1045,3 +1045,8 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-observe"]', (e) =>
     session.send('games /bsl');
   }
 });
+
+$('#puzzlebot').on('click', (event) => {
+  session.send('t puzzlebot getmate');
+  $('#pills-game-tab').tab('show');
+});
