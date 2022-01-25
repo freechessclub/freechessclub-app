@@ -226,6 +226,10 @@ function messageHandler(data) {
         if (!chat) {
           chat = new Chat(session.getUser());
         }
+        session.send('set seek 0');
+        session.send('set echo 1');
+        session.send('set style 12');
+        session.send('set interface www.freechess.club');
         session.send('=ch');
       } else if (data.command === 2) {
         if (session.isConnected()) {
