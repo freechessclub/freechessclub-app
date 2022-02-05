@@ -167,13 +167,19 @@ function showStatusMsg(msg: string) {
   $('#game-status').html(msg + '<br/>');
 }
 
-function showGameReq(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[]) {
+function showGameReq(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress: boolean = false) {
   let req = `
   <div class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
     <div class="toast-header"><strong class="me-auto">` + type + ` Request</strong>
     <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button></div>
-    <div class="toast-body">
-    <p class="text-primary">` + title + ' ' + msg + `</p><div class="mt-2 pt-2 border-top center">`;
+    <div class="toast-body"><div class="d-flex align-items-center">
+    <strong class="text-primary my-auto">` + title + ' ' + msg + `</strong>`;
+
+  if (progress) {
+    req += `<div class="spinner-border ms-auto" role="status" aria-hidden="true"></div>`;
+  }
+
+  req += `</div><div class="mt-2 pt-2 border-top center">`;
 
   if (btnSuccess !== undefined && btnSuccess.length === 2) {
     req += `<button type="button" id="btn-success" onclick="sessionSend('` + btnSuccess[0] + `');" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
@@ -186,7 +192,7 @@ function showGameReq(type: string, title: string, msg: string, btnFailure: strin
   }
 
   req += `</div></div></div>`;
-  $('#game-requests').html(req);
+  $('#game-requests').append(req);
   $('.toast').toast('show');
 }
 
@@ -345,6 +351,7 @@ function messageHandler(data) {
       }
       break;
     case MessageType.GameStart:
+      $('#game-requests').empty();
       $('#playing-game').hide();
       $('#pills-game-tab').tab('show');
       const user = session.getUser();
@@ -782,6 +789,8 @@ $('#draw').on('click', (event) => {
 
 function getGame(opponent: string, min: string, sec: string) {
   if (game.chess === null) {
+    $('#game-requests').empty();
+    showGameReq('Game', '', 'Seeking a ' + min + ' ' + sec + ' game...', ['unseek', 'Cancel'], [], true);
     const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek';
     session.send(cmd + ' ' + min + ' ' + sec);
   }
