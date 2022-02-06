@@ -317,6 +317,8 @@ function messageHandler(data) {
               }
             }
             $('#new-game-menu').prop('disabled', true);
+            $('#playing-game').hide();
+            $('#pills-game-tab').tab('show');
           }
         // role -1: I am playing and it is NOW my opponent's move
         } else {
@@ -341,12 +343,17 @@ function messageHandler(data) {
           const loaded = game.chess.load(fen);
           board.set({
             fen: data.fen,
-            turnColor: data.turn === 'W' ? 'white' : 'black',
-            movable: {
-              color: data.turn === 'W' ? 'white' : 'black',
-              dests: toDests(game.chess),
-            },
           });
+
+          if (!game.obs) {
+            board.set({
+              turnColor: data.turn === 'W' ? 'white' : 'black',
+              movable: {
+                color: data.turn === 'W' ? 'white' : 'black',
+                dests: toDests(game.chess),
+              },
+            });
+          }
         }
       }
       break;
