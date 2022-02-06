@@ -666,6 +666,11 @@ function messageHandler(data) {
         return;
       }
 
+      if (msg === 'You are muted.') {
+        chat.newNotification(msg);
+        return;
+      }
+
       if (
         msg === 'Style 12 set.' ||
         msg === 'You will not see seek ads.' ||
