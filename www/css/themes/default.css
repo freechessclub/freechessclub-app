@@ -1,3 +1,7 @@
 .header,.footer {
   background-color: rgb(130, 162, 205);
 }
+
+.blue .cg-wrap {
+  background-image: url('../images/board/blue.svg');
+}

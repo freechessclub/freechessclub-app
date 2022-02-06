@@ -43,6 +43,8 @@ $('#colortheme-gray').on('click', (event) => {
   Cookies.set('theme', 'gray', { expires: 365 });
 });
 
+// text size controls
+
 const textSize = Cookies.get('text-size');
 if (textSize !== undefined) {
   $('.tab-content').css('font-size', textSize + 'em');
@@ -52,4 +54,20 @@ if (textSize !== undefined) {
 $('#textsize-range').on('change', (event) => {
   $('.tab-content').css('font-size', String($(event.target).val()) + 'em');
   Cookies.set('text-size', String($(event.target).val()), { expires: 365 })
+});
+
+// board piece controls
+const piece = Cookies.get('piece');
+if (piece !== undefined) {
+  $('#piece').attr('href', 'www/css/pieces/' + piece + '.css');
+}
+
+$('#pieces-merida').on('click', (event) => {
+  $('#piece').attr('href', 'www/css/pieces/default.css');
+  Cookies.set('piece', 'default', { expires: 365 });
+});
+
+$('#pieces-cburnett').on('click', (event) => {
+  $('#piece').attr('href', 'www/css/pieces/cburnett.css');
+  Cookies.set('piece', 'cburnett', { expires: 365 });
 });
