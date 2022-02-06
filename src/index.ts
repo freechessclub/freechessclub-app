@@ -230,8 +230,9 @@ function messageHandler(data) {
       if (!session.isConnected() && data.command === 1) {
         session.setUser(data.control);
         if (!chat) {
-          chat = new Chat(session.getUser());
+          chat = new Chat(data.control);
         }
+        chat.setUser(data.control);
         session.send('set seek 0');
         session.send('set echo 1');
         session.send('set style 12');

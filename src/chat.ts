@@ -191,6 +191,10 @@ export class Chat {
 
   }
 
+  public setUser(user: string): void {
+    this.user = user;
+  }
+
   public createTab(name: string) {
     const from = name.toLowerCase().replace(/\s/g, '-');
     if (this.tabs.hasOwnProperty(from)) {
