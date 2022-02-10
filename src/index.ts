@@ -740,9 +740,9 @@ function onDeviceReady() {
   const user = Cookies.get('user');
   const pass = Cookies.get('pass');
   if (user !== undefined && pass !== undefined) {
-    session = new Session(messageHandler, user, atob(pass));
+    session = new Session(messageHandler, false, user, atob(pass));
   } else {
-    session = new Session(messageHandler);
+    session = new Session(messageHandler, false);
   }
 
   $('#opponent-time').text('00:00');
@@ -914,13 +914,17 @@ $('#disconnect').on('click', (event) => {
 $('#login').on('click', (event) => {
   const user: string = getValue('#login-user');
   const pass: string = getValue('#login-pass');
+  let proxy = false;
+  if ($('#enable-proxy').prop('checked')) {
+    proxy = true;
+  }
   if (!session) {
-    session = new Session(messageHandler, user, pass);
+    session = new Session(messageHandler, proxy, user, pass);
   } else {
     if (session.isConnected()) {
       session.disconnect();
     }
-    session.connect(user, pass);
+    session.connect(proxy, user, pass);
   }
   if ($('#remember-me').prop('checked')) {
     Cookies.set('user', user, { expires: 365 });
@@ -954,12 +958,12 @@ $('#connect-user').on('click', (event) => {
 
 $('#connect-guest').on('click', (event) => {
   if (!session) {
-    session = new Session(messageHandler);
+    session = new Session(messageHandler, true);
   } else {
     if (session.isConnected()) {
       session.disconnect();
     }
-    session.connect();
+    session.connect(true);
   }
 });
 

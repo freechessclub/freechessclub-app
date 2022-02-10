@@ -2,6 +2,8 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
+import Parser from './parser';
+
 export const enum MessageType {
   Control = 0,
   ChannelTell,
@@ -32,15 +34,17 @@ export function GetMessageType(msg: any): MessageType {
 
 export class Session {
   private connected: boolean;
+  private proxy: boolean;
   private user: string;
   private websocket: WebSocket;
   private onRecv: (msg: any) => void;
 
-  constructor(onRecv: (msg: any) => void, user?: string, pass?: string) {
+  constructor(onRecv: (msg: any) => void, proxy: boolean, user?: string, pass?: string) {
     this.connected = false;
+    this.proxy = proxy;
     this.user = '';
     this.onRecv = onRecv;
-    this.connect(user, pass);
+    this.connect(proxy, user, pass);
   }
 
   public getUser(): string {
@@ -65,19 +69,19 @@ export class Session {
     return this.connected;
   }
 
-  public connect(user?: string, pass?: string) {
+  public connect(proxy: boolean, user?: string, pass?: string) {
     $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');
     const login = (user !== undefined && pass !== undefined);
     let loginOptions = '';
+    let text = '';
     if (login) {
       loginOptions += '?login=1';
+      text = '[' + user;
+      if (pass !== undefined && pass.length > 0) {
+        text += ',' + btoa(pass);
+      }
+      text += ']';
     }
-
-    let text = '[' + user;
-    if (pass !== undefined && pass.length > 0) {
-      text += ',' + btoa(pass);
-    }
-    text += ']';
 
     let host = location.host;
     if (host === '') {
@@ -89,9 +93,11 @@ export class Session {
       protocol = 'wss://';
     }
 
-    this.websocket = new WebSocket(protocol + host + '/ws' + loginOptions);
-    this.websocket.onmessage = (message: any) => {
-      const data = JSON.parse(message.data);
+    const uri = proxy ? (protocol + host + '/ws' + loginOptions) : 'ws://www.freechess.org:5001';
+    this.websocket = new WebSocket(uri);
+    const parser = new Parser(this, user, pass);
+    this.websocket.onmessage = async (message: any) => {
+      const data = proxy ? JSON.parse(message.data) : await parser.parse(message.data);
       if (Array.isArray(data)) {
         data.map((m) => this.onRecv(m));
       } else {
@@ -121,8 +127,8 @@ export class Session {
   }
 
   public send(command: string) {
-    if (!this.isConnected()) {
-      throw new Error('Session not connected.');
+    if (!this.proxy) {
+      command += '\n';
     }
     this.websocket.send(command);
   }
