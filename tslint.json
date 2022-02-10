@@ -18,7 +18,8 @@
         "indent": [
             true,
             "spaces"
-        ]
+        ],
+	"no-bitwise": false
     },
     "rulesDirectory": []
 }

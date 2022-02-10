@@ -119,8 +119,18 @@ export class Parser {
     return [p1, p2, Reason.Unknown];
   }
 
+  private ab2str(buf: ArrayBuffer): string {
+    return String.fromCharCode.apply(null, new Uint8Array(buf));
+  }
+
   public async parse(data: any) {
-    const msg = await data.text();
+    let msg : string;
+    if (data instanceof ArrayBuffer) {
+      msg = this.ab2str(data);
+    } else {
+      msg = await data.text();
+    }
+    console.log(msg);
     return this._parse(msg);
   }
 
