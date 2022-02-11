@@ -130,7 +130,6 @@ export class Parser {
     } else {
       msg = await data.text();
     }
-    console.log(msg);
     return this._parse(msg);
   }
 
