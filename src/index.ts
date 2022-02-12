@@ -740,9 +740,9 @@ function onDeviceReady() {
   const user = Cookies.get('user');
   const pass = Cookies.get('pass');
   if (user !== undefined && pass !== undefined) {
-    session = new Session(messageHandler, false, user, atob(pass));
+    session = new Session(messageHandler, true, user, atob(pass));
   } else {
-    session = new Session(messageHandler, false);
+    session = new Session(messageHandler, true);
   }
 
   $('#opponent-time').text('00:00');
