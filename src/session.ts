@@ -38,6 +38,8 @@ export class Session {
   private user: string;
   private websocket: WebSocket;
   private onRecv: (msg: any) => void;
+  private timesealHello = 'TIMESEAL2|freeseal|icsgo|';
+  private tsKey = 'Timestamp (FICS) v1.0 - programmed by Henrik Gram.';
 
   constructor(onRecv: (msg: any) => void, proxy: boolean, user?: string, pass?: string) {
     this.connected = false;
@@ -95,6 +97,7 @@ export class Session {
 
     const uri = proxy ? (protocol + host + '/ws' + loginOptions) : 'ws://www.freechess.org:5001';
     this.websocket = new WebSocket(uri);
+    // this.websocket.binaryType = 'arraybuffer';
     const parser = new Parser(this, user, pass);
     this.websocket.onmessage = async (message: any) => {
       const data = proxy ? JSON.parse(message.data) : await parser.parse(message.data);
@@ -105,12 +108,16 @@ export class Session {
       }
     };
     this.websocket.onclose = this.reset;
-    if (login) {
-      this.websocket.onopen = () => {
-        $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');
-        this.websocket.send(text);
-      };
-    }
+    this.websocket.onopen = () => {
+      $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');
+      if (proxy) {
+        if (login) {
+          this.send(text);
+        }
+      } else {
+        this.send(this.timesealHello);
+      }
+    };
   }
 
   public disconnect() {
@@ -128,9 +135,56 @@ export class Session {
 
   public send(command: string) {
     if (!this.proxy) {
-      command += '\n';
+      this.websocket.send(this.encode(command).buffer);
+    } else {
+      this.websocket.send(command);
     }
-    this.websocket.send(command);
+  }
+
+  public encode(msg: string) {
+    let l = msg.length;
+    const s = new Uint8Array(l+30);
+    for (let i = 0; i < msg.length; i++) {
+      s[i] = msg.charCodeAt(i);
+    }
+    s[l] = 0x18;
+    l++;
+    const t = new Date().getTime();
+    const sec = Math.floor(t/1000);
+    const ts = (((sec%10000)*1000) + (t-sec*1000)).toString();
+    for (let i = 0; i < ts.length; i++) {
+      s[l+i] = ts.charCodeAt(i);
+    }
+    l = l + ts.length;
+    s[l] = 0x19;
+    l++;
+    while (l % 12 !== 0) {
+      s[l] = 0x31;
+      l++;
+    }
+    for (let n = 0; n < l; n += 12) {
+      s[n] ^= s[n+11];
+      s[n+11] ^= s[n];
+      s[n] ^= s[n+11];
+      s[n+2] ^= s[n+9];
+      s[n+9] ^= s[n+2];
+      s[n+2] ^= s[n+9];
+      s[n+4] ^= s[n+7];
+      s[n+7] ^= s[n+4];
+      s[n+4] ^= s[n+7];
+    }
+
+    for (let n = 0; n < l; n++) {
+      const key = this.tsKey.charCodeAt(n%50);
+      s[n] = (((s[n] | 0x80) ^ key) - 32);
+    }
+
+    s[l] = 0x80;
+    l++;
+    s[l] = 0x0a;
+    l++;
+    const ss = s.slice(0, l);
+    return ss;
   }
 }
 

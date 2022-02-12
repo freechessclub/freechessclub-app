@@ -119,16 +119,29 @@ export class Parser {
     return [p1, p2, Reason.Unknown];
   }
 
+  private ab2str(buf: ArrayBuffer): string {
+    return String.fromCharCode.apply(null, new Uint8Array(buf));
+  }
+
   public async parse(data: any) {
-    const msg = await data.text();
+    let msg : string;
+    if (data instanceof ArrayBuffer) {
+      msg = this.ab2str(data);
+    } else {
+      msg = await data.text();
+    }
     return this._parse(msg);
   }
 
-  private _parse(msg: any) {
+  private _parse(msg: string) {
     if (msg.length === 0) {
       return null;
     }
 
+    msg = msg.replace(/\[G\]\0/g, (m, offset, str) => {
+      this.session.send(String.fromCharCode(...[0x02, 0x39]));
+      return '';
+    });
     msg = msg.replace(/\((?:told|kibitzed) .+\)/g, '');
     msg = msg.replace(/\u0007/g, '');
     msg = msg.replace(/\x00/g, '');
