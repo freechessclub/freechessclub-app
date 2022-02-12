@@ -97,7 +97,7 @@ export class Session {
 
     const uri = proxy ? (protocol + host + '/ws' + loginOptions) : 'ws://www.freechess.org:5001';
     this.websocket = new WebSocket(uri);
-    this.websocket.binaryType = 'arraybuffer';
+    // this.websocket.binaryType = 'arraybuffer';
     const parser = new Parser(this, user, pass);
     this.websocket.onmessage = async (message: any) => {
       const data = proxy ? JSON.parse(message.data) : await parser.parse(message.data);
@@ -149,7 +149,9 @@ export class Session {
     }
     s[l] = 0x18;
     l++;
-    const ts = new Date().getTime().toString();
+    const t = new Date().getTime();
+    const sec = Math.floor(t/1000);
+    const ts = (((sec%10000)*1000) + (t-sec*1000)).toString();
     for (let i = 0; i < ts.length; i++) {
       s[l+i] = ts.charCodeAt(i);
     }
