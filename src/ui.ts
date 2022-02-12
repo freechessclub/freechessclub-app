@@ -10,6 +10,10 @@ $(() => {
   $('[data-bs-toggle="tooltip"]').tooltip();
 });
 
+$('#board').on('focus', (event) => {
+  $('#input-text').trigger('blur');
+});
+
 if ($(window).width() < 767) {
   $('#collapse-chat').removeClass('show');
   $('#collapse-history').removeClass('show');
