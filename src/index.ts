@@ -528,7 +528,7 @@ function messageHandler(data) {
       match = msg.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
       if (match != null && match.length > 1) {
         const numMoves: number = +match[1];
-        if (numMoves > game.chess.history().length) {
+        if (numMoves > game.history.length()) {
           if (game.chess) {
             game.chess.reset();
           }
