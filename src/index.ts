@@ -660,7 +660,7 @@ function messageHandler(data) {
         chat.newNotification(match[0]);
         return;
       }
-      match = msg.match(/^Player \w+ is censoring you./);
+      match = msg.match(/^Player [a-zA-Z\"]+ is censoring you./);
       if (match != null && match.length > 0) {
         chat.newNotification(match[0]);
         return;
