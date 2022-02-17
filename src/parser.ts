@@ -70,7 +70,7 @@ export class Parser {
       }
     }
 
-    match = msg.match(/\*\*\*\* Starting FICS session as ([a-zA-Z]+)(\(U\))? \*\*\*\*/);
+    match = msg.match(/\*\*\*\* Starting FICS session as ([a-zA-Z]+)(?:\(U\))? \*\*\*\*/);
     if (match != null && match.length > 1) {
       this.loggedin = true;
       return [{
@@ -191,15 +191,15 @@ export class Parser {
       return {
         fen,
         turn: match[9],
-        game_id: match[10],
+        game_id: +match[10],
         white_name: match[11],
         black_name: match[12],
-        role: match[13],
-        time: match[14],
-        inc: match[15],
-        white_time: match[16],
-        black_time: match[17],
-        move_no: match[18],
+        role: +match[13],
+        time: +match[14],
+        inc: +match[15],
+        white_time: +match[16],
+        black_time: +match[17],
+        move_no: +match[18],
         move: match[19],
       };
     }
@@ -224,7 +224,7 @@ export class Parser {
 
       const [winner, loser, reason] = this.getGameResult(p1, p2, who, action);
       return {
-        game_id: match[1],
+        game_id: +match[1],
         winner,
         loser,
         reason,
