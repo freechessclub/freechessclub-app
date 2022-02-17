@@ -91,7 +91,7 @@ export class Session {
     }
 
     let protocol = 'ws://';
-    let port = 5001;
+    const port = 5001;
     if (location.protocol === 'https:' || location.protocol === 'file:') {
       protocol = 'wss://';
     }

@@ -917,7 +917,6 @@ $('#login-form').on('submit', (event) => {
   const user: string = getValue('#login-user');
   const pass: string = getValue('#login-pass');
   const enableProxy = $('#enable-proxy').prop('checked');
-  console.log('ENABLE PROXY ', enableProxy);
   if (enableProxy) {
     Cookies.set('proxy', String(enableProxy), { expires: 365 });
   } else {
