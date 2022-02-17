@@ -55,13 +55,22 @@ export class Parser {
       this.session.send(this.user);
       return null;
     }
-    match = msg.match(/Press return to enter the server as/);
-    if (match != null) {
-      this.session.send('');
-      return null;
+
+    if (this.user == 'guest' || this.pass.length === 0) {
+      match = msg.match(/Press return to enter the server as/);
+      if (match != null) {
+        this.session.send('');
+        return null;
+      }
+    } else {
+      match = msg.match(/password:/);
+      if (match != null) {
+        this.session.send(this.pass);
+        return null;
+      }
     }
 
-    match = msg.match(/\*\*\*\* Starting FICS session as ([a-zA-Z]+)(?:\(U\)) \*\*\*\*/);
+    match = msg.match(/\*\*\*\* Starting FICS session as ([a-zA-Z]+)(\(U\))? \*\*\*\*/);
     if (match != null && match.length > 1) {
       this.loggedin = true;
       return [{
