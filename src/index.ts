@@ -911,7 +911,7 @@ $('#disconnect').on('click', (event) => {
   }
 });
 
-$('#login').on('click', (event) => {
+$('#login').on('submit', (event) => {
   const user: string = getValue('#login-user');
   const pass: string = getValue('#login-pass');
   let proxy = false;

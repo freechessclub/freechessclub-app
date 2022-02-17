@@ -305,7 +305,7 @@
                       </label>
                     </div>
                     <div class="mb-3">
-                      <input id="login-user" type="text" class="form-control" placeholder="Username" autocomplete="off">
+                      <input id="login-user" type="text" class="form-control" placeholder="Username" autocomplete="off" required>
                     </div>
                     <div class="mb-3">
                       <input id="login-pass" type="password" class="form-control" placeholder="Password" autocomplete="off">
@@ -317,17 +317,17 @@
                       </label>
                     </div>
                     <div class="mb-3 form-check">
-                      <input id="enable-proxy" type="checkbox" class="form-check-input" checked disabled>
+                      <input id="enable-proxy" type="checkbox" class="form-check-input" checked>
                       <label class="form-check-label" for="enable-proxy">
                         Enable Proxy
                       </label>
                     </div>
                     Not a member? <a href="https://www.freechess.org/cgi-bin/Register/FICS_register.cgi?Language=English" target="_blank">Register</a> here.
+                    <div class="mt-2 mb-2 pt-3 border-top center justify-content-evenly">
+                      <button type="submit" id="login" class="btn btn-primary">Login</button>
+                      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
                   </form>
-                </div>
-                <div class="modal-footer center">
-                  <button type="button" id="login" class="btn btn-primary">Login</button>
-                  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                 </div>
               </div>
             </div>
