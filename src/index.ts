@@ -918,8 +918,16 @@ $('#disconnect').on('click', (event) => {
   }
 });
 
+$('#login-user').on('change', () => $('#login-user').removeClass('is-invalid'));
+
 $('#login-form').on('submit', (event) => {
   const user: string = getValue('#login-user');
+  if (user == session.getUser()) {
+    $('#login-user').addClass('is-invalid');
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   const pass: string = getValue('#login-pass');
   const enableProxy = $('#enable-proxy').prop('checked');
   if (enableProxy) {
