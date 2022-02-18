@@ -56,7 +56,7 @@ export class Parser {
       return null;
     }
 
-    if (this.user == 'guest' || this.pass.length === 0) {
+    if (this.user === 'guest' || this.pass.length === 0) {
       match = msg.match(/Press return to enter the server as/);
       if (match != null) {
         this.session.send('');

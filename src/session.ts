@@ -91,12 +91,11 @@ export class Session {
     }
 
     let protocol = 'ws://';
-    const port = 5001;
     if (location.protocol === 'https:' || location.protocol === 'file:') {
       protocol = 'wss://';
     }
 
-    const uri = proxy ? (protocol + host + '/ws' + loginOptions) : protocol + 'www.freechess.org:' + port;
+    const uri = proxy ? (protocol + host + '/ws' + loginOptions) : 'wss://www.freechess.org:5001';
     this.websocket = new WebSocket(uri);
     // this.websocket.binaryType = 'arraybuffer';
     const parser = new Parser(this, user, pass);

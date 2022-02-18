@@ -400,11 +400,16 @@ function messageHandler(data) {
       }
 
       showStatusMsg(data.message);
+      let examine = [];
       let rematch = [];
-      if ($('#player-name').text() === session.getUser()) {
+      if ($('#player-name').text() === session.getUser()
+        && data.reason !== 2 && data.reason !== 7) {
         rematch = ['rematch', 'Rematch']
       }
-      showGameReq('Match', '', data.message, ['ex ' + data.winner + ' -1', 'Examine'], rematch);
+      if (data.reason !== 7) {
+        examine = ['ex ' + data.winner + ' -1', 'Examine'];
+      }
+      showGameReq('Match', '', data.message, examine, rematch);
       clearInterval(game.wclock);
       clearInterval(game.bclock);
       clearInterval(game.watchers);
