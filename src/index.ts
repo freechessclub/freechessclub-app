@@ -167,7 +167,7 @@ function showStatusMsg(msg: string) {
   $('#game-status').html(msg + '<br/>');
 }
 
-function showGameReq(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress: boolean = false) {
+function showModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress: boolean = false) {
   let req = `
   <div class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
     <div class="toast-header"><strong class="me-auto">` + type + `</strong>
@@ -243,7 +243,7 @@ function messageHandler(data) {
           session.disconnect();
         }
         session.reset(undefined);
-        showGameReq('Authentication Failure', '', data.control, [], []);
+        showModal('Authentication Failure', '', data.control, [], []);
       }
       break;
     case MessageType.ChannelTell:
@@ -409,7 +409,7 @@ function messageHandler(data) {
       if (data.reason !== 7) {
         examine = ['ex ' + data.winner + ' -1', 'Examine'];
       }
-      showGameReq('Match Request', '', data.message, examine, rematch);
+      showModal('Match Request', '', data.message, examine, rematch);
       clearInterval(game.wclock);
       clearInterval(game.bclock);
       clearInterval(game.watchers);
@@ -488,7 +488,7 @@ function messageHandler(data) {
       if (match != null && match.length > 1) {
         if (match[1] === $('#opponent-name').text()) {
           pendingTakeback = Number(match[2]);
-          showGameReq('Takeback Request', match[1], 'would like to take back ' + match[2] + ' half move(s).',
+          showModal('Takeback Request', match[1], 'would like to take back ' + match[2] + ' half move(s).',
             ['decline', 'Decline'], ['accept', 'Accept']);
         }
         return;
@@ -591,7 +591,7 @@ function messageHandler(data) {
       if (match != null && match.length > 3) {
         const [opponentName, opponentRating] = (match[1] === session.getUser()) ?
           match.slice(3, 5) : match.slice(1, 3);
-        showGameReq('Match Request', opponentName + '(' + opponentRating + ')',
+        showModal('Match Request', opponentName + '(' + opponentRating + ')',
           match[5], ['decline', 'Decline'], ['accept', 'Accept']);
         return;
       }
@@ -599,7 +599,7 @@ function messageHandler(data) {
       match = msg.match(/(\w+) would like to abort the game; type "abort" to accept./);
       if (match != null && match.length > 1) {
         if (match[1] === $('#opponent-name').text()) {
-          showGameReq('Abort Request', match[1], 'would like to abort the game.',
+          showModal('Abort Request', match[1], 'would like to abort the game.',
             ['decline', 'Decline'], ['accept', 'Accept']);
         }
         return;
@@ -608,7 +608,7 @@ function messageHandler(data) {
       match = msg.match(/(\w+) offers you a draw./);
       if (match != null && match.length > 1) {
         if (match[1] === $('#opponent-name').text()) {
-          showGameReq('Draw Request', match[1], 'offers you a draw.',
+          showModal('Draw Request', match[1], 'offers you a draw.',
             ['decline', 'Decline'], ['accept', 'Accept']);
         }
         return;
@@ -810,7 +810,7 @@ $('#draw').on('click', (event) => {
 function getGame(opponent: string, min: string, sec: string) {
   if (game.chess === null) {
     $('#game-requests').empty();
-    showGameReq('Game Request', '', 'Seeking a ' + min + ' ' + sec + ' game...', ['unseek', 'Cancel'], [], true);
+    showModal('Game Request', '', 'Seeking a ' + min + ' ' + sec + ' game...', ['unseek', 'Cancel'], [], true);
     const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek';
     session.send(cmd + ' ' + min + ' ' + sec);
   }
