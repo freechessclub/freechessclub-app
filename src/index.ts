@@ -816,6 +816,13 @@ function getGame(opponent: string, min: string, sec: string) {
   }
 }
 
+$('#input-text').on('focus', () => {
+  $('#board').on('touchstart', () => {
+    $('#input-text').trigger('blur');
+    $('#board').off('touchstart');
+  });
+});
+
 $('#new-game').on('click', (event) => {
   if (game.chess === null) {
     session.send('getga');
