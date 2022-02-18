@@ -62,6 +62,13 @@ export class Parser {
         this.session.send('');
         return null;
       }
+      match = msg.match(/password:/);
+      if (match != null && this.pass.length === 0) {
+        return {
+          command: 2,
+          control: msg,
+        };
+      }
     } else {
       match = msg.match(/password:/);
       if (match != null) {
@@ -79,6 +86,14 @@ export class Parser {
       }, {
         message: msg,
       }];
+    }
+
+    match = msg.match(/\*\*\*\* Invalid password! \*\*\*\*.*/);
+    if (match != null) {
+      return {
+        command: 2,
+        control: msg,
+      };
     }
   }
 

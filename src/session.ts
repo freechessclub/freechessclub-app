@@ -72,6 +72,7 @@ export class Session {
   }
 
   public connect(proxy: boolean, user?: string, pass?: string) {
+    $('#game-requests').empty();
     $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');
     const login = (user !== undefined && pass !== undefined);
     let loginOptions = '';
