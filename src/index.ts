@@ -25,6 +25,7 @@ let pendingTakeback = 0;
 let historyRequested = false;
 let gamesRequested = false;
 let movelistRequested = false;
+let lobbyRequested = false;
 
 function showCapturePiece(color: string, p: string): void {
   if (game.color === color) {
@@ -650,11 +651,6 @@ function messageHandler(data) {
         return;
       }
 
-      match = msg.match(/-- channel list: \d+ channels --([\d\s]*)/);
-      if (match !== null && match.length > 1) {
-        return chat.addChannels(match[1].split(/\s+/));
-      }
-
       match = msg.match(/^Notification: .*/);
       if (match != null && match.length > 0) {
         chat.newNotification(match[0]);
@@ -671,9 +667,28 @@ function messageHandler(data) {
         return;
       }
 
+      match = msg.match(/-- channel list: \d+ channels --([\d\s]*)/);
+      if (match !== null && match.length > 1) {
+        return chat.addChannels(match[1].split(/\s+/));
+      }
+
+      if (lobbyRequested) {
+        match = msg.match(/.*\<(s|sc|sr)\>.*/g);
+        parseSeeks(data.message);
+        return;
+      }
+
       if (msg === 'You are muted.') {
         chat.newNotification(msg);
         return;
+      }
+
+      if (lobbyRequested && (
+        msg === 'seekremove set.' ||
+        msg === 'seekinfo set.' ||
+        msg === 'seekremove unset.' ||
+        msg === 'seekinfo unset.')) {
+          return;
       }
 
       if (
@@ -757,7 +772,7 @@ function onDeviceReady() {
   const boardHeight = $('#board').height();
   if (boardHeight) {
     $('.chat-text').height(boardHeight - 90);
-    $('#left-panel').height(boardHeight - 215);
+    $('#left-panel').height(boardHeight - 152);
   }
 }
 
@@ -835,6 +850,10 @@ $('#new-game').on('click', (event) => {
 
 $('#onezero').on('click', (event) => {
   getGame(getValue('#opponent-player-name'), '1', '0');
+});
+
+$('#twoone').on('click', (event) => {
+  getGame(getValue('#opponent-player-name'), '2', '1');
 });
 
 $('#threezero').on('click', (event) => {
@@ -929,7 +948,7 @@ $('#login-user').on('change', () => $('#login-user').removeClass('is-invalid'));
 
 $('#login-form').on('submit', (event) => {
   const user: string = getValue('#login-user');
-  if (user == session.getUser()) {
+  if (user === session.getUser()) {
     $('#login-user').addClass('is-invalid');
     event.preventDefault();
     event.stopPropagation();
@@ -1098,3 +1117,64 @@ $('#puzzlebot').on('click', (event) => {
   session.send('t puzzlebot getmate');
   $('#pills-game-tab').tab('show');
 });
+
+$(document).on('shown.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => {
+  $('#lobby-table').html('');
+  if (session && session.isConnected()) {
+    lobbyRequested = true;
+    session.send('iset seekremove 1');
+    session.send('iset seekinfo 1');
+  }
+});
+
+$(document).on('hidden.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => {
+  $('#lobby-table').html('');
+  if (session && session.isConnected()) {
+    session.send('iset seekremove 0');
+    session.send('iset seekinfo 0');
+    lobbyRequested = false;
+  }
+});
+
+const seekMap = new Map();
+
+const titleToString = {
+  0x1 : '(U)',
+  0x2 : '(C)',
+  0x4 : '(GM)',
+  0x8 : '(IM)',
+  0x10 : '(FM)',
+  0x20 : '(WGM)',
+  0x40 : '(WIM)',
+  0x80 : '(WFM)',
+};
+
+function parseSeeks(msgs: string) {
+  for (const msg of msgs.split('\n')) {
+    const m = msg.trim();
+    if (m.startsWith('<sc>')) {
+      $('#lobby-table').html('');
+    }
+    else if (m.startsWith('<s>')) {
+      const seek = m.split(' ').slice(1);
+      const seekDetails = seek.slice(1).map(pair => pair.split('=')[1]).slice(0, -3);
+      seekDetails[0] = seekDetails[0] + titleToString[+seekDetails[1]];
+      if (seekDetails[2] !== '0P') {
+        seekDetails[0] = seekDetails[0] + '(' + seekDetails[2] + ')';
+      }
+      seekDetails.splice(1, 2);
+      seekMap.set(seek[0], seekDetails.join(' '));
+    }
+    else if (m.startsWith('<sr>')) {
+      for (const r of m.split(' ').slice(1)) {
+        seekMap.delete(r);
+      }
+    }
+    $('#lobby-table').html('');
+    seekMap.forEach((value, key) => {
+      $('#lobby-table').append(
+        `<button type="button" class="btn btn-outline-secondary" onclick="sessionSend('play ` +
+        + key + `'); showGameTab();">` + value + `</button>`);
+    });
+  }
+}
