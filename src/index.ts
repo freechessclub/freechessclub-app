@@ -116,9 +116,11 @@ function movePieceAfter(move: any) {
     };
   }
 
+  const check = inCheck(move.san);
   board.set({
     turnColor: toColor(game.chess),
     movable,
+    check,
   });
   board.playPremove();
   game.history.add(move, game.chess.fen());
@@ -127,10 +129,7 @@ function movePieceAfter(move: any) {
     showCapturePiece(move.color, move.captured);
   }
 
-  if (inCheck(move.san)) {
-    board.set({
-      check: true,
-    });
+  if (check) {
     if (soundToggle) {
       Sounds.checkSound.play();
     }
