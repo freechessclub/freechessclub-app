@@ -764,7 +764,7 @@ function onDeviceReady() {
   const boardHeight = $('#board').height();
   if (boardHeight) {
     $('.chat-text').height(boardHeight - 90);
-    $('#left-panel').height(boardHeight - 152);
+    $('#left-panel').height(boardHeight - 205);
   }
 }
 
