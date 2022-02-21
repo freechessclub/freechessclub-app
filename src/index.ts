@@ -616,7 +616,7 @@ function messageHandler(data) {
 
       match = msg.match(/Removing game (\d+) from observation list./);
       if (match != null && match.length > 1) {
-        $('#new-game').text('New game');
+        $('#new-game').text('Quick Game');
         $('#new-game-menu').prop('disabled', false);
         clearInterval(game.wclock);
         clearInterval(game.bclock);
@@ -634,7 +634,7 @@ function messageHandler(data) {
 
       match = msg.match(/You are no longer examining game (\d+)./);
       if (match != null && match.length > 1) {
-        $('#new-game').text('New game');
+        $('#new-game').text('Quick Game');
         $('#new-game-menu').prop('disabled', false);
         clearInterval(game.wclock);
         clearInterval(game.bclock);
