@@ -822,14 +822,16 @@ $('#draw').on('click', (event) => {
   }
 });
 
-function getGame(opponent: string, min: string, sec: string) {
+function getGame(min: number, sec: number) {
   if (game.chess === null) {
+    const opponent = getValue('#opponent-player-name')
     $('#game-requests').empty();
     showModal('Game Request', '', 'Seeking a ' + min + ' ' + sec + ' game...', ['unseek', 'Cancel'], [], true);
     const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek';
     session.send(cmd + ' ' + min + ' ' + sec);
   }
 }
+(window as any).getGame = getGame;
 
 $('#input-text').on('focus', () => {
   $('#board').on('touchstart', () => {
@@ -848,43 +850,11 @@ $('#new-game').on('click', (event) => {
   }
 });
 
-$('#onezero').on('click', (event) => {
-  getGame(getValue('#opponent-player-name'), '1', '0');
-});
-
-$('#twoone').on('click', (event) => {
-  getGame(getValue('#opponent-player-name'), '2', '1');
-});
-
-$('#threezero').on('click', (event) => {
-  getGame(getValue('#opponent-player-name'), '3', '0');
-});
-
-$('#threetwo').on('click', (event) => {
-  getGame(getValue('#opponent-player-name'), '3', '2');
-});
-
-$('#fivezero').on('click', (event) => {
-  getGame(getValue('#opponent-player-name'), '5', '0');
-});
-
-$('#fivefive').on('click', (event) => {
-  getGame(getValue('#opponent-player-name'), '5', '5');
-});
-
-$('#tenfive').on('click', (event) => {
-  getGame(getValue('#opponent-player-name'), '10', '5');
-});
-
-$('#fifteenzero').on('click', (event) => {
-  getGame(getValue('#opponent-player-name'), '15', '0');
-});
-
 $('#custom-control').on('click', (event) => {
   if (game.chess === null) {
     const min: string = getValue('#custom-control-min');
     const sec: string = getValue('#custom-control-sec');
-    getGame(getValue('#opponent-player-name'), min, sec);
+    getGame(+min, +sec);
   }
 });
 
