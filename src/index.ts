@@ -686,6 +686,8 @@ function messageHandler(data) {
         msg === 'Style 12 set.' ||
         msg === 'You will not see seek ads.' ||
         msg === 'You will now hear communications echoed.' ||
+        msg === 'seekinfo unset.' ||
+        msg === 'seekremove unset.' ||
         msg.startsWith('No one is observing game ')
       ) {
         return;
@@ -1086,6 +1088,15 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => {
     lobbyRequested = true;
     session.send('iset seekremove 1');
     session.send('iset seekinfo 1');
+  }
+});
+
+$(document).on('hidden.bs.tab', 'button[data-bs-target="#pills-play"]', (e) => {
+  if (lobbyRequested) {
+    $('#lobby-table').html('');
+    session.send('iset seekremove 0');
+    session.send('iset seekinfo 0');
+    lobbyRequested = false;
   }
 });
 
