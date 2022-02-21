@@ -1101,6 +1101,7 @@ $(document).on('hidden.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => 
 const seekMap = new Map();
 
 const titleToString = {
+  0x0 : '',
   0x1 : '(U)',
   0x2 : '(C)',
   0x4 : '(GM)',
