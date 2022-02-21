@@ -682,18 +682,11 @@ function messageHandler(data) {
         return;
       }
 
-      if (lobbyRequested && (
-        msg === 'seekremove set.' ||
-        msg === 'seekinfo set.' ||
-        msg === 'seekremove unset.' ||
-        msg === 'seekinfo unset.')) {
-          return;
-      }
-
       if (
         msg === 'Style 12 set.' ||
         msg === 'You will not see seek ads.' ||
-        msg === 'You will now hear communications echoed.'
+        msg === 'You will now hear communications echoed.' ||
+        msg.startsWith('No one is observing game ')
       ) {
         return;
       }
