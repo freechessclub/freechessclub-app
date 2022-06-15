@@ -50,17 +50,13 @@
                 </button>
               </div>
             </div>
-            <div class="card-header p-1">
-              <div class="center py-2">
-                <button type="button" class="btn btn-outline-secondary btn-block btn-md" aria-expanded="false" id="new-game">
-                  New Game
-                </button>
-              </div>
+            <div class="card-header p-2 center">
+              <button type="button" class="btn btn-outline-secondary btn-block btn-md" aria-expanded="false" id="new-game">Quick Game</button>
             </div>
             <div id="collapse-history" class="collapse show">
               <div class="card-body history noselect p-0" id="left-panel">
                 <div id="left-menu">
-                  <ul class="nav nav-pills nav-fill mb-3" id="pills-tab" role="tablist">
+                  <ul class="nav nav-pills nav-fill mb-2" id="pills-tab" role="tablist">
                     <li class="nav-item" role="presentation">
                       <button class="nav-link py-2" id="pills-game-tab" data-bs-toggle="pill" data-bs-target="#pills-game" type="button" role="tab" aria-controls="pills-game" aria-selected="false">Game</button>
                     </li>
@@ -74,7 +70,7 @@
                       <button class="nav-link py-2" id="pills-examine-tab" data-bs-toggle="pill" data-bs-target="#pills-examine" type="button" role="tab" aria-controls="pills-examine" aria-selected="false">Examine</button>
                     </li>
                   </ul>
-                  <div class="tab-content" id="pills-tabContent">
+                  <div class="tab-content">
                     <div class="tab-pane fade" id="pills-game" role="tabpanel" aria-labelledby="pills-game-tab">
                       <span class="center" id="playing-game">You're not playing a game.</span>
                       <table class="table table-sm table-striped table-hover">
@@ -82,52 +78,70 @@
                       </table>
                     </div>
                     <div class="tab-pane fade show active" id="pills-play" role="tabpanel" aria-labelledby="pills-play-tab">
-                      <div class="btn-group-vertical btn-block center" role="group" aria-label="New Game Menu">
-                        <div class="input-group">
-                          <span class="input-group-text" id="opponent-player">Play against</span>
-                          <input type="text" class="form-control" id="opponent-player-name" placeholder="Player name" aria-describedby="opponent-player">
+                      <ul class="nav nav-tabs nav-fill" id="pills-play-subtab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                          <button class="nav-link active" id="pills-pairing-tab" data-bs-toggle="tab" data-bs-target="#pills-pairing" type="button" role="tab" aria-controls="pills-pairing" aria-selected="true">Pairing</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                          <button class="nav-link" id="pills-lobby-tab" data-bs-toggle="tab" data-bs-target="#pills-lobby" type="button" role="tab" aria-controls="pills-lobby" aria-selected="false">Lobby</button>
+                        </li>
+                      </ul>
+                      <div class="tab-content">
+                        <div class="tab-pane fade show active" id="pills-pairing" role="tabpanel" aria-labelledby="pills-pairing-tab">
+                          <div class="btn-group-vertical btn-block center" role="group" aria-label="New Game Menu">
+                            <div class="input-group">
+                              <span class="input-group-text" id="opponent-player">Play against</span>
+                              <input type="text" class="form-control" id="opponent-player-name" placeholder="Player name" aria-describedby="opponent-player">
+                            </div>
+                            <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Lightning</a>
+                            <div class="btn-group" role="group" aria-label="Lightning">
+                              <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(1,0);">1 + 0</button>
+                              <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(2,1);">2 + 1</button>
+                            </div>
+                            <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Blitz</a>
+                            <div class="btn-group" role="group" aria-label="Blitz">
+                              <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(3,0);">3 + 0</button>
+                              <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(3,2);">3 + 2</button>
+                              <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(5,0);">5 + 0</button>
+                              <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(5,5);">5 + 5</button>
+                            </div>
+                            <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Standard</a>
+                            <div class="btn-group" role="group" aria-label="Standard">
+                              <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(10,5);">10 + 5</button>
+                              <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(15,0);">15 + 0</button>
+                            </div>
+                            <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Custom</a>
+                            <div class="input-group">
+                              <input type="text" class="form-control text-center" placeholder="5" id="custom-control-min">
+                              <span class="input-group-text"> min </span>
+                              <input type="text" class="form-control text-center" placeholder="10" id="custom-control-sec">
+                              <span class="input-group-text"> sec </span>
+                              <span class="input-group-append">
+                                <button class="btn btn-outline-secondary btn-md" type="button" id="custom-control">Go</button>
+                              </span>
+                            </div>
+                            <div class="btn-group dropup" role="group" aria-label="Study">
+                              <button type="button" class="btn btn-outline-secondary btn-md" id="puzzlebot">Puzzle</button>
+                              <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Endgames</button>
+                              <ul class="dropdown-menu dropdown-menu-end" id="endgamebot">
+                                <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kpk'); showGameTab();">kpk</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kbnk'); showGameTab();">kbnk</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kbbk'); showGameTab();">kbbk</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqk'); showGameTab();">kqk</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play krpkr'); showGameTab();">krpkr</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play krk'); showGameTab();">krk</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqkr'); showGameTab();">kqkr</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kpkp'); showGameTab();">kpkp</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqpkq'); showGameTab();">kqpkq</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play knnkp'); showGameTab();">knnkp</a></li>
+                              </ul>
+                            </div>
+                          </div>
                         </div>
-                        <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Lightning</a>
-                        <div class="btn-group" role="group" aria-label="Lightning">
-                          <button type="button" class="btn btn-outline-secondary btn-md" id="onezero">1 + 0</button>
-                        </div>
-                        <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Blitz</a>
-                        <div class="btn-group" role="group" aria-label="Blitz">
-                          <button type="button" class="btn btn-outline-secondary btn-md" id="threezero">3 + 0</button>
-                          <button type="button" class="btn btn-outline-secondary btn-md" id="threetwo">3 + 2</button>
-                          <button type="button" class="btn btn-outline-secondary btn-md" id="fivezero">5 + 0</button>
-                          <button type="button" class="btn btn-outline-secondary btn-md" id="fivefive">5 + 5</button>
-                        </div>
-                        <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Standard</a>
-                        <div class="btn-group" role="group" aria-label="Standard">
-                          <button type="button" class="btn btn-outline-secondary btn-md" id="tenfive">10 + 5</button>
-                          <button type="button" class="btn btn-outline-secondary btn-md" id="fifteenzero">15 + 0</button>
-                        </div>
-                        <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Custom</a>
-                        <div class="input-group">
-                          <input type="text" class="form-control text-center" placeholder="5" id="custom-control-min">
-                          <span class="input-group-text"> min </span>
-                          <input type="text" class="form-control text-center" placeholder="10" id="custom-control-sec">
-                          <span class="input-group-text"> sec </span>
-                          <span class="input-group-append">
-                            <button class="btn btn-outline-secondary btn-md" type="button" id="custom-control">Go</button>
-                          </span>
-                        </div>
-                        <div class="btn-group dropup" role="group" aria-label="Study">
-                          <button type="button" class="btn btn-outline-secondary btn-md" id="puzzlebot">Puzzle</button>
-                          <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Endgames</button>
-                          <ul class="dropdown-menu dropdown-menu-end" id="endgamebot">
-                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kpk'); showGameTab();">kpk</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kbnk'); showGameTab();">kbnk</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kbbk'); showGameTab();">kbbk</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqk'); showGameTab();">kqk</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play krpkr'); showGameTab();">krpkr</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play krk'); showGameTab();">krk</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqkr'); showGameTab();">kqkr</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kpkp'); showGameTab();">kpkp</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqpkq'); showGameTab();">kqpkq</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play knnkp'); showGameTab();">knnkp</a></li>
-                          </ul>
+                        <div class="tab-pane fade" id="pills-lobby" role="tabpanel" aria-labelledby="pills-lobby-tab">
+                          <div class="d-grid gap-2">
+                            <div class="btn-group-vertical" id="lobby-table"></div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -290,7 +304,7 @@
                   </button>
                 </div>
                 <div class="modal-body">
-                  <form>
+                  <form id="login-form">
                     <div class="mb-2 form-check form-switch">
                       <input id="login-as-guest" class="form-check-input" type="checkbox" role="switch">
                       <label class="form-check-label" for="login-as-guest">
@@ -298,7 +312,10 @@
                       </label>
                     </div>
                     <div class="mb-3">
-                      <input id="login-user" type="text" class="form-control" placeholder="Username" autocomplete="off">
+                      <input id="login-user" type="text" class="form-control" placeholder="Username" autocomplete="off" required="">
+                      <div class="invalid-tooltip">
+                        You're already logged in!
+                      </div>
                     </div>
                     <div class="mb-3">
                       <input id="login-pass" type="password" class="form-control" placeholder="Password" autocomplete="off">
@@ -310,17 +327,17 @@
                       </label>
                     </div>
                     <div class="mb-3 form-check">
-                      <input id="enable-proxy" type="checkbox" class="form-check-input" checked="" disabled="">
+                      <input id="enable-proxy" type="checkbox" class="form-check-input">
                       <label class="form-check-label" for="enable-proxy">
                         Enable Proxy
                       </label>
                     </div>
                     Not a member? <a href="https://www.freechess.org/cgi-bin/Register/FICS_register.cgi?Language=English" target="_blank">Register</a> here.
+                    <div class="mt-2 mb-2 pt-3 border-top center justify-content-evenly">
+                      <button type="submit" id="login" class="btn btn-primary">Login</button>
+                      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
                   </form>
-                </div>
-                <div class="modal-footer center">
-                  <button type="button" id="login" class="btn btn-primary">Login</button>
-                  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                 </div>
               </div>
             </div>
