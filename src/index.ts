@@ -409,7 +409,7 @@ function messageHandler(data) {
       if (data.reason !== 7) {
         examine = ['ex ' + data.winner + ' -1', 'Examine'];
       }
-      showModal('Match Request', '', data.message, examine, rematch);
+      showModal('Match Result', '', data.message, examine, rematch);
       clearInterval(game.wclock);
       clearInterval(game.bclock);
       clearInterval(game.watchers);
