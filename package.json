@@ -26,7 +26,9 @@
     "appId": "club.freechess.FreeChessClub",
     "productName": "Free Chess Club",
     "copyright": "Copyright © 2022 Free Chess Club Author(s)",
-    "publish": ["github"],
+    "publish": [
+      "github"
+    ],
     "mac": {
       "category": "public.app-category.board-games"
     },
@@ -72,7 +74,7 @@
     "exports-loader": "^3.1.0",
     "file-loader": "^6.2.0",
     "style-loader": "^3.3.1",
-    "ts-loader": "^9.2.6",
+    "ts-loader": "^9.3.1",
     "tslint": "^6.1.3",
     "typescript": "^4.7.4",
     "url-loader": "^4.1.1",
