@@ -2,10 +2,11 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import { app, BrowserWindow, dialog, Menu, session, screen, shell } from 'electron';
-import * as Electron from 'electron';
-import * as path from 'path';
-import * as url from 'url';
+import { app, BrowserWindow, dialog, Menu, session, screen, shell } from 'electron'
+import * as Electron from 'electron'
+import * as path from 'path'
+import * as url from 'url'
+import { autoUpdater } from "electron-updater"
 
 let mainWindow = null;
 
@@ -150,7 +151,7 @@ function addUpdateMenuItems(items, position) {
     visible: false,
     key: 'checkForUpdate',
     click: () => {
-      Electron.autoUpdater.checkForUpdates();
+      autoUpdater.checkForUpdatesAndNotify();
     },
   }, {
     label: 'Restart and Install Update',
@@ -158,7 +159,7 @@ function addUpdateMenuItems(items, position) {
     visible: false,
     key: 'restartToUpdate',
     click: () => {
-      Electron.autoUpdater.quitAndInstall();
+      autoUpdater.quitAndInstall();
     },
   }];
 

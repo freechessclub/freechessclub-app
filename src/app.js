@@ -4,9 +4,9 @@
 // license that can be found in the LICENSE file.
 exports.__esModule = true;
 var electron_1 = require("electron");
-var Electron = require("electron");
 var path = require("path");
 var url = require("url");
+var electron_updater_1 = require("electron-updater");
 var mainWindow = null;
 var template = [{
         label: 'Edit',
@@ -149,7 +149,7 @@ function addUpdateMenuItems(items, position) {
             visible: false,
             key: 'checkForUpdate',
             click: function () {
-                Electron.autoUpdater.checkForUpdates();
+                electron_updater_1.autoUpdater.checkForUpdatesAndNotify();
             }
         }, {
             label: 'Restart and Install Update',
@@ -157,7 +157,7 @@ function addUpdateMenuItems(items, position) {
             visible: false,
             key: 'restartToUpdate',
             click: function () {
-                Electron.autoUpdater.quitAndInstall();
+                electron_updater_1.autoUpdater.quitAndInstall();
             }
         }];
     items.splice.apply(items, [position, 0].concat(updateItems));
