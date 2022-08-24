@@ -16,6 +16,9 @@ if ($(window).width() < 767) {
 }
 
 $('#version').text('Version: ' + version);
+const proxy = Cookies.get('proxy');
+const proxyEnabled = (proxy !== undefined);
+$('#proxy').text('Proxy: ' + (proxyEnabled ? 'ON' : 'OFF'));
 
 // color theme controls
 const colorTheme = Cookies.get('theme');

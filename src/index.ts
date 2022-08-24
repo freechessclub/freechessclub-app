@@ -922,8 +922,10 @@ $('#login-form').on('submit', (event) => {
   const enableProxy = $('#enable-proxy').prop('checked');
   if (enableProxy) {
     Cookies.set('proxy', String(enableProxy), { expires: 365 });
+    $('#proxy').text('Proxy: ON');
   } else {
     Cookies.remove('proxy');
+    $('#proxy').text('Proxy: OFF');
   }
   session = new Session(messageHandler, enableProxy, user, pass);
   if ($('#remember-me').prop('checked')) {
