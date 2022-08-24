@@ -220,7 +220,7 @@ export class Parser {
     }
 
     // game start
-    match = msg.match(/^\s*\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\sCreating.*\}.*/);
+    match = msg.match(/^\s*\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\sCreating.*\}.*/s);
     if (match != null && match.length > 2) {
       return {
         game_id: match[1],
@@ -230,7 +230,7 @@ export class Parser {
     }
 
     // game end
-    match = msg.match(/^[^\(\):]*(?:Game\s[0-9]+:.*)?\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)\s([a-zA-Z0-9\s]+)\}\s(?:[012/]+-[012/]+)?.*/);
+    match = msg.match(/^[^\(\):]*(?:Game\s[0-9]+:.*)?\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)\s([a-zA-Z0-9\s]+)\}\s(?:[012/]+-[012/]+)?.*/s);
     if (match != null && match.length > 4) {
       const p1 = match[2];
       const p2 = match[3];
@@ -248,7 +248,7 @@ export class Parser {
     }
 
     // channel tell
-    match = msg.match(/^([a-zA-Z]+)(?:\([A-Z\*]+\))*\(([0-9]+)\):\s+([\s\S]*)/);
+    match = msg.match(/^([a-zA-Z]+)(?:\([A-Z\*]+\))*\(([0-9]+)\):\s+([\s\S]*)/s);
     if (match != null && match.length > 3) {
       return {
         channel: match[2],
@@ -258,7 +258,7 @@ export class Parser {
     }
 
     // private tell
-    match = msg.match(/^([a-zA-Z]+)(?:[\(\[][A-Z0-9\*\-]+[\)\]])* (?:tells you|says):\s+([\s\S]*)/);
+    match = msg.match(/^([a-zA-Z]+)(?:[\(\[][A-Z0-9\*\-]+[\)\]])* (?:tells you|says):\s+([\s\S]*)/s);
     if (match != null && match.length > 2) {
       return {
         user: match[1],
@@ -267,7 +267,7 @@ export class Parser {
     }
 
     // kibitz/whispers
-    match = msg.match(/^([a-zA-Z]+)(?:\([A-Z0-9\*\-]+\))*\[([0-9]+)\] (?:kibitzes|whispers):\s+([\s\S]*)/);
+    match = msg.match(/^([a-zA-Z]+)(?:\([A-Z0-9\*\-]+\))*\[([0-9]+)\] (?:kibitzes|whispers):\s+([\s\S]*)/s);
     if (match != null && match.length > 3) {
       return {
         channel: 'Game ' + match[2],
