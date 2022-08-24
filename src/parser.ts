@@ -140,6 +140,11 @@ export class Parser {
       case 'adjourned by mutual agreement':
         return [p1, p2, Reason.Adjourn];
     }
+
+    if (action.match(/ran out of time and ([a-zA-Z]+) has no material to mate/) != null) {
+      return [p1, p2, Reason.Draw];
+    }
+
     return [p1, p2, Reason.Unknown];
   }
 
