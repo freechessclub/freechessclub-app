@@ -26,6 +26,7 @@ let historyRequested = false;
 let gamesRequested = false;
 let movelistRequested = false;
 let lobbyRequested = false;
+let modalCounter = 0;
 
 function showCapturePiece(color: string, p: string): void {
   if (game.color === color) {
@@ -168,8 +169,9 @@ function showStatusMsg(msg: string) {
 }
 
 function showModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress: boolean = false) {
+  let modalId = 'modal' + modalCounter++;
   let req = `
-  <div class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
+  <div id="` + modalId + `" class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
     <div class="toast-header"><strong class="me-auto">` + type + `</strong>
     <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button></div>
     <div class="toast-body"><div class="d-flex align-items-center">
@@ -193,7 +195,7 @@ function showModal(type: string, title: string, msg: string, btnFailure: string[
 
   req += `</div></div></div>`;
   $('#game-requests').append(req);
-  $('.toast').toast('show');
+  $('#' + modalId).toast('show');
 }
 
 export function parseMovelist(movelist: string) {
