@@ -6,7 +6,7 @@ import { app, BrowserWindow, dialog, Menu, session, screen, shell } from 'electr
 import * as Electron from 'electron'
 import * as path from 'path'
 import * as url from 'url'
-import { autoUpdater } from "electron-updater"
+import { autoUpdater } from 'electron-updater'
 
 let mainWindow = null;
 

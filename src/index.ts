@@ -169,7 +169,7 @@ function showStatusMsg(msg: string) {
 }
 
 function showModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress: boolean = false) {
-  let modalId = 'modal' + modalCounter++;
+  const modalId = 'modal' + modalCounter++;
   let req = `
   <div id="` + modalId + `" class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
     <div class="toast-header"><strong class="me-auto">` + type + `</strong>
@@ -303,8 +303,8 @@ function messageHandler(data) {
         if (data.role !== -1) {
           game.color = 'w';
           if (data.role !== 2 || data.role !== -2 || data.role !== -3) {
-            game.wclock = clock.startWhiteClock(game, $('#player-time'));
-            game.bclock = clock.startBlackClock(game, $('#opponent-time'));
+            game.wclock = clock.startWhiteClock(game);
+            game.bclock = clock.startBlackClock(game);
           }
           $('#player-name').text(data.white_name);
           $('#opponent-name').text(data.black_name);
@@ -326,8 +326,8 @@ function messageHandler(data) {
         // role -1: I am playing and it is NOW my opponent's move
         } else {
           game.color = 'b';
-          game.bclock = clock.startBlackClock(game, $('#player-time'));
-          game.wclock = clock.startWhiteClock(game, $('#opponent-time'));
+          game.bclock = clock.startBlackClock(game);
+          game.wclock = clock.startWhiteClock(game);
           $('#player-name').text(data.black_name);
           $('#opponent-name').text(data.white_name);
         }
@@ -699,6 +699,49 @@ function messageHandler(data) {
       break;
   }
 }
+
+$('#flip-toggle').on('click', (event) => {
+  board.toggleOrientation();
+  const playerName = $('#player-name').html();
+  const playerRating = $('#player-rating').html();
+  const playerCaptured = $('#player-captured').html();
+  const playerTime = $('#player-time').html();
+  const playerStatus = $('#player-status').html();
+
+  const opponentName = $('#opponent-name').html();
+  const opponentRating = $('#opponent-rating').html();
+  const opponentCaptured = $('#opponent-captured').html();
+  const opponentTime = $('#opponent-time').html();
+  const opponentStatus = $('#opponent-status').html();
+
+  $('#player-name').html(opponentName);
+  $('#player-rating').html(opponentRating);
+  $('#player-captured').html(opponentCaptured);
+  $('#player-time').html(opponentTime);
+
+  $('#opponent-name').html(playerName);
+  $('#opponent-rating').html(playerRating);
+  $('#opponent-captured').html(playerCaptured);
+  $('#opponent-time').html(playerTime);
+
+  $('#player-name').prop('id', 'tmp-player-name');
+  $('#player-rating').prop('id', 'tmp-player-rating');
+  $('#player-captured').prop('id', 'tmp-player-captured');
+  $('#player-time').prop('id', 'tmp-player-time');
+  $('#player-status').prop('id', 'tmp-player-status');
+
+  $('#opponent-name').prop('id', 'player-name');
+  $('#opponent-rating').prop('id', 'player-rating');
+  $('#opponent-captured').prop('id', 'player-captured');
+  $('#opponent-time').prop('id', 'player-time');
+  $('#opponent-status').prop('id', 'player-status');
+
+  $('#tmp-player-name').prop('id', 'opponent-name');
+  $('#tmp-player-rating').prop('id', 'opponent-rating');
+  $('#tmp-player-captured').prop('id', 'opponent-captured');
+  $('#tmp-player-time').prop('id', 'opponent-time');
+  $('#tmp-player-status').prop('id', 'opponent-status');
+});
 
 function getValue(elt: string): string {
   return $(elt).val() as string;

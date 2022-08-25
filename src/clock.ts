@@ -15,13 +15,14 @@ export function SToHHMMSS(sec: number) {
   + (s >= 0 && s < 10 ? '0' : '') + s);
 }
 
-export function startBlackClock(game, clock) {
+export function startBlackClock(game) {
   return setInterval(() => {
     if (game.chess.turn() === 'w') {
       return;
     }
 
     game.btime = game.btime - 1;
+    let clock = game.color === 'w' ? $('#opponent-time') : $('#player-time');
     if (game.btime < 20 && clock.css('color') !== 'red') {
       clock.css('color', 'red');
     }
@@ -34,13 +35,14 @@ export function startBlackClock(game, clock) {
   }, 1000);
 }
 
-export function startWhiteClock(game, clock) {
+export function startWhiteClock(game) {
   return setInterval(() => {
     if (game.chess.turn() === 'b') {
       return;
     }
 
     game.wtime = game.wtime - 1;
+    let clock = game.color === 'w' ? $('#player-time') : $('#opponent-time');
     if (game.wtime < 20 && clock.css('color') !== 'red') {
       clock.css('color', 'red');
     }
