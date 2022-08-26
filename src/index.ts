@@ -259,23 +259,25 @@ function messageHandler(data) {
       game.wtime = data.white_time;
       game.moveNo = data.move_no;
 
+      const amIblack = data.black_name === session.getUser();
+      const amIwhite = data.white_name === session.getUser();
+
       if (game.chess === null) {
         game.chess = Chess();
         let movableColor : any;
-        if (data.role === -1) {
-          movableColor = 'black';
-        } else if (data.role === 1) {
-          movableColor = 'white';
-        } else if (data.role === 2) {
+        if (data.role === 2) {
           movableColor = 'both';
+        } else {
+          movableColor = amIblack ? 'black' : 'white';
         }
 
         const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
         const loaded = game.chess.load(fen);
+        const blackTurn = (data.role === 1 && amIblack) || (data.role === -1 && amIwhite);
         board.set({
           fen: game.chess.fen(),
-          orientation: data.role === -1 ? 'black' : 'white',
-          turnColor: 'white',
+          orientation: amIblack ? 'black' : 'white',
+          turnColor:  blackTurn ? 'black' : 'white',
           movable: {
             free: false,
             dests: (data.role === -1 || data.role === 1 || data.role === 2) ? toDests(game.chess) : undefined,
@@ -300,7 +302,7 @@ function messageHandler(data) {
 
         // role 0: I am observing
         // role 1: I am playing and it is NOW my move
-        if (data.role !== -1) {
+        if (data.role !== -1 && !amIblack) {
           game.color = 'w';
           if (data.role !== 2 || data.role !== -2 || data.role !== -3) {
             game.wclock = clock.startWhiteClock(game);
@@ -364,8 +366,7 @@ function messageHandler(data) {
       $('#game-requests').empty();
       $('#playing-game').hide();
       $('#pills-game-tab').tab('show');
-      const user = session.getUser();
-      if (data.player_one === user) {
+      if (data.player_one === session.getUser()) {
         chat.createTab(data.player_two);
       } else {
         chat.createTab(data.player_one);

@@ -22,7 +22,7 @@ export function startBlackClock(game) {
     }
 
     game.btime = game.btime - 1;
-    let clock = game.color === 'w' ? $('#opponent-time') : $('#player-time');
+    const clock = game.color === 'w' ? $('#opponent-time') : $('#player-time');
     if (game.btime < 20 && clock.css('color') !== 'red') {
       clock.css('color', 'red');
     }
@@ -42,7 +42,7 @@ export function startWhiteClock(game) {
     }
 
     game.wtime = game.wtime - 1;
-    let clock = game.color === 'w' ? $('#player-time') : $('#opponent-time');
+    const clock = game.color === 'w' ? $('#player-time') : $('#opponent-time');
     if (game.wtime < 20 && clock.css('color') !== 'red') {
       clock.css('color', 'red');
     }
