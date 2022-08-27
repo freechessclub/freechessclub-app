@@ -310,28 +310,31 @@ function messageHandler(data) {
           }
           $('#player-name').text(data.white_name);
           $('#opponent-name').text(data.black_name);
-          if (data.role === undefined || data.role === 0 || data.role === 2 || data.role === -2) {
-            if (data.role === 2) {
-              game.examine = true;
-              $('#new-game').text('Unexamine game');
-            } else {
-              game.obs = true;
-              $('#new-game').text('Unobserve game');
-              if (game.id === 0) {
-                game.id = data.game_id;
-              }
-            }
-            $('#new-game-menu').prop('disabled', true);
-            $('#playing-game').hide();
-            $('#pills-game-tab').tab('show');
-          }
         // role -1: I am playing and it is NOW my opponent's move
         } else {
           game.color = 'b';
-          game.bclock = clock.startBlackClock(game);
-          game.wclock = clock.startWhiteClock(game);
+          if (data.role !== 2 || data.role !== -2 || data.role !== -3) {
+            game.bclock = clock.startBlackClock(game);
+            game.wclock = clock.startWhiteClock(game);
+          }
           $('#player-name').text(data.black_name);
           $('#opponent-name').text(data.white_name);
+        }
+
+        if (data.role === undefined || data.role === 0 || data.role === 2 || data.role === -2) {
+          if (data.role === 2) {
+            game.examine = true;
+            $('#new-game').text('Unexamine game');
+          } else {
+            game.obs = true;
+            $('#new-game').text('Unobserve game');
+            if (game.id === 0) {
+              game.id = data.game_id;
+            }
+          }
+          $('#new-game-menu').prop('disabled', true);
+          $('#playing-game').hide();
+          $('#pills-game-tab').tab('show');
         }
       }
 
