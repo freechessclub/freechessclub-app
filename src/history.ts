@@ -37,10 +37,10 @@ export class History {
     }
   }
 
-  public add(move: any, fen: string): void {
+  public add(move: any, fen: string, score?: number): void {
     this.moves.push(fen);
     this.id = this.moves.length - 1;
-    this.update(move.san);
+    this.update(move.san, this.id, score);
   }
 
   public removeLast(): void {
@@ -99,18 +99,24 @@ export class History {
     }
   }
 
-  private update(move: any, id?: number): void {
+  private update(move: any, id?: number, score?: number): void {
     if (id === undefined) {
       id = this.length();
     }
+
+    let scoreStr = '';
+    if (score !== undefined) {
+      scoreStr = ' (' + score + ')';
+    }
+
     if (id % 2 === 1) {
       $('#move-history').append('<tr><th scope="row">'
         + (id + 1) / 2 + '</th><td><a href="javascript:void(0);" onclick="showMove(' + id + ')">'
-        + move + '</a></td><td></td></tr>');
+        + move + '</a>' + scoreStr + '</td><td></td></tr>');
       $('#left-panel').scrollTop(document.getElementById('left-panel').scrollHeight);
     } else {
       $('#move-history tr:last td').eq(1).html('<a href="javascript:void(0);" onclick="showMove(' +
-        id + ')">' + move + '</a>');
+        id + ')">' + move + '</a>' + scoreStr);
     }
   }
 }

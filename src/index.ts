@@ -9,6 +9,7 @@ import { Color, Key } from 'chessground/types';
 
 import Chat from './chat';
 import * as clock from './clock';
+import Engine from './engine';
 import game from './game';
 import History from './history';
 import { GetMessageType, MessageType, Session } from './session';
@@ -17,6 +18,7 @@ import './ui';
 
 let session: Session;
 let chat: Chat;
+let engine: Engine;
 
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
@@ -105,11 +107,15 @@ function movePieceAfter(move: any) {
   }
 
   let movable : any = {};
+  let score;
   if (game.examine) {
     movable = {
       color: 'both',
       dests: toDests(game.chess)
     };
+    if (engine != null) {
+      engine.move();
+    }
   } else if (!game.obs) {
     movable = {
       color: game.color === 'w' ? 'white' : 'black',
@@ -325,6 +331,8 @@ function messageHandler(data) {
           if (data.role === 2) {
             game.examine = true;
             $('#new-game').text('Unexamine game');
+            engine = new Engine(game.chess, board);
+            engine.move();
           } else {
             game.obs = true;
             $('#new-game').text('Unobserve game');
@@ -653,6 +661,8 @@ function messageHandler(data) {
           },
         });
         game.examine = false;
+        engine.terminate();
+        engine = null;
         return;
       }
 

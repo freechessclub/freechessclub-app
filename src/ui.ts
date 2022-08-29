@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import Cookies from 'js-cookie';
-import {version} from '../package.json';
+import packageInfo from '../package.json';
 
 // enable tooltips
 $(() => {
@@ -15,7 +15,7 @@ if ($(window).width() < 767) {
   $('#collapse-history').removeClass('show');
 }
 
-$('#version').text('Version: ' + version);
+$('#version').text('Version: ' + packageInfo.version);
 const proxy = Cookies.get('proxy');
 const proxyEnabled = (proxy !== undefined);
 $('#proxy').text('Proxy: ' + (proxyEnabled ? 'ON' : 'OFF'));

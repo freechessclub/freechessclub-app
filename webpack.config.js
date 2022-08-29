@@ -11,6 +11,7 @@ module.exports = {
     },
     resolve: {
         // Add '.ts' and '.tsx' as a resolvable extension.
+        fallback: { 'crypto': false, 'fs': false, 'path': require.resolve('path-browserify') },
         extensions: [".webpack.js", ".web.js", ".ts", ".tsx", ".js"]
     },
     module: {
@@ -37,5 +38,8 @@ module.exports = {
     ],
     optimization: {
         minimize: true,
+    },
+    experiments: {
+        asyncWebAssembly: true,
     },
 }
