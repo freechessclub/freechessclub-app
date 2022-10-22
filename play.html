@@ -190,11 +190,40 @@
                   </div>
                 </div>
               </div>
-              <div class="card-footer center" id="left-panel-bottom" style="padding: 0px">
-                <div class="container" id="game-info-panel">
-                  <div class="row row-cols-1 center">
-                    <div id="game-status" class="col p-1"></div>
-                    <div id="game-watchers" class="mt-1 pt-1 col border-top"></div>
+              <div class="card-footer d-flex flex-column p-0" id="left-panel-bottom">
+                <ul class="nav nav-tabs mt-2" id="left-bottom-tabs" style="visibility: hidden" role="tablist">
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="status-tab" data-bs-toggle="tab" data-bs-target="#status-panel" type="button" role="tab" aria-controls="status-panel" aria-selected="true">Status</button>
+                  </li>
+                  <li class="nav-item" role="presentation" id="engine-tab" style="position: relative; display: none">
+                    <button class="nav-link" style="padding-right: 30px" data-bs-toggle="tab" href="#engine-panel" role="tab" aria-controls="engine-panel" aria-selected="false">Engine</button>
+                    <container class="h-100 d-flex" style="position: absolute; top: 0; right: 12px; z-index: 10">
+                      <span class="closeTab align-self-center btn btn-default btn-sm">×</span>
+                    </container>
+                  </li>
+                </ul>
+                <div class="tab-content flex-grow-1" style="min-height: 0">
+                  <div class="tab-pane fade show active p-1 h-100" id="status-panel" role="tabpanel" aria-labelledby="status-panel">
+                    <div class="d-flex flex-column overflow-auto center h-100">
+                      <div class="px-2 w-100">
+                        <div id="game-status" class="center py-1"></div>
+                        <div id="game-watchers" class="center py-1 mt-1 border-top"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tab-pane fade h-100 w-100 p-1" id="engine-panel" role="tabpanel" aria-labelledby="engine-panel">
+                    <div class="d-flex flex-column h-100 w-100">    
+                      <div style="display: inline-block">
+                        <button type="button" id="start-engine" class="me-1 btn btn-engine btn-outline-secondary btn-sm p-0" style="width: 50px" title="Start Engine">Go</button>  
+                        <div id="pv-button-group" class="btn-group" style="width: 50px">
+                          <button type="button" id="remove-pv" class="btn btn-engine btn-outline-secondary btn-sm p-0" title="Remove Engine Line">-</button>
+                          <button type="button" id="add-pv" class="btn btn-engine btn-outline-secondary btn-sm p-0" title="Add Engine Line">+</button>
+                        </div>
+                      </div>
+                      <div class="flex-grow-1 w-100" style="min-height: 0">
+                        <ul class="list-striped" id="engine-pvs"></ul>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -213,6 +242,10 @@
                 <button type="button" id="resign" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Resign">
                   <span class="fa fa-flag-o" aria-hidden="false"></span>
                 </button>
+              </div>
+              <div id="viewing-game-buttons" class="btn-toolbar center m-auto" style="display: none; width: 100%">
+                <button type="button" id="analyze" class="btn btn-outline-secondary btn-md" title="Analyze">Analyze</button>         
+                <button type="button" id="hide-analysis" style="display: none" class="btn btn-outline-secondary btn-md" title="Hide Analysis">Hide Analysis</button>          
               </div>
             </div>
           </div>

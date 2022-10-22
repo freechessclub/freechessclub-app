@@ -118,7 +118,7 @@ export class Chat {
       tab.css('color', '');
     });
 
-    $(document.body).on('click', '.closeTab', (event) => {
+    $(document.body).on('click', '#tabs .closeTab', (event) => {
       const name: string = $(event.target).parent().attr('id').toLowerCase();
       $(event.target).parent().remove();
       this.deleteTab(name);

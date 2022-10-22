@@ -18,7 +18,7 @@ import './ui';
 
 let session: Session;
 let chat: Chat;
-let engine: Engine;
+let engine: Engine | null;
 
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
@@ -30,6 +30,7 @@ let gamesRequested = false;
 let movelistRequested = 0;
 let lobbyRequested = false;
 let modalCounter = 0;
+let numPVs = 1;
 let gameChangePending = false;
 let matchRequestList = [];
 let matchRequest = undefined;
@@ -332,7 +333,6 @@ function messageHandler(data) {
         if (game.role === Role.NONE || game.isObserving() || game.isExamining()) {
           if (game.isExamining()) {
             $('#new-game').text('Unexamine game');
-            engine = new Engine(game.chess, board);
             session.send('games ' + game.id);
             gameInfoRequested = true;
           }
@@ -341,6 +341,10 @@ function messageHandler(data) {
 
           $('#playing-game').hide();
           $('#pills-game-tab').tab('show');
+
+          // Show analysis buttons
+          $('#playing-game-buttons').hide();
+          $('#viewing-game-buttons').show();
         }
       }
 
@@ -379,6 +383,8 @@ function messageHandler(data) {
     case MessageType.GameStart:
       matchRequestList = [];
       matchRequest = undefined;
+      hideAnalysis();
+      $('#viewing-game-buttons').hide();
       $('#game-requests').empty();
       $('#playing-game').hide();
       $('#playing-game-buttons').show();
@@ -437,6 +443,7 @@ function messageHandler(data) {
       game.watchers = null;
       $('#game-watchers').empty();
       $('#playing-game-buttons').hide();
+      $('#viewing-game-buttons').show();  
       game.id = 0;
       delete game.chess;
       game.chess = null;
@@ -784,9 +791,10 @@ function messageHandler(data) {
           gameChangePending = false;
           session.send('refresh');
         }
-        else
+        else {
           $('#new-game').text('Quick Game');
-
+          hideAnalysis();
+        }
         clearInterval(game.wclock);
         clearInterval(game.bclock);
         delete game.chess;
@@ -798,6 +806,8 @@ function messageHandler(data) {
           },
         });
         game.role = Role.NONE;
+        stopEngine();
+        updateBoardAfter();
         return;
       }
 
@@ -813,6 +823,8 @@ function messageHandler(data) {
           game.history = null;
           $('#playing-game').show();
           $('#new-game').text('Quick Game');
+          $('#viewing-game-buttons').hide();  
+          hideAnalysis();
         }
         clearInterval(game.wclock);
         clearInterval(game.bclock);
@@ -825,8 +837,8 @@ function messageHandler(data) {
           },
         });
         game.role = Role.NONE;
-        engine.terminate();
-        engine = null;
+        stopEngine();
+        updateBoardAfter();
         return;
       }
 
@@ -987,6 +999,85 @@ export function updateBoardAfter() {
   });
 
   showStrengthDiff(fen);
+
+  // create new imstance of Stockfish for each move, since waiting for new position/go commands is very slow (with current SF build)
+  if(engine != null) {
+    stopEngine();
+    startEngine();
+  }
+}
+
+function startEngine() {
+  $('#start-engine').text('Stop');
+
+  $('#engine-pvs').empty();
+  for(let i = 0; i < numPVs; i++) 
+    $('#engine-pvs').append('<li>&nbsp;</li>');
+
+  engine = new Engine(board, numPVs);
+  if(movelistRequested == 0)
+    engine.move(game.history.get().fen);
+  else
+    engine.move(game.fen);
+}
+
+function stopEngine() {
+  $('#start-engine').text('Go');
+
+  if(engine) {
+    engine.terminate();
+    engine = null;
+
+    board.setAutoShapes([]);
+  }
+}
+
+function hideAnalysis() {
+  $('#hide-analysis').hide();
+  $('#analyze').show();
+  stopEngine();
+  board.setAutoShapes([]);
+  closeLeftBottomTab($('#engine-tab'));
+}
+
+function showAnalysis() {
+  $('#analyze').hide();
+  $('#hide-analysis').show();  
+  openLeftBottomTab($('#engine-tab'));
+  $('#engine-pvs').empty();
+  for(let i = 0; i < numPVs; i++) 
+    $('#engine-pvs').append('<li>&nbsp;</li>');
+  $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
+  startEngine();
+}
+
+$('#engine-tab .closeTab').on('click', (event) => {
+  hideAnalysis();
+});
+
+function closeLeftBottomTab(tab: any) {
+  $('#status-tab').tab('show');
+  tab.hide();
+  console.log('helloooooo?');
+  console.log($('#left-bottom-tabs li:visible').length);
+  if($('#left-bottom-tabs li:visible').length === 1)
+    $('#left-bottom-tabs').css('visibility', 'hidden');
+}
+
+function openLeftBottomTab(tab: any) {
+  tab.show();
+  tab.find('.nav-link').tab('show');
+  $('#left-bottom-tabs').css('visibility', 'visible');
+}
+
+function getMoves() {
+  let moves = '';
+  const history = game.chess.history({verbose: true});
+  for (let i = 0; i < history.length; ++i) {
+      const move = history[i];
+      moves += ' ' + move.from + move.to + (move.promotion ? move.promotion : '');
+  }
+  return moves;
 }
 
 function getMoveNoFromFEN(fen: string) {
@@ -1201,6 +1292,42 @@ $('#draw').on('click', (event) => {
   } else {
     showStatusMsg('You are not playing a game.');
   }
+});
+
+$('#analyze').on('click', (event) => { 
+  showAnalysis();
+});
+
+$('#hide-analysis').on('click', (event) => { 
+  hideAnalysis();
+});
+
+$('#start-engine').on('click', (event) => {
+  if(!engine) 
+    startEngine();
+  else 
+    stopEngine();
+});
+
+$('#add-pv').on('click', (event) => {
+  numPVs++;
+  $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
+  $('#engine-pvs').append('<li>&nbsp;</li>');
+  if(engine) {
+    stopEngine();
+    startEngine();
+  }
+});
+
+$('#remove-pv').on('click', (event) => {
+  if(numPVs == 1)
+    return;
+  
+  numPVs--;
+  $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
+  $('#engine-pvs li').last().remove();
+  if(engine)
+    engine.setNumPVs(numPVs);
 });
 
 function getGame(min: number, sec: number) {
