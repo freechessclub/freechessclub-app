@@ -167,6 +167,8 @@ export class Parser {
       return null;
     }
 
+    console.log(msg);
+
     msg = msg.replace(/\[G\]\0/g, (m, offset, str) => {
       this.session.send(String.fromCharCode(...[0x02, 0x39]));
       return '';
@@ -189,8 +191,8 @@ export class Parser {
     let match = null;
 
     // game move
-    match = msg.match(/<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(?:\-?[0-7])\s(?:[01])\s(?:[01])\s(?:[01])\s(?:[01])\s(?:[0-9]+)\s([0-9]+)\s([a-zA-Z]+)\s([a-zA-Z]+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s(?:[0-9]+)\s(?:[0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(?:\S+)\s\((?:[0-9]+)\:(?:[0-9]+)\)\s(\S+)\s(?:[01])\s(?:[0-9]+)\s(?:[0-9]+)\s*/);
-    if (match != null && match.length >= 18) {
+    match = msg.match(/<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(\-?[0-7])\s([01])\s([01])\s([01])\s([01])\s([0-9]+)\s([0-9]+)\s([a-zA-Z]+)\s([a-zA-Z]+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(\S+)\s\(([0-9]+)\:([0-9]+)\)\s(\S+)\s([01])\s([0-9]+)\s([0-9]+)\s*/);
+    if (match != null && match.length >= 33) {
       const msgs = msg.split(/\n/g);
       if (msgs.length > 1) {
         const parsedMsgs = [];
@@ -208,19 +210,62 @@ export class Parser {
         fen += '/';
       }
       fen += this.style12ToFEN(match[8]);
+      // Parse the rest of the data, we should make use of all the game state info. 
+
+      // color whose turn it is to move ("B" or "W")
+      fen += ' ' + match[9].toLowerCase();
+      // castling state
+      var castleStr = '';
+      castleStr += (+match[11] === 1 ? 'K' : ''); // can White still castle short? (0=no, 1=yes)
+      castleStr += (+match[12] === 1 ? 'Q' : ''); // can White still castle long?
+      castleStr += (+match[13] === 1 ? 'k' : ''); // can Black still castle short?
+      castleStr += (+match[14] === 1 ? 'q' : ''); // can Black still castle long?
+      fen += ' ' + (castleStr === '' ? '-' : castleStr);
+      // -1 if the previous move was NOT a double pawn push, otherwise the chess board file  (numbered 0--7 for a--h) in which the double push was made   
+      fen += ' ' + (+match[10] === -1 ? '-' : String.fromCharCode("a".charCodeAt(0) + +match[10]) + (match[9] === 'W' ? '6' : '3')); 
+      // the number of moves made since the last irreversible move.  
+      fen += ' ' + match[15];
+      // the full move number
+      fen += ' ' + match[26]; 
+
+      // Parse move in long format (from, to, promotion)
+      var move_matches = match[27].match(/\S+\/(\S{2})-(\S{2})=?(\S?)/);  
+      var move_verbose;
+      if(move_matches) {
+        move_verbose = {
+          from: move_matches[1], 
+          to: move_matches[2], 
+          promotion: move_matches[3],
+          san: match[30]
+        };  
+      }
+      else if(match[30] === 'O-O' || match[30] === 'O-O-O') {
+        move_verbose = {
+          from: 'e' + (match[9] === 'W' ? '8' : '1'),
+          to: (match[30] === 'O-O' ? 'g' : 'c') + (match[9] === 'W' ? '8' : '1'),
+          promotion: undefined,
+          san: match[30]
+        }
+      }
+
       return {
-        fen,
-        turn: match[9],
-        game_id: +match[10],
-        white_name: match[11],
-        black_name: match[12],
-        role: +match[13],
-        time: +match[14],
-        inc: +match[15],
-        white_time: +match[16],
-        black_time: +match[17],
-        move_no: +match[18],
-        move: match[19],
+        fen,                                  // game state
+        turn: match[9],                       // color whose turn it is to move ("B" or "W")
+        game_id: +match[16],                  // The game number
+        white_name: match[17],                // White's name
+        black_name: match[18],                // Black's name
+        role: +match[19],                     // my relation to this game
+        time: +match[20],                     // initial time (in seconds) of the match
+        inc: +match[21],                      // increment In seconds) of the match
+        white_material_strength: +match[22],  // White material strength
+        black_material_strength: +match[23],  // Black material strength
+        white_time: +match[24],               // White's remaining time
+        black_time: +match[25],               // Black's remaining time
+        move_no: +match[26],                  // the number of the move about to be made 
+        move_verbose: move_verbose,           // verbose coordinate notation for the previous move ("none" if there werenone) [note this used to be broken for examined games]
+        time_prev_move: {minutes: match[28], seconds: match[29]}, // time taken to make previous move "(min:sec)".
+        move: match[30],                      // pretty notation for the previous move ("none" if there is none)
+        flip: match[31] === '1'               // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.
       };
     }
 

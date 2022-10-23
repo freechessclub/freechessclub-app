@@ -277,7 +277,7 @@ function messageHandler(data) {
           movableColor = amIblack ? 'black' : 'white';
         }
 
-        const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
+        const fen = data.fen;
         const loaded = game.chess.load(fen);
         const blackTurn = (data.role === 1 && amIblack) || (data.role === -1 && amIwhite);
         board.set({
@@ -355,8 +355,7 @@ function messageHandler(data) {
           }
         }
         if (data.move === 'none' || move === null) {
-          const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
-          const loaded = game.chess.load(fen);
+          const loaded = game.chess.load(data.fen);
           board.set({
             fen: data.fen,
           });
