@@ -340,13 +340,15 @@ function messageHandler(data) {
 
       if(data.role == Role.NONE || data.role >= 0) {
         let move = null;
-        if (data.move !== 'none') {
+        const lastPly = getPlyFromFEN(game.chess.fen());
+        const thisPly = getPlyFromFEN(data.fen);
+        if (data.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
           move = game.chess.move(data.move);
           if (move !== null) {
             movePieceAfter(move);
           }
         }
-        if (data.move === 'none' || move === null) {
+        if (data.move === 'none' || (move === null && game.chess.fen() !== data.fen)) {
           const loaded = game.chess.load(data.fen);
           board.set({
             fen: data.fen,
@@ -704,6 +706,14 @@ function messageHandler(data) {
       chat.newMessage('console', data);
       break;
   }
+}
+
+function getPlyFromFEN(fen: string) {
+  var turn_color = fen.split(' ')[1];
+  var move_no = +fen.split(' ').pop();
+  var ply = move_no * 2 - (turn_color === 'w' ? 1 : 0);
+
+  return ply;
 }
 
 $('#flip-toggle').on('click', (event) => {
