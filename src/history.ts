@@ -2,24 +2,19 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
+import { updateBoardAfter } from "./index";
+
 export class History {
   private board: any;
-  private moves: string[];
+  private moves: {move: any, fen: any}[];
   private id: number;
 
-  constructor(id: number, board: any) {
+  constructor(fen: string, board: any) {
     this.board = board;
-    this.moves = new Array(id);
-    this.moves[id-1] = board.getFen()
-    this.id = id-1;
+    this.moves = new Array();
+    this.id = -1;
 
     $('#move-history').empty();
-
-    (window as any).showMove = (n: number) => {
-      if (this) {
-        this.display(n);
-      }
-    };
 
     $('#collapse-history').on('hidden.bs.collapse', () => {
       $('#history-toggle-icon').removeClass('fa-toggle-up').addClass('fa-toggle-down');
@@ -27,24 +22,29 @@ export class History {
     $('#collapse-history').on('shown.bs.collapse', () => {
       $('#history-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
     });
+
+    this.add(undefined, fen);
   }
 
   public addPrev(moves: any[]): void {
     for (let i = 0; i < moves.length; i++) {
-      const {move, fen} = moves[i];
-      this.moves[i] = fen;
-      this.update(move, i+1);
+      this.moves[i] = moves[i];
+      if(moves[i].move) 
+        this.update(moves[i].move, i);
     }
   }
 
   public add(move: any, fen: string, score?: number): void {
-    this.moves.push(fen);
+    this.moves.push({move: move, fen: fen});
     this.id = this.moves.length - 1;
-    this.update(move.san, this.id, score);
+
+    if(move) 
+      this.update(move.san, this.id, score);
   }
 
   public removeLast(): void {
     this.undo();
+
     const id: number = this.length();
     if (id % 2 === 1) {
       $('#move-history tr:last td').children().last().remove();
@@ -56,40 +56,64 @@ export class History {
   public removeAll(): void {
     $('#move-history').empty();
     this.id = 0;
-    this.moves = [ this.board.getFen() ];
+    this.moves = [ {move: null, fen: this.board.getFen()} ];
   }
 
   public length(): number {
     return this.moves.length - 1;
   }
 
-  public display(id?: number): void {
+  public display(id?: number): {move: any, fen: any} {
     if (id !== undefined) {
       this.id = id;
     }
-    if (this.id >= 0 && this.id < this.moves.length) {
-      this.board.set({ fen: this.moves[this.id] });
+
+    if (this.id >= 0 && this.id < this.moves.length) {    
+      this.board.set({ 
+        fen: this.moves[this.id].fen
+      });
+      updateBoardAfter();
     }
+
+    return this.moves[this.id];
   }
 
-  public beginning(): void {
+  public get(id?: number): {move: any, fen: any} {
+    if(id === undefined)
+      return this.moves[this.id];
+    return this.moves[id];
+  }
+
+  public ply(): number {
+    return this.id;
+  }
+
+  public beginning(): {move: any, fen: any} {
     this.display(0);
+
+    return this.moves[this.id];
   }
 
-  public backward(): void {
+  public backward(): {move: any, fen: any} {
     if (this.id > 0) {
       this.display(this.id - 1);
     }
+
+    return this.moves[this.id];
   }
 
-  public forward(): void {
+  public forward(): {move: any, fen: any} {
     if (this.id < this.moves.length - 1) {
       this.display(this.id + 1);
     }
+
+    return this.moves[this.id];
   }
 
-  public end(): void {
+  public end(): {move: any, fen: any} {
     this.display(this.moves.length - 1);
+
+    return this.moves[this.id];
   }
 
   public undo(): void {

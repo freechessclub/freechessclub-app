@@ -23,13 +23,21 @@ let engine: Engine;
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
 
-let pendingTakeback = 0;
 let historyRequested = false;
 let gamesRequested = false;
-let movelistRequested = false;
+let movelistRequested = 0;
 let lobbyRequested = false;
 let modalCounter = 0;
 let gameChangePending = false;
+
+(window as any).showMove = (n: number) => {
+  if(game.isExamining()) {
+    if(game.history.length() !== n)
+      session.send('back ' + (game.history.length() - n));
+  }
+  else 
+    var entry = game.history.display(n);            
+};
 
 function showCapturePiece(color: string, p: string): void {
   if (game.color === color) {
@@ -102,41 +110,25 @@ function inCheck(san: string) {
 }
 
 function movePieceAfter(move: any) {
+  // go to current position if user is looking at earlier move in the move list
+  if(game.history.ply() < game.history.length())
+    board.set({ fen: game.chess.fen() });
+
   board.move(move.from, move.to);
   if (move.flags !== 'n') {
     board.set({ fen: game.chess.fen() });
   }
 
-  let movable : any = {};
-  if (game.isExamining()) {
-    movable = {
-      color: 'both',
-      dests: toDests(game.chess)
-    };
-    if (engine != null) {
-      engine.move();
-    }
-  } else if (!game.isObserving()) {
-    movable = {
-      color: game.color === 'w' ? 'white' : 'black',
-      dests: toDests(game.chess)
-    };
-  }
+  updateHistory(move);
+  updateBoardAfter();
 
-  const check = inCheck(move.san);
-  board.set({
-    turnColor: toColor(game.chess),
-    movable,
-    check,
-  });
   board.playPremove();
-  game.history.add(move, game.chess.fen());
 
   if (move.captured) {
     showCapturePiece(move.color, move.captured);
   }
 
-  if (check) {
+  if (game.chess.in_check()) {
     if (soundToggle) {
       Sounds.checkSound.play();
     }
@@ -165,6 +157,7 @@ export function movePiece(source: any, target: any, metadata: any) {
     to: target,
     promotion: 'q', // TODO: Allow non-queen promotions
   });
+
   if (move !== null) {
     movePieceAfter(move);
   }
@@ -209,23 +202,22 @@ export function parseMovelist(movelist: string) {
   let found : string[] & { index?: number } = [''];
   let n = 1;
   const chess = Chess();
+  game.history = new History(chess.fen(), board); // Note, History now stores {move, fen} pairs 
   while (found !== null) {
     // Fixed regex to allow for O-O and other moves with symbols and fixed bug with brackets for optional 2nd column
     found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*(?:\\(\\d+:\\d+\\))\\s*(?:(\\S*)\\s*(?:\\(\\d+:\\d+\\)))?.*', 'm'));
     if (found !== null && found.length > 1) {
       const m1 = found[1].trim();
-      moves.push({move: m1, fen: chess.fen()});
-      chess.move(m1);
+      game.history.add(chess.move(m1), chess.fen());
       if (found.length > 2 && found[2]) {
         const m2 = found[2].trim();
-        moves.push({move: m2, fen: chess.fen()});
-        chess.move(m2);
+        game.history.add(chess.move(m2), chess.fen());
       }
       n++;
       movelist += movelist[found.index];
     }
   }
-  game.history.addPrev(moves);
+  game.history.display();
 }
 
 function messageHandler(data) {
@@ -280,36 +272,18 @@ function messageHandler(data) {
 
       if (game.chess === null) {
         game.chess = new Chess();
-        let movableColor : any;
-        if (game.isExamining()) {
-          movableColor = 'both';
-        } else {
-          movableColor = amIblack ? 'black' : 'white';
-        }
-
-        const fen = data.fen;
-        const loaded = game.chess.load(fen);
-        const blackTurn = (data.role === Role.MY_MOVE && amIblack) || (data.role === Role.OPPONENTS_MOVE && amIwhite);
+        board.cancelMove();
         board.set({
-          fen: game.chess.fen(),
           orientation: amIblack ? 'black' : 'white',
-          turnColor:  blackTurn ? 'black' : 'white',
           movable: {
             free: false,
-            dests: (game.isPlaying() || game.isExamining()) ? toDests(game.chess) : undefined,
-            color: movableColor,
             events: {
               after: movePiece,
             }
           },
           blockTouchScroll: true,
         });
-        // Fixed memory bug where History was getting called with full move # instead of ply
-        game.history = new History(getPlyFromFEN(data.fen), board); 
-        if (game.moveNo > 1) {
-          movelistRequested = true;
-          session.send('moves ' + game.id);
-        }
+
         game.playerCaptured = {};
         game.oppCaptured = {};
         $('#player-captured').text('');
@@ -317,8 +291,6 @@ function messageHandler(data) {
         $('#player-status').css('background-color', '');
         $('#opponent-status').css('background-color', '');
 
-        // role 0: I am observing
-        // role 1: I am playing and it is NOW my move
         if (data.role !== Role.OPPONENTS_MOVE && !amIblack) {
           game.color = 'w';
           if (!game.isExamining() || data.role !== Role.OBS_EXAMINED || data.role !== Role.ISOLATED_POS) {
@@ -327,7 +299,6 @@ function messageHandler(data) {
           }
           $('#player-name').text(game.wname);
           $('#opponent-name').text(game.bname);
-        // role -1: I am playing and it is NOW my opponent's move
         } else {
           game.color = 'b';
           if (!game.isExamining() || data.role !== Role.OBS_EXAMINED || data.role !== Role.ISOLATED_POS) {
@@ -337,6 +308,9 @@ function messageHandler(data) {
           $('#player-name').text(game.bname);
           $('#opponent-name').text(game.wname);
         }
+
+        game.history = new History(game.fen, board); 
+        updateBoardAfter(); 
 
         if (game.role === Role.NONE || game.isObserving() || game.isExamining()) {
           if (game.isExamining()) {
@@ -352,7 +326,7 @@ function messageHandler(data) {
         }
       }
 
-      if(data.role == Role.NONE || data.role >= 0) {
+      if (data.role === Role.NONE || data.role >= -1) {
         let move = null;
         const lastPly = getPlyFromFEN(game.chess.fen());
         const thisPly = getPlyFromFEN(data.fen);
@@ -368,15 +342,8 @@ function messageHandler(data) {
             fen: data.fen,
           });
 
-          if (!game.isObserving()) {
-            board.set({
-              turnColor: data.turn === 'W' ? 'white' : 'black',
-              movable: {
-                color: data.turn === 'W' ? 'white' : 'black',
-                dests: toDests(game.chess),
-              },
-            });
-          }
+          updateHistory();
+          updateBoardAfter();
         }
       }
       break;
@@ -388,7 +355,7 @@ function messageHandler(data) {
         chat.createTab(data.player_two);
       } else {
         chat.createTab(data.player_one);
-      }
+      } 
       session.send('allobs ' + data.game_id);
       game.watchers = setInterval(() => {
         const time = game.color === 'b' ? game.btime : game.wtime;
@@ -430,6 +397,7 @@ function messageHandler(data) {
         examine = ['ex ' + data.winner + ' -1', 'Examine'];
       }
       showModal('Match Result', '', data.message, examine, rematch);
+      game.role = Role.NONE;
       clearInterval(game.wclock);
       clearInterval(game.bclock);
       clearInterval(game.watchers);
@@ -438,6 +406,7 @@ function messageHandler(data) {
       game.id = 0;
       delete game.chess;
       game.chess = null;
+      board.cancelMove();
       board.set({
         movable: {
           free: false,
@@ -449,41 +418,15 @@ function messageHandler(data) {
     case MessageType.Unknown:
     default:
       const msg = data.message.replace(/\n/g, '');
-      let takeBacker = null;
-      let action = null;
-      let match = null;
-      if (pendingTakeback) {
-        match = msg.match(/(\w+) (\w+) the takeback request\./);
-        if (match !== null && match.length > 1) {
-          takeBacker = match[1];
-          action = match[2];
-        } else {
-          match = msg.match(/You (\w+) the takeback request from (\w+)\./);
-          if (match !== null && match.length > 1) {
-            takeBacker = match[2];
-            action = match[1];
-          }
-        }
 
-        if (takeBacker !== null && action !== null) {
-          if (takeBacker === $('#opponent-name').text()) {
-            if (action.startsWith('decline')) {
-              pendingTakeback = 0;
-              return;
-            }
-            for (let i = 0; i < pendingTakeback; i++) {
-              if (game.chess) {
-                game.chess.undo();
-              }
-              if (game.history) {
-                game.history.removeLast();
-              }
-            }
-            pendingTakeback = 0;
-            return;
-          }
-        }
-      }
+      // For takebacks, board was already updated when new move received and
+      // updating the history is now done more generally in updateHistory().
+      let match = msg.match(/(\w+) (\w+) the takeback request\./);
+      if (match !== null && match.length > 1)
+        return;
+      match = msg.match(/You (\w+) the takeback request from (\w+)\./);
+      if (match !== null && match.length > 1) 
+        return;
 
       match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
       $('#game-watchers').empty();
@@ -507,7 +450,6 @@ function messageHandler(data) {
       match = msg.match(/(\w+) would like to take back (\d+) half move\(s\)\./);
       if (match != null && match.length > 1) {
         if (match[1] === $('#opponent-name').text()) {
-          pendingTakeback = Number(match[2]);
           showModal('Takeback Request', match[1], 'would like to take back ' + match[2] + ' half move(s).',
             ['decline', 'Decline'], ['accept', 'Accept']);
         }
@@ -527,10 +469,10 @@ function messageHandler(data) {
 
       match = msg.match(/^History for (\w+):.*/m);
       if (match != null && match.length > 1) {
-        showHistory(match[1], data.message);
-        if (!historyRequested) {
+        if (!historyRequested) 
           chat.newMessage('console', data);
-        } else {
+        else {
+          showHistory(match[1], data.message);
           historyRequested = false;
         }
         return;
@@ -539,40 +481,25 @@ function messageHandler(data) {
       match = msg.match(/^Movelist for game (\d+):.*/m);
       if (match != null && match.length > 1) {
         if (+match[1] === game.id) {
-          parseMovelist(match[0]);
-          if (!movelistRequested) {
+          if (movelistRequested === 0) {
             chat.newMessage('console', data);
           } else {
-            movelistRequested = false;
+            movelistRequested--;
+            if(movelistRequested === 0)
+              parseMovelist(match[0]);
           }
-
         }
         return;
       }
 
+      // Moving backwards and forwards is now handled more generally by updateHistory()
       match = msg.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
-      if (match != null && match.length > 1) {
-        const numMoves: number = +match[1];
-        if (numMoves > game.history.length()) {
-          if (game.chess) {
-            game.chess.reset();
-          }
-          if (game.history) {
-            game.history.removeAll();
-          }
-        } else {
-          for (let i = 0; i < numMoves; i++) {
-            if (game.chess) {
-              game.chess.undo();
-            }
-            if (game.history) {
-              game.history.removeLast();
-            }
-          }
-        }
+      if (match != null && match.length > 1) 
         return;
-      }
-
+      match = msg.match(/Game\s\d+: \w+ goes forward (\d+) moves?\./);
+      if (match != null && match.length > 1) 
+      return;
+      
       match = msg.match(/(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
       if (match != null && match.length > 4) {
         game.wrating = match[4];
@@ -638,8 +565,14 @@ function messageHandler(data) {
 
       match = msg.match(/Removing game (\d+) from observation list./);
       if (match != null && match.length > 1) {
-        $('#new-game').text('Quick Game');
-        $('#new-game-menu').prop('disabled', false);
+        if(gameChangePending) {
+          gameChangePending = false;
+          session.send('refresh');
+        }
+        else {
+          $('#new-game').text('Quick Game');
+          $('#new-game-menu').prop('disabled', false);
+        }
         clearInterval(game.wclock);
         clearInterval(game.bclock);
         delete game.chess;
@@ -651,17 +584,23 @@ function messageHandler(data) {
           },
         });
         game.role = Role.NONE;
-        if(gameChangePending) {
-          gameChangePending = false;
-          session.send('refresh');
-        }
         return;
       }
 
       match = msg.match(/You are no longer examining game (\d+)./);
       if (match != null && match.length > 1) {
-        $('#new-game').text('Quick Game');
-        $('#new-game-menu').prop('disabled', false);
+        if(gameChangePending) {
+          gameChangePending = false;
+          session.send("refresh");
+        }
+        else {
+          $('#game-status').html('');
+          $('#move-history').empty();
+          game.history = null;
+          $('#playing-game').show();
+          $('#new-game').text('Quick Game');
+          $('#new-game-menu').prop('disabled', false);
+        }
         clearInterval(game.wclock);
         clearInterval(game.bclock);
         delete game.chess;
@@ -675,10 +614,6 @@ function messageHandler(data) {
         game.role = Role.NONE;
         engine.terminate();
         engine = null;
-        if(gameChangePending) {
-          gameChangePending = false;
-          session.send("refresh");
-        }
         return;
       }
 
@@ -736,6 +671,76 @@ function getPlyFromFEN(fen: string) {
   var ply = move_no * 2 - (turn_color === 'w' ? 1 : 0);
 
   return ply;
+}
+
+function updateHistory(move?: any) {
+  var ply = getPlyFromFEN(game.chess.fen());
+
+  while(ply - 1 < game.history.length()) 
+    game.history.removeLast();
+    
+  if(ply - 1 > game.history.length() + 1) {
+    movelistRequested++;
+    session.send('moves ' + game.id);
+  }
+  
+  if(move) {
+    game.history.add(move, game.chess.fen());
+  } 
+}
+
+export function updateBoardAfter() {
+  var move = game.history.get().move;
+  var fen = game.history.get().fen;
+
+  var localChess = new Chess(fen);
+
+  if(move) {
+    board.set({ animation: { enabled: false }});
+    board.move( move.to, move.from );
+    board.move( move.from, move.to );
+    board.set({ animation: { enabled: true }});
+  } 
+  else 
+    board.set({ lastMove: false });
+
+  var dests : Map<Key, Key[]> | undefined = undefined;
+  var movableColor : string | undefined = undefined;
+  var turnColor : string | undefined = undefined;
+
+  if(game.isObserving()) {
+    turnColor = toColor(game.chess);
+  }
+  else if(game.isPlaying()) {
+    movableColor = (game.color === 'w' ? 'white' : 'black');
+    dests = toDests(game.chess);
+    turnColor = toColor(game.chess);
+  }
+  else if(game.isExamining()) {
+    movableColor = toColor(localChess);
+    dests = toDests(localChess);
+    turnColor = toColor(localChess);
+  }
+  else {
+    // TODO: we don't support editing the board in local-mode yet!
+    turnColor = toColor(localChess);
+  }
+
+  let movable : any = {};
+  movable = {
+    color: movableColor,
+    dests: dests
+  };
+
+  board.set({
+    turnColor: turnColor,
+    movable: movable,
+    check: localChess.in_check() 
+  });
+}
+
+function getMoveNoFromFEN(fen: string) {
+  return +fen.split(' ').pop();
 }
 
 $('#flip-toggle').on('click', (event) => {
@@ -825,10 +830,7 @@ $('#input-form').on('submit', (event) => {
       user: session.getUser(),
       message: cmd.slice(2).join(' '),
     });
-  } else if (cmd.length > 1 && cmd[0].startsWith('ta') && (/^\d+$/.test(cmd[1]))) {
-    pendingTakeback = parseInt(cmd[1], 10);
-  }
-
+  } 
   session.send(text);
   $('#input-text').val('');
 });
@@ -879,13 +881,10 @@ $('#abort').on('click', (event) => {
 
 $('#takeback').on('click', (event) => {
   if (game.chess !== null) {
-    if (game.chess.turn() === game.color) {
-      pendingTakeback = 2;
+    if (game.chess.turn() === game.color) 
       session.send('take 2');
-    } else {
-      pendingTakeback = 1;
+    else 
       session.send('take 1');
-    }
   } else {
     showStatusMsg('You are not playing a game.');
   }
@@ -937,38 +936,34 @@ $('#custom-control').on('click', (event) => {
 
 $('#fast-backward').off('click');
 $('#fast-backward').on('click', () => {
-  if (game.isExamining()) {
+  if (game.isExamining()) 
     session.send('back 999');
-  } else {
+  else if(game.history) 
     game.history.beginning();
-  }
 });
 
 $('#backward').off('click');
 $('#backward').on('click', () => {
-  if (game.isExamining) {
+  if (game.isExamining()) 
     session.send('back');
-  } else {
+  else if(game.history) 
     game.history.backward();
-  }
-});
+  });
 
 $('#forward').off('click');
 $('#forward').on('click', () => {
-  if (game.isExamining) {
+  if (game.isExamining()) 
     session.send('for');
-  } else {
+  else if(game.history) 
     game.history.forward();
-  }
 });
 
 $('#fast-forward').off('click');
 $('#fast-forward').on('click', () => {
-  if (game.isExamining()) {
+  if (game.isExamining()) 
     session.send('for 999');
-  } else {
+  else if(game.history) 
     game.history.end();
-  }
 });
 
 if (!soundToggle) {
