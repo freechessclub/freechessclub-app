@@ -209,12 +209,13 @@ export function parseMovelist(movelist: string) {
   let n = 1;
   const chess = Chess();
   while (found !== null) {
-    found = movelist.match(new RegExp(n + '\\.\\s*(\\w*)\\s*(?:\\(\\d+:\\d+\\))\\s*(\\w*)\\s*(?:\\(\\d+:\\d+\\))?.*', 'm'));
+    // Fixed regex to allow for O-O and other moves with symbols and fixed bug with brackets for optional 2nd column
+    found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*(?:\\(\\d+:\\d+\\))\\s*(?:(\\S*)\\s*(?:\\(\\d+:\\d+\\)))?.*', 'm'));
     if (found !== null && found.length > 1) {
       const m1 = found[1].trim();
       moves.push({move: m1, fen: chess.fen()});
       chess.move(m1);
-      if (found.length > 2 && found[2] !== null) {
+      if (found.length > 2 && found[2]) {
         const m2 = found[2].trim();
         moves.push({move: m2, fen: chess.fen()});
         chess.move(m2);
@@ -291,7 +292,8 @@ function messageHandler(data) {
           },
           blockTouchScroll: true,
         });
-        game.history = new History(game.moveNo, board);
+        // Fixed memory bug where History was getting called with full move # instead of ply
+        game.history = new History(getPlyFromFEN(data.fen), board); 
         if (game.moveNo > 1) {
           movelistRequested = true;
           session.send('moves ' + game.id);
