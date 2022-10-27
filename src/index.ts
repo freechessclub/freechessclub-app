@@ -29,6 +29,7 @@ let gamesRequested = false;
 let movelistRequested = false;
 let lobbyRequested = false;
 let modalCounter = 0;
+let gameChangePending = false;
 
 function showCapturePiece(color: string, p: string): void {
   if (game.color === color) {
@@ -261,6 +262,17 @@ function messageHandler(data) {
       chat.newMessage(data.user, data);
       break;
     case MessageType.GameMove:    
+      // Check we are not examining/observing another game already
+      if((game.isExamining() || game.isObserving()) && game.id !== data.id) {
+        if(game.isExamining())
+          session.send('unex');
+        else if(game.isObserving()) {
+          session.send('unobs ' + game.id);
+        }
+        gameChangePending = true;
+        break;
+      }
+
       Object.assign(game, data);
 
       const amIblack = game.bname === session.getUser();
@@ -639,6 +651,10 @@ function messageHandler(data) {
           },
         });
         game.role = Role.NONE;
+        if(gameChangePending) {
+          gameChangePending = false;
+          session.send('refresh');
+        }
         return;
       }
 
@@ -659,6 +675,10 @@ function messageHandler(data) {
         game.role = Role.NONE;
         engine.terminate();
         engine = null;
+        if(gameChangePending) {
+          gameChangePending = false;
+          session.send("refresh");
+        }
         return;
       }
 
