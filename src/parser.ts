@@ -152,6 +152,21 @@ export class Parser {
     return String.fromCharCode.apply(null, new Uint8Array(buf));
   }
 
+  private splitMessage(msg: string) {
+    const msgs = msg.split(/\n/g);
+    if (msgs.length > 1) {
+      const parsedMsgs = [];
+      for (const m of msgs) {
+        if (m.length > 0) {
+          parsedMsgs.push(this._parse(m));
+        }
+      }
+      return parsedMsgs;
+    }
+
+    return undefined;
+  }
+
   public async parse(data: any) {
     let msg : string;
     if (data instanceof ArrayBuffer) {
@@ -193,16 +208,9 @@ export class Parser {
     // game move
     match = msg.match(/<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(\-?[0-7])\s([01])\s([01])\s([01])\s([01])\s([0-9]+)\s([0-9]+)\s([a-zA-Z]+)\s([a-zA-Z]+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(\S+)\s\(([0-9]+)\:([0-9]+)\)\s(\S+)\s([01])\s([0-9]+)\s([0-9]+)\s*/);
     if (match != null && match.length >= 33) {
-      const msgs = msg.split(/\n/g);
-      if (msgs.length > 1) {
-        const parsedMsgs = [];
-        for (const m of msgs) {
-          if (m.length > 0) {
-            parsedMsgs.push(this._parse(m));
-          }
-        }
-        return parsedMsgs;
-      }
+      var msgs = this.splitMessage(msg);
+      if(msgs)
+        return msgs;
 
       let fen = '';
       for (let i = 1; i < 8; i++) {
@@ -282,6 +290,10 @@ export class Parser {
     // game end
     match = msg.match(/^[^\(\):]*(?:Game\s[0-9]+:.*)?\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)\s([a-zA-Z0-9\s]+)\}\s(?:[012/]+-[012/]+)?.*/s);
     if (match != null && match.length > 4) {
+      var msgs = this.splitMessage(msg);
+      if(msgs)
+        return msgs;
+
       const p1 = match[2];
       const p2 = match[3];
       const who = match[4];
