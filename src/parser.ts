@@ -229,18 +229,18 @@ export class Parser {
       fen += ' ' + match[26]; 
 
       // Parse move in long format (from, to, promotion)
-      var move_matches = match[27].match(/\S+\/(\S{2})-(\S{2})=?(\S?)/);  
-      var move_verbose;
-      if(move_matches) {
-        move_verbose = {
-          from: move_matches[1], 
-          to: move_matches[2], 
-          promotion: move_matches[3],
+      var moveMatches = match[27].match(/\S+\/(\S{2})-(\S{2})=?(\S?)/);  
+      var moveVerbose;
+      if(moveMatches) {
+        moveVerbose = {
+          from: moveMatches[1], 
+          to: moveMatches[2], 
+          promotion: moveMatches[3],
           san: match[30]
         };  
       }
       else if(match[30] === 'O-O' || match[30] === 'O-O-O') {
-        move_verbose = {
+        moveVerbose = {
           from: 'e' + (match[9] === 'W' ? '8' : '1'),
           to: (match[30] === 'O-O' ? 'g' : 'c') + (match[9] === 'W' ? '8' : '1'),
           promotion: undefined,
@@ -251,19 +251,19 @@ export class Parser {
       return {
         fen,                                  // game state
         turn: match[9],                       // color whose turn it is to move ("B" or "W")
-        game_id: +match[16],                  // The game number
-        white_name: match[17],                // White's name
-        black_name: match[18],                // Black's name
+        id: +match[16],                       // The game number
+        wname: match[17],                     // White's name
+        bname: match[18],                     // Black's name
         role: +match[19],                     // my relation to this game
         time: +match[20],                     // initial time (in seconds) of the match
         inc: +match[21],                      // increment In seconds) of the match
-        white_material_strength: +match[22],  // White material strength
-        black_material_strength: +match[23],  // Black material strength
-        white_time: +match[24],               // White's remaining time
-        black_time: +match[25],               // Black's remaining time
-        move_no: +match[26],                  // the number of the move about to be made 
-        move_verbose: move_verbose,           // verbose coordinate notation for the previous move ("none" if there werenone) [note this used to be broken for examined games]
-        time_prev_move: {minutes: match[28], seconds: match[29]}, // time taken to make previous move "(min:sec)".
+        wstrength: +match[22],  // White material strength
+        bstrength: +match[23],  // Black material strength
+        wtime: +match[24],                    // White's remaining time
+        btime: +match[25],                    // Black's remaining time
+        moveNo: +match[26],                   // the number of the move about to be made 
+        moveVerbose: moveVerbose,             // verbose coordinate notation for the previous move ("none" if there werenone) [note this used to be broken for examined games]
+        prevMoveTime: {minutes: match[28], seconds: match[29]}, // time taken to make previous move "(min:sec)".
         move: match[30],                      // pretty notation for the previous move ("none" if there is none)
         flip: match[31] === '1'               // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.
       };

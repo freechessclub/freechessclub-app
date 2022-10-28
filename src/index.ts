@@ -10,7 +10,7 @@ import { Color, Key } from 'chessground/types';
 import Chat from './chat';
 import * as clock from './clock';
 import Engine from './engine';
-import game from './game';
+import { game, Role } from './game';
 import History from './history';
 import { GetMessageType, MessageType, Session } from './session';
 import * as Sounds from './sounds';
@@ -107,8 +107,7 @@ function movePieceAfter(move: any) {
   }
 
   let movable : any = {};
-  let score;
-  if (game.examine) {
+  if (game.isExamining()) {
     movable = {
       color: 'both',
       dests: toDests(game.chess)
@@ -116,7 +115,7 @@ function movePieceAfter(move: any) {
     if (engine != null) {
       engine.move();
     }
-  } else if (!game.obs) {
+  } else if (!game.isObserving()) {
     movable = {
       color: game.color === 'w' ? 'white' : 'black',
       dests: toDests(game.chess)
@@ -156,7 +155,7 @@ export function movePiece(source: any, target: any, metadata: any) {
     return;
   }
 
-  if (game.examine || game.chess.turn() === game.color) {
+  if (game.isExamining() || game.chess.turn() === game.color) {
     session.send(source + '-' + target);
   }
 
@@ -260,18 +259,16 @@ function messageHandler(data) {
     case MessageType.PrivateTell:
       chat.newMessage(data.user, data);
       break;
-    case MessageType.GameMove:
-      game.btime = data.black_time;
-      game.wtime = data.white_time;
-      game.moveNo = data.move_no;
+    case MessageType.GameMove:    
+      Object.assign(game, data);
 
-      const amIblack = data.black_name === session.getUser();
-      const amIwhite = data.white_name === session.getUser();
+      const amIblack = game.bname === session.getUser();
+      const amIwhite = game.wname === session.getUser();
 
       if (game.chess === null) {
-        game.chess = Chess();
+        game.chess = new Chess();
         let movableColor : any;
-        if (data.role === 2) {
+        if (game.isExamining()) {
           movableColor = 'both';
         } else {
           movableColor = amIblack ? 'black' : 'white';
@@ -279,14 +276,14 @@ function messageHandler(data) {
 
         const fen = data.fen;
         const loaded = game.chess.load(fen);
-        const blackTurn = (data.role === 1 && amIblack) || (data.role === -1 && amIwhite);
+        const blackTurn = (data.role === Role.MY_MOVE && amIblack) || (data.role === Role.OPPONENTS_MOVE && amIwhite);
         board.set({
           fen: game.chess.fen(),
           orientation: amIblack ? 'black' : 'white',
           turnColor:  blackTurn ? 'black' : 'white',
           movable: {
             free: false,
-            dests: (data.role === -1 || data.role === 1 || data.role === 2) ? toDests(game.chess) : undefined,
+            dests: (game.isPlaying() || game.isExamining()) ? toDests(game.chess) : undefined,
             color: movableColor,
             events: {
               after: movePiece,
@@ -297,7 +294,7 @@ function messageHandler(data) {
         game.history = new History(game.moveNo, board);
         if (game.moveNo > 1) {
           movelistRequested = true;
-          session.send('moves ' + data.game_id);
+          session.send('moves ' + game.id);
         }
         game.playerCaptured = {};
         game.oppCaptured = {};
@@ -308,45 +305,40 @@ function messageHandler(data) {
 
         // role 0: I am observing
         // role 1: I am playing and it is NOW my move
-        if (data.role !== -1 && !amIblack) {
+        if (data.role !== Role.OPPONENTS_MOVE && !amIblack) {
           game.color = 'w';
-          if (data.role !== 2 || data.role !== -2 || data.role !== -3) {
+          if (!game.isExamining() || data.role !== Role.OBS_EXAMINED || data.role !== Role.ISOLATED_POS) {
             game.wclock = clock.startWhiteClock(game);
             game.bclock = clock.startBlackClock(game);
           }
-          $('#player-name').text(data.white_name);
-          $('#opponent-name').text(data.black_name);
+          $('#player-name').text(game.wname);
+          $('#opponent-name').text(game.bname);
         // role -1: I am playing and it is NOW my opponent's move
         } else {
           game.color = 'b';
-          if (data.role !== 2 || data.role !== -2 || data.role !== -3) {
+          if (!game.isExamining() || data.role !== Role.OBS_EXAMINED || data.role !== Role.ISOLATED_POS) {
             game.bclock = clock.startBlackClock(game);
             game.wclock = clock.startWhiteClock(game);
           }
-          $('#player-name').text(data.black_name);
-          $('#opponent-name').text(data.white_name);
+          $('#player-name').text(game.bname);
+          $('#opponent-name').text(game.wname);
         }
 
-        if (data.role === undefined || data.role === 0 || data.role === 2 || data.role === -2) {
-          if (data.role === 2) {
-            game.examine = true;
+        if (game.role === Role.NONE || game.isObserving() || game.isExamining()) {
+          if (game.isExamining()) {
             $('#new-game').text('Unexamine game');
             engine = new Engine(game.chess, board);
-            engine.move();
-          } else {
-            game.obs = true;
-            $('#new-game').text('Unobserve game');
-            if (game.id === 0) {
-              game.id = data.game_id;
-            }
           }
+          else 
+            $('#new-game').text('Unobserve game');
+
           $('#new-game-menu').prop('disabled', true);
           $('#playing-game').hide();
           $('#pills-game-tab').tab('show');
         }
       }
 
-      if (data.role === undefined || data.role >= 0) {
+      if(data.role == Role.NONE || data.role >= 0) {
         let move = null;
         if (data.move !== 'none') {
           move = game.chess.move(data.move);
@@ -360,7 +352,7 @@ function messageHandler(data) {
             fen: data.fen,
           });
 
-          if (!game.obs) {
+          if (!game.isObserving()) {
             board.set({
               turnColor: data.turn === 'W' ? 'white' : 'black',
               movable: {
@@ -381,7 +373,6 @@ function messageHandler(data) {
       } else {
         chat.createTab(data.player_one);
       }
-      game.id = +data.game_id;
       session.send('allobs ' + data.game_id);
       game.watchers = setInterval(() => {
         const time = game.color === 'b' ? game.btime : game.wtime;
@@ -568,6 +559,8 @@ function messageHandler(data) {
 
       match = msg.match(/(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
       if (match != null && match.length > 4) {
+        game.wrating = match[4];
+        game.brating = match[6];
         showStatusMsg(match[0].substring(match[0].indexOf(':')+1));
         if (match[3] === session.getUser() || match[1].startsWith('Game')) {
           if (game.id === 0) {
@@ -641,7 +634,7 @@ function messageHandler(data) {
             color: undefined,
           },
         });
-        game.obs = false;
+        game.role = Role.NONE;
         return;
       }
 
@@ -659,7 +652,7 @@ function messageHandler(data) {
             color: undefined,
           },
         });
-        game.examine = false;
+        game.role = Role.NONE;
         engine.terminate();
         engine = null;
         return;
@@ -895,9 +888,9 @@ $('#input-text').on('focus', () => {
 $('#new-game').on('click', (event) => {
   if (game.chess === null) {
     session.send('getga');
-  } else if (game.obs) {
+  } else if (game.isObserving()) {
     session.send('unobs');
-  } else if (game.examine) {
+  } else if (game.isExamining()) {
     session.send('unex');
   }
 });
@@ -912,7 +905,7 @@ $('#custom-control').on('click', (event) => {
 
 $('#fast-backward').off('click');
 $('#fast-backward').on('click', () => {
-  if (game.examine) {
+  if (game.isExamining()) {
     session.send('back 999');
   } else {
     game.history.beginning();
@@ -921,7 +914,7 @@ $('#fast-backward').on('click', () => {
 
 $('#backward').off('click');
 $('#backward').on('click', () => {
-  if (game.examine) {
+  if (game.isExamining) {
     session.send('back');
   } else {
     game.history.backward();
@@ -930,7 +923,7 @@ $('#backward').on('click', () => {
 
 $('#forward').off('click');
 $('#forward').on('click', () => {
-  if (game.examine) {
+  if (game.isExamining) {
     session.send('for');
   } else {
     game.history.forward();
@@ -939,7 +932,7 @@ $('#forward').on('click', () => {
 
 $('#fast-forward').off('click');
 $('#fast-forward').on('click', () => {
-  if (game.examine) {
+  if (game.isExamining()) {
     session.send('for 999');
   } else {
     game.history.end();
