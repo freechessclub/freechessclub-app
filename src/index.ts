@@ -266,7 +266,6 @@ function messageHandler(data) {
       }
 
       Object.assign(game, data);
-
       const amIblack = game.bname === session.getUser();
       const amIwhite = game.wname === session.getUser();
 
@@ -536,12 +535,12 @@ function messageHandler(data) {
 
       match = msg.match(
         // tslint:disable-next-line:max-line-length
-        /Challenge: (\w+) \(([\d\+\-\s]{4})\) (\w+) \(([\d\+\-\s]{4})\)\s((?:.+))You can "accept" or "decline", or propose different parameters./ms);
-      if (match != null && match.length > 3) {
+        /Challenge: (\w+) \(([\d\+\-\s]{4})\) (\[(?:white|black)\] )?(\w+) \(([\d\+\-\s]{4})\)\s((?:.+))You can "accept" or "decline", or propose different parameters./ms);
+      if (match != null && match.length > 4) {
         const [opponentName, opponentRating] = (match[1] === session.getUser()) ?
-          match.slice(3, 5) : match.slice(1, 3);
-        showModal('Match Request', opponentName + '(' + opponentRating + ')',
-          match[5], ['decline', 'Decline'], ['accept', 'Accept']);
+          match.slice(4, 6) : match.slice(1, 3);
+        showModal('Match Request', opponentName + '(' + opponentRating + ')' + (match[3] ? ' ' + match[3] : ''),
+          match[6], ['decline', 'Decline'], ['accept', 'Accept']);
         return;
       }
 
