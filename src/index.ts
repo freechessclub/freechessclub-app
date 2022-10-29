@@ -34,6 +34,29 @@ let numPVs = 1;
 let gameChangePending = false;
 let matchRequestList = [];
 let matchRequest = undefined;
+let prevWindowWidth = 0;
+let addressBarHeight = undefined;
+
+
+function hideCloseGamePanel() {
+  $('#close-game-panel').hide();
+  setPanelHeights();
+}
+
+function showCloseGamePanel() {
+  $('#close-game-panel').show();
+  setPanelHeights();
+}
+
+function hideStatusPanel() {
+  $('#left-panel-bottom').hide();
+  setPanelHeights();
+}
+
+function showStatusPanel() {
+  $('#left-panel-bottom').show();
+  setPanelHeights();
+}
 
 // Restricts input for the set of matched elements to the given inputFilter function.
 function setInputFilter(textbox: Element, inputFilter: (value: string) => boolean, errMsg: string): void {
@@ -176,6 +199,7 @@ export function movePiece(source: any, target: any, metadata: any) {
 }
 
 function showStatusMsg(msg: string) {
+  showStatusPanel();
   $('#game-status').html(msg + '<br/>');
 }
 
@@ -315,13 +339,15 @@ function messageHandler(data) {
         updateBoard(); 
 
         if (game.role === Role.NONE || game.isObserving() || game.isExamining()) {
+          if(!isSmallWindow()) 
+            showCloseGamePanel();
           if (game.isExamining()) {
-            $('#new-game').text('Unexamine game');
+            $('#stop-examining').show();
             session.send('games ' + game.id);
             gameInfoRequested = true;
           }
           else 
-            $('#new-game').text('Unobserve game');
+            $('#stop-observing').show();
 
           $('#playing-game').hide();
           $('#pills-game-tab').tab('show');
@@ -330,6 +356,9 @@ function messageHandler(data) {
           $('#playing-game-buttons').hide();
           $('#viewing-game-buttons').show();
         }
+
+        showStatusPanel();
+        scrollToBoard();
       }
 
       if (data.role === Role.NONE || data.role >= -2) {
@@ -760,11 +789,14 @@ function messageHandler(data) {
           gameChangePending = false;
           session.send('refresh');
         }
-        else {
-          $('#new-game').text('Quick Game');
-        }
+
         clearInterval(game.wclock);
         clearInterval(game.bclock);
+
+        $('#stop-observing').hide();
+        $('#close-game-panel').hide();
+        setPanelHeights();
+        
         delete game.chess;
         game.chess = null;
         game.role = Role.NONE;
@@ -779,9 +811,11 @@ function messageHandler(data) {
           gameChangePending = false;
           session.send("refresh");
         }
-        else {
-          $('#new-game').text('Quick Game');
-        }
+
+        $('#stop-examining').hide();
+        $('#close-game-panel').hide();
+        setPanelHeights();
+
         delete game.chess;
         game.chess = null;
         game.role = Role.NONE;
@@ -836,6 +870,21 @@ function messageHandler(data) {
       chat.newMessage('console', data);
       break;
   }
+}
+
+export function scrollToBoard() {
+  if(isSmallWindow()) 
+    $(document).scrollTop($('#left-panel-footer').offset().top);
+}
+
+function scrollToLeftPanelBottom() {
+  if(isSmallWindow()) 
+    $(document).scrollTop($('#left-panel-bottom').offset().top);
+}
+
+function scrollToTop() {
+  if(isSmallWindow()) 
+    $(document).scrollTop($('#left-panel-header').offset().top);
 }
 
 function getPlyFromFEN(fen: string) {
@@ -1026,6 +1075,7 @@ function hideAnalysis() {
 }
 
 function showAnalysis() {
+  showStatusPanel();
   $('#analyze').hide();
   $('#hide-analysis').show();  
   openLeftBottomTab($('#engine-tab'));
@@ -1034,6 +1084,7 @@ function showAnalysis() {
     $('#engine-pvs').append('<li>&nbsp;</li>');
   $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
   startEngine();
+  scrollToLeftPanelBottom();
 }
 
 $('#engine-tab .closeTab').on('click', (event) => {
@@ -1073,6 +1124,8 @@ $('#collapse-history').on('hidden.bs.collapse', (event) => {
   $('#pills-tab button').each(function () { 
     $(this).removeClass('active');
   });
+
+  $('#collapse-history').removeClass('collapse-init');
 });
 
 $('#collapse-history').on('shown.bs.collapse', (event) => {
@@ -1080,10 +1133,13 @@ $('#collapse-history').on('shown.bs.collapse', (event) => {
 
   var activeTabIndex = $('#left-menu > .tab-content > .tab-pane').index($('#left-menu > .tab-content > .tab-pane:visible'));
   $('#pills-tab button').eq(activeTabIndex).addClass('active');
+
+  scrollToTop();
 });
 
 $('#pills-tab button').on('click', (event) => {
   $('#collapse-history').collapse('show');
+  scrollToTop();
 });
 
 $('#flip-toggle').on('click', (event) => {
@@ -1189,10 +1245,22 @@ function onDeviceReady() {
     session = new Session(messageHandler, enableProxy);
   }
 
-  setPanelHeights();
-
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
+
+  prevWindowWidth = $(window).innerWidth();
+  if(isSmallWindow()) {
+    useMobileLayout();
+    $('#collapse-chat').collapse('hide');
+    $('#collapse-history').collapse('hide');
+  }
+  else {
+    $('#pills-play-tab').tab('show');
+    $('#collapse-history').removeClass('collapse-init');
+    $('#collapse-chat').removeClass('collapse-init');
+  }
+
+  setPanelHeights();
 
   selectOnFocus($('#opponent-player-name'));
   selectOnFocus($('#custom-control-min'));
@@ -1215,26 +1283,98 @@ function selectOnFocus(input: any) {
   });
 }
 
+// If on small screen device displaying 1 column, move the navigation buttons so they are near the board
+function useMobileLayout() {
+  swapLeftRightPanelHeaders();
+  $('#chat-maximize-btn').hide();
+  $('#stop-observing').appendTo($('#viewing-game-buttons').last());
+  $('#stop-examining').appendTo($('#viewing-game-buttons').last());
+  hideCloseGamePanel();
+}
+
+function useDesktopLayout() {
+  swapLeftRightPanelHeaders();
+  $('#chat-maximize-btn').show();
+  $('#stop-observing').appendTo($('#close-game-panel').last());
+  $('#stop-examining').appendTo($('#close-game-panel').last());
+  if(game.isObserving() || game.isExamining())
+    showCloseGamePanel();
+}
+
+function swapLeftRightPanelHeaders() {
+  // Swap top left and top right panels to bring navigation buttons closer to board
+  var leftHeaderContents = $('#left-panel-header').children();
+  var rightHeaderContents = $('#right-panel-header').children();
+  rightHeaderContents.appendTo($('#left-panel-header'));
+  leftHeaderContents.appendTo($('#right-panel-header'));
+
+  var leftHeaderClass = $('#left-panel-header').attr('class');
+  var rightHeaderClass = $('#right-panel-header').attr('class');
+  $('#left-panel-header').attr('class', rightHeaderClass);
+  $('#right-panel-header').attr('class', leftHeaderClass);
+
+  if(isSmallWindow()) {
+    $('#chat-toggle-btn').appendTo($('#chat-collapse-toolbar').last());
+    $('#history-toggle-btn').appendTo($('#left-panel-header .btn-toolbar').last());
+  }
+  else {
+    $('#chat-toggle-btn').appendTo($('#right-panel-header .btn-toolbar').last());
+    $('#history-toggle-btn').appendTo($('#navigation-toolbar').last());
+  }
+}
+
 // Set the height of dynamic elements inside left and right panel collapsables.
 // Try to do it in a robust way that won't break if we add/remove elements later.
 function setPanelHeights() {
+  // Get and store the height of the address bar in mobile browsers.
+  if(isSmallWindow() && addressBarHeight === undefined) 
+      addressBarHeight = $(window).height() - window.innerHeight;
+
+  // On mobile, slim down player status panels in order to fit everything within window height
+  var originalHeight = $('#left-panel-header').height();
+  if(isSmallWindow()) {
+    var cardBorders = $('#mid-card').outerHeight() - $('#mid-card').height() 
+      + Math.round(parseFloat($('#left-card').css('border-bottom-width')))
+      + Math.round(parseFloat($('#right-card').css('border-top-width')));
+    var playerStatusBorder = $('#player-status').outerHeight() - $('#player-status').height();
+    var playerStatusHeight = ($(window).height() - addressBarHeight - $('#board-card').outerHeight() - $('#left-panel-footer').outerHeight() - $('#right-panel-header').outerHeight() - cardBorders) / 2 - playerStatusBorder;
+    playerStatusHeight = Math.min(Math.max(playerStatusHeight, originalHeight - 20), originalHeight); 
+  }
+  else 
+    playerStatusHeight = originalHeight;
+  $('#player-status').height(playerStatusHeight);
+  $('#opponent-status').height(playerStatusHeight);
+
+  // set height of left menu panel inside collapsable
   const boardHeight = $('#board').innerHeight();
   if (boardHeight) {
     var siblingsHeight = 0;
     var siblings = $('#collapse-history').siblings();
     siblings.each(function() {
-      siblingsHeight += $(this).outerHeight();
+      if($(this).is(':visible'))
+        siblingsHeight += $(this).outerHeight();
     });
     var leftPanelBorder = $('#left-panel').outerHeight() - $('#left-panel').height();
-    $('#left-panel').height(boardHeight - leftPanelBorder - siblingsHeight);
 
+    if(isSmallWindow())
+      $('#left-panel').height(430);  
+    else
+      $('#left-panel').height(boardHeight - leftPanelBorder - siblingsHeight);
+
+    // set height of right panel inside collapsable
     var siblingsHeight = 0;
     var siblings = $('#collapse-chat').siblings();
     siblings.each(function() {
-      siblingsHeight += $(this).outerHeight();
+      if($(this).is(':visible'))
+        siblingsHeight += $(this).outerHeight();
     });
     var rightPanelBorder = $('#right-panel').outerHeight() - $('#right-panel').height();
-    $('#right-panel').height(boardHeight - rightPanelBorder - siblingsHeight);
+
+    if(isSmallWindow()) 
+      $('#right-panel').height($(window).height() - addressBarHeight - rightPanelBorder - siblingsHeight 
+          - $('#right-panel-header').outerHeight() - $('#right-panel-footer').outerHeight());    
+    else
+      $('#right-panel').height(boardHeight - rightPanelBorder - siblingsHeight);     
   }
 }
 
@@ -1244,6 +1384,11 @@ $(document).ready(() => {
   } else {
     onDeviceReady();
   }
+});
+
+$(window).on('load', function() {
+  $('#left-panel-header').css('visibility', 'visible');
+  $('#right-panel-header').css('visibility', 'visible');
 });
 
 $('#resign').on('click', (event) => {
@@ -1342,13 +1487,16 @@ $('#input-text').on('focus', () => {
 });
 
 $('#new-game').on('click', (event) => {
-  if (game.chess === null) {
+  if (game.chess === null) 
     session.send('getga');
-  } else if (game.isObserving()) {
-    session.send('unobs');
-  } else if (game.isExamining()) {
-    session.send('unex');
-  }
+});
+
+$('#stop-observing').on('click', (event) => {
+  session.send('unobs');
+});
+
+$('#stop-examining').on('click', (event) => {
+  session.send('unex');
 });
 
 $('#custom-control').on('submit', (event) => {
@@ -1519,7 +1667,18 @@ $('#login-as-guest').on('click', (event) => {
   }
 });
 
+export function isSmallWindow() {
+  return window.innerWidth < 768;
+}
+
 $(window).on('resize', () => {
+  if(isSmallWindow() && prevWindowWidth >= 768)
+    useMobileLayout();
+  else if(!isSmallWindow() && prevWindowWidth < 768)
+    useDesktopLayout();
+
+  prevWindowWidth = window.innerWidth;
+
   setPanelHeights();
 });
 

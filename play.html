@@ -27,8 +27,8 @@
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
 </head>
 <body>
-  <header class="header container-fluid py-3">
-    <nav class="col-12 d-flex align-items-center ps-1">
+  <header class="header container-fluid py-1 py-md-3">
+    <nav class="col-12 d-flex align-items-center ps-1 pe-2 pe-md-4">
       <a class="logo me-auto" href="/"><img src="www/img/tfcc-small.png" alt="Free Chess Club">Free Chess Club</a>
       <a class="btn btn-warning ms-2" id="sign-in">Sign In</a>
     </nav>
@@ -36,38 +36,41 @@
   <div class="feature3 container-fluid p-0">
     <div class="row justify-content-md-center m-0">
       <div class="card-group p-0">
-        <div id="left-col" class="col-xl-3 align-self-center">
-          <div class="card">
-            <div class="card-header top-panel d-flex" id="left-panel-header">
+        <div id="left-col" class="col-sm-12 col-md-5 col-lg-4 col-xl-3 align-self-center">
+          <div class="card" id="left-card">
+            <div class="card-header top-panel d-flex" id="left-panel-header" style="visibility: hidden">
               <div id="navigation-toolbar" class="btn-toolbar m-auto">
-                    <button type="button" id="fast-backward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Beginning">
-                      <span class="fa fa-fast-backward" aria-hidden="false"></span>
-                    </button>
-                    <button type="button" id="backward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Back">
-                      <span class="fa fa-backward" aria-hidden="false"></span>
-                    </button>
-                    <button type="button" id="forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Forward">
-                      <span class="fa fa-forward" aria-hidden="false"></span>
-                    </button>
-                    <button type="button" id="fast-forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="End">
-                      <span class="fa fa-fast-forward" aria-hidden="false"></span>
-                    </button>
-                    <button type="button" id="exit-subvariation" style="display: none" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Exit Subvariation">
-                      <span class="fa fa-eject" aria-hidden="false"></span>
-                    </button>
-                    <button id="history-toggle-btn" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-history" aria-expanded="true" aria-controls="collapse-history">
-                      <span id="history-toggle-icon" class="fa fa-toggle-up" aria-hidden="false"></span>
-                    </button>
+                <button type="button" id="fast-backward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Beginning">
+                  <span class="fa fa-fast-backward" aria-hidden="false"></span>
+                </button>
+                <button type="button" id="backward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Back">
+                  <span class="fa fa-backward" aria-hidden="false"></span>
+                </button>
+                <button type="button" id="forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Forward">
+                  <span class="fa fa-forward" aria-hidden="false"></span>
+                </button>
+                <button type="button" id="fast-forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="End">
+                  <span class="fa fa-fast-forward" aria-hidden="false"></span>
+                </button>
+                <button type="button" id="exit-subvariation" style="display: none" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Exit Subvariation">
+                  <span class="fa fa-eject" aria-hidden="false"></span>
+                </button>
+                <button id="history-toggle-btn" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-history" aria-expanded="true" aria-controls="collapse-history">
+                  <span id="history-toggle-icon" class="fa fa-toggle-up" aria-hidden="false"></span>
+                </button>
+              </div>
+              <div id="chat-collapse-toolbar" class="btn-toolbar d-md-none my-auto align-self-end">
               </div>
             </div>
             <div id="inner-left-panels">
-              <div id="quick-game-panel" class="card-header p-2 center">
-                <button type="button" class="btn btn-outline-secondary btn-block btn-md" aria-expanded="false" id="new-game">Quick Game</button>
+              <div id="close-game-panel" class="card-header top-panel center" style="display: none">
+                <button type="button" id="stop-observing" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Observing"><span class="fa fa-times-circle me-2" aria-hidden="false"></span>Stop Observing</button>         
+                <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Examining"><span class="fa fa-times-circle me-2" aria-hidden="false"></span>Stop Examining</button>         
               </div>
               <div class="card-body p-0">
                 <ul class="nav nav-pills nav-fill user-select-none" id="pills-tab" role="tablist">
                   <li class="nav-item" role="presentation">
-                    <button class="nav-link active py-2" id="pills-play-tab" data-bs-toggle="pill" data-bs-target="#pills-play" type="button" role="tab" aria-controls="pills-play" aria-selected="true">Play</button>
+                    <button class="nav-link py-2" id="pills-play-tab" data-bs-toggle="pill" data-bs-target="#pills-play" type="button" role="tab" aria-controls="pills-play" aria-selected="true">Play</button>
                   </li>
                   <li class="nav-item" role="presentation">
                     <button class="nav-link py-2" id="pills-observe-tab" data-bs-toggle="pill" data-bs-target="#pills-observe" type="button" role="tab" aria-controls="pills-observe" aria-selected="false">Observe</button>
@@ -80,12 +83,15 @@
                   </li>
                 </ul>
               </div>
-              <div id="collapse-history" class="collapse show">
+              <div id="collapse-history" class="collapse show collapse-init">
                 <div class="card-body history noselect p-0" id="left-panel">
                   <div class="h-100 d-flex flex-column" id="left-menu">
                     <div class="tab-content mt-2 flex-grow-1" style="min-height: 0">
                       <div class="tab-pane fade show active h-100" id="pills-play" role="tabpanel" aria-labelledby="pills-play-tab">
                         <div class="d-flex flex-column h-100">
+                          <div class="mb-2 border-bottom border-top py-2 center">
+                            <button type="button" class="btn btn-outline-secondary btn-block btn-md" aria-expanded="false" id="new-game">Quick Game</button>
+                          </div>
                           <ul class="nav nav-tabs nav-fill" id="pills-play-subtab" role="tablist">
                             <li class="nav-item" role="presentation">
                               <button class="nav-link active" id="pills-pairing-tab" data-bs-toggle="tab" data-bs-target="#pills-pairing" type="button" role="tab" aria-controls="pills-pairing" aria-selected="true">Pairing</button>
@@ -95,7 +101,7 @@
                             </li>
                           </ul>
                           <div class="tab-content flex-grow-1 overflow-auto" style="min-height: 0">
-                            <div class="tab-pane fade show active" id="pills-pairing" role="tabpanel" aria-labelledby="pills-pairing-tab">
+                            <div class="tab-pane fade show active" id="pills-pairing" role="tabpanel" aria-labelledby="pills-pairing-tab">                            
                               <div class="btn-group-vertical btn-block center" role="group" aria-label="New Game Menu">
                                 <div class="input-group">
                                   <span class="input-group-text" id="opponent-player">Play against</span>
@@ -193,45 +199,47 @@
                   </div>
                 </div>
               </div>
-              <div class="card-footer d-flex flex-column p-0" id="left-panel-bottom">
-                <ul class="nav nav-tabs mt-2" id="left-bottom-tabs" style="visibility: hidden" role="tablist">
-                  <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="status-tab" data-bs-toggle="tab" data-bs-target="#status-panel" type="button" role="tab" aria-controls="status-panel" aria-selected="true">Status</button>
-                  </li>
-                  <li class="nav-item" role="presentation" id="engine-tab" style="position: relative; display: none">
-                    <button class="nav-link" style="padding-right: 30px" data-bs-toggle="tab" href="#engine-panel" role="tab" aria-controls="engine-panel" aria-selected="false">Engine</button>
-                    <container class="h-100 d-flex" style="position: absolute; top: 0; right: 12px; z-index: 10">
-                      <span class="closeTab align-self-center btn btn-default btn-sm">×</span>
-                    </container>
-                  </li>
-                </ul>
-                <div class="tab-content flex-grow-1" style="min-height: 0">
-                  <div class="tab-pane fade show active p-1 h-100" id="status-panel" role="tabpanel" aria-labelledby="status-panel">
-                    <div class="d-flex flex-column overflow-auto center h-100">
-                      <div class="px-2 w-100">
-                        <div id="game-status" class="center py-1"></div>
-                        <div id="game-watchers" class="center py-1 mt-1 border-top"></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="tab-pane fade h-100 w-100 p-1" id="engine-panel" role="tabpanel" aria-labelledby="engine-panel">
-                    <div class="d-flex flex-column h-100 w-100">    
-                      <div style="display: inline-block">
-                        <button type="button" id="start-engine" class="me-1 btn btn-engine btn-outline-secondary btn-sm p-0" style="width: 50px" title="Start Engine">Go</button>  
-                        <div id="pv-button-group" class="btn-group" style="width: 50px">
-                          <button type="button" id="remove-pv" class="btn btn-engine btn-outline-secondary btn-sm p-0" title="Remove Engine Line">-</button>
-                          <button type="button" id="add-pv" class="btn btn-engine btn-outline-secondary btn-sm p-0" title="Add Engine Line">+</button>
+              <div class="card-footer p-0" id="left-panel-bottom" style="display: none">
+                <div class="d-flex flex-column h-100 w-100">
+                  <ul class="nav nav-tabs mt-2" id="left-bottom-tabs" style="visibility: hidden" role="tablist">
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link active" id="status-tab" data-bs-toggle="tab" data-bs-target="#status-panel" type="button" role="tab" aria-controls="status-panel" aria-selected="true">Status</button>
+                    </li>
+                    <li class="nav-item" role="presentation" id="engine-tab" style="position: relative; display: none">
+                      <button class="nav-link" style="padding-right: 30px" data-bs-toggle="tab" href="#engine-panel" role="tab" aria-controls="engine-panel" aria-selected="false">Engine</button>
+                      <container class="h-100 d-flex" style="position: absolute; top: 0; right: 12px; z-index: 10">
+                        <span class="closeTab align-self-center btn btn-default btn-sm">×</span>
+                      </container>
+                    </li>
+                  </ul>
+                  <div class="tab-content flex-grow-1" style="min-height: 0">
+                    <div class="tab-pane fade show active p-1 h-100" id="status-panel" role="tabpanel" aria-labelledby="status-panel">
+                      <div class="d-flex flex-column overflow-auto center h-100">
+                        <div class="px-2 w-100">
+                          <div id="game-status" class="center py-1"></div>
+                          <div id="game-watchers" class="center py-1 mt-1 border-top"></div>
                         </div>
                       </div>
-                      <div class="flex-grow-1 w-100" style="min-height: 0">
-                        <ul class="list-striped" id="engine-pvs"></ul>
+                    </div>
+                    <div class="tab-pane fade h-100 w-100 p-1" id="engine-panel" role="tabpanel" aria-labelledby="engine-panel">
+                      <div class="d-flex flex-column h-100 w-100">    
+                        <div style="display: inline-block">
+                          <button type="button" id="start-engine" class="me-1 btn btn-engine btn-outline-secondary btn-sm p-0" style="width: 50px" title="Start Engine">Go</button>  
+                          <div id="pv-button-group" class="btn-group" style="width: 50px">
+                            <button type="button" id="remove-pv" class="btn btn-engine btn-outline-secondary btn-sm p-0" title="Remove Engine Line">-</button>
+                            <button type="button" id="add-pv" class="btn btn-engine btn-outline-secondary btn-sm p-0" title="Add Engine Line">+</button>
+                          </div>
+                        </div>
+                        <div class="flex-grow-1 w-100" style="min-height: 0">
+                          <ul class="list-striped" id="engine-pvs"></ul>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="card-footer bottom-panel">
+            <div class="card-footer bottom-panel" id="left-panel-footer">
               <div id="playing-game-buttons" class="btn-toolbar m-auto" style="display: none">
                 <button type="button" id="takeback" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Takeback">
                   <span class="fa fa-undo" aria-hidden="false"></span>
@@ -248,13 +256,13 @@
               </div>
               <div id="viewing-game-buttons" class="btn-toolbar center m-auto w-100" style="display: none">
                 <button type="button" id="analyze" class="btn btn-outline-secondary btn-md" title="Analyze">Analyze</button>         
-                <button type="button" id="hide-analysis" style="display: none" class="btn btn-outline-secondary btn-md" title="Hide Analysis">Hide Analysis</button>          
+                <button type="button" id="hide-analysis" style="display: none" class="btn btn-outline-secondary btn-md" title="Hide Analysis">Hide Analysis</button>                
               </div>
             </div>
           </div>
         </div>
-        <div id="mid-col" class="col-xl-5 align-self-center">
-          <div class="card">
+        <div id="mid-col" class="col-sm-12 col-md-6 col-lg-6 col-xl-5 align-self-center">
+          <div class="card" id="mid-card">
             <div class="top-panel d-flex flex-wrap justify-content-between align-items-center card-header status noselect" id="opponent-status">
               <div class="p-2 name" id="opponent-name"></div>
               <span class="badge bg-secondary" id="opponent-rating"></span>
@@ -262,7 +270,7 @@
               <div class="p-2 captured" id="opponent-captured"></div>
               <div class="p-2 clock" id="opponent-time"></div>
             </div>
-            <div class="card-body p-0 noselect">
+            <div class="card-body p-0 noselect" id="board-card">
               <div class="blue merida mw-100">
                 <div class="toast-container">
                   <div id="game-requests" aria-live="polite" aria-atomic="true" class="d-flex justify-content-center align-items-center w-100"></div>
@@ -279,9 +287,9 @@
             </div>
           </div>
         </div>
-        <div id="right-col" class="col-xl-4 align-self-center">
-          <div class="card">
-            <div class="top-panel card-header status" id="right-panel-header">
+        <div id="right-col" class="col-sm-12 col-md-11 col-lg-10 col-xl-4 align-self-center">
+          <div class="card" id="right-card">
+            <div class="top-panel card-header status" id="right-panel-header" style="visibility: hidden">
               <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto">
                 <button class="btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="connectButton" data-bs-toggle="dropdown" aria-expanded="false" title="User">
                   <div id="chat-status"></div>
@@ -331,7 +339,7 @@
               </div>
             </div>
             <div id="inner-right-panels">
-              <div id="collapse-chat" class="collapse show">
+              <div id="collapse-chat" class="collapse show collapse-init">
                 <div class="card-body d-flex flex-column" id="right-panel">
                   <ul class="nav nav-tabs d-flex flex-wrap justify-content-start user-select-none" role="tablist" id="tabs">
                     <div id="chan-dropdown" class="d-flex dropdown" data-bs-toggle="tooltip" data-bs-placement="top" title="Join Channel">
@@ -350,7 +358,7 @@
                     <div class="tab-pane chat-text show active" id="content-console" role="tabpanel"></div>
                   </div>
                 </div>
-                <div class="bottom-panel card-footer widget">
+                <div id="right-panel-footer" class="bottom-panel card-footer widget">
                   <form id="input-form" class="form-inline d-flex h-100 w-100">
                     <div class="input-group input-group-md m-auto">
                       <input id="input-text" type="text" class="form-control" placeholder="Type message here and press Enter to send!" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">

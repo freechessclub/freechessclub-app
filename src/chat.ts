@@ -5,6 +5,7 @@
 import Cookies from 'js-cookie';
 import { autoLink } from 'autolink-js';
 import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
+import { scrollToBoard, isSmallWindow } from './index';
 
 // list of channels
 const channels = {
@@ -128,14 +129,14 @@ export class Chat {
 
     $('#chat-maximize-btn').on('click', () => {
       if (this.maximized) {
-        if ($(window).width() > 767) {
+        if (!isSmallWindow()) {
           $('#right-col').width('33.33333333%');
         }
         $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
         $('#chat-maximize-btn').attr('data-bs-original-title', 'Maximize');
         this.maximized = false;
       } else {
-        if ($(window).width() > 767) {
+        if (!isSmallWindow()) {
           $('#right-col').width('100%');
         }
         $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
@@ -148,9 +149,13 @@ export class Chat {
 
     $('#collapse-chat').on('hidden.bs.collapse', () => {
       $('#chat-toggle-icon').removeClass('fa-toggle-up').addClass('fa-toggle-down');
+      if(!$('#collapse-chat').hasClass('collapse-init'))
+        scrollToBoard();
+      $('#collapse-chat').removeClass('collapse-init');
     });
     $('#collapse-chat').on('shown.bs.collapse', () => {
       $('#chat-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
+      this.scrollToChat();
     });
 
     if (!this.autoscrollToggle) {
@@ -189,6 +194,11 @@ export class Chat {
       Cookies.set('timestamp', String(this.timestampToggle), { expires: 365 })
     });
 
+  }
+
+  public scrollToChat() {
+    if(isSmallWindow()) 
+      $(document).scrollTop($('#right-panel-header').offset().top);
   }
 
   public setUser(user: string): void {

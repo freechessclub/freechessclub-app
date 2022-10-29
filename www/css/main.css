@@ -140,12 +140,12 @@ a.logo img {
 
 @media (max-width: 420px) {
   a.logo img {
-    margin-right: 5px;
-    width: 42px;
+    margin-right: 1.5vw;
+    width: 8.5vw;
   }
 
   a.logo {
-    font-size: 32px;
+    font-size: 7.25vw;
   }
 }
 .nav-link2,
@@ -203,9 +203,7 @@ a.logo img {
 .col-9,
 .col-10,
 .col-11,
-.col-12 {
-  padding: 0 20px;
-}
+.col-12 
 .col-1 {width: 8.333333%;}
 .col-2 {width: 16.666667%;}
 .col-3 {width: 25%;}
