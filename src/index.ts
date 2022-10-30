@@ -845,12 +845,32 @@ function onDeviceReady() {
     session = new Session(messageHandler, enableProxy);
   }
 
+  setPanelHeights();
+
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
-  const boardHeight = $('#board').height();
+}
+
+// Set the height of dynamic elements inside left and right panel collapsables.
+// Try to do it in a robust way that won't break if we add/remove elements later.
+function setPanelHeights() {
+  const boardHeight = $('#board').innerHeight();
   if (boardHeight) {
-    $('.chat-text').height(boardHeight - 90);
-    $('#left-panel').height(boardHeight - 205);
+    var siblingsHeight = 0;
+    var siblings = $('#collapse-history').siblings();
+    siblings.each(function() {
+      siblingsHeight += $(this).outerHeight();
+    });
+    var leftPanelBorder = $('#left-panel').outerHeight() - $('#left-panel').height();
+    $('#left-panel').height(boardHeight - leftPanelBorder - siblingsHeight);
+
+    var siblingsHeight = 0;
+    var siblings = $('#collapse-chat').siblings();
+    siblings.each(function() {
+      siblingsHeight += $(this).outerHeight();
+    });
+    var rightPanelBorder = $('#right-panel').outerHeight() - $('#right-panel').height();
+    $('#right-panel').height(boardHeight - rightPanelBorder - siblingsHeight);
   }
 }
 
@@ -1062,11 +1082,7 @@ $('#login-as-guest').on('click', (event) => {
 });
 
 $(window).on('resize', () => {
-  const boardHeight = $('#board').height();
-  if (boardHeight) {
-    $('.chat-text').height(boardHeight - 90);
-    $('#left-panel').height(boardHeight - 215);
-  }
+  setPanelHeights();
 });
 
 // prompt before unloading page if in a game

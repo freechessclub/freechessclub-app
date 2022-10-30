@@ -56,7 +56,7 @@ export class Session {
   public setUser(user: string): void {
     this.connected = true;
     this.user = user;
-    $('#chat-status').html('<span class="fa fa-circle text-success" aria-hidden="false"></span> <span class="h6 align-middle"> '
+    $('#chat-status').html('<span class="fa fa-circle text-success" aria-hidden="false"></span> <span class="h6"> '
       + user + '</span>');
     $('#chat-status').popover({
       animation: true,

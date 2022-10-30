@@ -11,7 +11,7 @@
 
 .chat-text {
   width: 100%;
-  height: auto;
+  height: 100%;
   overflow: auto;
   color: rgba(0, 0, 0, 0.65);
   white-space: pre-wrap;
@@ -77,7 +77,7 @@
 
 #chat-status {
   display: inline-block;
-  vertical-align: middle;
+  vertical-align: center;
   line-height: 20px;
 }
 
@@ -181,4 +181,18 @@
   width: 60px;
   height: auto;
   padding-left: 5px;
+}
+
+.top-panel {
+  height: 56px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: flex;
+}
+
+.bottom-panel {
+  height: 56px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: flex;
 }
