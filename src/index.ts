@@ -23,12 +23,36 @@ let engine: Engine;
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
 
-let historyRequested = false;
+let historyRequested = 0;
+let obsRequested = 0;
 let gamesRequested = false;
 let movelistRequested = 0;
 let lobbyRequested = false;
 let modalCounter = 0;
 let gameChangePending = false;
+let matchRequestList = [];
+let matchRequest = undefined;
+
+// Restricts input for the set of matched elements to the given inputFilter function.
+function setInputFilter(textbox: Element, inputFilter: (value: string) => boolean, errMsg: string): void {
+  ["input", "keydown", "keyup", "mousedown", "mouseup", "select", "contextmenu", "drop", "focusout"].forEach(function(event) {
+    textbox.addEventListener(event, function(this: (HTMLInputElement | HTMLTextAreaElement) & {oldValue: string; oldSelectionStart: number | null, oldSelectionEnd: number | null}) {
+      if (inputFilter(this.value)) {
+        this.oldValue = this.value;
+        this.oldSelectionStart = this.selectionStart;
+        this.oldSelectionEnd = this.selectionEnd;
+      } else if (Object.prototype.hasOwnProperty.call(this, 'oldValue')) {
+        this.value = this.oldValue;
+        if (this.oldSelectionStart !== null &&
+          this.oldSelectionEnd !== null) {
+          this.setSelectionRange(this.oldSelectionStart, this.oldSelectionEnd);
+        }
+      } else {
+        this.value = "";
+      }
+    });
+  });
+}
 
 (window as any).showMove = (n: number) => {
   if(game.isExamining()) {
@@ -167,7 +191,7 @@ function showStatusMsg(msg: string) {
   $('#game-status').html(msg + '<br/>');
 }
 
-function showModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress: boolean = false) {
+function showModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress: boolean = false, useSessionSend: boolean = true) {
   const modalId = 'modal' + modalCounter++;
   let req = `
   <div id="` + modalId + `" class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
@@ -182,13 +206,20 @@ function showModal(type: string, title: string, msg: string, btnFailure: string[
 
   req += `</div><div class="mt-2 pt-2 border-top center">`;
 
+  var successCmd = btnSuccess[0];
+  var failureCmd = btnFailure[0];
+  if(useSessionSend) {
+    successCmd = "sessionSend('" + btnSuccess[0] + "');";
+    failureCmd = "sessionSend('" + btnFailure[0] + "');";
+  }
+
   if (btnSuccess !== undefined && btnSuccess.length === 2) {
-    req += `<button type="button" id="btn-success" onclick="sessionSend('` + btnSuccess[0] + `');" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
+    req += `<button type="button" id="btn-success" onclick="` + successCmd + `" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
         <span class="fa fa-check-circle-o" aria-hidden="false"></span> ` + btnSuccess[1] + `</button>`;
   }
 
   if (btnFailure !== undefined && btnFailure.length === 2) {
-    req += `<button type="button" id="btn-failure" onclick="sessionSend('` + btnFailure[0] + `');" class="btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
+    req += `<button type="button" id="btn-failure" onclick="` + failureCmd + `" class="btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
         <span class="fa fa-times-circle-o" aria-hidden="false"></span> ` + btnFailure[1] + `</button>`;
   }
 
@@ -346,6 +377,8 @@ function messageHandler(data) {
       }
       break;
     case MessageType.GameStart:
+      matchRequestList = [];
+      matchRequest = undefined;
       $('#game-requests').empty();
       $('#playing-game').hide();
       $('#pills-game-tab').tab('show');
@@ -415,7 +448,11 @@ function messageHandler(data) {
       break;
     case MessageType.Unknown:
     default:
-      const msg = data.message.replace(/\n/g, '');
+      //const msg = data.message.replace(/\n/g, ''); // Not sure this is a good idea. Newlines provide 
+                                                     // useful information for parsing. For example, to
+                                                     // prevent other people injecting commands into messages 
+                                                     // somehow
+      const msg = data.message;
 
       // For takebacks, board was already updated when new move received and
       // updating the history is now done more generally in updateHistory().
@@ -467,12 +504,139 @@ function messageHandler(data) {
 
       match = msg.match(/^History for (\w+):.*/m);
       if (match != null && match.length > 1) {
-        if (!historyRequested) 
-          chat.newMessage('console', data);
-        else {
-          showHistory(match[1], data.message);
-          historyRequested = false;
+        if (historyRequested) {
+          historyRequested--;
+          if(!historyRequested) {
+            $('#examine-username').val(match[1]);
+            showHistory(match[1], data.message);
+          }
         }
+        else 
+          chat.newMessage('console', data);
+
+        return;
+      }
+
+      match = msg.match(/^(There is no player matching the name (\w+)\.)/m);
+      if(!match) 
+        match = msg.match(/^('(\S+(?='))' is not a valid handle\.)/m);
+      if(!match) 
+        match = msg.match(/^((\w+) has no history games\.)/m);
+      if(!match)
+        match = msg.match(/^(You need to specify at least two characters of the name\.)/m);
+      if(!match) 
+        match = msg.match(/^(Ambiguous name ([^s:]+):)/m);
+      if(!match) 
+        match = msg.match(/^((\w+) is not logged in\.)/m);
+      if(!match) 
+        match = msg.match(/^((\w+) is not playing a game\.)/m);
+      if(!match) 
+        match = msg.match(/^(Sorry, game \d+ is a private game\.)/m);
+      if(!match) 
+        match = msg.match(/^((\w+) is playing a game\.)/m);
+      if(!match)
+        match = msg.match(/^((\w+) is examining a game\.)/m);
+      if(!match)
+        match = msg.match(/^(You can't match yourself\.)/m);
+      if(!match)
+        match = msg.match(/^(You cannot challenge while you are (?:examining|playing) a game\.)/m);
+      if(match != null) {
+        if(historyRequested || obsRequested || matchRequest) { 
+          var user = '';
+          var status = undefined;
+          if(historyRequested) {
+            user = getValue('#examine-username');
+            status = $('#examine-pane-status');
+          }
+          else if(obsRequested) {
+            user = getValue('#observe-username');
+            status = $('#observe-pane-status');
+          }
+          else if(matchRequest) {
+            user = getValue('#opponent-player-name');
+            status = $('#play-pane-status');
+          }
+
+          if(match.length >= 2) {
+            if(historyRequested) {
+              historyRequested--;
+              if(historyRequested)
+                return;
+
+              $('#history-table').html('');
+            }
+            else if(obsRequested) {
+              obsRequested--;
+              if(obsRequested)
+                return;
+            }
+
+            status.show();
+            if(match[1].startsWith('Ambiguous name')) 
+              status.text('There is no player matching the name ' + user + '.');
+            else
+              status.text(match[1]);
+
+            matchRequest = undefined;
+            return;
+          }
+        }
+        chat.newMessage('console', data);
+        return;
+      }
+
+      match = msg.match(/^You are now observing game \d+\./m);
+      if(match) {
+        if(obsRequested) {
+          obsRequested--;
+          $('#observe-pane-status').hide();
+        }
+        
+        chat.newMessage('console', data);
+        return;
+      }
+
+      match = msg.match(/^Your seek has been posted with index \d+\./m);
+      if(!match)
+        match = msg.match(/^Issuing: \w+ \([-\d]+\) \w+ \([-\d]+\)/m);
+      if(!match) 
+        match = msg.match(/^Updating offer already made to "\w+"\./m);
+      if(match) {
+        if(matchRequest) {
+          var found = false;
+          for(let i = matchRequestList.length - 1; i >= 0; i--) {
+            if(matchRequestList[i].opponent.localeCompare(matchRequest.opponent, undefined, { sensitivity: 'accent' }) === 0) {
+              if(matchRequestList[i].min === matchRequest.min && matchRequestList[i].sec === matchRequest.sec)
+                found = true;
+              else if(matchRequest.opponent != '')
+                matchRequestList.splice(i, 1);
+            }
+          }
+          if(!found) {
+            matchRequestList.push(matchRequest);
+            $('#game-requests').empty();         
+            var modalText = '';
+            for(let request of matchRequestList) {
+              if(request.opponent.length) {
+                if(request.min === 0 && request.sec === 0)
+                  modalText += 'Challenging ' + request.opponent + ' to an untimed game...<br>';
+                else
+                  modalText += 'Challenging ' + request.opponent + ' to a ' + request.min + ' ' + request.sec + ' game...<br>';
+              }
+              else { 
+                if(request.min === 0 && request.sec === 0)
+                  modalText += 'Seeking an untimed game...<br>'; 
+                else
+                  modalText += 'Seeking a ' + request.min + ' ' + request.sec + ' game...<br>'; 
+              }
+            }
+            showModal('Game Request', '', modalText, ['cancelMatchRequests();', 'Cancel'], [], true, false);
+          }
+          matchRequest = undefined;
+          $('#play-pane-status').hide();
+        }
+         
+        chat.newMessage('console', data);
         return;
       }
 
@@ -484,7 +648,7 @@ function messageHandler(data) {
           } else {
             movelistRequested--;
             if(movelistRequested === 0)
-              parseMovelist(match[0]);
+              parseMovelist(msg);
           }
         }
         return;
@@ -615,17 +779,17 @@ function messageHandler(data) {
         return;
       }
 
-      match = msg.match(/^Notification: .*/);
+      match = msg.match(/^Notification: .*/m);
       if (match != null && match.length > 0) {
         chat.newNotification(match[0]);
         return;
       }
-      match = msg.match(/^\w+ is not logged in./);
+      match = msg.match(/^\w+ is not logged in./m);
       if (match != null && match.length > 0) {
         chat.newNotification(match[0]);
         return;
       }
-      match = msg.match(/^Player [a-zA-Z\"]+ is censoring you./);
+      match = msg.match(/^Player [a-zA-Z\"]+ is censoring you./m);
       if (match != null && match.length > 0) {
         chat.newNotification(match[0]);
         return;
@@ -917,15 +1081,21 @@ $('#draw').on('click', (event) => {
 });
 
 function getGame(min: number, sec: number) {
-  if (game.chess === null) {
-    const opponent = getValue('#opponent-player-name')
-    $('#game-requests').empty();
-    showModal('Game Request', '', 'Seeking a ' + min + ' ' + sec + ' game...', ['unseek', 'Cancel'], [], true);
+    var opponent = getValue('#opponent-player-name')
+    opponent = opponent.trim().split(/\s+/)[0];
+    $('#opponent-player-name').val(opponent);
+    matchRequest = {opponent: opponent, min: min, sec: sec};
     const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek';
     session.send(cmd + ' ' + min + ' ' + sec);
-  }
 }
 (window as any).getGame = getGame;
+
+(window as any).cancelMatchRequests = () => {
+  session.send('unseek');
+  session.send('withdraw t all');
+  matchRequestList = [];
+  matchRequest = undefined;
+};
 
 $('#input-text').on('focus', () => {
   $('#board').on('touchstart', () => {
@@ -945,11 +1115,9 @@ $('#new-game').on('click', (event) => {
 });
 
 $('#custom-control').on('click', (event) => {
-  if (game.chess === null) {
-    const min: string = getValue('#custom-control-min');
-    const sec: string = getValue('#custom-control-sec');
-    getGame(+min, +sec);
-  }
+  const min: string = getValue('#custom-control-min');
+  const sec: string = getValue('#custom-control-sec');
+  getGame(+min, +sec);
 });
 
 $('#fast-backward').off('click');
@@ -1092,8 +1260,12 @@ $(window).on('beforeunload', () => {
 });
 
 function getHistory(user: string) {
-  if (session && session.isConnected()) {
-    historyRequested = true;
+  if (session && session.isConnected()) {   
+    user = user.trim().split(/\s+/)[0];
+    if(user.length === 0) 
+      user = session.getUser();
+    $('#examine-username').val(user);
+    historyRequested++;
     session.send('hist ' + user);
   }
 }
@@ -1112,8 +1284,12 @@ function showHistory(user: string, history: string) {
   if (!$('#pills-examine').hasClass('show')) {
     return;
   }
+
+  $('#examine-pane-status').hide();
+  $('#history-table').html('');
+
   const exUser = getValue('#examine-username');
-  if (exUser !== user) {
+  if (exUser.localeCompare(user, undefined, { sensitivity: 'accent' }) !== 0) {
     return;
   }
   for (const g of parseHistory(history)) {
@@ -1125,6 +1301,7 @@ function showHistory(user: string, history: string) {
 }
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-examine"]', (e) => {
+  historyRequested = 0;
   $('#history-table').html('');
   let username = getValue('#examine-username');
   if (username === undefined || username === '') {
@@ -1146,14 +1323,22 @@ $('#examine-username').on('change', () => {
 });
 
 $('#observe-go').on('click', (event) => {
-  const username = getValue('#observe-username');
-  session.send('obs ' + username);
+  var username = getValue('#observe-username');
+  username = username.trim().split(/\s+/)[0];
+  $('#observe-username').val(username);
+  if(username.length > 0) {
+    obsRequested++;
+    session.send('obs ' + username);
+  }
 });
 
 function showGames(games: string) {
   if (!$('#pills-observe').hasClass('show')) {
     return;
   }
+
+  $('#observe-pane-status').hide();
+
   for (const g of games.split('\n').slice(0, -2).reverse()) {
     const gg = g.trim();
     const id = gg.split(' ')[0];
@@ -1164,6 +1349,7 @@ function showGames(games: string) {
 }
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-observe"]', (e) => {
+  obsRequested = 0;
   $('#games-table').html('');
   if (session && session.isConnected()) {
     gamesRequested = true;

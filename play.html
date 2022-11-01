@@ -99,8 +99,8 @@
                             <div class="btn-group-vertical btn-block center" role="group" aria-label="New Game Menu">
                               <div class="input-group">
                                 <span class="input-group-text" id="opponent-player">Play against</span>
-                                <input type="text" class="form-control" id="opponent-player-name" placeholder="Player name" aria-describedby="opponent-player">
                               </div>
+                              <div class="center pane-status" id="play-pane-status" style="display: none"></div>
                               <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Lightning</a>
                               <div class="btn-group" role="group" aria-label="Lightning">
                                 <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(1,0);">1 + 0</button>
@@ -120,9 +120,9 @@
                               </div>
                               <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Custom</a>
                               <div class="input-group">
-                                <input type="text" class="form-control text-center" placeholder="5" id="custom-control-min">
+                                <input type="text" class="form-control text-center" id="custom-control-min" value="0" maxlength="3">
                                 <span class="input-group-text"> min </span>
-                                <input type="text" class="form-control text-center" placeholder="10" id="custom-control-sec">
+                                <input type="text" class="form-control text-center" id="custom-control-sec" value="0" maxlength="3">
                                 <span class="input-group-text"> sec </span>
                                 <span class="input-group-append">
                                   <button class="btn btn-outline-secondary btn-md" type="button" id="custom-control">Go</button>
@@ -159,6 +159,7 @@
                           <input type="text" class="form-control" id="observe-username" placeholder="Player name" aria-describedby="observe-user">
                           <button type="button" class="btn btn-outline-secondary btn-md" id="observe-go">Go</button>
                         </div>
+                        <div class="center pane-status" id="observe-pane-status"></div>
                         <div class="btn-group-vertical" id="games-table"></div>
                       </div>
                       <div class="tab-pane fade" id="pills-examine" role="tabpanel" aria-labelledby="pills-examine-tab">
@@ -167,6 +168,7 @@
                           <input type="text" class="form-control" id="examine-username" placeholder="Player name" aria-describedby="examine-user">
                           <button type="button" class="btn btn-outline-secondary btn-md" id="examine-go">Go</button>
                         </div>
+                        <div class="center pane-status" id="examine-pane-status"></div>
                         <div class="btn-group-vertical" id="history-table"></div>
                       </div>
                     </div>

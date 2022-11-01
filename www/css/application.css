@@ -196,3 +196,8 @@
   padding-bottom: 0;
   display: flex;
 }
+
+.pane-status {
+  margin: 10px; 
+  text-align: center;
+}
