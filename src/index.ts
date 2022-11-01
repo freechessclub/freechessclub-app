@@ -243,7 +243,6 @@ function messageHandler(data) {
         if (session.isConnected()) {
           session.disconnect();
         }
-        session.reset(undefined);
         showModal('Authentication Failure', '', data.control, [], []);
       }
       break;

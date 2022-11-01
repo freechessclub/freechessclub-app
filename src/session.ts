@@ -108,7 +108,8 @@ export class Session {
         this.onRecv(data);
       }
     };
-    this.websocket.onclose = this.reset;
+    var that = this;
+    this.websocket.onclose = function(e) { that.reset(e); };
     this.websocket.onopen = () => {
       $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');
       if (proxy) {
@@ -125,13 +126,14 @@ export class Session {
     $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-danger" role="status" aria-hidden="true"></span> Disconnecting...');
     if (this.isConnected()) {
       this.websocket.close();
-      this.connected = false;
-      this.user = '';
     }
+    this.reset(undefined);
   }
 
   public reset(_e: any) {
     $('#chat-status').html('<span class="fa fa-circle text-danger" aria-hidden="false"></span> Offline');
+    this.connected = false;
+    this.user = '';
   }
 
   public send(command: string) {
