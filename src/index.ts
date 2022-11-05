@@ -1012,6 +1012,22 @@ function onDeviceReady() {
 
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
+
+  selectOnFocus($('#opponent-player-name'));
+  selectOnFocus($('#custom-control-min'));
+  selectOnFocus($('#custom-control-sec'));
+  selectOnFocus($('#observe-username'));
+  selectOnFocus($('#examine-username'));
+}
+
+function selectOnFocus(input: any) {
+  $(input).on('focus', function (e) {
+    $(this).one('mouseup', function () {
+      $(this).trigger('select');
+      return false;
+    })
+    .trigger('select');
+  });
 }
 
 // Set the height of dynamic elements inside left and right panel collapsables.
@@ -1114,10 +1130,13 @@ $('#new-game').on('click', (event) => {
   }
 });
 
-$('#custom-control').on('click', (event) => {
+$('#custom-control').on('submit', (event) => {
+  $('#custom-control-go').trigger('focus');
   const min: string = getValue('#custom-control-min');
   const sec: string = getValue('#custom-control-sec');
   getGame(+min, +sec);
+
+  return false;
 });
 
 $('#fast-backward').off('click');
@@ -1313,16 +1332,16 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-examine"]', (e) =>
   getHistory(username);
 });
 
-$('#examine-go').on('click', (event) => {
+$('#examine-user').on('submit', (event) => {
+  $('#examine-go').trigger('focus');
   const username = getValue('#examine-username');
   getHistory(username);
+
+  return false;
 });
 
-$('#examine-username').on('change', () => {
-  $('#history-table').html('');
-});
-
-$('#observe-go').on('click', (event) => {
+$('#observe-user').on('submit', (event) => {
+  $('#observe-go').trigger('focus');
   var username = getValue('#observe-username');
   username = username.trim().split(/\s+/)[0];
   $('#observe-username').val(username);
@@ -1330,6 +1349,8 @@ $('#observe-go').on('click', (event) => {
     obsRequested++;
     session.send('obs ' + username);
   }
+
+  return false;
 });
 
 function showGames(games: string) {

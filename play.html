@@ -99,6 +99,7 @@
                             <div class="btn-group-vertical btn-block center" role="group" aria-label="New Game Menu">
                               <div class="input-group">
                                 <span class="input-group-text" id="opponent-player">Play against</span>
+                                <input type="text" class="form-control" id="opponent-player-name" placeholder="Player name" aria-describedby="opponent-player" spellcheck="false">
                               </div>
                               <div class="center pane-status" id="play-pane-status" style="display: none"></div>
                               <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Lightning</a>
@@ -119,15 +120,17 @@
                                 <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(15,0);">15 + 0</button>
                               </div>
                               <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Custom</a>
-                              <div class="input-group">
-                                <input type="text" class="form-control text-center" id="custom-control-min" value="0" maxlength="3">
-                                <span class="input-group-text"> min </span>
-                                <input type="text" class="form-control text-center" id="custom-control-sec" value="0" maxlength="3">
-                                <span class="input-group-text"> sec </span>
-                                <span class="input-group-append">
-                                  <button class="btn btn-outline-secondary btn-md" type="button" id="custom-control">Go</button>
-                                </span>
-                              </div>
+                              <form id="custom-control">
+                                <div class="input-group">
+                                  <input type="text" class="form-control text-center" id="custom-control-min" value="0" maxlength="3">
+                                  <span class="input-group-text"> min </span>
+                                  <input type="text" class="form-control text-center" id="custom-control-sec" value="0" maxlength="3">
+                                  <span class="input-group-text"> sec </span>
+                                  <span class="input-group-append">
+                                    <button class="btn btn-outline-secondary btn-md" type="submit" id="custom-control-go">Go</button>
+                                  </span>
+                                </div>
+                              </form>
                               <div class="btn-group dropup" role="group" aria-label="Study">
                                 <button type="button" class="btn btn-outline-secondary btn-md" id="puzzlebot">Puzzle</button>
                                 <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Endgames</button>
@@ -154,20 +157,24 @@
                         </div>
                       </div>
                       <div class="tab-pane fade" id="pills-observe" role="tabpanel" aria-labelledby="pills-observe-tab">
-                        <div class="input-group">
-                          <span class="input-group-text" id="observe-user">Observe</span>
-                          <input type="text" class="form-control" id="observe-username" placeholder="Player name" aria-describedby="observe-user">
-                          <button type="button" class="btn btn-outline-secondary btn-md" id="observe-go">Go</button>
-                        </div>
+                        <form id="observe-user">
+                          <div class="input-group">
+                            <span class="input-group-text" id="observe-user-group">Observe</span>
+                            <input type="text" class="form-control" id="observe-username" placeholder="Player name" aria-describedby="observe-user" spellcheck="false">
+                            <button type="submit" class="btn btn-outline-secondary btn-md" id="observe-go">Go</button>
+                          </div>
+                        </form>
                         <div class="center pane-status" id="observe-pane-status"></div>
                         <div class="btn-group-vertical" id="games-table"></div>
                       </div>
                       <div class="tab-pane fade" id="pills-examine" role="tabpanel" aria-labelledby="pills-examine-tab">
-                        <div class="input-group">
-                          <span class="input-group-text" id="examine-user">History</span>
-                          <input type="text" class="form-control" id="examine-username" placeholder="Player name" aria-describedby="examine-user">
-                          <button type="button" class="btn btn-outline-secondary btn-md" id="examine-go">Go</button>
-                        </div>
+                        <form id="examine-user">
+                          <div class="input-group" id="examine-user-group">
+                            <span class="input-group-text" id="examine-user-label">History</span>
+                            <input type="text" class="form-control" id="examine-username" placeholder="Player name" aria-describedby="examine-user-label" spellcheck="false">
+                            <button type="submit" class="btn btn-outline-secondary btn-md" id="examine-go">Go</button>
+                          </div>
+                        </form>
                         <div class="center pane-status" id="examine-pane-status"></div>
                         <div class="btn-group-vertical" id="history-table"></div>
                       </div>
