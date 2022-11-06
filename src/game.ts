@@ -40,6 +40,7 @@ class GameData {
   flip: boolean;                        // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.
   wrating: string                       // white's rating
   brating: string                       // black's rating
+
   public isPlaying() { return this.role === Role.MY_MOVE || this.role === Role.OPPONENTS_MOVE; }
   public isExamining() { return this.role === Role.EXAMINING; }
   public isObserving() { return this.role === Role.OBSERVING || this.role === Role.OBS_EXAMINED; }

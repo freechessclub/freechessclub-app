@@ -25,6 +25,7 @@ let soundToggle: boolean = (Cookies.get('sound') !== 'false');
 
 let historyRequested = 0;
 let obsRequested = 0;
+let gameInfoRequested = false;
 let gamesRequested = false;
 let movelistRequested = 0;
 let lobbyRequested = false;
@@ -345,6 +346,8 @@ function messageHandler(data) {
           if (game.isExamining()) {
             $('#new-game').text('Unexamine game');
             engine = new Engine(game.chess, board);
+            session.send('games ' + game.id);
+            gameInfoRequested = true;
           }
           else 
             $('#new-game').text('Unobserve game');
@@ -637,6 +640,55 @@ function messageHandler(data) {
         }
          
         chat.newMessage('console', data);
+        return;
+      }
+
+      // Parse results of 'games <game #> to get game info when examining
+      match = msg.match(/\d+\s+\(\s*Exam\.\s+(\d+)\s+(\w+)\s+(\d+)\s+(\w+)\s*\)\s+\[\s*p?(\w)(\w)\s+(\d+)\s+(\d+)\s*\]/);
+      if(match && match.length > 8) {
+        gameInfoRequested = false;
+
+        var wrating = game.wrating = match[1];
+        var wname = match[2];
+        var brating = game.brating = match[3];
+        var bname = match[4];
+        var style = match[5];
+        var rated = (match[6] === 'r' ? 'rated' : 'unrated');
+        var initialTime = match[7];
+        var increment = match[8];
+
+        const styleNames = new Map([
+          ['b', 'blitz'], ['l', 'lightning'], ['u', 'untimed'], ['e', 'examined'],
+          ['s', 'standard'], ['w', 'wild'], ['x', 'atomic'], ['z', 'crazyhouse'],
+          ['B', 'Bughouse'], ['L', 'losers'], ['S', 'Suicide'], ['n', 'nonstandard']
+        ]);
+
+        if(wrating === '0') wrating = '';
+        if(brating === '0') brating = '';
+        $('#player-rating').text(bname === session.getUser() ? brating : wrating);
+        $('#opponent-rating').text(bname === session.getUser() ? wrating : brating);
+
+        if(wrating === '') {
+          match = wname.match(/Guest[A-Z]{4}/);
+          if(match)
+            wrating = '++++';
+          else wrating = '----';            
+        }
+        if(brating === '') {
+          match = bname.match(/Guest[A-Z]{4}/);
+          if(match)
+            brating = '++++';
+          else brating = '----';       
+        }
+
+        var time = ' ' + initialTime + ' ' + increment;
+        if(style === 'u') 
+          time = '';
+
+        var statusMsg = wname + ' (' + wrating + ') ' + bname + ' (' + brating + ') ' 
+          + rated + ' ' + styleNames.get(style) + time; 
+
+        showStatusMsg(statusMsg);
         return;
       }
 
