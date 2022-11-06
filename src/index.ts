@@ -302,6 +302,7 @@ function messageHandler(data) {
 
       if (game.chess === null) {
         game.chess = new Chess();
+        game.wclock = game.bclock = null;
         board.cancelMove();
         board.set({
           orientation: amIblack ? 'black' : 'white',
@@ -323,18 +324,10 @@ function messageHandler(data) {
 
         if (data.role !== Role.OPPONENTS_MOVE && !amIblack) {
           game.color = 'w';
-          if (!game.isExamining() || data.role !== Role.OBS_EXAMINED || data.role !== Role.ISOLATED_POS) {
-            game.wclock = clock.startWhiteClock(game);
-            game.bclock = clock.startBlackClock(game);
-          }
           $('#player-name').text(game.wname);
           $('#opponent-name').text(game.bname);
         } else {
           game.color = 'b';
-          if (!game.isExamining() || data.role !== Role.OBS_EXAMINED || data.role !== Role.ISOLATED_POS) {
-            game.bclock = clock.startBlackClock(game);
-            game.wclock = clock.startWhiteClock(game);
-          }
           $('#player-name').text(game.bname);
           $('#opponent-name').text(game.wname);
         }
@@ -358,10 +351,21 @@ function messageHandler(data) {
         }
       }
 
-      if (data.role === Role.NONE || data.role >= -1) {
+      if (data.role === Role.NONE || data.role >= -2) {
+        clock.updateWhiteClock(game);
+        clock.updateBlackClock(game);
+      
         let move = null;
         const lastPly = getPlyFromFEN(game.chess.fen());
         const thisPly = getPlyFromFEN(data.fen);
+
+        if (game.isPlaying() || data.role === Role.OBSERVING) {
+          if(thisPly >= 2 && !game.wclock)
+            game.wclock = clock.startWhiteClock(game);
+          else if(thisPly >= 3 && !game.bclock)
+            game.bclock = clock.startBlackClock(game);
+        }
+
         if (data.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
           move = game.chess.move(data.move);
           if (move !== null) {
@@ -432,8 +436,10 @@ function messageHandler(data) {
       }
       showModal('Match Result', '', data.message, examine, rematch);
       game.role = Role.NONE;
-      clearInterval(game.wclock);
-      clearInterval(game.bclock);
+      if(game.wclock)
+        clearInterval(game.wclock);
+      if(game.bclock)
+        clearInterval(game.bclock);
       clearInterval(game.watchers);
       game.watchers = null;
       $('#game-watchers').empty();
