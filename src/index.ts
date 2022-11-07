@@ -149,10 +149,6 @@ function movePieceAfter(move: any) {
 
   board.playPremove();
 
-  if (move.captured) {
-    showCapturePiece(move.color, move.captured);
-  }
-
   if (game.chess.in_check()) {
     if (soundToggle) {
       Sounds.checkSound.play();
@@ -315,8 +311,6 @@ function messageHandler(data) {
           blockTouchScroll: true,
         });
 
-        game.playerCaptured = {};
-        game.oppCaptured = {};
         $('#player-captured').text('');
         $('#opponent-captured').text('');
         $('#player-status').css('background-color', '');
@@ -893,6 +887,41 @@ function getPlyFromFEN(fen: string) {
   return ply;
 }
 
+function showStrengthDiff(fen: string) {
+  var diff = {
+    P: 0, R: 0, B: 0, N: 0, Q: 0, K: 0
+  };
+
+  var pos = fen.split(/\s+/)[0];
+  for(let i = 0; i < pos.length; i++) {
+    if(diff.hasOwnProperty(pos[i].toUpperCase()))
+      diff[pos[i].toUpperCase()] = diff[pos[i].toUpperCase()] + (pos[i] === pos[i].toUpperCase() ? 1 : -1);
+  }
+
+  $('#player-captured').empty();
+  $('#opponent-captured').empty();
+  for (const key in diff) {
+    if(diff[key] !== 0) {
+      var piece = '';
+      var strength = 0;
+      var panel = undefined;
+      if (diff[key] > 0) {
+        piece = 'B' + key;
+        strength = diff[key];
+        panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured')); 
+      }
+      else if(diff[key] < 0) {
+        piece = 'W' + key;
+        strength = -diff[key];
+        panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured')); 
+      }
+      panel.append(
+        '<img id="' + piece + '" src="www/css/images/pieces/merida/' +
+          piece + '.svg"/><small>' + strength + '</small>');
+    }
+  }
+}
+
 function updateHistory(move?: any) {
   var ply = getPlyFromFEN(game.chess.fen());
 
@@ -957,6 +986,8 @@ export function updateBoardAfter() {
     movable: movable,
     check: localChess.in_check() 
   });
+
+  showStrengthDiff(fen);
 }
 
 function getMoveNoFromFEN(fen: string) {
