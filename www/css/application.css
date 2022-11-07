@@ -110,11 +110,6 @@
   color: rgba(0, 0, 0, 0.4);
 }
 
-.history {
-  height: auto;
-  overflow: auto;
-}
-
 .history th {
   width: 20%;
   text-align: center;

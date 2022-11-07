@@ -137,7 +137,7 @@ export class History {
       $('#move-history').append('<tr><th scope="row">'
         + (id + 1) / 2 + '</th><td><a href="javascript:void(0);" onclick="showMove(' + id + ')">'
         + move + '</a>' + scoreStr + '</td><td></td></tr>');
-      $('#left-panel').scrollTop(document.getElementById('left-panel').scrollHeight);
+      $('#pills-game').scrollTop(document.getElementById('pills-game').scrollHeight);
     } else {
       $('#move-history tr:last td').eq(1).html('<a href="javascript:void(0);" onclick="showMove(' +
         id + ')">' + move + '</a>' + scoreStr);

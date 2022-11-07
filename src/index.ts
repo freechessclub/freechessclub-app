@@ -397,7 +397,6 @@ function messageHandler(data) {
       }, 90000);
       break;
     case MessageType.GameEnd:
-      $('#playing-game').show();
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
         // player won
         $('#player-status').css('background-color', '#d4f9d9');
