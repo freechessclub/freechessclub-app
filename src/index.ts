@@ -993,6 +993,25 @@ function getMoveNoFromFEN(fen: string) {
   return +fen.split(' ').pop();
 }
 
+$('#collapse-history').on('hidden.bs.collapse', (event) => {
+  $('#history-toggle-icon').removeClass('fa-toggle-up').addClass('fa-toggle-down');
+
+  $('#pills-tab button').each(function () { 
+    $(this).removeClass('active');
+  });
+});
+
+$('#collapse-history').on('shown.bs.collapse', (event) => {
+  $('#history-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
+
+  var activeTabIndex = $('#left-menu > .tab-content > .tab-pane').index($('#left-menu > .tab-content > .tab-pane:visible'));
+  $('#pills-tab button').eq(activeTabIndex).addClass('active');
+});
+
+$('#pills-tab button').on('click', (event) => {
+  $('#collapse-history').collapse('show');
+});
+
 $('#flip-toggle').on('click', (event) => {
   board.toggleOrientation();
   const playerName = $('#player-name').html();

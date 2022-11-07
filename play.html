@@ -61,24 +61,26 @@
               <div id="quick-game-panel" class="card-header p-2 center">
                 <button type="button" class="btn btn-outline-secondary btn-block btn-md" aria-expanded="false" id="new-game">Quick Game</button>
               </div>
+              <div class="card-body p-0">
+                <ul class="nav nav-pills nav-fill user-select-none" id="pills-tab" role="tablist">
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link py-2" id="pills-game-tab" data-bs-toggle="pill" data-bs-target="#pills-game" type="button" role="tab" aria-controls="pills-game" aria-selected="false">Game</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link active py-2" id="pills-play-tab" data-bs-toggle="pill" data-bs-target="#pills-play" type="button" role="tab" aria-controls="pills-play" aria-selected="true">Play</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link py-2" id="pills-observe-tab" data-bs-toggle="pill" data-bs-target="#pills-observe" type="button" role="tab" aria-controls="pills-observe" aria-selected="false">Observe</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link py-2" id="pills-examine-tab" data-bs-toggle="pill" data-bs-target="#pills-examine" type="button" role="tab" aria-controls="pills-examine" aria-selected="false">Examine</button>
+                  </li>
+                </ul>
+              </div>
               <div id="collapse-history" class="collapse show">
                 <div class="card-body history noselect p-0" id="left-panel">
                   <div class="h-100 d-flex flex-column" id="left-menu">
-                    <ul class="nav nav-pills nav-fill mb-2" id="pills-tab" role="tablist">
-                      <li class="nav-item" role="presentation">
-                        <button class="nav-link py-2" id="pills-game-tab" data-bs-toggle="pill" data-bs-target="#pills-game" type="button" role="tab" aria-controls="pills-game" aria-selected="false">Game</button>
-                      </li>
-                      <li class="nav-item" role="presentation">
-                        <button class="nav-link active py-2" id="pills-play-tab" data-bs-toggle="pill" data-bs-target="#pills-play" type="button" role="tab" aria-controls="pills-play" aria-selected="true">Play</button>
-                      </li>
-                      <li class="nav-item" role="presentation">
-                        <button class="nav-link py-2" id="pills-observe-tab" data-bs-toggle="pill" data-bs-target="#pills-observe" type="button" role="tab" aria-controls="pills-observe" aria-selected="false">Observe</button>
-                      </li>
-                      <li class="nav-item" role="presentation">
-                        <button class="nav-link py-2" id="pills-examine-tab" data-bs-toggle="pill" data-bs-target="#pills-examine" type="button" role="tab" aria-controls="pills-examine" aria-selected="false">Examine</button>
-                      </li>
-                    </ul>
-                    <div class="tab-content flex-grow-1" style="min-height: 0">
+                    <div class="tab-content mt-2 flex-grow-1" style="min-height: 0">
                       <div class="tab-pane h-100 fade overflow-auto" id="pills-game" role="tabpanel" aria-labelledby="pills-game-tab">
                         <span class="center" id="playing-game">You're not playing a game.</span>
                         <table class="table table-sm table-striped table-hover">
@@ -295,7 +297,7 @@
             <div id="inner-right-panels">
               <div id="collapse-chat" class="collapse show">
                 <div class="card-body d-flex flex-column" id="right-panel">
-                  <ul class="nav nav-tabs d-flex flex-wrap justify-content-start" role="tablist" id="tabs">
+                  <ul class="nav nav-tabs d-flex flex-wrap justify-content-start user-select-none" role="tablist" id="tabs">
                     <div id="chan-dropdown" class="d-flex dropdown" data-bs-toggle="tooltip" data-bs-placement="top" title="Join Channel">
                       <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="chanButton" data-bs-toggle="dropdown" aria-expanded="false" title="Channel">
                         <span class="fa fa-plus-square" aria-hidden="false"></span>
