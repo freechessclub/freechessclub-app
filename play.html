@@ -64,9 +64,6 @@
               <div class="card-body p-0">
                 <ul class="nav nav-pills nav-fill user-select-none" id="pills-tab" role="tablist">
                   <li class="nav-item" role="presentation">
-                    <button class="nav-link py-2" id="pills-game-tab" data-bs-toggle="pill" data-bs-target="#pills-game" type="button" role="tab" aria-controls="pills-game" aria-selected="false">Game</button>
-                  </li>
-                  <li class="nav-item" role="presentation">
                     <button class="nav-link active py-2" id="pills-play-tab" data-bs-toggle="pill" data-bs-target="#pills-play" type="button" role="tab" aria-controls="pills-play" aria-selected="true">Play</button>
                   </li>
                   <li class="nav-item" role="presentation">
@@ -75,18 +72,15 @@
                   <li class="nav-item" role="presentation">
                     <button class="nav-link py-2" id="pills-examine-tab" data-bs-toggle="pill" data-bs-target="#pills-examine" type="button" role="tab" aria-controls="pills-examine" aria-selected="false">Examine</button>
                   </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link py-2" id="pills-game-tab" data-bs-toggle="pill" data-bs-target="#pills-game" type="button" role="tab" aria-controls="pills-game" aria-selected="false">Game</button>
+                  </li>
                 </ul>
               </div>
               <div id="collapse-history" class="collapse show">
                 <div class="card-body history noselect p-0" id="left-panel">
                   <div class="h-100 d-flex flex-column" id="left-menu">
                     <div class="tab-content mt-2 flex-grow-1" style="min-height: 0">
-                      <div class="tab-pane h-100 fade overflow-auto" id="pills-game" role="tabpanel" aria-labelledby="pills-game-tab">
-                        <span class="center" id="playing-game">You're not playing a game.</span>
-                        <table class="table table-sm table-striped table-hover">
-                          <tbody id="move-history"></tbody>
-                        </table>
-                      </div>
                       <div class="tab-pane fade show active h-100" id="pills-play" role="tabpanel" aria-labelledby="pills-play-tab">
                         <div class="d-flex flex-column h-100">
                           <ul class="nav nav-tabs nav-fill" id="pills-play-subtab" role="tablist">
@@ -185,6 +179,12 @@
                           <div class="center pane-status" id="examine-pane-status"></div>
                           <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="history-table"></div>
                         </div>
+                      </div>
+                      <div class="tab-pane h-100 fade overflow-auto" id="pills-game" role="tabpanel" aria-labelledby="pills-game-tab">
+                        <span class="center" id="playing-game">You're not playing a game.</span>
+                        <table class="table table-sm table-striped table-hover">
+                          <tbody id="move-history"></tbody>
+                        </table>
                       </div>
                     </div>
                   </div>
