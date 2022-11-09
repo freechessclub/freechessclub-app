@@ -339,7 +339,6 @@ function messageHandler(data) {
           else 
             $('#new-game').text('Unobserve game');
 
-          $('#new-game-menu').prop('disabled', true);
           $('#playing-game').hide();
           $('#pills-game-tab').tab('show');
         }
@@ -594,6 +593,7 @@ function messageHandler(data) {
         if(obsRequested) {
           obsRequested--;
           $('#observe-pane-status').hide();
+          $('#pills-game-tab').tab('show');
         }
         
         chat.newMessage('console', data);
@@ -784,10 +784,9 @@ function messageHandler(data) {
           gameChangePending = false;
           session.send('refresh');
         }
-        else {
+        else
           $('#new-game').text('Quick Game');
-          $('#new-game-menu').prop('disabled', false);
-        }
+
         clearInterval(game.wclock);
         clearInterval(game.bclock);
         delete game.chess;
@@ -814,7 +813,6 @@ function messageHandler(data) {
           game.history = null;
           $('#playing-game').show();
           $('#new-game').text('Quick Game');
-          $('#new-game-menu').prop('disabled', false);
         }
         clearInterval(game.wclock);
         clearInterval(game.bclock);
@@ -1451,16 +1449,27 @@ $('#examine-user').on('submit', (event) => {
 
 $('#observe-user').on('submit', (event) => {
   $('#observe-go').trigger('focus');
-  var username = getValue('#observe-username');
-  username = username.trim().split(/\s+/)[0];
-  $('#observe-username').val(username);
-  if(username.length > 0) {
-    obsRequested++;
-    session.send('obs ' + username);
-  }
-
+  observe();
   return false;
 });
+
+function observe(id?: string) {
+  if(game.isPlaying()) {
+    $('#observe-pane-status').text("You're already playing a game.");
+    $('#observe-pane-status').show();
+    return false;
+  }
+
+  if(!id) {
+    id = getValue('#observe-username');
+    id = id.trim().split(/\s+/)[0];
+    $('#observe-username').val(id);
+  }
+  if(id.length > 0) {
+    obsRequested++;
+    session.send('obs ' + id);
+  }
+}
 
 function showGames(games: string) {
   if (!$('#pills-observe').hasClass('show')) {
@@ -1473,10 +1482,14 @@ function showGames(games: string) {
     const gg = g.trim();
     const id = gg.split(' ')[0];
     $('#games-table').append(
-      `<button type="button" class="btn btn-outline-secondary" onclick="sessionSend('obs ` +
-      + id + `'); showGameTab();">` + gg + `</button>`);
+      `<button type="button" class="btn btn-outline-secondary" onclick="observeGame('` 
+      + id + `');">` + gg + `</button>`);
   }
 }
+
+(window as any).observeGame = (id: string) => {
+  observe(id);
+};
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-observe"]', (e) => {
   obsRequested = 0;
