@@ -382,6 +382,7 @@ function messageHandler(data) {
       matchRequest = undefined;
       $('#game-requests').empty();
       $('#playing-game').hide();
+      $('#playing-game-buttons').show();
       $('#pills-game-tab').tab('show');
       if (data.player_one === session.getUser()) {
         chat.createTab(data.player_two);
@@ -436,6 +437,7 @@ function messageHandler(data) {
       clearInterval(game.watchers);
       game.watchers = null;
       $('#game-watchers').empty();
+      $('#playing-game-buttons').hide();
       game.id = 0;
       delete game.chess;
       game.chess = null;
