@@ -10,7 +10,14 @@ export class Engine {
   constructor(game: any, board: any) {
     this.game = game;
     this.board = board;
-    this.stockfish = new Worker(new URL('stockfish.js/stockfish.js', import.meta.url));
+    var wasmSupported = typeof WebAssembly === 'object' && WebAssembly.validate(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
+    if(wasmSupported) {
+      new URL('stockfish.js/stockfish.wasm', import.meta.url); // Get webpack to copy the file from node_modules
+      this.stockfish = new Worker(new URL('stockfish.js/stockfish.wasm.js', import.meta.url)); 
+    }
+    else
+      this.stockfish = new Worker(new URL('stockfish.js/stockfish.js', import.meta.url));
+
     this.stockfish.onmessage = (response) => {
       if (response.data.startsWith('bestmove')) {
         const responseArr: string[] = response.data.split(' ');
