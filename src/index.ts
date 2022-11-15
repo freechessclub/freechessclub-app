@@ -1256,19 +1256,27 @@ $('#fast-backward').on('click', () => {
 
 $('#backward').off('click');
 $('#backward').on('click', () => {
+  backward();
+});
+
+function backward() {
   if (game.isExamining()) 
     session.send('back');
   else if(game.history) 
     game.history.backward();
-  });
+}
 
 $('#forward').off('click');
 $('#forward').on('click', () => {
+  forward();
+});
+
+function forward() {
   if (game.isExamining()) 
     session.send('for');
   else if(game.history) 
     game.history.forward();
-});
+}
 
 $('#fast-forward').off('click');
 $('#fast-forward').on('click', () => {
@@ -1276,6 +1284,18 @@ $('#fast-forward').on('click', () => {
     session.send('for 999');
   else if(game.history) 
     game.history.end();
+});
+
+$(document).on('keydown', (e) => {
+  if ($(e.target).closest("input")[0]) {
+    return;
+  }
+
+  if(e.key === 'ArrowLeft')
+    backward();
+
+  else if(e.key === 'ArrowRight')
+    forward();  
 });
 
 if (!soundToggle) {
