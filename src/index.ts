@@ -1725,7 +1725,7 @@ function showHistory(user: string, history: string) {
   for (const g of parseHistory(history)) {
     const id = g.slice(0, g.indexOf(':'));
     $('#history-table').append(
-      `<button type="button" class="btn btn-outline-secondary" onclick="sessionSend('ex ` + user + ' ' +
+      `<button type="button" class="w-100 btn btn-outline-secondary" onclick="sessionSend('ex ` + user + ' ' +
       + id + `'); showGameTab();">` + g + `</button>`);
   }
 }
@@ -1786,7 +1786,7 @@ function showGames(games: string) {
     const gg = g.trim();
     const id = gg.split(' ')[0];
     $('#games-table').append(
-      `<button type="button" class="btn btn-outline-secondary" onclick="observeGame('` 
+      `<button type="button" class="w-100 btn btn-outline-secondary" onclick="observeGame('` 
       + id + `');">` + gg + `</button>`);
   }
 }
