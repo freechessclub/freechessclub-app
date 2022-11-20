@@ -37,6 +37,42 @@ let matchRequest = undefined;
 let prevWindowWidth = 0;
 let addressBarHeight = undefined;
 
+export function cleanup() {
+  historyRequested = 0;
+  obsRequested = 0;
+  gameInfoRequested = false;
+  gamesRequested = false;
+  movelistRequested = 0;
+  lobbyRequested = false;
+  gameChangePending = false;
+  matchRequestList = [];
+  matchRequest = undefined;
+
+  $('#stop-observing').hide();
+  $('#stop-examining').hide();
+  $('#close-game-panel').hide();
+  $('#playing-game-buttons').hide();
+  if(game.history.length() > 0)
+    $('#viewing-game-buttons').show(); 
+  setPanelHeights();
+
+  if(game.wclock)
+    clearInterval(game.wclock);
+  if(game.bclock)
+    clearInterval(game.bclock);
+  if(game.watchers)
+    clearInterval(game.watchers);
+  game.watchers = null;
+  $('#game-watchers').empty();
+
+  game.id = 0;
+  delete game.chess;
+  game.chess = null;
+  game.role = Role.NONE;
+  board.cancelMove();
+  updateBoard();
+}
+
 
 function hideCloseGamePanel() {
   $('#close-game-panel').hide();
@@ -272,6 +308,7 @@ function messageHandler(data) {
   switch (type) {
     case MessageType.Control:
       if (!session.isConnected() && data.command === 1) {
+        cleanup();
         session.setUser(data.control);
         if (!chat) {
           chat = new Chat(data.control);
@@ -438,21 +475,7 @@ function messageHandler(data) {
         rematch = ['rematch', 'Rematch']
       }
       showModal('Match Result', '', data.message, rematch, []);
-      if(game.wclock)
-        clearInterval(game.wclock);
-      if(game.bclock)
-        clearInterval(game.bclock);
-      clearInterval(game.watchers);
-      game.watchers = null;
-      $('#game-watchers').empty();
-      $('#playing-game-buttons').hide();
-      $('#viewing-game-buttons').show();  
-      game.id = 0;
-      board.cancelMove();
-      delete game.chess;
-      game.chess = null;
-      game.role = Role.NONE;
-      updateBoard();
+      cleanup();
       break;
     case MessageType.Unknown:
     default:
@@ -785,42 +808,21 @@ function messageHandler(data) {
 
       match = msg.match(/Removing game (\d+) from observation list./);
       if (match != null && match.length > 1) {
-        if(gameChangePending) {
-          gameChangePending = false;
+        if(gameChangePending) 
           session.send('refresh');
-        }
 
-        clearInterval(game.wclock);
-        clearInterval(game.bclock);
-
-        $('#stop-observing').hide();
-        $('#close-game-panel').hide();
-        setPanelHeights();
-        
-        delete game.chess;
-        game.chess = null;
-        game.role = Role.NONE;
         stopEngine();
-        updateBoard();
+        cleanup();
         return;
       }
 
       match = msg.match(/You are no longer examining game (\d+)./);
       if (match != null && match.length > 1) {
-        if(gameChangePending) {
-          gameChangePending = false;
+        if(gameChangePending) 
           session.send("refresh");
-        }
 
-        $('#stop-examining').hide();
-        $('#close-game-panel').hide();
-        setPanelHeights();
-
-        delete game.chess;
-        game.chess = null;
-        game.role = Role.NONE;
         stopEngine();
-        updateBoard();
+        cleanup();
         return;
       }
 
@@ -1235,6 +1237,9 @@ $('#input-form').on('submit', (event) => {
 });
 
 function onDeviceReady() {
+  game.role = Role.NONE;
+  game.history = new History(new Chess().fen(), board); 
+
   const user = Cookies.get('user');
   const pass = Cookies.get('pass');
   const proxy = Cookies.get('proxy');
@@ -1268,8 +1273,6 @@ function onDeviceReady() {
   selectOnFocus($('#observe-username'));
   selectOnFocus($('#examine-username'));
 
-  game.role = Role.NONE;
-  game.history = new History(new Chess().fen(), board); 
   updateBoard(); 
 }
 
@@ -1500,6 +1503,8 @@ $('#stop-examining').on('click', (event) => {
 });
 
 $('#custom-control').on('submit', (event) => {
+  event.preventDefault();
+
   $('#custom-control-go').trigger('focus');
   const min: string = getValue('#custom-control-min');
   const sec: string = getValue('#custom-control-sec');
@@ -1595,11 +1600,11 @@ $('#login-user').on('change', () => $('#login-user').removeClass('is-invalid'));
 
 $('#login-form').on('submit', (event) => {
   const user: string = getValue('#login-user');
-  if (user === session.getUser()) {
+  if (session && user === session.getUser()) {
     $('#login-user').addClass('is-invalid');
     event.preventDefault();
     event.stopPropagation();
-    return;
+    return false;
   }
   const pass: string = getValue('#login-pass');
   const enableProxy = $('#enable-proxy').prop('checked');
@@ -1610,6 +1615,8 @@ $('#login-form').on('submit', (event) => {
     Cookies.remove('proxy');
     $('#proxy').text('Proxy: OFF');
   }
+  if(session)
+    session.disconnect();
   session = new Session(messageHandler, enableProxy, user, pass);
   if ($('#remember-me').prop('checked')) {
     Cookies.set('user', user, { expires: 365 });
@@ -1619,8 +1626,9 @@ $('#login-form').on('submit', (event) => {
     Cookies.remove('pass');
   }
   $('#login-screen').modal('hide');
-  event.preventDefault();
   event.stopPropagation();
+  event.preventDefault();
+  return false;
 });
 
 $('#login-screen').on('show.bs.modal', (e) => {
@@ -1650,6 +1658,8 @@ $('#connect-user').on('click', (event) => {
 $('#connect-guest').on('click', (event) => {
   const proxy = Cookies.get('proxy');
   const enableProxy = (proxy !== undefined);
+  if(session) 
+    session.disconnect();
   session = new Session(messageHandler, enableProxy);
 });
 
@@ -1744,14 +1754,15 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-examine"]', (e) =>
 });
 
 $('#examine-user').on('submit', (event) => {
+  event.preventDefault();
   $('#examine-go').trigger('focus');
   const username = getValue('#examine-username');
   getHistory(username);
-
   return false;
 });
 
 $('#observe-user').on('submit', (event) => {
+  event.preventDefault();
   $('#observe-go').trigger('focus');
   observe();
   return false;
