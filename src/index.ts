@@ -1711,7 +1711,7 @@ function getHistory(user: string) {
 }
 
 export function parseHistory(history: string) {
-  const h = history.split('\n');
+  var h = history.split('\n');
   h.splice(0, 2);
   return h;
 }
@@ -1732,11 +1732,12 @@ function showHistory(user: string, history: string) {
   if (exUser.localeCompare(user, undefined, { sensitivity: 'accent' }) !== 0) {
     return;
   }
-  for (const g of parseHistory(history)) {
-    const id = g.slice(0, g.indexOf(':'));
+  var hArr = parseHistory(history);
+  for(let i = hArr.length - 1; i >= 0; i--) {
+    const id = hArr[i].slice(0, hArr[i].indexOf(':'));
     $('#history-table').append(
       `<button type="button" class="w-100 btn btn-outline-secondary" onclick="sessionSend('ex ` + user + ' ' +
-      + id + `'); showGameTab();">` + g + `</button>`);
+      + id + `'); showGameTab();">` + hArr[i] + `</button>`);
   }
 }
 
