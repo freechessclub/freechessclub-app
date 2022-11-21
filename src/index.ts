@@ -1273,6 +1273,7 @@ function onDeviceReady() {
     $('#pills-play-tab').tab('show');
     $('#collapse-history').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
+    $('#chat-toggle-btn').toggleClass("toggle-btn-selected");
   }
 
   setPanelHeights();
@@ -1476,12 +1477,12 @@ $('#remove-pv').on('click', (event) => {
 });
 
 function getGame(min: number, sec: number) {
-    var opponent = getValue('#opponent-player-name')
-    opponent = opponent.trim().split(/\s+/)[0];
-    $('#opponent-player-name').val(opponent);
-    matchRequest = {opponent: opponent, min: min, sec: sec};
-    const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek';
-    session.send(cmd + ' ' + min + ' ' + sec);
+  var opponent = getValue('#opponent-player-name')
+  opponent = opponent.trim().split(/\s+/)[0];
+  $('#opponent-player-name').val(opponent);
+  matchRequest = {opponent: opponent, min: min, sec: sec};
+  const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek';
+  session.send(cmd + ' ' + min + ' ' + sec);
 }
 (window as any).getGame = getGame;
 

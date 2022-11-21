@@ -74,6 +74,19 @@ html, body {
   text-decoration: none;
 }
 
+#chat-unread-bubble {
+  fill: red;
+}
+
+#chat-unread-number {
+  font-size: 8px;
+  fill: white;
+}
+
+.toggle-btn-selected.btn-outline-secondary {
+  background-color: #BBBBBB !important;
+}
+
 .btn-toolbar .btn {
     margin-right: 10px;
 }
@@ -191,6 +204,15 @@ html, body {
   font-size: 0.85em;
   padding-top: 1px;
   padding-bottom: 1px;
+}
+
+#tabs .nav-link {
+  height: 32px
+}
+
+.tab-unviewed {
+  color: tomato;
+  font-weight: bold;
 }
 
 #left-bottom-tabs .nav-link.active {
