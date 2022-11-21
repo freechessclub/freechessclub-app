@@ -1058,8 +1058,6 @@ $('#engine-tab .closeTab').on('click', (event) => {
 function closeLeftBottomTab(tab: any) {
   $('#status-tab').tab('show');
   tab.hide();
-  console.log('helloooooo?');
-  console.log($('#left-bottom-tabs li:visible').length);
   if($('#left-bottom-tabs li:visible').length === 1)
     $('#left-bottom-tabs').css('visibility', 'hidden');
 }

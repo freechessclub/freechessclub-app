@@ -38,8 +38,56 @@ export class History {
     this.moves.push({move: move, fen: fen});
     this.id = this.moves.length - 1;
 
-    if(move) 
+    if(move) {
       this.update(move.san, this.id, score);
+      this.highlightMove();
+    }
+  }
+
+  public highlightMove() {
+    $('#move-history a').each(function () {
+      $(this).removeClass('selected');
+    });
+
+    if(this.id !== 0) {
+      var cellText = $('#move-history a').eq(this.id - 1);
+      cellText.addClass('selected');
+
+      this.scrollParentToChild($('#pills-game'), cellText.parent());  
+    }
+    else $('#pills-game').scrollTop(0);
+  }
+
+  public scrollParentToChild(parent: any, child: any) {
+    parent = parent[0];
+    child = child[0];
+
+    // Where is the parent on page
+    var parentRect = parent.getBoundingClientRect();
+    // What can you see?
+    var parentViewableArea = {
+      height: parent.clientHeight,
+      width: parent.clientWidth
+    };
+    
+    // Where is the child
+    var childRect = child.getBoundingClientRect();
+    // Is the child viewable?
+    var isViewable = (childRect.top >= parentRect.top) && (childRect.bottom <= parentRect.top + parentViewableArea.height);
+    
+    // if you can't see the child try to scroll parent
+    if (!isViewable) {
+      // Should we scroll using top or bottom? Find the smaller ABS adjustment
+      const scrollTop = childRect.top - parentRect.top;
+      const scrollBot = childRect.bottom - parentRect.bottom;
+      if (Math.abs(scrollTop) < Math.abs(scrollBot)) {
+        // we're near the top of the list
+        parent.scrollTop += scrollTop;
+      } else {
+        // we're near the bottom of the list
+        parent.scrollTop += scrollBot;
+      }
+    }
   }
 
   public removeLast(): void {
@@ -74,6 +122,8 @@ export class History {
       });
       updateBoardAfter();
     }
+
+    this.highlightMove();
 
     return this.moves[this.id];
   }

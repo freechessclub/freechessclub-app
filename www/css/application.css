@@ -122,9 +122,22 @@
   text-align: center;
 }
 
-.history a:hover {
+.history td:hover {
+  background-color: rgba(0, 0, 0, 0.075);
+}
+
+.history td:hover a {
   font-weight: bold;
   text-decoration: none;
+}
+
+.history .selected {
+  background-color: #DDDDDD; 
+  padding-top: 2px; 
+  padding-bottom: 3px; 
+  padding-left: 15px; 
+  padding-right: 15px;
+  font-weight: bold;
 }
 
 .nav-tabs .nav-item .closeTab {
