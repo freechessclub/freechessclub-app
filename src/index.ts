@@ -1796,9 +1796,11 @@ function showGames(games: string) {
   for (const g of games.split('\n').slice(0, -2).reverse()) {
     const gg = g.trim();
     const id = gg.split(' ')[0];
-    $('#games-table').append(
-      `<button type="button" class="w-100 btn btn-outline-secondary" onclick="observeGame('` 
-      + id + `');">` + gg + `</button>`);
+    var match = gg.match(/\[\s*p/); // Don't list private games
+    if(!match)
+      $('#games-table').append(
+        `<button type="button" class="w-100 btn btn-outline-secondary" onclick="observeGame('` 
+        + id + `');">` + gg + `</button>`);
   }
 }
 
