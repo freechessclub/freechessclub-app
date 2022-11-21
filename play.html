@@ -49,8 +49,11 @@
                     <button type="button" id="forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Forward">
                       <span class="fa fa-forward" aria-hidden="false"></span>
                     </button>
-                    <button type="button" id="fast-forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Current">
+                    <button type="button" id="fast-forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="End">
                       <span class="fa fa-fast-forward" aria-hidden="false"></span>
+                    </button>
+                    <button type="button" id="exit-subvariation" style="display: none" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Exit Subvariation">
+                      <span class="fa fa-eject" aria-hidden="false"></span>
                     </button>
                     <button id="history-toggle-btn" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-history" aria-expanded="true" aria-controls="collapse-history">
                       <span id="history-toggle-icon" class="fa fa-toggle-up" aria-hidden="false"></span>
@@ -182,7 +185,7 @@
                       </div>
                       <div class="tab-pane h-100 fade overflow-auto" id="pills-game" role="tabpanel" aria-labelledby="pills-game-tab">
                         <span class="center" id="playing-game">You're not playing a game.</span>
-                        <table class="table table-sm table-striped">
+                        <table class="table table-sm">
                           <tbody id="move-history"></tbody>
                         </table>
                       </div>
@@ -243,7 +246,7 @@
                   <span class="fa fa-flag-o" aria-hidden="false"></span>
                 </button>
               </div>
-              <div id="viewing-game-buttons" class="btn-toolbar center m-auto" style="display: none; width: 100%">
+              <div id="viewing-game-buttons" class="btn-toolbar center m-auto w-100" style="display: none">
                 <button type="button" id="analyze" class="btn btn-outline-secondary btn-md" title="Analyze">Analyze</button>         
                 <button type="button" id="hide-analysis" style="display: none" class="btn btn-outline-secondary btn-md" title="Hide Analysis">Hide Analysis</button>          
               </div>

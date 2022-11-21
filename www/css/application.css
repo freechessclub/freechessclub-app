@@ -110,7 +110,12 @@
   color: rgba(0, 0, 0, 0.4);
 }
 
+.history {
+  padding: 0;
+}
+
 .history th {
+  border: 0;
   width: 20%;
   text-align: center;
   font-weight: bold;
@@ -118,17 +123,42 @@
 }
 
 .history td {
+  border: 0;
   width: 40%;
   text-align: center;
 }
 
-.history td:hover {
+.history .selectable:hover {
   background-color: rgba(0, 0, 0, 0.075);
 }
 
-.history td:hover a {
+.history .subvariation:hover {
+  background-color: rgba(255, 255, 255, 0.075);
+}
+
+.history .selectable:hover a {
   font-weight: bold;
   text-decoration: none;
+}
+
+.history .subvariation td {
+  background: #D7D7D7;
+}
+
+.history .subvariation th {
+  background: #D7D7D7;
+}
+
+.history tr:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.history .subvariation .selected {
+  background-color: #BBBBBB; 
+}
+
+.history .subvariation a {
+  color: #191970
 }
 
 .history .selected {

@@ -56,14 +56,16 @@ function setInputFilter(textbox: Element, inputFilter: (value: string) => boolea
   });
 }
 
-(window as any).showMove = (n: number) => {
+$('#move-history').on('click', '.selectable', function() {
+  var id = $('#move-history .selectable').index(this) + 1;
+
   if(game.isExamining()) {
-    if(game.history.length() !== n)
-      session.send('back ' + (game.history.length() - n));
+    if(game.history.length() !== id)
+      session.send('back ' + (game.history.length() - id));
   }
   else 
-    var entry = game.history.display(n);            
-};
+    var entry = game.history.display(id);            
+});
 
 function showCapturePiece(color: string, p: string): void {
   if (game.color === color) {
@@ -110,8 +112,10 @@ const board: any = Chessground(document.getElementById('board'), {
   movable: {
     free: false,
     color: undefined,
+    events: {
+      after: movePiece,
+    }
   },
-  blockTouchScroll: false,
 });
 
 function toDests(chess: any): Map<Key, Key[]> {
@@ -135,54 +139,40 @@ function inCheck(san: string) {
   return (san.slice(-1) === '+');
 }
 
-function movePieceAfter(move: any) {
+function movePieceAfter(move: any, fen?: string) {
+  if(!fen)
+    fen = game.chess.fen();
+
   // go to current position if user is looking at earlier move in the move list
-  if(game.history.ply() < game.history.length())
-    board.set({ fen: game.chess.fen() });
+  if(game.role !== Role.NONE && game.history.ply() < game.history.length())
+    game.history.display(game.history.length());
 
-  board.move(move.from, move.to);
-  if (move.flags !== 'n') {
-    board.set({ fen: game.chess.fen() });
-  }
-
-  updateHistory(move);
-  updateBoardAfter();
-
+  updateHistory(move, fen);
   board.playPremove();
-
-  if (game.chess.in_check()) {
-    if (soundToggle) {
-      Sounds.checkSound.play();
-    }
-  } else {
-    if (soundToggle) {
-      if (move.captured) {
-        Sounds.captureSound.play();
-      } else {
-        Sounds.moveSound.play();
-      }
-    }
-  }
 }
 
 export function movePiece(source: any, target: any, metadata: any) {
-  if (!game.chess) {
-    return;
-  }
-
-  if (game.isExamining() || game.chess.turn() === game.color) {
+  if (game.isExamining() || (game.isPlaying() && game.chess.turn() === game.color))
     session.send(source + '-' + target);
+
+  var fen = '';
+  var move = null;
+  if(game.isPlaying() || game.isExamining()) {
+    move = game.chess.move({from: source, to: target, promotion: 'q'}); // TODO: Allow non-queen promotions
+    fen = game.chess.fen();
+  }
+  else if(game.role === Role.NONE) {
+    var localChess = new Chess(game.history.get().fen);
+    move = localChess.move({from: source, to: target, promotion: 'q'});
+    fen = localChess.fen();
   }
 
-  const move = game.chess.move({
-    from: source,
-    to: target,
-    promotion: 'q', // TODO: Allow non-queen promotions
-  });
+  if (move !== null) 
+    movePieceAfter(move, fen);
 
-  if (move !== null) {
-    movePieceAfter(move);
-  }
+  $('#pills-game-tab').tab('show');
+  if(game.role === Role.NONE)
+    $('#viewing-game-buttons').show();
 }
 
 function showStatusMsg(msg: string) {
@@ -303,15 +293,9 @@ function messageHandler(data) {
         board.cancelMove();
         board.set({
           orientation: amIblack ? 'black' : 'white',
-          movable: {
-            free: false,
-            events: {
-              after: movePiece,
-            }
-          },
-          blockTouchScroll: true,
         });
 
+        $('#exit-subvariation').hide();
         $('#player-captured').text('');
         $('#opponent-captured').text('');
         $('#player-status').css('background-color', '');
@@ -328,7 +312,7 @@ function messageHandler(data) {
         }
 
         game.history = new History(game.fen, board); 
-        updateBoardAfter(); 
+        updateBoard(); 
 
         if (game.role === Role.NONE || game.isObserving() || game.isExamining()) {
           if (game.isExamining()) {
@@ -370,13 +354,8 @@ function messageHandler(data) {
           }
         }
         if (data.move === 'none' || (move === null && game.chess.fen() !== data.fen)) {
-          const loaded = game.chess.load(data.fen);
-          board.set({
-            fen: data.fen,
-          });
-
+          game.chess.load(data.fen);
           updateHistory();
-          updateBoardAfter();
         }
       }
       break;
@@ -424,17 +403,12 @@ function messageHandler(data) {
       }
 
       showStatusMsg(data.message);
-      let examine = [];
       let rematch = [];
       if ($('#player-name').text() === session.getUser()
         && data.reason !== 2 && data.reason !== 7) {
         rematch = ['rematch', 'Rematch']
       }
-      if (data.reason !== 7) {
-        examine = ['ex ' + data.winner + ' -1', 'Examine'];
-      }
-      showModal('Match Result', '', data.message, examine, rematch);
-      game.role = Role.NONE;
+      showModal('Match Result', '', data.message, rematch, []);
       if(game.wclock)
         clearInterval(game.wclock);
       if(game.bclock)
@@ -445,16 +419,11 @@ function messageHandler(data) {
       $('#playing-game-buttons').hide();
       $('#viewing-game-buttons').show();  
       game.id = 0;
+      board.cancelMove();
       delete game.chess;
       game.chess = null;
-      board.cancelMove();
-      board.set({
-        movable: {
-          free: false,
-          color: undefined,
-        },
-        blockTouchScroll: false,
-      });
+      game.role = Role.NONE;
+      updateBoard();
       break;
     case MessageType.Unknown:
     default:
@@ -793,21 +762,14 @@ function messageHandler(data) {
         }
         else {
           $('#new-game').text('Quick Game');
-          hideAnalysis();
         }
         clearInterval(game.wclock);
         clearInterval(game.bclock);
         delete game.chess;
         game.chess = null;
-        board.set({
-          movable: {
-            free: false,
-            color: undefined,
-          },
-        });
         game.role = Role.NONE;
         stopEngine();
-        updateBoardAfter();
+        updateBoard();
         return;
       }
 
@@ -818,27 +780,13 @@ function messageHandler(data) {
           session.send("refresh");
         }
         else {
-          $('#game-status').html('');
-          $('#move-history').empty();
-          game.history = null;
-          $('#playing-game').show();
           $('#new-game').text('Quick Game');
-          $('#viewing-game-buttons').hide();  
-          hideAnalysis();
         }
-        clearInterval(game.wclock);
-        clearInterval(game.bclock);
         delete game.chess;
         game.chess = null;
-        board.set({
-          movable: {
-            free: false,
-            color: undefined,
-          },
-        });
         game.role = Role.NONE;
         stopEngine();
-        updateBoardAfter();
+        updateBoard();
         return;
       }
 
@@ -891,8 +839,8 @@ function messageHandler(data) {
 }
 
 function getPlyFromFEN(fen: string) {
-  var turn_color = fen.split(' ')[1];
-  var move_no = +fen.split(' ').pop();
+  var turn_color = fen.split(/\s+/)[1];
+  var move_no = +fen.split(/\s+/).pop();
   var ply = move_no * 2 - (turn_color === 'w' ? 1 : 0);
 
   return ply;
@@ -933,25 +881,45 @@ function showStrengthDiff(fen: string) {
   }
 }
 
-function updateHistory(move?: any) {
-  var ply = getPlyFromFEN(game.chess.fen());
+function updateHistory(move?: any, fen?: string) {
+  if(!fen)
+    fen = game.chess.fen();
 
-  while(ply - 1 < game.history.length()) 
-    game.history.removeLast();
+  var ply = getPlyFromFEN(fen);
+
+  if(game.role !== Role.NONE) {
+    while(ply - 1 < game.history.length()) 
+      game.history.removeLast();
+  }
     
-  if(ply - 1 > game.history.length() + 1) {
+  if(game.role !== Role.NONE && ply - 1 > game.history.length() + 1) {
     movelistRequested++;
     session.send('moves ' + game.id);
   }
   
   if(move) {
-    game.history.add(move, game.chess.fen());
+    var subvariation = (game.role === Role.NONE);
+    if(subvariation)
+      $('#exit-subvariation').show();
+    game.history.add(move, fen, subvariation);
+    game.history.display(undefined, true);
   } 
+  else
+    game.history.display();
 }
 
-export function updateBoardAfter() {
+export function updateBoard(playMove: boolean = false) {
   var move = game.history.get().move;
   var fen = game.history.get().fen;
+
+  if(playMove) {
+    board.move(move.from, move.to);
+    if (move.flags !== 'n') {
+      board.set({ fen: fen });
+    }
+  }
+  else 
+    board.set({ fen: fen });
 
   var localChess = new Chess(fen);
 
@@ -982,7 +950,8 @@ export function updateBoardAfter() {
     turnColor = toColor(localChess);
   }
   else {
-    // TODO: we don't support editing the board in local-mode yet!
+    movableColor = toColor(localChess);
+    dests = toDests(localChess);
     turnColor = toColor(localChess);
   }
 
@@ -995,10 +964,27 @@ export function updateBoardAfter() {
   board.set({
     turnColor: turnColor,
     movable: movable,
-    check: localChess.in_check() 
+    check: localChess.in_check(),
+    blockTouchScroll: (game.isPlaying() ? true : false),
   });
 
   showStrengthDiff(fen);
+
+  if(playMove) {
+    if (localChess.in_check()) {
+      if (soundToggle) {
+        Sounds.checkSound.play();
+      }
+    } else {
+      if (soundToggle) {
+        if (move.captured) {
+          Sounds.captureSound.play();
+        } else {
+          Sounds.moveSound.play();
+        }
+      }
+    }
+  }
 
   // create new imstance of Stockfish for each move, since waiting for new position/go commands is very slow (with current SF build)
   if(engine != null) {
@@ -1027,7 +1013,6 @@ function stopEngine() {
   if(engine) {
     engine.terminate();
     engine = null;
-
     board.setAutoShapes([]);
   }
 }
@@ -1079,7 +1064,7 @@ function getMoves() {
 }
 
 function getMoveNoFromFEN(fen: string) {
-  return +fen.split(' ').pop();
+  return +fen.split(/\s+/).pop();
 }
 
 $('#collapse-history').on('hidden.bs.collapse', (event) => {
@@ -1214,6 +1199,10 @@ function onDeviceReady() {
   selectOnFocus($('#custom-control-sec'));
   selectOnFocus($('#observe-username'));
   selectOnFocus($('#examine-username'));
+
+  game.role = Role.NONE;
+  game.history = new History(new Chess().fen(), board); 
+  updateBoard(); 
 }
 
 function selectOnFocus(input: any) {
@@ -1377,6 +1366,7 @@ $('#fast-backward').on('click', () => {
     session.send('back 999');
   else if(game.history) 
     game.history.beginning();
+  $('#pills-game-tab').tab('show');
 });
 
 $('#backward').off('click');
@@ -1389,6 +1379,7 @@ function backward() {
     session.send('back');
   else if(game.history) 
     game.history.backward();
+  $('#pills-game-tab').tab('show');
 }
 
 $('#forward').off('click');
@@ -1401,6 +1392,7 @@ function forward() {
     session.send('for');
   else if(game.history) 
     game.history.forward();
+  $('#pills-game-tab').tab('show');
 }
 
 $('#fast-forward').off('click');
@@ -1409,6 +1401,14 @@ $('#fast-forward').on('click', () => {
     session.send('for 999');
   else if(game.history) 
     game.history.end();
+  $('#pills-game-tab').tab('show');
+});
+
+$('#exit-subvariation').off('click');
+$('#exit-subvariation').on('click', () => {
+  game.history.removeSubvariation();
+  $('#exit-subvariation').hide();
+  $('#pills-game-tab').tab('show');
 });
 
 $(document).on('keydown', (e) => {
