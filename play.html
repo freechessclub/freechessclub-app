@@ -105,33 +105,33 @@
                               <div class="btn-group-vertical btn-block center" role="group" aria-label="New Game Menu">
                                 <div class="input-group">
                                   <span class="input-group-text" id="opponent-player">Play against</span>
-                                  <input type="text" class="form-control" id="opponent-player-name" placeholder="Player name" aria-describedby="opponent-player" spellcheck="false">
+                                  <input type="text" class="form-control" id="opponent-player-name" placeholder="Anyone" aria-describedby="opponent-player" spellcheck="false">
                                 </div>
                                 <div class="center pane-status" id="play-pane-status" style="display: none"></div>
-                                <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Lightning</a>
+                                <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true"><span class="me-2 fa fa-bolt" aria-hidden="false"></span>Lightning</a>
                                 <div class="btn-group" role="group" aria-label="Lightning">
-                                  <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(1,0);">1 + 0</button>
-                                  <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(2,1);">2 + 1</button>
+                                  <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(1,0);">1 min</button>
+                                  <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(2,0);">2 min</button>
                                 </div>
-                                <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Blitz</a>
+                                <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true"><span class="me-2 fa fa-rocket" aria-hidden="false"></span>Blitz</a>
                                 <div class="btn-group" role="group" aria-label="Blitz">
-                                  <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(3,0);">3 + 0</button>
-                                  <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(3,2);">3 + 2</button>
-                                  <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(5,0);">5 + 0</button>
-                                  <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(5,5);">5 + 5</button>
+                                  <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(3,0);">3 min</button>
+                                  <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(5,0);">5 min</button>
+                                  <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(10,0);">10 min</button>
+                                  <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(2,12);">2 + 12</button>
                                 </div>
-                                <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Standard</a>
+                                <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true"><span class="me-2 fa fa-gears" aria-hidden="false"></span>Standard</a>
                                 <div class="btn-group" role="group" aria-label="Standard">
-                                  <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(10,5);">10 + 5</button>
-                                  <button type="button" class="btn btn-outline-secondary btn-md" href="#" onclick="getGame(15,0);">15 + 0</button>
+                                  <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(15,0);">15 min</button>
+                                  <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(20,0);">20 min</button>
                                 </div>
-                                <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true">Custom</a>
+                                <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true"><span class="me-2 fa fa-clock-o" aria-hidden="false"></span>Custom</a>
                                 <form id="custom-control">
                                   <div class="input-group">
                                     <input type="text" class="form-control text-center" id="custom-control-min" value="0" maxlength="3">
                                     <span class="input-group-text"> min </span>
                                     <input type="text" class="form-control text-center" id="custom-control-sec" value="0" maxlength="3">
-                                    <span class="input-group-text"> sec </span>
+                                    <span class="input-group-text"> inc </span>
                                     <span class="input-group-append">
                                       <button class="btn btn-outline-secondary btn-md" type="submit" id="custom-control-go">Go</button>
                                     </span>
