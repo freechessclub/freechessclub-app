@@ -193,7 +193,6 @@ export class Chat {
       $('#timestamp-toggle').html(timestampIcon + 'Timestamp ' + (this.timestampToggle ? 'ON' : 'OFF'));
       Cookies.set('timestamp', String(this.timestampToggle), { expires: 365 })
     });
-
   }
 
   public scrollToChat() {

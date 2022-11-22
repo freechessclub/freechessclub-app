@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import Parser from './parser';
-import { cleanup } from './index';
+import { disableOnlineInputs, cleanup } from './index';
 
 export const enum MessageType {
   Control = 0,
@@ -135,6 +135,7 @@ export class Session {
     $('#chat-status').html('<span class="fa fa-circle text-danger" aria-hidden="false"></span> Offline');
     this.connected = false;
     this.user = '';
+    disableOnlineInputs(true);
     cleanup();
   }
 

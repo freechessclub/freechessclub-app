@@ -73,6 +73,13 @@ export function cleanup() {
   updateBoard();
 }
 
+export function disableOnlineInputs(disable: boolean) {
+  $('#pills-play *').prop('disabled', disable);
+  $('#pills-examine *').prop('disabled', disable);
+  $('#pills-observe *').prop('disabled', disable);
+  $('#chan-dropdown *').prop('disabled', disable);
+  $('#input-form *').prop('disabled', disable);
+}
 
 function hideCloseGamePanel() {
   $('#close-game-panel').hide();
@@ -309,6 +316,7 @@ function messageHandler(data) {
     case MessageType.Control:
       if (!session.isConnected() && data.command === 1) {
         cleanup();
+        disableOnlineInputs(false);
         session.setUser(data.control);
         if (!chat) {
           chat = new Chat(data.control);
@@ -1237,6 +1245,8 @@ $('#input-form').on('submit', (event) => {
 });
 
 function onDeviceReady() {
+  disableOnlineInputs(true);
+
   game.role = Role.NONE;
   game.history = new History(new Chess().fen(), board); 
 
