@@ -36,6 +36,7 @@ let matchRequestList = [];
 let matchRequest = undefined;
 let prevWindowWidth = 0;
 let addressBarHeight = undefined;
+let soundTimer = undefined
 
 export function cleanup() {
   historyRequested = 0;
@@ -1029,20 +1030,27 @@ export function updateBoard(playMove: boolean = false) {
 
   showStrengthDiff(fen);
 
-  if(playMove) {
-    if (localChess.in_check()) {
-      if (soundToggle) {
+  if(playMove && soundToggle) {
+    clearTimeout(soundTimer);
+    soundTimer = setTimeout(() => {
+      var entry = game.history.get();
+      var chess = new Chess(entry.fen);
+      if(chess.in_check()) {
+        Sounds.checkSound.pause(); 
+        Sounds.checkSound.currentTime = 0;
         Sounds.checkSound.play();
       }
-    } else {
-      if (soundToggle) {
-        if (move.captured) {
-          Sounds.captureSound.play();
-        } else {
-          Sounds.moveSound.play();
-        }
+      else if(entry.move.captured) {
+        Sounds.captureSound.pause(); 
+        Sounds.captureSound.currentTime = 0;
+        Sounds.captureSound.play();
+      } 
+      else {
+        Sounds.moveSound.pause(); 
+        Sounds.moveSound.currentTime = 0;
+        Sounds.moveSound.play();
       }
-    }
+    }, 50);
   }
 
   // create new imstance of Stockfish for each move, since waiting for new position/go commands is very slow (with current SF build)
