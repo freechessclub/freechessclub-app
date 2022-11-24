@@ -8,13 +8,13 @@ export class History {
   private board: any;
   private moves: any[];
   private id: number;
-  private scratch: boolean;
+  private _scratch: boolean;
 
   constructor(fen: string, board: any) {
     this.board = board;
     this.moves = new Array();
     this.id = -1;
-    this.scratch = false;
+    this._scratch = false;
 
     $('#move-history').empty();
 
@@ -37,30 +37,6 @@ export class History {
   }
 
   public add(move: any, fen: string, subvariation?: boolean, score?: number): void {     
-    if(this.length() == 0) {
-      $('#playing-game').hide();
-
-      if(subvariation)
-        this.scratch = true;
-      else
-        this.scratch = false;
-    }
-
-    if(this.scratch)
-      subvariation = false;
-    
-    if(this.id < this.length()) {
-      for(let i = this.id + 1; i <= this.length(); i++) {
-        if(!this.moves[i].subvariation) {
-          if(this.moves[i].fen === fen) {
-            this.forward();
-            return;
-          }
-          break;
-        }
-      }
-    }
-
     if(subvariation) {
       if(this.moves[this.id].subvariation) {
         while(this.id < this.length() && this.moves[this.id + 1].subvariation)
@@ -83,6 +59,13 @@ export class History {
 
     if(move) 
       this.addTableItem(move.san, this.getPlyFromFEN(fen), subvariation, this.id, score);
+  }
+
+  public scratch(_scratch?: boolean):  any {
+    if(_scratch !== undefined) 
+      this._scratch = _scratch;
+
+    return this._scratch;
   }
 
   public highlightMove() {
@@ -133,36 +116,28 @@ export class History {
 
   public removeSubvariation() {
     var inSub = false;
-    var isSuffix = true;
 
     for(let i = this.length(); i > 0; i--) {
-      if(this.moves[i].subvariation) {
-        if(this.id === i) {
-          // We are currently in the subvariation getting deleted
+      var move = this.moves[i];
+      if(move.subvariation) {
+        if(this.id === i)
           inSub = true;
-        
-          if(!this.moves[i - 1].subvariation) { 
-            // Check whether this is a real subvariation or just some extra moves on the end of the game
-            if(this.getTurnColorFromFEN(this.moves[i].fen) === this.getTurnColorFromFEN(this.moves[i - 1].fen))
-              isSuffix = false;
-          }
-        }
         this.remove(i);
       }
     }
 
-    if(inSub) {
-      if(!isSuffix) 
-        this.id--;
+    if(inSub) 
       this.display(this.id);
-    }
   }
 
   public remove(id: number): void {
+    if(this.id === id)
+      this.id = this.prev(id);
+    else if(this.id > id)
+      this.id--;
+
     this.moves.splice(id, 1);
     this.removeTableItem(id);
-    if(this.id >= id)
-      this.id--;
   }
 
   public removeLast(): void {
@@ -199,10 +174,42 @@ export class History {
     return this.moves[this.id];
   }
 
+  public find(fen: string): number {
+    let i = this.id;
+    do {
+      if(this.moves[i].fen === fen)
+        return i;
+      i = this.next(i);
+    } while(i !== undefined);
+
+    i = this.id;
+    do {
+      if(this.moves[i].fen === fen)
+        return i;
+      i = this.prev(i);
+    } while(i !== undefined);
+
+    if(this.id < this.length()) {
+      if(this.moves[this.id + 1].fen === fen)
+        return this.id + 1;
+      
+      if(this.id + 1 < this.length()) {
+        if(this.moves[this.id + 2].fen === fen)
+          return this.id + 2;
+      }
+    }
+    
+    return;
+  }
+
   public get(id?: number): any {
     if(id === undefined)
       return this.moves[this.id];
     return this.moves[id];
+  }
+
+  public index(): number {
+    return this.id;
   }
 
   public ply(id?: number): number {
@@ -235,68 +242,101 @@ export class History {
     return fen.split(/\s+/)[1];
   }
   
-  public beginning(): any {
-    this.display(0);
+  public first(): any {
+    return 0;
+  }
 
+  public beginning(): any {
+    this.display(this.first());
     return this.moves[this.id];
   }
 
-  public backward(): any {
-    if (this.id === 0) 
+  public backward(): any {  
+    var index = this.prev();
+    if(index !== undefined) {
+      this.display(index);
+      return this.moves[index];
+    }
+    return;
+  }
+
+  public prev(id?: number): any {
+    if(id === undefined)
+      id = this.id;
+
+    if (id === 0) 
       return;
 
-    if(this.moves[this.id].subvariation) {
-      if(this.getTurnColorFromFEN(this.moves[this.id].fen) === this.getTurnColorFromFEN(this.moves[this.id - 1].fen))
-        this.display(this.id - 2);
+    if(this.moves[id].subvariation) {
+      if(this.getTurnColorFromFEN(this.moves[id].fen) === this.getTurnColorFromFEN(this.moves[id - 1].fen))
+        return id - 2;
       else    
-        this.display(this.id - 1);
+        return id - 1;
     } 
     else {
-      for(let i = this.id - 1; i >= 0; i--) {
-        if(!this.moves[i].subvariation) {
-          this.display(i);
-          break;
-        }
+      for(let i = id - 1; i >= 0; i--) {
+        if(!this.moves[i].subvariation) 
+          return i;
       }
     }
     
-    return this.moves[this.id];
+    return;
   }
 
-  public forward(): any {
-    if (this.id === this.length()) 
+  public forward(): any {  
+    var index = this.next();
+    if(index !== undefined) {
+      this.display(index, true);
+      return this.moves[index];
+    }
+    return;
+  }
+
+  public next(id?: number): any {  
+    if(id === undefined)
+      id = this.id;
+
+    if (id === this.length()) 
       return;
 
-    if(this.moves[this.id].subvariation) {
-      if(this.moves[this.id + 1].subvariation)
-        this.display(this.id + 1, true);
+    var index = undefined;
+
+    if(this.moves[id].subvariation) {
+      if(this.moves[id + 1].subvariation) 
+        return id + 1;
     }
     else {
-      for(let i = this.id + 1; i <= this.length(); i++) {
-        if(!this.moves[i].subvariation) {
-          this.display(i, true);
-          break;
-        }
+      for(let i = id + 1; i <= this.length(); i++) {
+        if(!this.moves[i].subvariation) 
+          return i;
       }
     }
 
-    return this.moves[this.id];
+    return;
+  }
+
+  public last(): any {
+    for(let i = this.length(); i >= 0; i--) 
+    {
+      if(!this.moves[i].subvariation) 
+        return i;
+    }
+    return;
   }
 
   public end(): any {
-    for(let i = this.length(); i >= 0; i--) 
-    {
-      if(!this.moves[i].subvariation) {
-        this.display(i);
-        break;
-      }
+    var index = this.last();
+    if(index !== undefined) {
+      this.display(index);
+      return this.moves[index];
     }
-    return this.moves[this.id];
+    return;
   }
 
   public undo(): void {
-    if (this.id > 0) {
-      this.display(this.id - 1);
+    if(this.id > 0) {
+      if (this.id === this.length())
+        this.display(this.prev());
       this.moves.pop();
     }
   }

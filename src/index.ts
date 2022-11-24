@@ -37,6 +37,7 @@ let matchRequest = undefined;
 let prevWindowWidth = 0;
 let addressBarHeight = undefined;
 let soundTimer = undefined
+let removeSubvariationRequested = false;
 
 export function cleanup() {
   historyRequested = 0;
@@ -46,16 +47,16 @@ export function cleanup() {
   movelistRequested = 0;
   lobbyRequested = false;
   gameChangePending = false;
+  removeSubvariationRequested = false;
   matchRequestList = [];
   matchRequest = undefined;
 
   $('#stop-observing').hide();
   $('#stop-examining').hide();
-  $('#close-game-panel').hide();
+  hideCloseGamePanel();
   $('#playing-game-buttons').hide();
   if(game.history.length() > 0)
     $('#viewing-game-buttons').show(); 
-  setPanelHeights();
 
   if(game.wclock)
     clearInterval(game.wclock);
@@ -127,8 +128,49 @@ $('#move-history').on('click', '.selectable', function() {
   var id = $('#move-history .selectable').index(this) + 1;
 
   if(game.isExamining()) {
-    if(game.history.length() !== id)
-      session.send('back ' + (game.history.length() - id));
+    var move = game.history.get(id);
+    var prevMove = game.history.get();
+
+    var mainlineId = id;
+    var firstSubvarId = id;
+    if(!prevMove.subvariation && move.subvariation) {
+      do {
+        firstSubvarId = mainlineId;
+        mainlineId = game.history.prev(mainlineId);
+      }
+      while(game.history.get(mainlineId).subvariation);
+    }
+
+    let backNum = 0;
+    let i = game.history.index();
+    while(i > id || (!move.subvariation && game.history.get(i).subvariation)) {
+      i = game.history.prev(i); 
+      backNum++;
+    }
+    if(i > mainlineId)
+      backNum++;
+    if(backNum > 0) {
+      session.send('back ' + backNum);
+    }
+
+    let forwardNum = 0; 
+    while(i < mainlineId && !game.history.scratch() && (!prevMove.subvariation || !move.subvariation)) {
+      i = game.history.next(i); 
+      forwardNum++;
+    } 
+    if(forwardNum > 0)
+      session.send('for ' + forwardNum);
+
+    if(!prevMove.subvariation && move.subvariation) {
+      i = firstSubvarId;
+      let iMove = game.history.get(i);  
+      session.send(iMove.move.from + iMove.move.to);
+    }
+    while(i < id) {
+      i = game.history.next(i);
+      let iMove = game.history.get(i);  
+      session.send(iMove.move.from + iMove.move.to);
+    }
   }
   else 
     var entry = game.history.display(id);            
@@ -211,7 +253,7 @@ function movePieceAfter(move: any, fen?: string) {
     fen = game.chess.fen();
 
   // go to current position if user is looking at earlier move in the move list
-  if(game.role !== Role.NONE && game.history.ply() < game.history.length())
+  if((game.isPlaying() || game.isObserving()) && game.history.ply() < game.history.length())
     game.history.display(game.history.length());
 
   updateHistory(move, fen);
@@ -304,7 +346,10 @@ export function parseMovelist(movelist: string) {
       movelist += movelist[found.index];
     }
   }
-  game.history.display();
+  if(game.isExamining())
+    session.send('back 999');
+  else
+    game.history.display();
 }
 
 function messageHandler(data) {
@@ -346,9 +391,8 @@ function messageHandler(data) {
       if((game.isExamining() || game.isObserving()) && game.id !== data.id) {
         if(game.isExamining())
           session.send('unex');
-        else if(game.isObserving()) {
+        else if(game.isObserving()) 
           session.send('unobs ' + game.id);
-        }
         gameChangePending = true;
         break;
       }
@@ -408,6 +452,13 @@ function messageHandler(data) {
             $('#stop-examining').show();
             session.send('games ' + game.id);
             gameInfoRequested = true;
+            if(game.wname === game.bname)
+              game.history.scratch(true);
+            else { 
+              if(getPlyFromFEN(game.fen) !== 1)
+                session.send('back 999');
+              session.send('for 999');
+            }
           }
           else 
             $('#stop-observing').show();
@@ -961,27 +1012,47 @@ function updateHistory(move?: any, fen?: string) {
   if(!fen)
     fen = game.chess.fen();
 
-  var ply = getPlyFromFEN(fen);
+  var index = game.history.find(fen);
 
-  if(game.role !== Role.NONE) {
-    while(ply - 1 < game.history.length()) 
-      game.history.removeLast();
-  }
-    
-  if(game.role !== Role.NONE && ply - 1 > game.history.length() + 1) {
-    movelistRequested++;
-    session.send('moves ' + game.id);
-  }
-  
-  if(move) {
-    var subvariation = (game.role === Role.NONE);
-    if(subvariation)
-      $('#exit-subvariation').show();
+  if(move && !index) {
+    var subvariation = false;
+
+    if(game.role === Role.NONE || game.isExamining()) {
+      if(game.history.length() === 0) 
+        game.history.scratch(true);
+
+      var subvariation = !game.history.scratch();
+      if(subvariation)
+        $('#exit-subvariation').show();
+    }
     game.history.add(move, fen, subvariation);
-    game.history.display(undefined, true);
+    $('#playing-game').hide();
   } 
-  else
-    game.history.display();
+  else {
+    // move is beyond the end of the move list
+    if(getPlyFromFEN(fen) - 1 > game.history.length()) {
+      movelistRequested++;
+      session.send('moves ' + game.id);
+    }
+
+    // already displaying this move
+    if(index === game.history.index()) 
+      return;
+
+    // move is earlier, we need to take-back
+    if(game.isPlaying() || game.isObserving()) {
+      while(index < game.history.length()) 
+        game.history.removeLast();
+    }
+  }
+
+  game.history.display(index, move !== undefined);
+
+  if(removeSubvariationRequested && !game.history.get(index).subvariation) {
+    game.history.removeSubvariation();
+    $('#exit-subvariation').hide();   
+    removeSubvariationRequested = false; 
+  }
 }
 
 export function updateBoard(playMove: boolean = false) {
@@ -1563,10 +1634,12 @@ $('#backward').on('click', () => {
 });
 
 function backward() {
-  if (game.isExamining()) 
-    session.send('back');
-  else if(game.history) 
-    game.history.backward();
+  if(game.history) {
+    if(game.isExamining()) 
+      session.send('back');
+    else
+      game.history.backward();
+  }
   $('#pills-game-tab').tab('show');
 }
 
@@ -1576,17 +1649,36 @@ $('#forward').on('click', () => {
 });
 
 function forward() {
-  if (game.isExamining()) 
-    session.send('for');
-  else if(game.history) 
-    game.history.forward();
+  if(game.history) {
+    if (game.isExamining()) {
+      var nextIndex = game.history.next();
+      if(nextIndex !== undefined) {
+        var nextMove = game.history.get(nextIndex);
+        if(nextMove.subvariation || game.history.scratch()) 
+          session.send(nextMove.move.from + nextMove.move.to);
+        else
+          session.send('for');
+      }
+    }
+    else
+      game.history.forward();
+  }
   $('#pills-game-tab').tab('show');
 }
 
 $('#fast-forward').off('click');
 $('#fast-forward').on('click', () => {
-  if (game.isExamining()) 
-    session.send('for 999');
+  if (game.isExamining()) {
+    if(!game.history.scratch()) {
+      if(game.history.get().subvariation)
+        session.send('back 999');
+      session.send('for 999');
+    }
+    else {
+      while(game.history.next())
+        forward();
+    }
+  }
   else if(game.history) 
     game.history.end();
   $('#pills-game-tab').tab('show');
@@ -1594,8 +1686,28 @@ $('#fast-forward').on('click', () => {
 
 $('#exit-subvariation').off('click');
 $('#exit-subvariation').on('click', () => {
-  game.history.removeSubvariation();
-  $('#exit-subvariation').hide();
+  if(game.isExamining()) {
+    var index = game.history.index();
+    var move = game.history.get(index);
+    var backNum = 0;
+    while(move.subvariation) {
+      backNum++;
+      index = game.history.prev(index);
+      move = game.history.get(index);
+    }
+    if(backNum > 0) {
+      session.send('back ' + backNum);
+      removeSubvariationRequested = true;
+    }
+    else {
+      game.history.removeSubvariation();
+      $('#exit-subvariation').hide();    
+    }
+  }
+  else {
+    game.history.removeSubvariation();
+    $('#exit-subvariation').hide();
+  }
   $('#pills-game-tab').tab('show');
 });
 
