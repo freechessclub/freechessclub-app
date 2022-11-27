@@ -371,6 +371,23 @@ function messageHandler(data) {
         $('#player-status').css('background-color', '');
         $('#opponent-status').css('background-color', '');
 
+        if(game.isPlaying() || game.isExamining()) {
+          session.send('allobs ' + game.id);
+          if(game.isPlaying()) {
+            game.watchers = setInterval(() => {
+              const time = game.color === 'b' ? game.btime : game.wtime;
+              if (time > 60) {
+                session.send('allobs ' + game.id);
+              }
+            }, 90000); // 90000 seems a bit slow
+          }
+          else {
+            game.watchers = setInterval(() => {
+              session.send('allobs ' + game.id);
+            }, 5000); 
+          }
+        }
+
         if (data.role !== Role.OPPONENTS_MOVE && !amIblack) {
           game.color = 'w';
           $('#player-name').text(game.wname);
@@ -448,13 +465,6 @@ function messageHandler(data) {
       } else {
         chat.createTab(data.player_one);
       } 
-      session.send('allobs ' + data.game_id);
-      game.watchers = setInterval(() => {
-        const time = game.color === 'b' ? game.btime : game.wtime;
-        if (time > 60) {
-          session.send('allobs ' + data.game_id);
-        }
-      }, 90000);
       break;
     case MessageType.GameEnd:
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
@@ -509,10 +519,16 @@ function messageHandler(data) {
         if (+match[1] === game.id) {
           match[2] = match[2].replace(/\(U\)/g, '');
           const watchers = match[2].split(' ');
-          let req = 'Watchers: ';
+          let req = '';
+          var numWatchers = 0;          
           for (let i = 0; i < watchers.length; i++) {
-            req += `<span class="badge rounded-pill bg-secondary noselect">` + watchers[i] + `</span> `;
-            if (i > 5) {
+            if(watchers[i].replace('#', '') === session.getUser())
+              continue;
+            numWatchers++;
+            if(numWatchers == 1)
+              req = 'Watchers:';
+            req += `<span class="ms-1 badge rounded-pill bg-secondary noselect">` + watchers[i] + `</span>`;
+            if (numWatchers > 5) {
               req += ` + ` + (watchers.length - i) + ` more.`;
               break;
             }
