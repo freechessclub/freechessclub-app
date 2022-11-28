@@ -7,7 +7,8 @@ module.exports = {
         filename: "bundle.js"
     },
     externals: {
-        $: "jquery",
+        $: "jquery", 
+	    d3: "d3",
     },
     resolve: {
         // Add '.ts' and '.tsx' as a resolvable extension.

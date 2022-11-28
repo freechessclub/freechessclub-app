@@ -28,6 +28,13 @@ export class History {
     this.add(undefined, fen);
   }
 
+  public reset(fen: string) {
+    this.moves = new Array();
+    this.id = -1;
+    $('#move-history').empty();
+    this.add(undefined, fen);
+  }
+
   public addPrev(moves: any[]): void {
     for (let i = 0; i < moves.length; i++) {
       this.moves[i] = moves[i];

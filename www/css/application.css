@@ -306,3 +306,40 @@ ul.list-striped > li {
     display: none;
   }
 }
+
+.eval-line-above {
+  fill: none;
+  stroke: #ffab00;
+  stroke-width: 3;
+}
+
+.eval-line-below {
+  fill: none;
+  stroke: red;
+  stroke-width: 3;
+}
+
+.eval-area-above {
+  fill: lightsteelblue;
+  stroke-width: 0;
+}
+
+.eval-area-below {
+  fill: #614e6e;
+  stroke-width: 0;
+}
+
+.tick line {
+  stroke-width: 1;
+  stroke: #DDD;
+}
+
+.eval-circle  {
+  stroke: #af9358;
+  fill: white;
+  stroke-width: 2;
+}
+
+#eval-progress {
+  padding: 20px;
+}

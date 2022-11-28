@@ -9,7 +9,7 @@ import { Color, Key } from 'chessground/types';
 
 import Chat from './chat';
 import * as clock from './clock';
-import Engine from './engine';
+import { Engine, EvalEngine } from './engine';
 import { game, Role } from './game';
 import History from './history';
 import { GetMessageType, MessageType, Session } from './session';
@@ -19,6 +19,7 @@ import './ui';
 let session: Session;
 let chat: Chat;
 let engine: Engine | null;
+let evalEngine: EvalEngine | null;
 
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
@@ -126,7 +127,10 @@ function setInputFilter(textbox: Element, inputFilter: (value: string) => boolea
 
 $('#move-history').on('click', '.selectable', function() {
   var id = $('#move-history .selectable').index(this) + 1;
+  gotoMove(id); 
+});
 
+export function gotoMove(id: number) {
   if(game.isExamining()) {
     var move = game.history.get(id);
     var prevMove = game.history.get();
@@ -173,8 +177,8 @@ $('#move-history').on('click', '.selectable', function() {
     }
   }
   else 
-    var entry = game.history.display(id);            
-});
+    var entry = game.history.display(id);           
+}
 
 function showCapturePiece(color: string, p: string): void {
   if (game.color === color) {
@@ -331,7 +335,7 @@ export function parseMovelist(movelist: string) {
   let found : string[] & { index?: number } = [''];
   let n = 1;
   const chess = Chess();
-  game.history = new History(chess.fen(), board); // Note, History now stores {move, fen} pairs 
+  game.history.reset(chess.fen()); 
   while (found !== null) {
     // Fixed regex to allow for O-O and other moves with symbols and fixed bug with brackets for optional 2nd column
     found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*(?:\\(\\d+:\\d+\\))\\s*(?:(\\S*)\\s*(?:\\(\\d+:\\d+\\)))?.*', 'm'));
@@ -443,6 +447,8 @@ function messageHandler(data) {
         }
 
         game.history = new History(game.fen, board); 
+        evalEngine.terminate();
+        evalEngine = new EvalEngine(game.history);
         updateBoard(); 
 
         if (game.role === Role.NONE || game.isObserving() || game.isExamining()) {
@@ -1145,6 +1151,7 @@ export function updateBoard(playMove: boolean = false) {
     stopEngine();
     startEngine();
   }
+  evalEngine.evaluate();
 }
 
 function startEngine() {
@@ -1177,6 +1184,7 @@ function hideAnalysis() {
   stopEngine();
   board.setAutoShapes([]);
   closeLeftBottomTab($('#engine-tab'));
+  closeLeftBottomTab($('#eval-graph-tab'));
 }
 
 function showAnalysis() {
@@ -1184,15 +1192,21 @@ function showAnalysis() {
   $('#analyze').hide();
   $('#hide-analysis').show();  
   openLeftBottomTab($('#engine-tab'));
+  openLeftBottomTab($('#eval-graph-tab'));
+  $('#eval-graph-tab').find('.nav-link').tab('show');
   $('#engine-pvs').empty();
   for(let i = 0; i < numPVs; i++) 
     $('#engine-pvs').append('<li>&nbsp;</li>');
   $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
-  startEngine();
   scrollToLeftPanelBottom();
+  evalEngine.evaluate();
 }
 
 $('#engine-tab .closeTab').on('click', (event) => {
+  hideAnalysis();
+});
+
+$('#eval-graph-tab .closeTab').on('click', (event) => {
   hideAnalysis();
 });
 
@@ -1205,7 +1219,6 @@ function closeLeftBottomTab(tab: any) {
 
 function openLeftBottomTab(tab: any) {
   tab.show();
-  tab.find('.nav-link').tab('show');
   $('#left-bottom-tabs').css('visibility', 'visible');
 }
 
@@ -1379,6 +1392,7 @@ function onDeviceReady() {
   selectOnFocus($('#observe-username'));
   selectOnFocus($('#examine-username'));
 
+  evalEngine = new EvalEngine(game.history);
   updateBoard(); 
 }
 
@@ -1835,8 +1849,10 @@ $(window).on('resize', () => {
     useDesktopLayout();
 
   prevWindowWidth = window.innerWidth;
-
   setPanelHeights();
+
+  if(evalEngine)
+    evalEngine.redraw();
 });
 
 // prompt before unloading page if in a game
@@ -1968,6 +1984,10 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-observe"]', (e) =>
 $('#puzzlebot').on('click', (event) => {
   session.send('t puzzlebot getmate');
   $('#pills-game-tab').tab('show');
+});
+
+$(document).on('shown.bs.tab', 'button[href="#eval-graph-panel"]', (e) => {
+  evalEngine.redraw();
 });
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => {

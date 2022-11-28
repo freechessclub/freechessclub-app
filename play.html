@@ -211,6 +211,12 @@
                         <span class="closeTab align-self-center btn btn-default btn-sm">×</span>
                       </container>
                     </li>
+                    <li class="nav-item" role="presentation" id="eval-graph-tab" style="position: relative; display: none">
+                      <button class="nav-link" style="padding-right: 30px" data-bs-toggle="tab" href="#eval-graph-panel" role="tab" aria-controls="eval-graph-panel" aria-selected="false">Eval Graph</button>
+                      <container class="h-100 d-flex" style="position: absolute; top: 0; right: 12px; z-index: 10">
+                        <span class="closeTab align-self-center btn btn-default btn-sm">×</span>
+                      </container>
+                    </li>
                   </ul>
                   <div class="tab-content flex-grow-1" style="min-height: 0">
                     <div class="tab-pane fade show active p-1 h-100" id="status-panel" role="tabpanel" aria-labelledby="status-panel">
@@ -232,6 +238,15 @@
                         </div>
                         <div class="flex-grow-1 w-100" style="min-height: 0">
                           <ul class="list-striped" id="engine-pvs"></ul>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="tab-pane fade h-100 w-100" id="eval-graph-panel" role="tabpanel" aria-labelledby="eval-graph-panel">
+                      <div id="eval-graph-container" class="h-100 w-100" style="display: none">
+                      </div>
+                      <div id="eval-progress" class="center h-100 w-100" style="display: none">
+                        <div class="progress h-100 w-100">
+                          <div class="progress-bar" role="progressbar" aria-label="Loading Eval Graph" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">100%</div>
                         </div>
                       </div>
                     </div>
@@ -448,6 +463,7 @@
   </footer>
   <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+  <script src="https://d3js.org/d3.v7.min.js" integrity="sha384-FqCxjxSzZ2chJW6LDlJXTiVLE7pWdzHM2+0AF+i1VzrIVBBH8g67Xecjmx1tZ/YR" crossorigin="anonymous"></script>
   <script defer type="text/javascript" src="www/js/bundle.js"></script>
   <script>
     window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
