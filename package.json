@@ -70,7 +70,7 @@
     "@types/jquery": "^3.5.1",
     "@types/websocket": "^1.0.1",
     "css-loader": "^6.6.0",
-    "electron": "^19.0.4",
+    "electron": "^19.0.11",
     "electron-builder": "^23.0.3",
     "exports-loader": "^3.1.0",
     "file-loader": "^6.2.0",
