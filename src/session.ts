@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import Parser from './parser';
+import { disableOnlineInputs, cleanup } from './index';
 
 export const enum MessageType {
   Control = 0,
@@ -56,7 +57,7 @@ export class Session {
   public setUser(user: string): void {
     this.connected = true;
     this.user = user;
-    $('#chat-status').html('<span class="fa fa-circle text-success" aria-hidden="false"></span> <span class="h6 align-middle"> '
+    $('#chat-status').html('<span class="fa fa-circle text-success" aria-hidden="false"></span> <span class="h6"> '
       + user + '</span>');
     $('#chat-status').popover({
       animation: true,
@@ -108,7 +109,8 @@ export class Session {
         this.onRecv(data);
       }
     };
-    this.websocket.onclose = this.reset;
+    var that = this;
+    this.websocket.onclose = function(e) { that.reset(e); };
     this.websocket.onopen = () => {
       $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');
       if (proxy) {
@@ -125,13 +127,16 @@ export class Session {
     $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-danger" role="status" aria-hidden="true"></span> Disconnecting...');
     if (this.isConnected()) {
       this.websocket.close();
-      this.connected = false;
-      this.user = '';
     }
+    this.reset(undefined);
   }
 
   public reset(_e: any) {
     $('#chat-status').html('<span class="fa fa-circle text-danger" aria-hidden="false"></span> Offline');
+    this.connected = false;
+    this.user = '';
+    disableOnlineInputs(true);
+    cleanup();
   }
 
   public send(command: string) {

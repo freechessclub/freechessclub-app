@@ -9,8 +9,8 @@ import { Color, Key } from 'chessground/types';
 
 import Chat from './chat';
 import * as clock from './clock';
-import Engine from './engine';
-import game from './game';
+import { Engine, EvalEngine } from './engine';
+import { game, Role } from './game';
 import History from './history';
 import { GetMessageType, MessageType, Session } from './session';
 import * as Sounds from './sounds';
@@ -18,17 +18,167 @@ import './ui';
 
 let session: Session;
 let chat: Chat;
-let engine: Engine;
+let engine: Engine | null;
+let evalEngine: EvalEngine | null;
 
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
 
-let pendingTakeback = 0;
-let historyRequested = false;
+let historyRequested = 0;
+let obsRequested = 0;
+let gameInfoRequested = false;
 let gamesRequested = false;
-let movelistRequested = false;
+let movelistRequested = 0;
 let lobbyRequested = false;
 let modalCounter = 0;
+let numPVs = 1;
+let gameChangePending = false;
+let matchRequestList = [];
+let matchRequest = undefined;
+let prevWindowWidth = 0;
+let addressBarHeight = undefined;
+let soundTimer = undefined
+let removeSubvariationRequested = false;
+
+export function cleanup() {
+  historyRequested = 0;
+  obsRequested = 0;
+  gameInfoRequested = false;
+  gamesRequested = false;
+  movelistRequested = 0;
+  lobbyRequested = false;
+  gameChangePending = false;
+  removeSubvariationRequested = false;
+  matchRequestList = [];
+  matchRequest = undefined;
+
+  $('#stop-observing').hide();
+  $('#stop-examining').hide();
+  hideCloseGamePanel();
+  $('#playing-game-buttons').hide();
+  if(game.history.length() > 0)
+    $('#viewing-game-buttons').show(); 
+
+  if(game.wclock)
+    clearInterval(game.wclock);
+  if(game.bclock)
+    clearInterval(game.bclock);
+  if(game.watchers)
+    clearInterval(game.watchers);
+  game.watchers = null;
+  $('#game-watchers').empty();
+
+  game.id = 0;
+  delete game.chess;
+  game.chess = null;
+  game.role = Role.NONE;
+  board.cancelMove();
+  updateBoard();
+}
+
+export function disableOnlineInputs(disable: boolean) {
+  $('#pills-play *').prop('disabled', disable);
+  $('#pills-examine *').prop('disabled', disable);
+  $('#pills-observe *').prop('disabled', disable);
+  $('#chan-dropdown *').prop('disabled', disable);
+  $('#input-form *').prop('disabled', disable);
+}
+
+function hideCloseGamePanel() {
+  $('#close-game-panel').hide();
+  setPanelHeights();
+}
+
+function showCloseGamePanel() {
+  $('#close-game-panel').show();
+  setPanelHeights();
+}
+
+function hideStatusPanel() {
+  $('#left-panel-bottom').hide();
+  setPanelHeights();
+}
+
+function showStatusPanel() {
+  $('#left-panel-bottom').show();
+  setPanelHeights();
+}
+
+// Restricts input for the set of matched elements to the given inputFilter function.
+function setInputFilter(textbox: Element, inputFilter: (value: string) => boolean, errMsg: string): void {
+  ["input", "keydown", "keyup", "mousedown", "mouseup", "select", "contextmenu", "drop", "focusout"].forEach(function(event) {
+    textbox.addEventListener(event, function(this: (HTMLInputElement | HTMLTextAreaElement) & {oldValue: string; oldSelectionStart: number | null, oldSelectionEnd: number | null}) {
+      if (inputFilter(this.value)) {
+        this.oldValue = this.value;
+        this.oldSelectionStart = this.selectionStart;
+        this.oldSelectionEnd = this.selectionEnd;
+      } else if (Object.prototype.hasOwnProperty.call(this, 'oldValue')) {
+        this.value = this.oldValue;
+        if (this.oldSelectionStart !== null &&
+          this.oldSelectionEnd !== null) {
+          this.setSelectionRange(this.oldSelectionStart, this.oldSelectionEnd);
+        }
+      } else {
+        this.value = "";
+      }
+    });
+  });
+}
+
+$('#move-history').on('click', '.selectable', function() {
+  var id = $('#move-history .selectable').index(this) + 1;
+  gotoMove(id); 
+});
+
+export function gotoMove(id: number) {
+  if(game.isExamining()) {
+    var move = game.history.get(id);
+    var prevMove = game.history.get();
+
+    var mainlineId = id;
+    var firstSubvarId = id;
+    if(!prevMove.subvariation && move.subvariation) {
+      do {
+        firstSubvarId = mainlineId;
+        mainlineId = game.history.prev(mainlineId);
+      }
+      while(game.history.get(mainlineId).subvariation);
+    }
+
+    let backNum = 0;
+    let i = game.history.index();
+    while(i > id || (!move.subvariation && game.history.get(i).subvariation)) {
+      i = game.history.prev(i); 
+      backNum++;
+    }
+    if(i > mainlineId)
+      backNum++;
+    if(backNum > 0) {
+      session.send('back ' + backNum);
+    }
+
+    let forwardNum = 0; 
+    while(i < mainlineId && !game.history.scratch() && (!prevMove.subvariation || !move.subvariation)) {
+      i = game.history.next(i); 
+      forwardNum++;
+    } 
+    if(forwardNum > 0)
+      session.send('for ' + forwardNum);
+
+    if(!prevMove.subvariation && move.subvariation) {
+      i = firstSubvarId;
+      let iMove = game.history.get(i);  
+      session.send(iMove.move.from + iMove.move.to);
+    }
+    while(i < id) {
+      i = game.history.next(i);
+      let iMove = game.history.get(i);  
+      session.send(iMove.move.from + iMove.move.to);
+    }
+  }
+  else 
+    var entry = game.history.display(id);           
+}
 
 function showCapturePiece(color: string, p: string): void {
   if (game.color === color) {
@@ -75,8 +225,10 @@ const board: any = Chessground(document.getElementById('board'), {
   movable: {
     free: false,
     color: undefined,
+    events: {
+      after: movePiece,
+    }
   },
-  blockTouchScroll: false,
 });
 
 function toDests(chess: any): Map<Key, Key[]> {
@@ -100,81 +252,48 @@ function inCheck(san: string) {
   return (san.slice(-1) === '+');
 }
 
-function movePieceAfter(move: any) {
-  board.move(move.from, move.to);
-  if (move.flags !== 'n') {
-    board.set({ fen: game.chess.fen() });
-  }
+function movePieceAfter(move: any, fen?: string) {
+  if(!fen)
+    fen = game.chess.fen();
 
-  let movable : any = {};
-  let score;
-  if (game.examine) {
-    movable = {
-      color: 'both',
-      dests: toDests(game.chess)
-    };
-    if (engine != null) {
-      engine.move();
-    }
-  } else if (!game.obs) {
-    movable = {
-      color: game.color === 'w' ? 'white' : 'black',
-      dests: toDests(game.chess)
-    };
-  }
+  // go to current position if user is looking at earlier move in the move list
+  if((game.isPlaying() || game.isObserving()) && game.history.ply() < game.history.length())
+    game.history.display(game.history.length());
 
-  const check = inCheck(move.san);
-  board.set({
-    turnColor: toColor(game.chess),
-    movable,
-    check,
-  });
+  updateHistory(move, fen);
   board.playPremove();
-  game.history.add(move, game.chess.fen());
-
-  if (move.captured) {
-    showCapturePiece(move.color, move.captured);
-  }
-
-  if (check) {
-    if (soundToggle) {
-      Sounds.checkSound.play();
-    }
-  } else {
-    if (soundToggle) {
-      if (move.captured) {
-        Sounds.captureSound.play();
-      } else {
-        Sounds.moveSound.play();
-      }
-    }
-  }
 }
 
 export function movePiece(source: any, target: any, metadata: any) {
-  if (!game.chess) {
-    return;
-  }
-
-  if (game.examine || game.chess.turn() === game.color) {
+  if (game.isExamining() || (game.isPlaying() && game.chess.turn() === game.color))
     session.send(source + '-' + target);
+
+  var fen = '';
+  var move = null;
+  if(game.isPlaying() || game.isExamining()) {
+    move = game.chess.move({from: source, to: target, promotion: 'q'}); // TODO: Allow non-queen promotions
+    fen = game.chess.fen();
+  }
+  else if(game.role === Role.NONE) {
+    var localChess = new Chess(game.history.get().fen);
+    move = localChess.move({from: source, to: target, promotion: 'q'});
+    fen = localChess.fen();
   }
 
-  const move = game.chess.move({
-    from: source,
-    to: target,
-    promotion: 'q', // TODO: Allow non-queen promotions
-  });
-  if (move !== null) {
-    movePieceAfter(move);
-  }
+  if (move !== null) 
+    movePieceAfter(move, fen);
+
+  $('#pills-game-tab').tab('show');
+  if(game.role === Role.NONE)
+    $('#viewing-game-buttons').show();
 }
 
 function showStatusMsg(msg: string) {
+  showStatusPanel();
   $('#game-status').html(msg + '<br/>');
 }
 
-function showModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress: boolean = false) {
+function showModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress: boolean = false, useSessionSend: boolean = true) {
   const modalId = 'modal' + modalCounter++;
   let req = `
   <div id="` + modalId + `" class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
@@ -189,13 +308,20 @@ function showModal(type: string, title: string, msg: string, btnFailure: string[
 
   req += `</div><div class="mt-2 pt-2 border-top center">`;
 
+  var successCmd = btnSuccess[0];
+  var failureCmd = btnFailure[0];
+  if(useSessionSend) {
+    successCmd = "sessionSend('" + btnSuccess[0] + "');";
+    failureCmd = "sessionSend('" + btnFailure[0] + "');";
+  }
+
   if (btnSuccess !== undefined && btnSuccess.length === 2) {
-    req += `<button type="button" id="btn-success" onclick="sessionSend('` + btnSuccess[0] + `');" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
+    req += `<button type="button" id="btn-success" onclick="` + successCmd + `" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
         <span class="fa fa-check-circle-o" aria-hidden="false"></span> ` + btnSuccess[1] + `</button>`;
   }
 
   if (btnFailure !== undefined && btnFailure.length === 2) {
-    req += `<button type="button" id="btn-failure" onclick="sessionSend('` + btnFailure[0] + `');" class="btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
+    req += `<button type="button" id="btn-failure" onclick="` + failureCmd + `" class="btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
         <span class="fa fa-times-circle-o" aria-hidden="false"></span> ` + btnFailure[1] + `</button>`;
   }
 
@@ -209,22 +335,25 @@ export function parseMovelist(movelist: string) {
   let found : string[] & { index?: number } = [''];
   let n = 1;
   const chess = Chess();
+  game.history.reset(chess.fen()); 
   while (found !== null) {
-    found = movelist.match(new RegExp(n + '\\.\\s*(\\w*)\\s*(?:\\(\\d+:\\d+\\))\\s*(\\w*)\\s*(?:\\(\\d+:\\d+\\))?.*', 'm'));
+    // Fixed regex to allow for O-O and other moves with symbols and fixed bug with brackets for optional 2nd column
+    found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*(?:\\(\\d+:\\d+\\))\\s*(?:(\\S*)\\s*(?:\\(\\d+:\\d+\\)))?.*', 'm'));
     if (found !== null && found.length > 1) {
       const m1 = found[1].trim();
-      moves.push({move: m1, fen: chess.fen()});
-      chess.move(m1);
-      if (found.length > 2 && found[2] !== null) {
+      game.history.add(chess.move(m1), chess.fen());
+      if (found.length > 2 && found[2]) {
         const m2 = found[2].trim();
-        moves.push({move: m2, fen: chess.fen()});
-        chess.move(m2);
+        game.history.add(chess.move(m2), chess.fen());
       }
       n++;
       movelist += movelist[found.index];
     }
   }
-  game.history.addPrev(moves);
+  if(game.isExamining())
+    session.send('back 999');
+  else
+    game.history.display();
 }
 
 function messageHandler(data) {
@@ -236,6 +365,8 @@ function messageHandler(data) {
   switch (type) {
     case MessageType.Control:
       if (!session.isConnected() && data.command === 1) {
+        cleanup();
+        disableOnlineInputs(false);
         session.setUser(data.control);
         if (!chat) {
           chat = new Chat(data.control);
@@ -250,7 +381,6 @@ function messageHandler(data) {
         if (session.isConnected()) {
           session.disconnect();
         }
-        session.reset(undefined);
         showModal('Authentication Failure', '', data.control, [], []);
       }
       break;
@@ -260,139 +390,140 @@ function messageHandler(data) {
     case MessageType.PrivateTell:
       chat.newMessage(data.user, data);
       break;
-    case MessageType.GameMove:
-      game.btime = data.black_time;
-      game.wtime = data.white_time;
-      game.moveNo = data.move_no;
+    case MessageType.GameMove:    
+      // Check we are not examining/observing another game already
+      if((game.isExamining() || game.isObserving()) && game.id !== data.id) {
+        if(game.isExamining())
+          session.send('unex');
+        else if(game.isObserving()) 
+          session.send('unobs ' + game.id);
+        gameChangePending = true;
+        break;
+      }
 
-      const amIblack = data.black_name === session.getUser();
-      const amIwhite = data.white_name === session.getUser();
+      Object.assign(game, data);
+      const amIblack = game.bname === session.getUser();
+      const amIwhite = game.wname === session.getUser();
 
       if (game.chess === null) {
-        game.chess = Chess();
-        let movableColor : any;
-        if (data.role === 2) {
-          movableColor = 'both';
-        } else {
-          movableColor = amIblack ? 'black' : 'white';
-        }
-
-        const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
-        const loaded = game.chess.load(fen);
-        const blackTurn = (data.role === 1 && amIblack) || (data.role === -1 && amIwhite);
+        game.chess = new Chess();
+        game.wclock = game.bclock = null;
+        board.cancelMove();
         board.set({
-          fen: game.chess.fen(),
           orientation: amIblack ? 'black' : 'white',
-          turnColor:  blackTurn ? 'black' : 'white',
-          movable: {
-            free: false,
-            dests: (data.role === -1 || data.role === 1 || data.role === 2) ? toDests(game.chess) : undefined,
-            color: movableColor,
-            events: {
-              after: movePiece,
-            }
-          },
-          blockTouchScroll: true,
         });
-        game.history = new History(game.moveNo, board);
-        if (game.moveNo > 1) {
-          movelistRequested = true;
-          session.send('moves ' + data.game_id);
-        }
-        game.playerCaptured = {};
-        game.oppCaptured = {};
+
+        $('#exit-subvariation').hide();
         $('#player-captured').text('');
         $('#opponent-captured').text('');
         $('#player-status').css('background-color', '');
         $('#opponent-status').css('background-color', '');
 
-        // role 0: I am observing
-        // role 1: I am playing and it is NOW my move
-        if (data.role !== -1 && !amIblack) {
-          game.color = 'w';
-          if (data.role !== 2 || data.role !== -2 || data.role !== -3) {
-            game.wclock = clock.startWhiteClock(game);
-            game.bclock = clock.startBlackClock(game);
+        if(game.isPlaying() || game.isExamining()) {
+          session.send('allobs ' + game.id);
+          if(game.isPlaying()) {
+            game.watchers = setInterval(() => {
+              const time = game.color === 'b' ? game.btime : game.wtime;
+              if (time > 60) {
+                session.send('allobs ' + game.id);
+              }
+            }, 90000); // 90000 seems a bit slow
           }
-          $('#player-name').text(data.white_name);
-          $('#opponent-name').text(data.black_name);
-        // role -1: I am playing and it is NOW my opponent's move
+          else {
+            game.watchers = setInterval(() => {
+              session.send('allobs ' + game.id);
+            }, 5000); 
+          }
+        }
+
+        if (data.role !== Role.OPPONENTS_MOVE && !amIblack) {
+          game.color = 'w';
+          $('#player-name').text(game.wname);
+          $('#opponent-name').text(game.bname);
         } else {
           game.color = 'b';
-          if (data.role !== 2 || data.role !== -2 || data.role !== -3) {
-            game.bclock = clock.startBlackClock(game);
-            game.wclock = clock.startWhiteClock(game);
-          }
-          $('#player-name').text(data.black_name);
-          $('#opponent-name').text(data.white_name);
+          $('#player-name').text(game.bname);
+          $('#opponent-name').text(game.wname);
         }
 
-        if (data.role === undefined || data.role === 0 || data.role === 2 || data.role === -2) {
-          if (data.role === 2) {
-            game.examine = true;
-            $('#new-game').text('Unexamine game');
-            engine = new Engine(game.chess, board);
-            engine.move();
-          } else {
-            game.obs = true;
-            $('#new-game').text('Unobserve game');
-            if (game.id === 0) {
-              game.id = data.game_id;
+        game.history = new History(game.fen, board); 
+        evalEngine.terminate();
+        evalEngine = new EvalEngine(game.history);
+        updateBoard(); 
+
+        if (game.role === Role.NONE || game.isObserving() || game.isExamining()) {
+          if(!isSmallWindow()) 
+            showCloseGamePanel();
+          if (game.isExamining()) {
+            $('#stop-examining').show();
+            session.send('games ' + game.id);
+            gameInfoRequested = true;
+            if(game.wname === game.bname)
+              game.history.scratch(true);
+            else { 
+              if(getPlyFromFEN(game.fen) !== 1)
+                session.send('back 999');
+              session.send('for 999');
             }
           }
-          $('#new-game-menu').prop('disabled', true);
+          else 
+            $('#stop-observing').show();
+
           $('#playing-game').hide();
           $('#pills-game-tab').tab('show');
+
+          // Show analysis buttons
+          $('#playing-game-buttons').hide();
+          $('#viewing-game-buttons').show();
         }
+
+        showStatusPanel();
+        scrollToBoard();
       }
 
-      if (data.role === undefined || data.role >= 0) {
+      if (data.role === Role.NONE || data.role >= -2) {
+        clock.updateWhiteClock(game);
+        clock.updateBlackClock(game);
+      
         let move = null;
-        if (data.move !== 'none') {
+        const lastPly = getPlyFromFEN(game.chess.fen());
+        const thisPly = getPlyFromFEN(data.fen);
+
+        if (game.isPlaying() || data.role === Role.OBSERVING) {
+          if(thisPly >= 2 && !game.wclock)
+            game.wclock = clock.startWhiteClock(game);
+          else if(thisPly >= 3 && !game.bclock)
+            game.bclock = clock.startBlackClock(game);
+        }
+
+        if (data.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
           move = game.chess.move(data.move);
           if (move !== null) {
             movePieceAfter(move);
           }
         }
-        if (data.move === 'none' || move === null) {
-          const fen = data.fen + ' ' + (data.turn === 'W' ? 'w' : 'b') + ' KQkq - 0 1';
-          const loaded = game.chess.load(fen);
-          board.set({
-            fen: data.fen,
-          });
-
-          if (!game.obs) {
-            board.set({
-              turnColor: data.turn === 'W' ? 'white' : 'black',
-              movable: {
-                color: data.turn === 'W' ? 'white' : 'black',
-                dests: toDests(game.chess),
-              },
-            });
-          }
+        if (data.move === 'none' || (move === null && game.chess.fen() !== data.fen)) {
+          game.chess.load(data.fen);
+          updateHistory();
         }
       }
       break;
     case MessageType.GameStart:
+      matchRequestList = [];
+      matchRequest = undefined;
+      hideAnalysis();
+      $('#viewing-game-buttons').hide();
       $('#game-requests').empty();
       $('#playing-game').hide();
+      $('#playing-game-buttons').show();
       $('#pills-game-tab').tab('show');
       if (data.player_one === session.getUser()) {
         chat.createTab(data.player_two);
       } else {
         chat.createTab(data.player_one);
-      }
-      game.id = +data.game_id;
-      session.send('allobs ' + data.game_id);
-      game.watchers = setInterval(() => {
-        const time = game.color === 'b' ? game.btime : game.wtime;
-        if (time > 60) {
-          session.send('allobs ' + data.game_id);
-        }
-      }, 90000);
+      } 
       break;
     case MessageType.GameEnd:
-      $('#playing-game').show();
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
         // player won
         $('#player-status').css('background-color', '#d4f9d9');
@@ -414,70 +545,30 @@ function messageHandler(data) {
       }
 
       showStatusMsg(data.message);
-      let examine = [];
       let rematch = [];
       if ($('#player-name').text() === session.getUser()
         && data.reason !== 2 && data.reason !== 7) {
         rematch = ['rematch', 'Rematch']
       }
-      if (data.reason !== 7) {
-        examine = ['ex ' + data.winner + ' -1', 'Examine'];
-      }
-      showModal('Match Result', '', data.message, examine, rematch);
-      clearInterval(game.wclock);
-      clearInterval(game.bclock);
-      clearInterval(game.watchers);
-      game.watchers = null;
-      $('#game-watchers').empty();
-      game.id = 0;
-      delete game.chess;
-      game.chess = null;
-      board.set({
-        movable: {
-          free: false,
-          color: undefined,
-        },
-        blockTouchScroll: false,
-      });
+      showModal('Match Result', '', data.message, rematch, []);
+      cleanup();
       break;
     case MessageType.Unknown:
     default:
-      const msg = data.message.replace(/\n/g, '');
-      let takeBacker = null;
-      let action = null;
-      let match = null;
-      if (pendingTakeback) {
-        match = msg.match(/(\w+) (\w+) the takeback request\./);
-        if (match !== null && match.length > 1) {
-          takeBacker = match[1];
-          action = match[2];
-        } else {
-          match = msg.match(/You (\w+) the takeback request from (\w+)\./);
-          if (match !== null && match.length > 1) {
-            takeBacker = match[2];
-            action = match[1];
-          }
-        }
+      //const msg = data.message.replace(/\n/g, ''); // Not sure this is a good idea. Newlines provide 
+                                                     // useful information for parsing. For example, to
+                                                     // prevent other people injecting commands into messages 
+                                                     // somehow
+      const msg = data.message;
 
-        if (takeBacker !== null && action !== null) {
-          if (takeBacker === $('#opponent-name').text()) {
-            if (action.startsWith('decline')) {
-              pendingTakeback = 0;
-              return;
-            }
-            for (let i = 0; i < pendingTakeback; i++) {
-              if (game.chess) {
-                game.chess.undo();
-              }
-              if (game.history) {
-                game.history.removeLast();
-              }
-            }
-            pendingTakeback = 0;
-            return;
-          }
-        }
-      }
+      // For takebacks, board was already updated when new move received and
+      // updating the history is now done more generally in updateHistory().
+      let match = msg.match(/(\w+) (\w+) the takeback request\./);
+      if (match !== null && match.length > 1)
+        return;
+      match = msg.match(/You (\w+) the takeback request from (\w+)\./);
+      if (match !== null && match.length > 1) 
+        return;
 
       match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
       $('#game-watchers').empty();
@@ -485,10 +576,16 @@ function messageHandler(data) {
         if (+match[1] === game.id) {
           match[2] = match[2].replace(/\(U\)/g, '');
           const watchers = match[2].split(' ');
-          let req = 'Watchers: ';
+          let req = '';
+          var numWatchers = 0;          
           for (let i = 0; i < watchers.length; i++) {
-            req += `<span class="badge rounded-pill bg-secondary noselect">` + watchers[i] + `</span> `;
-            if (i > 5) {
+            if(watchers[i].replace('#', '') === session.getUser())
+              continue;
+            numWatchers++;
+            if(numWatchers == 1)
+              req = 'Watchers:';
+            req += `<span class="ms-1 badge rounded-pill bg-secondary noselect">` + watchers[i] + `</span>`;
+            if (numWatchers > 5) {
               req += ` + ` + (watchers.length - i) + ` more.`;
               break;
             }
@@ -501,7 +598,6 @@ function messageHandler(data) {
       match = msg.match(/(\w+) would like to take back (\d+) half move\(s\)\./);
       if (match != null && match.length > 1) {
         if (match[1] === $('#opponent-name').text()) {
-          pendingTakeback = Number(match[2]);
           showModal('Takeback Request', match[1], 'would like to take back ' + match[2] + ' half move(s).',
             ['decline', 'Decline'], ['accept', 'Accept']);
         }
@@ -521,54 +617,218 @@ function messageHandler(data) {
 
       match = msg.match(/^History for (\w+):.*/m);
       if (match != null && match.length > 1) {
-        showHistory(match[1], data.message);
-        if (!historyRequested) {
-          chat.newMessage('console', data);
-        } else {
-          historyRequested = false;
+        if (historyRequested) {
+          historyRequested--;
+          if(!historyRequested) {
+            $('#examine-username').val(match[1]);
+            showHistory(match[1], data.message);
+          }
         }
+        else 
+          chat.newMessage('console', data);
+
+        return;
+      }
+
+      match = msg.match(/^(There is no player matching the name (\w+)\.)/m);
+      if(!match) 
+        match = msg.match(/^('(\S+(?='))' is not a valid handle\.)/m);
+      if(!match) 
+        match = msg.match(/^((\w+) has no history games\.)/m);
+      if(!match)
+        match = msg.match(/^(You need to specify at least two characters of the name\.)/m);
+      if(!match) 
+        match = msg.match(/^(Ambiguous name ([^s:]+):)/m);
+      if(!match) 
+        match = msg.match(/^((\w+) is not logged in\.)/m);
+      if(!match) 
+        match = msg.match(/^((\w+) is not playing a game\.)/m);
+      if(!match) 
+        match = msg.match(/^(Sorry, game \d+ is a private game\.)/m);
+      if(!match) 
+        match = msg.match(/^((\w+) is playing a game\.)/m);
+      if(!match)
+        match = msg.match(/^((\w+) is examining a game\.)/m);
+      if(!match)
+        match = msg.match(/^(You can't match yourself\.)/m);
+      if(!match)
+        match = msg.match(/^(You cannot challenge while you are (?:examining|playing) a game\.)/m);
+      if(match != null) {
+        if(historyRequested || obsRequested || matchRequest) { 
+          var user = '';
+          var status = undefined;
+          if(historyRequested) {
+            user = getValue('#examine-username');
+            status = $('#examine-pane-status');
+          }
+          else if(obsRequested) {
+            user = getValue('#observe-username');
+            status = $('#observe-pane-status');
+          }
+          else if(matchRequest) {
+            user = getValue('#opponent-player-name');
+            status = $('#play-pane-status');
+          }
+
+          if(match.length >= 2) {
+            if(historyRequested) {
+              historyRequested--;
+              if(historyRequested)
+                return;
+
+              $('#history-table').html('');
+            }
+            else if(obsRequested) {
+              obsRequested--;
+              if(obsRequested)
+                return;
+            }
+
+            status.show();
+            if(match[1].startsWith('Ambiguous name')) 
+              status.text('There is no player matching the name ' + user + '.');
+            else
+              status.text(match[1]);
+
+            matchRequest = undefined;
+            return;
+          }
+        }
+        chat.newMessage('console', data);
+        return;
+      }
+
+      match = msg.match(/^You are now observing game \d+\./m);
+      if(match) {
+        if(obsRequested) {
+          obsRequested--;
+          $('#observe-pane-status').hide();
+          $('#pills-game-tab').tab('show');
+        }
+        
+        chat.newMessage('console', data);
+        return;
+      }
+
+      match = msg.match(/^Your seek has been posted with index \d+\./m);
+      if(!match)
+        match = msg.match(/^Issuing: \w+ \([-\d]+\) \w+ \([-\d]+\)/m);
+      if(!match) 
+        match = msg.match(/^Updating offer already made to "\w+"\./m);
+      if(match) {
+        if(matchRequest) {
+          var found = false;
+          for(let i = matchRequestList.length - 1; i >= 0; i--) {
+            if(matchRequestList[i].opponent.localeCompare(matchRequest.opponent, undefined, { sensitivity: 'accent' }) === 0) {
+              if(matchRequestList[i].min === matchRequest.min && matchRequestList[i].sec === matchRequest.sec)
+                found = true;
+              else if(matchRequest.opponent != '')
+                matchRequestList.splice(i, 1);
+            }
+          }
+          if(!found) {
+            matchRequestList.push(matchRequest);
+            $('#game-requests').empty();         
+            var modalText = '';
+            for(let request of matchRequestList) {
+              if(request.opponent.length) {
+                if(request.min === 0 && request.sec === 0)
+                  modalText += 'Challenging ' + request.opponent + ' to an untimed game...<br>';
+                else
+                  modalText += 'Challenging ' + request.opponent + ' to a ' + request.min + ' ' + request.sec + ' game...<br>';
+              }
+              else { 
+                if(request.min === 0 && request.sec === 0)
+                  modalText += 'Seeking an untimed game...<br>'; 
+                else
+                  modalText += 'Seeking a ' + request.min + ' ' + request.sec + ' game...<br>'; 
+              }
+            }
+            showModal('Game Request', '', modalText, ['cancelMatchRequests();', 'Cancel'], [], true, false);
+          }
+          matchRequest = undefined;
+          $('#play-pane-status').hide();
+        }
+         
+        chat.newMessage('console', data);
+        return;
+      }
+
+      // Parse results of 'games <game #> to get game info when examining
+      match = msg.match(/\d+\s+\(\s*Exam\.\s+(\d+)\s+(\w+)\s+(\d+)\s+(\w+)\s*\)\s+\[\s*p?(\w)(\w)\s+(\d+)\s+(\d+)\s*\]/);
+      if(match && match.length > 8) {
+        gameInfoRequested = false;
+
+        var wrating = game.wrating = match[1];
+        var wname = match[2];
+        var brating = game.brating = match[3];
+        var bname = match[4];
+        var style = match[5];
+        var rated = (match[6] === 'r' ? 'rated' : 'unrated');
+        var initialTime = match[7];
+        var increment = match[8];
+
+        const styleNames = new Map([
+          ['b', 'blitz'], ['l', 'lightning'], ['u', 'untimed'], ['e', 'examined'],
+          ['s', 'standard'], ['w', 'wild'], ['x', 'atomic'], ['z', 'crazyhouse'],
+          ['B', 'Bughouse'], ['L', 'losers'], ['S', 'Suicide'], ['n', 'nonstandard']
+        ]);
+
+        if(wrating === '0') wrating = '';
+        if(brating === '0') brating = '';
+        $('#player-rating').text(bname === session.getUser() ? brating : wrating);
+        $('#opponent-rating').text(bname === session.getUser() ? wrating : brating);
+
+        if(wrating === '') {
+          match = wname.match(/Guest[A-Z]{4}/);
+          if(match)
+            wrating = '++++';
+          else wrating = '----';            
+        }
+        if(brating === '') {
+          match = bname.match(/Guest[A-Z]{4}/);
+          if(match)
+            brating = '++++';
+          else brating = '----';       
+        }
+
+        var time = ' ' + initialTime + ' ' + increment;
+        if(style === 'u') 
+          time = '';
+
+        var statusMsg = wname + ' (' + wrating + ') ' + bname + ' (' + brating + ') ' 
+          + rated + ' ' + styleNames.get(style) + time; 
+
+        showStatusMsg(statusMsg);
         return;
       }
 
       match = msg.match(/^Movelist for game (\d+):.*/m);
       if (match != null && match.length > 1) {
         if (+match[1] === game.id) {
-          parseMovelist(match[0]);
-          if (!movelistRequested) {
+          if (movelistRequested === 0) {
             chat.newMessage('console', data);
           } else {
-            movelistRequested = false;
+            movelistRequested--;
+            if(movelistRequested === 0)
+              parseMovelist(msg);
           }
-
         }
         return;
       }
 
+      // Moving backwards and forwards is now handled more generally by updateHistory()
       match = msg.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
-      if (match != null && match.length > 1) {
-        const numMoves: number = +match[1];
-        if (numMoves > game.history.length()) {
-          if (game.chess) {
-            game.chess.reset();
-          }
-          if (game.history) {
-            game.history.removeAll();
-          }
-        } else {
-          for (let i = 0; i < numMoves; i++) {
-            if (game.chess) {
-              game.chess.undo();
-            }
-            if (game.history) {
-              game.history.removeLast();
-            }
-          }
-        }
+      if (match != null && match.length > 1) 
         return;
-      }
-
+      match = msg.match(/Game\s\d+: \w+ goes forward (\d+) moves?\./);
+      if (match != null && match.length > 1) 
+      return;
+      
       match = msg.match(/(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
       if (match != null && match.length > 4) {
+        game.wrating = match[4];
+        game.brating = match[6];
         showStatusMsg(match[0].substring(match[0].indexOf(':')+1));
         if (match[3] === session.getUser() || match[1].startsWith('Game')) {
           if (game.id === 0) {
@@ -601,12 +861,12 @@ function messageHandler(data) {
 
       match = msg.match(
         // tslint:disable-next-line:max-line-length
-        /Challenge: (\w+) \(([\d\+\-\s]{4})\) (\w+) \(([\d\+\-\s]{4})\)\s((?:.+))You can "accept" or "decline", or propose different parameters./ms);
-      if (match != null && match.length > 3) {
+        /Challenge: (\w+) \(([\d\+\-\s]{4})\) (\[(?:white|black)\] )?(\w+) \(([\d\+\-\s]{4})\)\s((?:.+))You can "accept" or "decline", or propose different parameters./ms);
+      if (match != null && match.length > 4) {
         const [opponentName, opponentRating] = (match[1] === session.getUser()) ?
-          match.slice(3, 5) : match.slice(1, 3);
-        showModal('Match Request', opponentName + '(' + opponentRating + ')',
-          match[5], ['decline', 'Decline'], ['accept', 'Accept']);
+          match.slice(4, 6) : match.slice(1, 3);
+        showModal('Match Request', opponentName + '(' + opponentRating + ')' + (match[3] ? ' ' + match[3] : ''),
+          match[6], ['decline', 'Decline'], ['accept', 'Accept']);
         return;
       }
 
@@ -630,53 +890,35 @@ function messageHandler(data) {
 
       match = msg.match(/Removing game (\d+) from observation list./);
       if (match != null && match.length > 1) {
-        $('#new-game').text('Quick Game');
-        $('#new-game-menu').prop('disabled', false);
-        clearInterval(game.wclock);
-        clearInterval(game.bclock);
-        delete game.chess;
-        game.chess = null;
-        board.set({
-          movable: {
-            free: false,
-            color: undefined,
-          },
-        });
-        game.obs = false;
+        if(gameChangePending) 
+          session.send('refresh');
+
+        stopEngine();
+        cleanup();
         return;
       }
 
       match = msg.match(/You are no longer examining game (\d+)./);
       if (match != null && match.length > 1) {
-        $('#new-game').text('Quick Game');
-        $('#new-game-menu').prop('disabled', false);
-        clearInterval(game.wclock);
-        clearInterval(game.bclock);
-        delete game.chess;
-        game.chess = null;
-        board.set({
-          movable: {
-            free: false,
-            color: undefined,
-          },
-        });
-        game.examine = false;
-        engine.terminate();
-        engine = null;
+        if(gameChangePending) 
+          session.send("refresh");
+
+        stopEngine();
+        cleanup();
         return;
       }
 
-      match = msg.match(/^Notification: .*/);
+      match = msg.match(/^Notification: .*/m);
       if (match != null && match.length > 0) {
         chat.newNotification(match[0]);
         return;
       }
-      match = msg.match(/^\w+ is not logged in./);
+      match = msg.match(/^\w+ is not logged in./m);
       if (match != null && match.length > 0) {
         chat.newNotification(match[0]);
         return;
       }
-      match = msg.match(/^Player [a-zA-Z\"]+ is censoring you./);
+      match = msg.match(/^Player [a-zA-Z\"]+ is censoring you./m);
       if (match != null && match.length > 0) {
         chat.newNotification(match[0]);
         return;
@@ -713,6 +955,310 @@ function messageHandler(data) {
       break;
   }
 }
+
+export function scrollToBoard() {
+  if(isSmallWindow()) 
+    $(document).scrollTop($('#left-panel-footer').offset().top);
+}
+
+function scrollToLeftPanelBottom() {
+  if(isSmallWindow()) 
+    $(document).scrollTop($('#left-panel-bottom').offset().top);
+}
+
+function scrollToTop() {
+  if(isSmallWindow()) 
+    $(document).scrollTop($('#left-panel-header').offset().top);
+}
+
+function getPlyFromFEN(fen: string) {
+  var turn_color = fen.split(/\s+/)[1];
+  var move_no = +fen.split(/\s+/).pop();
+  var ply = move_no * 2 - (turn_color === 'w' ? 1 : 0);
+
+  return ply;
+}
+
+function showStrengthDiff(fen: string) {
+  var diff = {
+    P: 0, R: 0, B: 0, N: 0, Q: 0, K: 0
+  };
+
+  var pos = fen.split(/\s+/)[0];
+  for(let i = 0; i < pos.length; i++) {
+    if(diff.hasOwnProperty(pos[i].toUpperCase()))
+      diff[pos[i].toUpperCase()] = diff[pos[i].toUpperCase()] + (pos[i] === pos[i].toUpperCase() ? 1 : -1);
+  }
+
+  $('#player-captured').empty();
+  $('#opponent-captured').empty();
+  for (const key in diff) {
+    if(diff[key] !== 0) {
+      var piece = '';
+      var strength = 0;
+      var panel = undefined;
+      if (diff[key] > 0) {
+        piece = 'B' + key;
+        strength = diff[key];
+        panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured')); 
+      }
+      else if(diff[key] < 0) {
+        piece = 'W' + key;
+        strength = -diff[key];
+        panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured')); 
+      }
+      panel.append(
+        '<img id="' + piece + '" src="www/css/images/pieces/merida/' +
+          piece + '.svg"/><small>' + strength + '</small>');
+    }
+  }
+}
+
+function updateHistory(move?: any, fen?: string) {
+  if(!fen)
+    fen = game.chess.fen();
+
+  var index = game.history.find(fen);
+
+  if(move && !index) {
+    var subvariation = false;
+
+    if(game.role === Role.NONE || game.isExamining()) {
+      if(game.history.length() === 0) 
+        game.history.scratch(true);
+
+      var subvariation = !game.history.scratch();
+      if(subvariation)
+        $('#exit-subvariation').show();
+    }
+    game.history.add(move, fen, subvariation);
+    $('#playing-game').hide();
+  } 
+  else {
+    // move is beyond the end of the move list
+    if(getPlyFromFEN(fen) - 1 > game.history.length()) {
+      movelistRequested++;
+      session.send('moves ' + game.id);
+    }
+
+    // already displaying this move
+    if(index === game.history.index()) 
+      return;
+
+    // move is earlier, we need to take-back
+    if(game.isPlaying() || game.isObserving()) {
+      while(index < game.history.length()) 
+        game.history.removeLast();
+    }
+  }
+
+  game.history.display(index, move !== undefined);
+
+  if(removeSubvariationRequested && !game.history.get(index).subvariation) {
+    game.history.removeSubvariation();
+    $('#exit-subvariation').hide();   
+    removeSubvariationRequested = false; 
+  }
+}
+
+export function updateBoard(playMove: boolean = false) {
+  var move = game.history.get().move;
+  var fen = game.history.get().fen;
+
+  if(playMove) {
+    board.move(move.from, move.to);
+    if (move.flags !== 'n') {
+      board.set({ fen: fen });
+    }
+  }
+  else 
+    board.set({ fen: fen });
+
+  var localChess = new Chess(fen);
+
+  if(move) {
+    board.set({ animation: { enabled: false }});
+    board.move( move.to, move.from );
+    board.move( move.from, move.to );
+    board.set({ animation: { enabled: true }});
+  } 
+  else 
+    board.set({ lastMove: false });
+
+  var dests : Map<Key, Key[]> | undefined = undefined;
+  var movableColor : string | undefined = undefined;
+  var turnColor : string | undefined = undefined;
+
+  if(game.isObserving()) {
+    turnColor = toColor(game.chess);
+  }
+  else if(game.isPlaying()) {
+    movableColor = (game.color === 'w' ? 'white' : 'black');
+    dests = toDests(game.chess);
+    turnColor = toColor(game.chess);
+  }
+  else if(game.isExamining()) {
+    movableColor = toColor(localChess);
+    dests = toDests(localChess);
+    turnColor = toColor(localChess);
+  }
+  else {
+    movableColor = toColor(localChess);
+    dests = toDests(localChess);
+    turnColor = toColor(localChess);
+  }
+
+  let movable : any = {};
+  movable = {
+    color: movableColor,
+    dests: dests
+  };
+
+  board.set({
+    turnColor: turnColor,
+    movable: movable,
+    check: localChess.in_check(),
+    blockTouchScroll: (game.isPlaying() ? true : false),
+  });
+
+  showStrengthDiff(fen);
+
+  if(playMove && soundToggle) {
+    clearTimeout(soundTimer);
+    soundTimer = setTimeout(() => {
+      var entry = game.history.get();
+      var chess = new Chess(entry.fen);
+      if(chess.in_check()) {
+        Sounds.checkSound.pause(); 
+        Sounds.checkSound.currentTime = 0;
+        Sounds.checkSound.play();
+      }
+      else if(entry.move.captured) {
+        Sounds.captureSound.pause(); 
+        Sounds.captureSound.currentTime = 0;
+        Sounds.captureSound.play();
+      } 
+      else {
+        Sounds.moveSound.pause(); 
+        Sounds.moveSound.currentTime = 0;
+        Sounds.moveSound.play();
+      }
+    }, 50);
+  }
+
+  // create new imstance of Stockfish for each move, since waiting for new position/go commands is very slow (with current SF build)
+  if(engine != null) {
+    stopEngine();
+    startEngine();
+  }
+  evalEngine.evaluate();
+}
+
+function startEngine() {
+  $('#start-engine').text('Stop');
+
+  $('#engine-pvs').empty();
+  for(let i = 0; i < numPVs; i++) 
+    $('#engine-pvs').append('<li>&nbsp;</li>');
+
+  engine = new Engine(board, numPVs);
+  if(movelistRequested == 0)
+    engine.move(game.history.get().fen);
+  else
+    engine.move(game.fen);
+}
+
+function stopEngine() {
+  $('#start-engine').text('Go');
+
+  if(engine) {
+    engine.terminate();
+    engine = null;
+    board.setAutoShapes([]);
+  }
+}
+
+function hideAnalysis() {
+  $('#hide-analysis').hide();
+  $('#analyze').show();
+  stopEngine();
+  board.setAutoShapes([]);
+  closeLeftBottomTab($('#engine-tab'));
+  closeLeftBottomTab($('#eval-graph-tab'));
+}
+
+function showAnalysis() {
+  showStatusPanel();
+  $('#analyze').hide();
+  $('#hide-analysis').show();  
+  openLeftBottomTab($('#engine-tab'));
+  openLeftBottomTab($('#eval-graph-tab'));
+  $('#eval-graph-tab').find('.nav-link').tab('show');
+  $('#engine-pvs').empty();
+  for(let i = 0; i < numPVs; i++) 
+    $('#engine-pvs').append('<li>&nbsp;</li>');
+  $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
+  scrollToLeftPanelBottom();
+  evalEngine.evaluate();
+}
+
+$('#engine-tab .closeTab').on('click', (event) => {
+  hideAnalysis();
+});
+
+$('#eval-graph-tab .closeTab').on('click', (event) => {
+  hideAnalysis();
+});
+
+function closeLeftBottomTab(tab: any) {
+  $('#status-tab').tab('show');
+  tab.hide();
+  if($('#left-bottom-tabs li:visible').length === 1)
+    $('#left-bottom-tabs').css('visibility', 'hidden');
+}
+
+function openLeftBottomTab(tab: any) {
+  tab.show();
+  $('#left-bottom-tabs').css('visibility', 'visible');
+}
+
+function getMoves() {
+  let moves = '';
+  const history = game.chess.history({verbose: true});
+  for (let i = 0; i < history.length; ++i) {
+      const move = history[i];
+      moves += ' ' + move.from + move.to + (move.promotion ? move.promotion : '');
+  }
+  return moves;
+}
+
+function getMoveNoFromFEN(fen: string) {
+  return +fen.split(/\s+/).pop();
+}
+
+$('#collapse-history').on('hidden.bs.collapse', (event) => {
+  $('#history-toggle-icon').removeClass('fa-toggle-up').addClass('fa-toggle-down');
+
+  $('#pills-tab button').each(function () { 
+    $(this).removeClass('active');
+  });
+
+  $('#collapse-history').removeClass('collapse-init');
+});
+
+$('#collapse-history').on('shown.bs.collapse', (event) => {
+  $('#history-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
+
+  var activeTabIndex = $('#left-menu > .tab-content > .tab-pane').index($('#left-menu > .tab-content > .tab-pane:visible'));
+  $('#pills-tab button').eq(activeTabIndex).addClass('active');
+
+  scrollToTop();
+});
+
+$('#pills-tab button').on('click', (event) => {
+  $('#collapse-history').collapse('show');
+  scrollToTop();
+});
 
 $('#flip-toggle').on('click', (event) => {
   board.toggleOrientation();
@@ -801,15 +1347,17 @@ $('#input-form').on('submit', (event) => {
       user: session.getUser(),
       message: cmd.slice(2).join(' '),
     });
-  } else if (cmd.length > 1 && cmd[0].startsWith('ta') && (/^\d+$/.test(cmd[1]))) {
-    pendingTakeback = parseInt(cmd[1], 10);
-  }
-
+  } 
   session.send(text);
   $('#input-text').val('');
 });
 
 function onDeviceReady() {
+  disableOnlineInputs(true);
+
+  game.role = Role.NONE;
+  game.history = new History(new Chess().fen(), board); 
+
   const user = Cookies.get('user');
   const pass = Cookies.get('pass');
   const proxy = Cookies.get('proxy');
@@ -822,10 +1370,134 @@ function onDeviceReady() {
 
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
-  const boardHeight = $('#board').height();
+
+  prevWindowWidth = $(window).innerWidth();
+  if(isSmallWindow()) {
+    useMobileLayout();
+    $('#collapse-chat').collapse('hide');
+    $('#collapse-history').collapse('hide');
+  }
+  else {
+    $('#pills-play-tab').tab('show');
+    $('#collapse-history').removeClass('collapse-init');
+    $('#collapse-chat').removeClass('collapse-init');
+    $('#chat-toggle-btn').toggleClass("toggle-btn-selected");
+  }
+
+  setPanelHeights();
+
+  selectOnFocus($('#opponent-player-name'));
+  selectOnFocus($('#custom-control-min'));
+  selectOnFocus($('#custom-control-sec'));
+  selectOnFocus($('#observe-username'));
+  selectOnFocus($('#examine-username'));
+
+  evalEngine = new EvalEngine(game.history);
+  updateBoard(); 
+}
+
+function selectOnFocus(input: any) {
+  $(input).on('focus', function (e) {
+    $(this).one('mouseup', function () {
+      $(this).trigger('select');
+      return false;
+    })
+    .trigger('select');
+  });
+}
+
+// If on small screen device displaying 1 column, move the navigation buttons so they are near the board
+function useMobileLayout() {
+  swapLeftRightPanelHeaders();
+  $('#chat-maximize-btn').hide();
+  $('#stop-observing').appendTo($('#viewing-game-buttons').last());
+  $('#stop-examining').appendTo($('#viewing-game-buttons').last());
+  hideCloseGamePanel();
+}
+
+function useDesktopLayout() {
+  swapLeftRightPanelHeaders();
+  $('#chat-maximize-btn').show();
+  $('#stop-observing').appendTo($('#close-game-panel').last());
+  $('#stop-examining').appendTo($('#close-game-panel').last());
+  if(game.isObserving() || game.isExamining())
+    showCloseGamePanel();
+}
+
+function swapLeftRightPanelHeaders() {
+  // Swap top left and top right panels to bring navigation buttons closer to board
+  var leftHeaderContents = $('#left-panel-header').children();
+  var rightHeaderContents = $('#right-panel-header').children();
+  rightHeaderContents.appendTo($('#left-panel-header'));
+  leftHeaderContents.appendTo($('#right-panel-header'));
+
+  var leftHeaderClass = $('#left-panel-header').attr('class');
+  var rightHeaderClass = $('#right-panel-header').attr('class');
+  $('#left-panel-header').attr('class', rightHeaderClass);
+  $('#right-panel-header').attr('class', leftHeaderClass);
+
+  if(isSmallWindow()) {
+    $('#chat-toggle-btn').appendTo($('#chat-collapse-toolbar').last());
+    $('#history-toggle-btn').appendTo($('#left-panel-header .btn-toolbar').last());
+  }
+  else {
+    $('#chat-toggle-btn').appendTo($('#right-panel-header .btn-toolbar').last());
+    $('#history-toggle-btn').appendTo($('#navigation-toolbar').last());
+  }
+}
+
+// Set the height of dynamic elements inside left and right panel collapsables.
+// Try to do it in a robust way that won't break if we add/remove elements later.
+function setPanelHeights() {
+  // Get and store the height of the address bar in mobile browsers.
+  if(isSmallWindow() && addressBarHeight === undefined) 
+      addressBarHeight = $(window).height() - window.innerHeight;
+
+  // On mobile, slim down player status panels in order to fit everything within window height
+  var originalHeight = $('#left-panel-header').height();
+  if(isSmallWindow()) {
+    var cardBorders = $('#mid-card').outerHeight() - $('#mid-card').height() 
+      + Math.round(parseFloat($('#left-card').css('border-bottom-width')))
+      + Math.round(parseFloat($('#right-card').css('border-top-width')));
+    var playerStatusBorder = $('#player-status').outerHeight() - $('#player-status').height();
+    var playerStatusHeight = ($(window).height() - addressBarHeight - $('#board-card').outerHeight() - $('#left-panel-footer').outerHeight() - $('#right-panel-header').outerHeight() - cardBorders) / 2 - playerStatusBorder;
+    playerStatusHeight = Math.min(Math.max(playerStatusHeight, originalHeight - 20), originalHeight); 
+  }
+  else 
+    playerStatusHeight = originalHeight;
+  $('#player-status').height(playerStatusHeight);
+  $('#opponent-status').height(playerStatusHeight);
+
+  // set height of left menu panel inside collapsable
+  const boardHeight = $('#board').innerHeight();
   if (boardHeight) {
-    $('.chat-text').height(boardHeight - 90);
-    $('#left-panel').height(boardHeight - 205);
+    var siblingsHeight = 0;
+    var siblings = $('#collapse-history').siblings();
+    siblings.each(function() {
+      if($(this).is(':visible'))
+        siblingsHeight += $(this).outerHeight();
+    });
+    var leftPanelBorder = $('#left-panel').outerHeight() - $('#left-panel').height();
+
+    if(isSmallWindow())
+      $('#left-panel').height(430);  
+    else
+      $('#left-panel').height(boardHeight - leftPanelBorder - siblingsHeight);
+
+    // set height of right panel inside collapsable
+    var siblingsHeight = 0;
+    var siblings = $('#collapse-chat').siblings();
+    siblings.each(function() {
+      if($(this).is(':visible'))
+        siblingsHeight += $(this).outerHeight();
+    });
+    var rightPanelBorder = $('#right-panel').outerHeight() - $('#right-panel').height();
+
+    if(isSmallWindow()) 
+      $('#right-panel').height($(window).height() - addressBarHeight - rightPanelBorder - siblingsHeight 
+          - $('#right-panel-header').outerHeight() - $('#right-panel-footer').outerHeight());    
+    else
+      $('#right-panel').height(boardHeight - rightPanelBorder - siblingsHeight);     
   }
 }
 
@@ -835,6 +1507,11 @@ $(document).ready(() => {
   } else {
     onDeviceReady();
   }
+});
+
+$(window).on('load', function() {
+  $('#left-panel-header').css('visibility', 'visible');
+  $('#right-panel-header').css('visibility', 'visible');
 });
 
 $('#resign').on('click', (event) => {
@@ -855,13 +1532,10 @@ $('#abort').on('click', (event) => {
 
 $('#takeback').on('click', (event) => {
   if (game.chess !== null) {
-    if (game.chess.turn() === game.color) {
-      pendingTakeback = 2;
+    if (game.chess.turn() === game.color) 
       session.send('take 2');
-    } else {
-      pendingTakeback = 1;
+    else 
       session.send('take 1');
-    }
   } else {
     showStatusMsg('You are not playing a game.');
   }
@@ -875,16 +1549,58 @@ $('#draw').on('click', (event) => {
   }
 });
 
-function getGame(min: number, sec: number) {
-  if (game.chess === null) {
-    const opponent = getValue('#opponent-player-name')
-    $('#game-requests').empty();
-    showModal('Game Request', '', 'Seeking a ' + min + ' ' + sec + ' game...', ['unseek', 'Cancel'], [], true);
-    const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek';
-    session.send(cmd + ' ' + min + ' ' + sec);
+$('#analyze').on('click', (event) => { 
+  showAnalysis();
+});
+
+$('#hide-analysis').on('click', (event) => { 
+  hideAnalysis();
+});
+
+$('#start-engine').on('click', (event) => {
+  if(!engine) 
+    startEngine();
+  else 
+    stopEngine();
+});
+
+$('#add-pv').on('click', (event) => {
+  numPVs++;
+  $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
+  $('#engine-pvs').append('<li>&nbsp;</li>');
+  if(engine) {
+    stopEngine();
+    startEngine();
   }
+});
+
+$('#remove-pv').on('click', (event) => {
+  if(numPVs == 1)
+    return;
+  
+  numPVs--;
+  $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
+  $('#engine-pvs li').last().remove();
+  if(engine)
+    engine.setNumPVs(numPVs);
+});
+
+function getGame(min: number, sec: number) {
+  var opponent = getValue('#opponent-player-name')
+  opponent = opponent.trim().split(/\s+/)[0];
+  $('#opponent-player-name').val(opponent);
+  matchRequest = {opponent: opponent, min: min, sec: sec};
+  const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek';
+  session.send(cmd + ' ' + min + ' ' + sec);
 }
 (window as any).getGame = getGame;
+
+(window as any).cancelMatchRequests = () => {
+  session.send('unseek');
+  session.send('withdraw t all');
+  matchRequestList = [];
+  matchRequest = undefined;
+};
 
 $('#input-text').on('focus', () => {
   $('#board').on('touchstart', () => {
@@ -894,57 +1610,131 @@ $('#input-text').on('focus', () => {
 });
 
 $('#new-game').on('click', (event) => {
-  if (game.chess === null) {
+  if (game.chess === null) 
     session.send('getga');
-  } else if (game.obs) {
-    session.send('unobs');
-  } else if (game.examine) {
-    session.send('unex');
-  }
 });
 
-$('#custom-control').on('click', (event) => {
-  if (game.chess === null) {
-    const min: string = getValue('#custom-control-min');
-    const sec: string = getValue('#custom-control-sec');
-    getGame(+min, +sec);
-  }
+$('#stop-observing').on('click', (event) => {
+  session.send('unobs');
+});
+
+$('#stop-examining').on('click', (event) => {
+  session.send('unex');
+});
+
+$('#custom-control').on('submit', (event) => {
+  event.preventDefault();
+
+  $('#custom-control-go').trigger('focus');
+  const min: string = getValue('#custom-control-min');
+  const sec: string = getValue('#custom-control-sec');
+  getGame(+min, +sec);
+
+  return false;
 });
 
 $('#fast-backward').off('click');
 $('#fast-backward').on('click', () => {
-  if (game.examine) {
+  if (game.isExamining()) 
     session.send('back 999');
-  } else {
+  else if(game.history) 
     game.history.beginning();
-  }
+  $('#pills-game-tab').tab('show');
 });
 
 $('#backward').off('click');
 $('#backward').on('click', () => {
-  if (game.examine) {
-    session.send('back');
-  } else {
-    game.history.backward();
-  }
+  backward();
 });
+
+function backward() {
+  if(game.history) {
+    if(game.isExamining()) 
+      session.send('back');
+    else
+      game.history.backward();
+  }
+  $('#pills-game-tab').tab('show');
+}
 
 $('#forward').off('click');
 $('#forward').on('click', () => {
-  if (game.examine) {
-    session.send('for');
-  } else {
-    game.history.forward();
-  }
+  forward();
 });
+
+function forward() {
+  if(game.history) {
+    if (game.isExamining()) {
+      var nextIndex = game.history.next();
+      if(nextIndex !== undefined) {
+        var nextMove = game.history.get(nextIndex);
+        if(nextMove.subvariation || game.history.scratch()) 
+          session.send(nextMove.move.from + nextMove.move.to);
+        else
+          session.send('for');
+      }
+    }
+    else
+      game.history.forward();
+  }
+  $('#pills-game-tab').tab('show');
+}
 
 $('#fast-forward').off('click');
 $('#fast-forward').on('click', () => {
-  if (game.examine) {
-    session.send('for 999');
-  } else {
-    game.history.end();
+  if (game.isExamining()) {
+    if(!game.history.scratch()) {
+      if(game.history.get().subvariation)
+        session.send('back 999');
+      session.send('for 999');
+    }
+    else {
+      while(game.history.next())
+        forward();
+    }
   }
+  else if(game.history) 
+    game.history.end();
+  $('#pills-game-tab').tab('show');
+});
+
+$('#exit-subvariation').off('click');
+$('#exit-subvariation').on('click', () => {
+  if(game.isExamining()) {
+    var index = game.history.index();
+    var move = game.history.get(index);
+    var backNum = 0;
+    while(move.subvariation) {
+      backNum++;
+      index = game.history.prev(index);
+      move = game.history.get(index);
+    }
+    if(backNum > 0) {
+      session.send('back ' + backNum);
+      removeSubvariationRequested = true;
+    }
+    else {
+      game.history.removeSubvariation();
+      $('#exit-subvariation').hide();    
+    }
+  }
+  else {
+    game.history.removeSubvariation();
+    $('#exit-subvariation').hide();
+  }
+  $('#pills-game-tab').tab('show');
+});
+
+$(document).on('keydown', (e) => {
+  if ($(e.target).closest("input")[0]) {
+    return;
+  }
+
+  if(e.key === 'ArrowLeft')
+    backward();
+
+  else if(e.key === 'ArrowRight')
+    forward();  
 });
 
 if (!soundToggle) {
@@ -971,11 +1761,11 @@ $('#login-user').on('change', () => $('#login-user').removeClass('is-invalid'));
 
 $('#login-form').on('submit', (event) => {
   const user: string = getValue('#login-user');
-  if (user === session.getUser()) {
+  if (session && user === session.getUser()) {
     $('#login-user').addClass('is-invalid');
     event.preventDefault();
     event.stopPropagation();
-    return;
+    return false;
   }
   const pass: string = getValue('#login-pass');
   const enableProxy = $('#enable-proxy').prop('checked');
@@ -986,6 +1776,8 @@ $('#login-form').on('submit', (event) => {
     Cookies.remove('proxy');
     $('#proxy').text('Proxy: OFF');
   }
+  if(session)
+    session.disconnect();
   session = new Session(messageHandler, enableProxy, user, pass);
   if ($('#remember-me').prop('checked')) {
     Cookies.set('user', user, { expires: 365 });
@@ -995,8 +1787,9 @@ $('#login-form').on('submit', (event) => {
     Cookies.remove('pass');
   }
   $('#login-screen').modal('hide');
-  event.preventDefault();
   event.stopPropagation();
+  event.preventDefault();
+  return false;
 });
 
 $('#login-screen').on('show.bs.modal', (e) => {
@@ -1026,6 +1819,8 @@ $('#connect-user').on('click', (event) => {
 $('#connect-guest').on('click', (event) => {
   const proxy = Cookies.get('proxy');
   const enableProxy = (proxy !== undefined);
+  if(session) 
+    session.disconnect();
   session = new Session(messageHandler, enableProxy);
 });
 
@@ -1043,12 +1838,21 @@ $('#login-as-guest').on('click', (event) => {
   }
 });
 
+export function isSmallWindow() {
+  return window.innerWidth < 768;
+}
+
 $(window).on('resize', () => {
-  const boardHeight = $('#board').height();
-  if (boardHeight) {
-    $('.chat-text').height(boardHeight - 90);
-    $('#left-panel').height(boardHeight - 215);
-  }
+  if(isSmallWindow() && prevWindowWidth >= 768)
+    useMobileLayout();
+  else if(!isSmallWindow() && prevWindowWidth < 768)
+    useDesktopLayout();
+
+  prevWindowWidth = window.innerWidth;
+  setPanelHeights();
+
+  if(evalEngine)
+    evalEngine.redraw();
 });
 
 // prompt before unloading page if in a game
@@ -1059,14 +1863,18 @@ $(window).on('beforeunload', () => {
 });
 
 function getHistory(user: string) {
-  if (session && session.isConnected()) {
-    historyRequested = true;
+  if (session && session.isConnected()) {   
+    user = user.trim().split(/\s+/)[0];
+    if(user.length === 0) 
+      user = session.getUser();
+    $('#examine-username').val(user);
+    historyRequested++;
     session.send('hist ' + user);
   }
 }
 
 export function parseHistory(history: string) {
-  const h = history.split('\n');
+  var h = history.split('\n');
   h.splice(0, 2);
   return h;
 }
@@ -1079,19 +1887,25 @@ function showHistory(user: string, history: string) {
   if (!$('#pills-examine').hasClass('show')) {
     return;
   }
+
+  $('#examine-pane-status').hide();
+  $('#history-table').html('');
+
   const exUser = getValue('#examine-username');
-  if (exUser !== user) {
+  if (exUser.localeCompare(user, undefined, { sensitivity: 'accent' }) !== 0) {
     return;
   }
-  for (const g of parseHistory(history)) {
-    const id = g.slice(0, g.indexOf(':'));
+  var hArr = parseHistory(history);
+  for(let i = hArr.length - 1; i >= 0; i--) {
+    const id = hArr[i].slice(0, hArr[i].indexOf(':'));
     $('#history-table').append(
-      `<button type="button" class="btn btn-outline-secondary" onclick="sessionSend('ex ` + user + ' ' +
-      + id + `'); showGameTab();">` + g + `</button>`);
+      `<button type="button" class="w-100 btn btn-outline-secondary" onclick="sessionSend('ex ` + user + ' ' +
+      + id + `'); showGameTab();">` + hArr[i] + `</button>`);
   }
 }
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-examine"]', (e) => {
+  historyRequested = 0;
   $('#history-table').html('');
   let username = getValue('#examine-username');
   if (username === undefined || username === '') {
@@ -1103,34 +1917,63 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-examine"]', (e) =>
   getHistory(username);
 });
 
-$('#examine-go').on('click', (event) => {
+$('#examine-user').on('submit', (event) => {
+  event.preventDefault();
+  $('#examine-go').trigger('focus');
   const username = getValue('#examine-username');
   getHistory(username);
+  return false;
 });
 
-$('#examine-username').on('change', () => {
-  $('#history-table').html('');
+$('#observe-user').on('submit', (event) => {
+  event.preventDefault();
+  $('#observe-go').trigger('focus');
+  observe();
+  return false;
 });
 
-$('#observe-go').on('click', (event) => {
-  const username = getValue('#observe-username');
-  session.send('obs ' + username);
-});
+function observe(id?: string) {
+  if(game.isPlaying()) {
+    $('#observe-pane-status').text("You're already playing a game.");
+    $('#observe-pane-status').show();
+    return false;
+  }
+
+  if(!id) {
+    id = getValue('#observe-username');
+    id = id.trim().split(/\s+/)[0];
+    $('#observe-username').val(id);
+  }
+  if(id.length > 0) {
+    obsRequested++;
+    session.send('obs ' + id);
+  }
+}
 
 function showGames(games: string) {
   if (!$('#pills-observe').hasClass('show')) {
     return;
   }
+
+  $('#observe-pane-status').hide();
+
   for (const g of games.split('\n').slice(0, -2).reverse()) {
     const gg = g.trim();
     const id = gg.split(' ')[0];
-    $('#games-table').append(
-      `<button type="button" class="btn btn-outline-secondary" onclick="sessionSend('obs ` +
-      + id + `'); showGameTab();">` + gg + `</button>`);
+    var match = gg.match(/\[\s*p/); // Don't list private games
+    if(!match)
+      $('#games-table').append(
+        `<button type="button" class="w-100 btn btn-outline-secondary" onclick="observeGame('` 
+        + id + `');">` + gg + `</button>`);
   }
 }
 
+(window as any).observeGame = (id: string) => {
+  observe(id);
+};
+
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-observe"]', (e) => {
+  obsRequested = 0;
   $('#games-table').html('');
   if (session && session.isConnected()) {
     gamesRequested = true;
@@ -1141,6 +1984,10 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-observe"]', (e) =>
 $('#puzzlebot').on('click', (event) => {
   session.send('t puzzlebot getmate');
   $('#pills-game-tab').tab('show');
+});
+
+$(document).on('shown.bs.tab', 'button[href="#eval-graph-panel"]', (e) => {
+  evalEngine.redraw();
 });
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => {

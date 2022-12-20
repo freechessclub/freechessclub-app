@@ -5,6 +5,7 @@
 import Cookies from 'js-cookie';
 import { autoLink } from 'autolink-js';
 import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
+import { scrollToBoard, isSmallWindow } from './index';
 
 // list of channels
 const channels = {
@@ -84,6 +85,8 @@ const channels = {
   100:    'Trivia',
 };
 
+let maximized = false;
+
 export class Chat {
   private user: string;
   private userRE: RegExp;
@@ -93,8 +96,10 @@ export class Chat {
   private autoscrollToggle: boolean;
   private notificationsToggle: boolean;
   private timestampToggle: boolean;
+  private unreadNum: number;
 
   constructor(user: string) {
+    this.unreadNum = 0;
     this.autoscrollToggle = (Cookies.get('autoscroll') !== 'false');
     this.notificationsToggle = (Cookies.get('notifications') !== 'false');
     this.timestampToggle = (Cookies.get('timestamp') !== 'false');
@@ -106,7 +111,6 @@ export class Chat {
 
     this.user = user;
     this.userRE = new RegExp('\\b' + user + '\\b', 'ig');
-    this.maximized = false;
 
     // initialize tabs
     this.tabs = {
@@ -115,42 +119,21 @@ export class Chat {
 
     $(document).on('shown.bs.tab', 'a[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
-      tab.css('color', '');
-    });
 
-    $(document.body).on('click', '.closeTab', (event) => {
-      const name: string = $(event.target).parent().attr('id').toLowerCase();
-      $(event.target).parent().remove();
-      this.deleteTab(name);
-      $('#tabs a:last').tab('show');
-      $('#content-' + name).remove();
-    });
-
-    $('#chat-maximize-btn').on('click', () => {
-      if (this.maximized) {
-        if ($(window).width() > 767) {
-          $('#right-col').width('33.33333333%');
+      if(tab.hasClass('tab-unviewed')) {
+        if(!this.ignoreUnread(tab.attr('id'))) {
+          this.unreadNum--;
+          if(this.unreadNum === 0) 
+            $('#chat-unread-bubble').hide();
+          else
+            $('#chat-unread-number').text(this.unreadNum);
         }
-        $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
-        $('#chat-maximize-btn').attr('data-bs-original-title', 'Maximize');
-        this.maximized = false;
-      } else {
-        if ($(window).width() > 767) {
-          $('#right-col').width('100%');
-        }
-        $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
-        $('#chat-maximize-btn').attr('data-bs-original-title', 'Minimize');
-        this.maximized = true;
+        tab.removeClass('tab-unviewed');
       }
-      $('#left-col').toggleClass('d-none');
-      $('#mid-col').toggleClass('d-none');
     });
 
-    $('#collapse-chat').on('hidden.bs.collapse', () => {
-      $('#chat-toggle-icon').removeClass('fa-toggle-up').addClass('fa-toggle-down');
-    });
-    $('#collapse-chat').on('shown.bs.collapse', () => {
-      $('#chat-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
+    $(document.body).on('click', '#tabs .closeTab', (event) => {
+      this.closeTab(event.target);
     });
 
     if (!this.autoscrollToggle) {
@@ -188,35 +171,56 @@ export class Chat {
       $('#timestamp-toggle').html(timestampIcon + 'Timestamp ' + (this.timestampToggle ? 'ON' : 'OFF'));
       Cookies.set('timestamp', String(this.timestampToggle), { expires: 365 })
     });
+  }
 
+  public closeTab(tab: any) {
+    const name: string = $(tab).parent().attr('id').toLowerCase();
+    $(tab).parent().remove();
+    this.deleteTab(name);
+    $('#tabs a:last').tab('show');
+    $('#content-' + name).remove();
   }
 
   public setUser(user: string): void {
+    if(this.user !== user) {
+      this.unreadNum = 0;
+      var that = this;
+      $('#tabs .closeTab').each(function (index) { 
+        that.closeTab($(this));
+      });
+    }
+    
     this.user = user;
   }
 
-  public createTab(name: string) {
+  public createTab(name: string, showTab: boolean = false) {
     const from = name.toLowerCase().replace(/\s/g, '-');
-    if (this.tabs.hasOwnProperty(from)) {
-      return this.tabs[from];
+    if (!this.tabs.hasOwnProperty(from)) {
+      let chName = name;
+      if (channels[name] !== undefined) {
+        chName = channels[name];
+      }
+
+      $('<li class="nav-item"><a class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-' +
+        from + '" id="' + from + '" role="tab">' + chName +
+        '<span class="btn btn-default btn-sm closeTab">×</span></a></li>').appendTo('#tabs');
+      $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('#chat-tabContent');
+      const boardHeight = $('#board').height();
+      if (boardHeight) {
+        $('.chat-text').height(boardHeight - 90);
+      } else {
+        $('#content-' + from).height($('#chat-tabContent').height());
+      }
+      this.tabs[from] = $('#content-' + from);
     }
 
-    let chName = name;
-    if (channels[name] !== undefined) {
-      chName = channels[name];
+    if(showTab) {
+      var tabs = $('#tabs a').filter(function (index) { 
+        return $(this).attr('id') === from; 
+      });
+      tabs.first().tab('show');
     }
 
-    $('<li class="nav-item"><a class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-' +
-      from + '" id="' + from + '" role="tab">' + chName +
-      '<span class="btn btn-default btn-sm closeTab">×</span></a></li>').appendTo('#tabs');
-    $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('#chat-tabContent');
-    const boardHeight = $('#board').height();
-    if (boardHeight) {
-      $('.chat-text').height(boardHeight - 90);
-    } else {
-      $('#content-' + from).height($('#chat-tabContent').height());
-    }
-    this.tabs[from] = $('#content-' + from);
     return this.tabs[from];
   }
 
@@ -240,7 +244,7 @@ export class Chat {
         '">' + chName + '</a>');
       $('#ch-' + ch).on('click', (event) => {
         event.preventDefault();
-        this.createTab(ch);
+        this.createTab(ch, true);
       });
     });
   }
@@ -285,9 +289,21 @@ export class Chat {
       if (this.autoscrollToggle) {
         tab.scrollTop(tab[0].scrollHeight);
       }
-    } else {
-      tabheader.css('color', 'tomato');
+    } 
+    else if(from !== 'console') {
+      // Add unread number to chat-toggle-icon
+      if(!tabheader.hasClass('tab-unviewed') && !this.ignoreUnread(from)) { // only add if a private message 
+        if(this.unreadNum === 0) 
+          $('#chat-unread-bubble').show();
+        this.unreadNum++;
+        $('#chat-unread-number').text(this.unreadNum);
+      }
+      tabheader.addClass('tab-unviewed');
     }
+  }
+
+  private ignoreUnread(from: string) {
+    return /^\d+$/.test(from) || from === 'ROBOadmin' || from === 'adminBOT'
   }
 
   public newNotification(msg: string) {
@@ -306,5 +322,43 @@ export class Chat {
     }
   }
 }
+
+function scrollToChat() {
+  if(isSmallWindow()) 
+    $(document).scrollTop($('#right-panel-header').offset().top);
+}
+
+$('#chat-maximize-btn').on('click', () => {
+  if (maximized) {
+    if (!isSmallWindow()) {
+      $('#right-col').width('33.33333333%');
+    }
+    $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
+    $('#chat-maximize-btn').attr('data-bs-original-title', 'Maximize');
+    maximized = false;
+  } else {
+    if (!isSmallWindow()) {
+      $('#right-col').width('100%');
+    }
+    $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
+    $('#chat-maximize-btn').attr('data-bs-original-title', 'Minimize');
+    maximized = true;
+  }
+  $('#left-col').toggleClass('d-none');
+  $('#mid-col').toggleClass('d-none');
+});
+
+$('#collapse-chat').on('hidden.bs.collapse', () => {
+  if(!$('#collapse-chat').hasClass('collapse-init'))
+    scrollToBoard();
+  $('#collapse-chat').removeClass('collapse-init');
+});
+$('#collapse-chat').on('shown.bs.collapse', () => {
+  scrollToChat();
+});
+
+$('#chat-toggle-btn').on('click', (event) => {
+  $('#chat-toggle-btn').toggleClass("toggle-btn-selected");
+});
 
 export default Chat;

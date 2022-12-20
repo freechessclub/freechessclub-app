@@ -152,6 +152,21 @@ export class Parser {
     return String.fromCharCode.apply(null, new Uint8Array(buf));
   }
 
+  private splitMessage(msg: string) {
+    const msgs = msg.split(/\n/g);
+    if (msgs.length > 1) {
+      const parsedMsgs = [];
+      for (const m of msgs) {
+        if (m.length > 0) {
+          parsedMsgs.push(this._parse(m));
+        }
+      }
+      return parsedMsgs;
+    }
+
+    return undefined;
+  }
+
   public async parse(data: any) {
     let msg : string;
     if (data instanceof ArrayBuffer) {
@@ -189,18 +204,11 @@ export class Parser {
     let match = null;
 
     // game move
-    match = msg.match(/<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(?:\-?[0-7])\s(?:[01])\s(?:[01])\s(?:[01])\s(?:[01])\s(?:[0-9]+)\s([0-9]+)\s([a-zA-Z]+)\s([a-zA-Z]+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s(?:[0-9]+)\s(?:[0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(?:\S+)\s\((?:[0-9]+)\:(?:[0-9]+)\)\s(\S+)\s(?:[01])\s(?:[0-9]+)\s(?:[0-9]+)\s*/);
-    if (match != null && match.length >= 18) {
-      const msgs = msg.split(/\n/g);
-      if (msgs.length > 1) {
-        const parsedMsgs = [];
-        for (const m of msgs) {
-          if (m.length > 0) {
-            parsedMsgs.push(this._parse(m));
-          }
-        }
-        return parsedMsgs;
-      }
+    match = msg.match(/<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(\-?[0-7])\s([01])\s([01])\s([01])\s([01])\s([0-9]+)\s([0-9]+)\s([a-zA-Z]+)\s([a-zA-Z]+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(\S+)\s\(([0-9]+)\:([0-9]+)\)\s(\S+)\s([01])\s([0-9]+)\s([0-9]+)\s*/);
+    if (match != null && match.length >= 33) {
+      var msgs = this.splitMessage(msg);
+      if(msgs)
+        return msgs;
 
       let fen = '';
       for (let i = 1; i < 8; i++) {
@@ -208,19 +216,62 @@ export class Parser {
         fen += '/';
       }
       fen += this.style12ToFEN(match[8]);
+      // Parse the rest of the data, we should make use of all the game state info. 
+
+      // color whose turn it is to move ("B" or "W")
+      fen += ' ' + match[9].toLowerCase();
+      // castling state
+      var castleStr = '';
+      castleStr += (+match[11] === 1 ? 'K' : ''); // can White still castle short? (0=no, 1=yes)
+      castleStr += (+match[12] === 1 ? 'Q' : ''); // can White still castle long?
+      castleStr += (+match[13] === 1 ? 'k' : ''); // can Black still castle short?
+      castleStr += (+match[14] === 1 ? 'q' : ''); // can Black still castle long?
+      fen += ' ' + (castleStr === '' ? '-' : castleStr);
+      // -1 if the previous move was NOT a double pawn push, otherwise the chess board file  (numbered 0--7 for a--h) in which the double push was made   
+      fen += ' ' + (+match[10] === -1 ? '-' : String.fromCharCode("a".charCodeAt(0) + +match[10]) + (match[9] === 'W' ? '6' : '3')); 
+      // the number of moves made since the last irreversible move.  
+      fen += ' ' + match[15];
+      // the full move number
+      fen += ' ' + match[26]; 
+
+      // Parse move in long format (from, to, promotion)
+      var moveMatches = match[27].match(/\S+\/(\S{2})-(\S{2})=?(\S?)/);  
+      var moveVerbose;
+      if(moveMatches) {
+        moveVerbose = {
+          from: moveMatches[1], 
+          to: moveMatches[2], 
+          promotion: moveMatches[3],
+          san: match[30]
+        };  
+      }
+      else if(match[30] === 'O-O' || match[30] === 'O-O-O') {
+        moveVerbose = {
+          from: 'e' + (match[9] === 'W' ? '8' : '1'),
+          to: (match[30] === 'O-O' ? 'g' : 'c') + (match[9] === 'W' ? '8' : '1'),
+          promotion: undefined,
+          san: match[30]
+        }
+      }
+
       return {
-        fen,
-        turn: match[9],
-        game_id: +match[10],
-        white_name: match[11],
-        black_name: match[12],
-        role: +match[13],
-        time: +match[14],
-        inc: +match[15],
-        white_time: +match[16],
-        black_time: +match[17],
-        move_no: +match[18],
-        move: match[19],
+        fen,                                  // game state
+        turn: match[9],                       // color whose turn it is to move ("B" or "W")
+        id: +match[16],                       // The game number
+        wname: match[17],                     // White's name
+        bname: match[18],                     // Black's name
+        role: +match[19],                     // my relation to this game
+        time: +match[20],                     // initial time (in seconds) of the match
+        inc: +match[21],                      // increment In seconds) of the match
+        wstrength: +match[22],  // White material strength
+        bstrength: +match[23],  // Black material strength
+        wtime: +match[24],                    // White's remaining time
+        btime: +match[25],                    // Black's remaining time
+        moveNo: +match[26],                   // the number of the move about to be made 
+        moveVerbose: moveVerbose,             // verbose coordinate notation for the previous move ("none" if there werenone) [note this used to be broken for examined games]
+        prevMoveTime: {minutes: match[28], seconds: match[29]}, // time taken to make previous move "(min:sec)".
+        move: match[30],                      // pretty notation for the previous move ("none" if there is none)
+        flip: match[31] === '1'               // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.
       };
     }
 
@@ -237,6 +288,10 @@ export class Parser {
     // game end
     match = msg.match(/^[^\(\):]*(?:Game\s[0-9]+:.*)?\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)\s([a-zA-Z0-9\s]+)\}\s(?:[012/]+-[012/]+)?.*/s);
     if (match != null && match.length > 4) {
+      var msgs = this.splitMessage(msg);
+      if(msgs)
+        return msgs;
+
       const p1 = match[2];
       const p2 = match[3];
       const who = match[4];

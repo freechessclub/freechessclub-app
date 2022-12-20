@@ -9,9 +9,15 @@
                                   supported by Chrome and Opera */
 }
 
+/* Fixes problem of body width not updating properly after screen rotate on mobile */
+html, body {
+  overflow-x: hidden;
+}
+
 .chat-text {
   width: 100%;
-  height: auto;
+  max-height: 100%;
+  min-height: 100%;
   overflow: auto;
   color: rgba(0, 0, 0, 0.65);
   white-space: pre-wrap;
@@ -39,7 +45,7 @@
 }
 
 #left-panel-bottom {
-  height: 150px;
+  height: 192px;
   width: 100%;
 }
 
@@ -68,6 +74,19 @@
   text-decoration: none;
 }
 
+#chat-unread-bubble {
+  fill: red;
+}
+
+#chat-unread-number {
+  font-size: 8px;
+  fill: white;
+}
+
+.toggle-btn-selected.btn-outline-secondary {
+  background-color: #BBBBBB !important;
+}
+
 .btn-toolbar .btn {
     margin-right: 10px;
 }
@@ -77,7 +96,7 @@
 
 #chat-status {
   display: inline-block;
-  vertical-align: middle;
+  vertical-align: center;
   line-height: 20px;
 }
 
@@ -111,11 +130,11 @@
 }
 
 .history {
-  height: auto;
-  overflow: auto;
+  padding: 0;
 }
 
 .history th {
+  border: 0;
   width: 20%;
   text-align: center;
   font-weight: bold;
@@ -123,23 +142,61 @@
 }
 
 .history td {
+  border: 0;
   width: 40%;
   text-align: center;
 }
 
-.history a:hover {
+.history .selectable:hover {
+  background-color: rgba(0, 0, 0, 0.075);
+}
+
+.history .subvariation:hover {
+  background-color: rgba(255, 255, 255, 0.075);
+}
+
+.history .selectable:hover a {
   font-weight: bold;
   text-decoration: none;
 }
 
-.nav-tabs .nav-link .closeTab {
+.history .subvariation td {
+  background: #D7D7D7;
+}
+
+.history .subvariation th {
+  background: #D7D7D7;
+}
+
+.history tr:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.history .subvariation .selected {
+  background-color: #BBBBBB; 
+}
+
+.history .subvariation a {
+  color: #191970
+}
+
+.history .selected {
+  background-color: #DDDDDD; 
+  padding-top: 2px; 
+  padding-bottom: 3px; 
+  padding-left: 15px; 
+  padding-right: 15px;
+  font-weight: bold;
+}
+
+.nav-tabs .nav-item .closeTab {
   opacity: 0;
   margin-right: 0px;
   padding-right: 0px;
   font-size: 0.85em;
 }
 
-.nav-tabs .nav-link:hover .closeTab {
+.nav-tabs .nav-item:hover .closeTab {
   opacity: 1;
 }
 
@@ -147,6 +204,20 @@
   font-size: 0.85em;
   padding-top: 1px;
   padding-bottom: 1px;
+}
+
+#tabs .nav-link {
+  height: 32px
+}
+
+.tab-unviewed {
+  color: tomato;
+  font-weight: bold;
+}
+
+#left-bottom-tabs .nav-link.active {
+  background-color: #f7f7f7;
+  border-bottom-color: #f7f7f7;
 }
 
 .nav-pills .nav-link.active {
@@ -181,4 +252,94 @@
   width: 60px;
   height: auto;
   padding-left: 5px;
+}
+
+ul.list-striped {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+}
+ul.list-striped > li:nth-of-type(even) {
+  background-color: #e9e9f9;
+}
+ul.list-striped > li {
+  padding: 6px;
+}
+
+#engine-pvs {
+  font-size: 0.4em;
+  white-space: nowrap;
+  width: 100%;
+  height: 100%;
+}
+#engine-pvs > li {
+  font-size: 2.3em;
+}
+.btn-engine {
+  font-family: monospace; 
+  font-weight: bold;
+}
+
+.top-panel {
+  height: 56px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: flex;
+}
+
+.bottom-panel {
+  height: 56px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: flex;
+}
+
+.pane-status {
+  margin: 10px; 
+  text-align: center;
+}
+
+@media (max-width: 767px)
+{
+  .collapse-init {
+    display: none;
+  }
+}
+
+.eval-line-above {
+  fill: none;
+  stroke: #ffab00;
+  stroke-width: 3;
+}
+
+.eval-line-below {
+  fill: none;
+  stroke: red;
+  stroke-width: 3;
+}
+
+.eval-area-above {
+  fill: lightsteelblue;
+  stroke-width: 0;
+}
+
+.eval-area-below {
+  fill: #614e6e;
+  stroke-width: 0;
+}
+
+.tick line {
+  stroke-width: 1;
+  stroke: #DDD;
+}
+
+.eval-circle  {
+  stroke: #af9358;
+  fill: white;
+  stroke-width: 2;
+}
+
+#eval-progress {
+  padding: 20px;
 }

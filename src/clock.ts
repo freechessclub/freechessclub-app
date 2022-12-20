@@ -15,6 +15,16 @@ export function SToHHMMSS(sec: number) {
   + (s >= 0 && s < 10 ? '0' : '') + s);
 }
 
+export function updateWhiteClock(game) {
+  const clock = game.color === 'w' ? $('#player-time') : $('#opponent-time');
+  clock.text(SToHHMMSS(game.wtime));
+}
+
+export function updateBlackClock(game) {
+  const clock = game.color === 'b' ? $('#player-time') : $('#opponent-time');
+  clock.text(SToHHMMSS(game.btime));
+}
+
 export function startBlackClock(game) {
   return setInterval(() => {
     if (game.chess.turn() === 'w') {
