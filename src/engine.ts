@@ -253,8 +253,8 @@ export class EvalEngine {
                   container: 'body',
                   placement: 'auto',
                   trigger: 'manual'
-                })
-                .tooltip('show');
+                });
+              $('#hover-circle').tooltip('show');
               $('.tooltip').css('pointer-events', 'none');
             }
           })
