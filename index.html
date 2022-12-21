@@ -32,14 +32,14 @@
     </div>
     <div class="container-fluid flex pt-5">
       <div class="row justify-content-md-center">
-        <div class="col-lg-3 centervertical pt-5">
+        <div class="col-lg-5 centervertical pt-5">
           <h1 class="heading">
             Play online chess for free.
           </h1>
           <h5 class="paragraph">
             We're creating a modern web-based interface for the Free Internet Chess Server (FICS) — one of the oldest internet chess server with over 800,000 registered accounts. At Free Chess Club, you have access to online chess, puzzles, tournaments and analysis — right within your browser!
           </h5>
-          <div class="d-flex justify-content-evenly">
+          <div class="d-flex justify-content-between p-4">
             <a class="col-sm-5 btn btn-primary" href="/play">
               Play Now
             </a>
@@ -195,7 +195,7 @@
     }
     let platform = getPlatform();
     function getDownloadLink() {
-      let version = '1.6.1';
+      let version = '2.0.0';
       let baseLink = 'https://github.com/freechessclub/freechessclub/releases/';
       if (platform === 'Mac')
         return baseLink + 'download/v' + version + '/Free-Chess-Club-' + version + '.dmg';
