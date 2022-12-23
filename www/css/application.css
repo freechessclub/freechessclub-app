@@ -211,7 +211,7 @@ html, body {
 }
 
 .tab-unviewed {
-  color: tomato;
+  color: tomato !important;
   font-weight: bold;
 }
 
