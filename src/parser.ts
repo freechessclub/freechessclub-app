@@ -13,7 +13,7 @@ enum Reason {
   Draw,
   Adjourn,
   Abort,
-};
+}
 
 export class Parser {
   private loggedin: boolean;
@@ -216,34 +216,34 @@ export class Parser {
         fen += '/';
       }
       fen += this.style12ToFEN(match[8]);
-      // Parse the rest of the data, we should make use of all the game state info. 
+      // Parse the rest of the data, we should make use of all the game state info.
 
       // color whose turn it is to move ("B" or "W")
       fen += ' ' + match[9].toLowerCase();
       // castling state
-      var castleStr = '';
+      let castleStr = '';
       castleStr += (+match[11] === 1 ? 'K' : ''); // can White still castle short? (0=no, 1=yes)
       castleStr += (+match[12] === 1 ? 'Q' : ''); // can White still castle long?
       castleStr += (+match[13] === 1 ? 'k' : ''); // can Black still castle short?
       castleStr += (+match[14] === 1 ? 'q' : ''); // can Black still castle long?
       fen += ' ' + (castleStr === '' ? '-' : castleStr);
-      // -1 if the previous move was NOT a double pawn push, otherwise the chess board file  (numbered 0--7 for a--h) in which the double push was made   
-      fen += ' ' + (+match[10] === -1 ? '-' : String.fromCharCode("a".charCodeAt(0) + +match[10]) + (match[9] === 'W' ? '6' : '3')); 
-      // the number of moves made since the last irreversible move.  
+      // -1 if the previous move was NOT a double pawn push, otherwise the chess board file  (numbered 0--7 for a--h) in which the double push was made
+      fen += ' ' + (+match[10] === -1 ? '-' : String.fromCharCode('a'.charCodeAt(0) + +match[10]) + (match[9] === 'W' ? '6' : '3'));
+      // the number of moves made since the last irreversible move.
       fen += ' ' + match[15];
       // the full move number
-      fen += ' ' + match[26]; 
+      fen += ' ' + match[26];
 
       // Parse move in long format (from, to, promotion)
-      var moveMatches = match[27].match(/\S+\/(\S{2})-(\S{2})=?(\S?)/);  
-      var moveVerbose;
+      const moveMatches = match[27].match(/\S+\/(\S{2})-(\S{2})=?(\S?)/);
+      let moveVerbose;
       if(moveMatches) {
         moveVerbose = {
-          from: moveMatches[1], 
-          to: moveMatches[2], 
+          from: moveMatches[1],
+          to: moveMatches[2],
           promotion: moveMatches[3],
           san: match[30]
-        };  
+        };
       }
       else if(match[30] === 'O-O' || match[30] === 'O-O-O') {
         moveVerbose = {
@@ -267,8 +267,8 @@ export class Parser {
         bstrength: +match[23],  // Black material strength
         wtime: +match[24],                    // White's remaining time
         btime: +match[25],                    // Black's remaining time
-        moveNo: +match[26],                   // the number of the move about to be made 
-        moveVerbose: moveVerbose,             // verbose coordinate notation for the previous move ("none" if there werenone) [note this used to be broken for examined games]
+        moveNo: +match[26],                   // the number of the move about to be made
+        moveVerbose,             // verbose coordinate notation for the previous move ("none" if there werenone) [note this used to be broken for examined games]
         prevMoveTime: {minutes: match[28], seconds: match[29]}, // time taken to make previous move "(min:sec)".
         move: match[30],                      // pretty notation for the previous move ("none" if there is none)
         flip: match[31] === '1'               // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.

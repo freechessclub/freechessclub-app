@@ -109,7 +109,7 @@ export class Session {
         this.onRecv(data);
       }
     };
-    var that = this;
+    const that = this;
     this.websocket.onclose = function(e) { that.reset(e); };
     this.websocket.onopen = () => {
       $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');

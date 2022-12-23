@@ -123,7 +123,7 @@ export class Chat {
       if(tab.hasClass('tab-unviewed')) {
         if(!this.ignoreUnread(tab.attr('id'))) {
           this.unreadNum--;
-          if(this.unreadNum === 0) 
+          if(this.unreadNum === 0)
             $('#chat-unread-bubble').hide();
           else
             $('#chat-unread-number').text(this.unreadNum);
@@ -184,16 +184,16 @@ export class Chat {
   public setUser(user: string): void {
     if(this.user !== user) {
       this.unreadNum = 0;
-      var that = this;
-      $('#tabs .closeTab').each(function (index) { 
+      const that = this;
+      $('#tabs .closeTab').each(function (index) {
         that.closeTab($(this));
       });
     }
-    
+
     this.user = user;
   }
 
-  public createTab(name: string, showTab: boolean = false) {
+  public createTab(name: string, showTab = false) {
     const from = name.toLowerCase().replace(/\s/g, '-');
     if (!this.tabs.hasOwnProperty(from)) {
       let chName = name;
@@ -215,8 +215,8 @@ export class Chat {
     }
 
     if(showTab) {
-      var tabs = $('#tabs a').filter(function (index) { 
-        return $(this).attr('id') === from; 
+      const tabs = $('#tabs a').filter(function (index) {
+        return $(this).attr('id') === from;
       });
       tabs.first().tab('show');
     }
@@ -289,11 +289,11 @@ export class Chat {
       if (this.autoscrollToggle) {
         tab.scrollTop(tab[0].scrollHeight);
       }
-    } 
+    }
     else if(from !== 'console') {
       // Add unread number to chat-toggle-icon
-      if(!tabheader.hasClass('tab-unviewed') && !this.ignoreUnread(from)) { // only add if a private message 
-        if(this.unreadNum === 0) 
+      if(!tabheader.hasClass('tab-unviewed') && !this.ignoreUnread(from)) { // only add if a private message
+        if(this.unreadNum === 0)
           $('#chat-unread-bubble').show();
         this.unreadNum++;
         $('#chat-unread-number').text(this.unreadNum);
@@ -324,7 +324,7 @@ export class Chat {
 }
 
 function scrollToChat() {
-  if(isSmallWindow()) 
+  if(isSmallWindow())
     $(document).scrollTop($('#right-panel-header').offset().top);
 }
 
@@ -358,7 +358,7 @@ $('#collapse-chat').on('shown.bs.collapse', () => {
 });
 
 $('#chat-toggle-btn').on('click', (event) => {
-  $('#chat-toggle-btn').toggleClass("toggle-btn-selected");
+  $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
 });
 
 export default Chat;

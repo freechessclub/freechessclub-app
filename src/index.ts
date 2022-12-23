@@ -34,10 +34,10 @@ let modalCounter = 0;
 let numPVs = 1;
 let gameChangePending = false;
 let matchRequestList = [];
-let matchRequest = undefined;
+let matchRequest;
 let prevWindowWidth = 0;
-let addressBarHeight = undefined;
-let soundTimer = undefined
+let addressBarHeight;
+let soundTimer
 let removeSubvariationRequested = false;
 
 export function cleanup() {
@@ -57,7 +57,7 @@ export function cleanup() {
   hideCloseGamePanel();
   $('#playing-game-buttons').hide();
   if(game.history.length() > 0)
-    $('#viewing-game-buttons').show(); 
+    $('#viewing-game-buttons').show();
 
   if(game.wclock)
     clearInterval(game.wclock);
@@ -106,7 +106,7 @@ function showStatusPanel() {
 
 // Restricts input for the set of matched elements to the given inputFilter function.
 function setInputFilter(textbox: Element, inputFilter: (value: string) => boolean, errMsg: string): void {
-  ["input", "keydown", "keyup", "mousedown", "mouseup", "select", "contextmenu", "drop", "focusout"].forEach(function(event) {
+  ['input', 'keydown', 'keyup', 'mousedown', 'mouseup', 'select', 'contextmenu', 'drop', 'focusout'].forEach(function(event) {
     textbox.addEventListener(event, function(this: (HTMLInputElement | HTMLTextAreaElement) & {oldValue: string; oldSelectionStart: number | null, oldSelectionEnd: number | null}) {
       if (inputFilter(this.value)) {
         this.oldValue = this.value;
@@ -119,24 +119,24 @@ function setInputFilter(textbox: Element, inputFilter: (value: string) => boolea
           this.setSelectionRange(this.oldSelectionStart, this.oldSelectionEnd);
         }
       } else {
-        this.value = "";
+        this.value = '';
       }
     });
   });
 }
 
 $('#move-history').on('click', '.selectable', function() {
-  var id = $('#move-history .selectable').index(this) + 1;
-  gotoMove(id); 
+  const id = $('#move-history .selectable').index(this) + 1;
+  gotoMove(id);
 });
 
 export function gotoMove(id: number) {
   if(game.isExamining()) {
-    var move = game.history.get(id);
-    var prevMove = game.history.get();
+    const move = game.history.get(id);
+    const prevMove = game.history.get();
 
-    var mainlineId = id;
-    var firstSubvarId = id;
+    let mainlineId = id;
+    let firstSubvarId = id;
     if(!prevMove.subvariation && move.subvariation) {
       do {
         firstSubvarId = mainlineId;
@@ -148,7 +148,7 @@ export function gotoMove(id: number) {
     let backNum = 0;
     let i = game.history.index();
     while(i > id || (!move.subvariation && game.history.get(i).subvariation)) {
-      i = game.history.prev(i); 
+      i = game.history.prev(i);
       backNum++;
     }
     if(i > mainlineId)
@@ -157,27 +157,27 @@ export function gotoMove(id: number) {
       session.send('back ' + backNum);
     }
 
-    let forwardNum = 0; 
+    let forwardNum = 0;
     while(i < mainlineId && !game.history.scratch() && (!prevMove.subvariation || !move.subvariation)) {
-      i = game.history.next(i); 
+      i = game.history.next(i);
       forwardNum++;
-    } 
+    }
     if(forwardNum > 0)
       session.send('for ' + forwardNum);
 
     if(!prevMove.subvariation && move.subvariation) {
       i = firstSubvarId;
-      let iMove = game.history.get(i);  
+      const iMove = game.history.get(i);
       session.send(iMove.move.from + iMove.move.to);
     }
     while(i < id) {
       i = game.history.next(i);
-      let iMove = game.history.get(i);  
+      const iMove = game.history.get(i);
       session.send(iMove.move.from + iMove.move.to);
     }
   }
-  else 
-    var entry = game.history.display(id);           
+  else
+    var entry = game.history.display(id);
 }
 
 function showCapturePiece(color: string, p: string): void {
@@ -268,19 +268,19 @@ export function movePiece(source: any, target: any, metadata: any) {
   if (game.isExamining() || (game.isPlaying() && game.chess.turn() === game.color))
     session.send(source + '-' + target);
 
-  var fen = '';
-  var move = null;
+  let fen = '';
+  let move = null;
   if(game.isPlaying() || game.isExamining()) {
     move = game.chess.move({from: source, to: target, promotion: 'q'}); // TODO: Allow non-queen promotions
     fen = game.chess.fen();
   }
   else if(game.role === Role.NONE) {
-    var localChess = new Chess(game.history.get().fen);
+    const localChess = new Chess(game.history.get().fen);
     move = localChess.move({from: source, to: target, promotion: 'q'});
     fen = localChess.fen();
   }
 
-  if (move !== null) 
+  if (move !== null)
     movePieceAfter(move, fen);
 
   $('#pills-game-tab').tab('show');
@@ -293,39 +293,39 @@ function showStatusMsg(msg: string) {
   $('#game-status').html(msg + '<br/>');
 }
 
-function showModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress: boolean = false, useSessionSend: boolean = true) {
+function showModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true) {
   const modalId = 'modal' + modalCounter++;
   let req = `
   <div id="` + modalId + `" class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
     <div class="toast-header"><strong class="me-auto">` + type + `</strong>
     <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button></div>
     <div class="toast-body"><div class="d-flex align-items-center">
-    <strong class="text-primary my-auto">` + title + ' ' + msg + `</strong>`;
+    <strong class="text-primary my-auto">` + title + ' ' + msg + '</strong>';
 
   if (progress) {
-    req += `<div class="spinner-border ms-auto" role="status" aria-hidden="true"></div>`;
+    req += '<div class="spinner-border ms-auto" role="status" aria-hidden="true"></div>';
   }
 
-  req += `</div><div class="mt-2 pt-2 border-top center">`;
+  req += '</div><div class="mt-2 pt-2 border-top center">';
 
-  var successCmd = btnSuccess[0];
-  var failureCmd = btnFailure[0];
+  let successCmd = btnSuccess[0];
+  let failureCmd = btnFailure[0];
   if(useSessionSend) {
     successCmd = "sessionSend('" + btnSuccess[0] + "');";
     failureCmd = "sessionSend('" + btnFailure[0] + "');";
   }
 
   if (btnSuccess !== undefined && btnSuccess.length === 2) {
-    req += `<button type="button" id="btn-success" onclick="` + successCmd + `" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
-        <span class="fa fa-check-circle-o" aria-hidden="false"></span> ` + btnSuccess[1] + `</button>`;
+    req += '<button type="button" id="btn-success" onclick="' + successCmd + `" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
+        <span class="fa fa-check-circle-o" aria-hidden="false"></span> ` + btnSuccess[1] + '</button>';
   }
 
   if (btnFailure !== undefined && btnFailure.length === 2) {
-    req += `<button type="button" id="btn-failure" onclick="` + failureCmd + `" class="btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
-        <span class="fa fa-times-circle-o" aria-hidden="false"></span> ` + btnFailure[1] + `</button>`;
+    req += '<button type="button" id="btn-failure" onclick="' + failureCmd + `" class="btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
+        <span class="fa fa-times-circle-o" aria-hidden="false"></span> ` + btnFailure[1] + '</button>';
   }
 
-  req += `</div></div></div>`;
+  req += '</div></div></div>';
   $('#game-requests').append(req);
   $('#' + modalId).toast('show');
 }
@@ -335,7 +335,7 @@ export function parseMovelist(movelist: string) {
   let found : string[] & { index?: number } = [''];
   let n = 1;
   const chess = Chess();
-  game.history.reset(chess.fen()); 
+  game.history.reset(chess.fen());
   while (found !== null) {
     // Fixed regex to allow for O-O and other moves with symbols and fixed bug with brackets for optional 2nd column
     found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*(?:\\(\\d+:\\d+\\))\\s*(?:(\\S*)\\s*(?:\\(\\d+:\\d+\\)))?.*', 'm'));
@@ -390,12 +390,12 @@ function messageHandler(data) {
     case MessageType.PrivateTell:
       chat.newMessage(data.user, data);
       break;
-    case MessageType.GameMove:    
+    case MessageType.GameMove:
       // Check we are not examining/observing another game already
       if((game.isExamining() || game.isObserving()) && game.id !== data.id) {
         if(game.isExamining())
           session.send('unex');
-        else if(game.isObserving()) 
+        else if(game.isObserving())
           session.send('unobs ' + game.id);
         gameChangePending = true;
         break;
@@ -432,7 +432,7 @@ function messageHandler(data) {
           else {
             game.watchers = setInterval(() => {
               session.send('allobs ' + game.id);
-            }, 5000); 
+            }, 5000);
           }
         }
 
@@ -446,13 +446,13 @@ function messageHandler(data) {
           $('#opponent-name').text(game.wname);
         }
 
-        game.history = new History(game.fen, board); 
+        game.history = new History(game.fen, board);
         evalEngine.terminate();
         evalEngine = new EvalEngine(game.history);
-        updateBoard(); 
+        updateBoard();
 
         if (game.role === Role.NONE || game.isObserving() || game.isExamining()) {
-          if(!isSmallWindow()) 
+          if(!isSmallWindow())
             showCloseGamePanel();
           if (game.isExamining()) {
             $('#stop-examining').show();
@@ -460,13 +460,13 @@ function messageHandler(data) {
             gameInfoRequested = true;
             if(game.wname === game.bname)
               game.history.scratch(true);
-            else { 
+            else {
               if(getPlyFromFEN(game.fen) !== 1)
                 session.send('back 999');
               session.send('for 999');
             }
           }
-          else 
+          else
             $('#stop-observing').show();
 
           $('#playing-game').hide();
@@ -484,7 +484,7 @@ function messageHandler(data) {
       if (data.role === Role.NONE || data.role >= -2) {
         clock.updateWhiteClock(game);
         clock.updateBlackClock(game);
-      
+
         let move = null;
         const lastPly = getPlyFromFEN(game.chess.fen());
         const thisPly = getPlyFromFEN(data.fen);
@@ -521,7 +521,7 @@ function messageHandler(data) {
         chat.createTab(data.player_two);
       } else {
         chat.createTab(data.player_one);
-      } 
+      }
       break;
     case MessageType.GameEnd:
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
@@ -555,10 +555,10 @@ function messageHandler(data) {
       break;
     case MessageType.Unknown:
     default:
-      //const msg = data.message.replace(/\n/g, ''); // Not sure this is a good idea. Newlines provide 
-                                                     // useful information for parsing. For example, to
-                                                     // prevent other people injecting commands into messages 
-                                                     // somehow
+      // const msg = data.message.replace(/\n/g, ''); // Not sure this is a good idea. Newlines provide
+      // useful information for parsing. For example, to
+      // prevent other people injecting commands into messages
+      // somehow
       const msg = data.message;
 
       // For takebacks, board was already updated when new move received and
@@ -567,7 +567,7 @@ function messageHandler(data) {
       if (match !== null && match.length > 1)
         return;
       match = msg.match(/You (\w+) the takeback request from (\w+)\./);
-      if (match !== null && match.length > 1) 
+      if (match !== null && match.length > 1)
         return;
 
       match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
@@ -577,16 +577,16 @@ function messageHandler(data) {
           match[2] = match[2].replace(/\(U\)/g, '');
           const watchers = match[2].split(' ');
           let req = '';
-          var numWatchers = 0;          
+          let numWatchers = 0;
           for (let i = 0; i < watchers.length; i++) {
             if(watchers[i].replace('#', '') === session.getUser())
               continue;
             numWatchers++;
             if(numWatchers == 1)
               req = 'Watchers:';
-            req += `<span class="ms-1 badge rounded-pill bg-secondary noselect">` + watchers[i] + `</span>`;
+            req += '<span class="ms-1 badge rounded-pill bg-secondary noselect">' + watchers[i] + '</span>';
             if (numWatchers > 5) {
-              req += ` + ` + (watchers.length - i) + ` more.`;
+              req += ' + ' + (watchers.length - i) + ' more.';
               break;
             }
           }
@@ -624,28 +624,28 @@ function messageHandler(data) {
             showHistory(match[1], data.message);
           }
         }
-        else 
+        else
           chat.newMessage('console', data);
 
         return;
       }
 
       match = msg.match(/^(There is no player matching the name (\w+)\.)/m);
-      if(!match) 
+      if(!match)
         match = msg.match(/^('(\S+(?='))' is not a valid handle\.)/m);
-      if(!match) 
+      if(!match)
         match = msg.match(/^((\w+) has no history games\.)/m);
       if(!match)
         match = msg.match(/^(You need to specify at least two characters of the name\.)/m);
-      if(!match) 
+      if(!match)
         match = msg.match(/^(Ambiguous name ([^s:]+):)/m);
-      if(!match) 
+      if(!match)
         match = msg.match(/^((\w+) is not logged in\.)/m);
-      if(!match) 
+      if(!match)
         match = msg.match(/^((\w+) is not playing a game\.)/m);
-      if(!match) 
+      if(!match)
         match = msg.match(/^(Sorry, game \d+ is a private game\.)/m);
-      if(!match) 
+      if(!match)
         match = msg.match(/^((\w+) is playing a game\.)/m);
       if(!match)
         match = msg.match(/^((\w+) is examining a game\.)/m);
@@ -654,9 +654,9 @@ function messageHandler(data) {
       if(!match)
         match = msg.match(/^(You cannot challenge while you are (?:examining|playing) a game\.)/m);
       if(match != null) {
-        if(historyRequested || obsRequested || matchRequest) { 
-          var user = '';
-          var status = undefined;
+        if(historyRequested || obsRequested || matchRequest) {
+          let user = '';
+          let status;
           if(historyRequested) {
             user = getValue('#examine-username');
             status = $('#examine-pane-status');
@@ -685,7 +685,7 @@ function messageHandler(data) {
             }
 
             status.show();
-            if(match[1].startsWith('Ambiguous name')) 
+            if(match[1].startsWith('Ambiguous name'))
               status.text('There is no player matching the name ' + user + '.');
             else
               status.text(match[1]);
@@ -705,7 +705,7 @@ function messageHandler(data) {
           $('#observe-pane-status').hide();
           $('#pills-game-tab').tab('show');
         }
-        
+
         chat.newMessage('console', data);
         return;
       }
@@ -713,11 +713,11 @@ function messageHandler(data) {
       match = msg.match(/^Your seek has been posted with index \d+\./m);
       if(!match)
         match = msg.match(/^Issuing: \w+ \([-\d]+\) \w+ \([-\d]+\)/m);
-      if(!match) 
+      if(!match)
         match = msg.match(/^Updating offer already made to "\w+"\./m);
       if(match) {
         if(matchRequest) {
-          var found = false;
+          let found = false;
           for(let i = matchRequestList.length - 1; i >= 0; i--) {
             if(matchRequestList[i].opponent.localeCompare(matchRequest.opponent, undefined, { sensitivity: 'accent' }) === 0) {
               if(matchRequestList[i].min === matchRequest.min && matchRequestList[i].sec === matchRequest.sec)
@@ -728,20 +728,20 @@ function messageHandler(data) {
           }
           if(!found) {
             matchRequestList.push(matchRequest);
-            $('#game-requests').empty();         
-            var modalText = '';
-            for(let request of matchRequestList) {
+            $('#game-requests').empty();
+            let modalText = '';
+            for(const request of matchRequestList) {
               if(request.opponent.length) {
                 if(request.min === 0 && request.sec === 0)
                   modalText += 'Challenging ' + request.opponent + ' to an untimed game...<br>';
                 else
                   modalText += 'Challenging ' + request.opponent + ' to a ' + request.min + ' ' + request.sec + ' game...<br>';
               }
-              else { 
+              else {
                 if(request.min === 0 && request.sec === 0)
-                  modalText += 'Seeking an untimed game...<br>'; 
+                  modalText += 'Seeking an untimed game...<br>';
                 else
-                  modalText += 'Seeking a ' + request.min + ' ' + request.sec + ' game...<br>'; 
+                  modalText += 'Seeking a ' + request.min + ' ' + request.sec + ' game...<br>';
               }
             }
             showModal('Game Request', '', modalText, ['cancelMatchRequests();', 'Cancel'], [], true, false);
@@ -749,7 +749,7 @@ function messageHandler(data) {
           matchRequest = undefined;
           $('#play-pane-status').hide();
         }
-         
+
         chat.newMessage('console', data);
         return;
       }
@@ -759,14 +759,14 @@ function messageHandler(data) {
       if(match && match.length > 8) {
         gameInfoRequested = false;
 
-        var wrating = game.wrating = match[1];
-        var wname = match[2];
-        var brating = game.brating = match[3];
-        var bname = match[4];
-        var style = match[5];
-        var rated = (match[6] === 'r' ? 'rated' : 'unrated');
-        var initialTime = match[7];
-        var increment = match[8];
+        let wrating = game.wrating = match[1];
+        const wname = match[2];
+        let brating = game.brating = match[3];
+        const bname = match[4];
+        const style = match[5];
+        const rated = (match[6] === 'r' ? 'rated' : 'unrated');
+        const initialTime = match[7];
+        const increment = match[8];
 
         const styleNames = new Map([
           ['b', 'blitz'], ['l', 'lightning'], ['u', 'untimed'], ['e', 'examined'],
@@ -783,21 +783,21 @@ function messageHandler(data) {
           match = wname.match(/Guest[A-Z]{4}/);
           if(match)
             wrating = '++++';
-          else wrating = '----';            
+          else wrating = '----';
         }
         if(brating === '') {
           match = bname.match(/Guest[A-Z]{4}/);
           if(match)
             brating = '++++';
-          else brating = '----';       
+          else brating = '----';
         }
 
-        var time = ' ' + initialTime + ' ' + increment;
-        if(style === 'u') 
+        let time = ' ' + initialTime + ' ' + increment;
+        if(style === 'u')
           time = '';
 
-        var statusMsg = wname + ' (' + wrating + ') ' + bname + ' (' + brating + ') ' 
-          + rated + ' ' + styleNames.get(style) + time; 
+        const statusMsg = wname + ' (' + wrating + ') ' + bname + ' (' + brating + ') '
+          + rated + ' ' + styleNames.get(style) + time;
 
         showStatusMsg(statusMsg);
         return;
@@ -819,12 +819,12 @@ function messageHandler(data) {
 
       // Moving backwards and forwards is now handled more generally by updateHistory()
       match = msg.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
-      if (match != null && match.length > 1) 
+      if (match != null && match.length > 1)
         return;
       match = msg.match(/Game\s\d+: \w+ goes forward (\d+) moves?\./);
-      if (match != null && match.length > 1) 
-      return;
-      
+      if (match != null && match.length > 1)
+        return;
+
       match = msg.match(/(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\).+/);
       if (match != null && match.length > 4) {
         game.wrating = match[4];
@@ -860,7 +860,6 @@ function messageHandler(data) {
       }
 
       match = msg.match(
-        // tslint:disable-next-line:max-line-length
         /Challenge: (\w+) \(([\d\+\-\s]{4})\) (\[(?:white|black)\] )?(\w+) \(([\d\+\-\s]{4})\)\s((?:.+))You can "accept" or "decline", or propose different parameters./ms);
       if (match != null && match.length > 4) {
         const [opponentName, opponentRating] = (match[1] === session.getUser()) ?
@@ -890,7 +889,7 @@ function messageHandler(data) {
 
       match = msg.match(/Removing game (\d+) from observation list./);
       if (match != null && match.length > 1) {
-        if(gameChangePending) 
+        if(gameChangePending)
           session.send('refresh');
 
         stopEngine();
@@ -900,8 +899,8 @@ function messageHandler(data) {
 
       match = msg.match(/You are no longer examining game (\d+)./);
       if (match != null && match.length > 1) {
-        if(gameChangePending) 
-          session.send("refresh");
+        if(gameChangePending)
+          session.send('refresh');
 
         stopEngine();
         cleanup();
@@ -957,34 +956,34 @@ function messageHandler(data) {
 }
 
 export function scrollToBoard() {
-  if(isSmallWindow()) 
+  if(isSmallWindow())
     $(document).scrollTop($('#left-panel-footer').offset().top);
 }
 
 function scrollToLeftPanelBottom() {
-  if(isSmallWindow()) 
+  if(isSmallWindow())
     $(document).scrollTop($('#left-panel-bottom').offset().top);
 }
 
 function scrollToTop() {
-  if(isSmallWindow()) 
+  if(isSmallWindow())
     $(document).scrollTop($('#left-panel-header').offset().top);
 }
 
 function getPlyFromFEN(fen: string) {
-  var turn_color = fen.split(/\s+/)[1];
-  var move_no = +fen.split(/\s+/).pop();
-  var ply = move_no * 2 - (turn_color === 'w' ? 1 : 0);
+  const turn_color = fen.split(/\s+/)[1];
+  const move_no = +fen.split(/\s+/).pop();
+  const ply = move_no * 2 - (turn_color === 'w' ? 1 : 0);
 
   return ply;
 }
 
 function showStrengthDiff(fen: string) {
-  var diff = {
+  const diff = {
     P: 0, R: 0, B: 0, N: 0, Q: 0, K: 0
   };
 
-  var pos = fen.split(/\s+/)[0];
+  const pos = fen.split(/\s+/)[0];
   for(let i = 0; i < pos.length; i++) {
     if(diff.hasOwnProperty(pos[i].toUpperCase()))
       diff[pos[i].toUpperCase()] = diff[pos[i].toUpperCase()] + (pos[i] === pos[i].toUpperCase() ? 1 : -1);
@@ -994,18 +993,18 @@ function showStrengthDiff(fen: string) {
   $('#opponent-captured').empty();
   for (const key in diff) {
     if(diff[key] !== 0) {
-      var piece = '';
-      var strength = 0;
-      var panel = undefined;
+      let piece = '';
+      let strength = 0;
+      let panel;
       if (diff[key] > 0) {
         piece = 'B' + key;
         strength = diff[key];
-        panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured')); 
+        panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured'));
       }
       else if(diff[key] < 0) {
         piece = 'W' + key;
         strength = -diff[key];
-        panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured')); 
+        panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured'));
       }
       panel.append(
         '<img id="' + piece + '" src="www/css/images/pieces/merida/' +
@@ -1018,13 +1017,13 @@ function updateHistory(move?: any, fen?: string) {
   if(!fen)
     fen = game.chess.fen();
 
-  var index = game.history.find(fen);
+  const index = game.history.find(fen);
 
   if(move && !index) {
     var subvariation = false;
 
     if(game.role === Role.NONE || game.isExamining()) {
-      if(game.history.length() === 0) 
+      if(game.history.length() === 0)
         game.history.scratch(true);
 
       var subvariation = !game.history.scratch();
@@ -1033,7 +1032,7 @@ function updateHistory(move?: any, fen?: string) {
     }
     game.history.add(move, fen, subvariation);
     $('#playing-game').hide();
-  } 
+  }
   else {
     // move is beyond the end of the move list
     if(getPlyFromFEN(fen) - 1 > game.history.length()) {
@@ -1042,12 +1041,12 @@ function updateHistory(move?: any, fen?: string) {
     }
 
     // already displaying this move
-    if(index === game.history.index()) 
+    if(index === game.history.index())
       return;
 
     // move is earlier, we need to take-back
     if(game.isPlaying() || game.isObserving()) {
-      while(index < game.history.length()) 
+      while(index < game.history.length())
         game.history.removeLast();
     }
   }
@@ -1056,38 +1055,38 @@ function updateHistory(move?: any, fen?: string) {
 
   if(removeSubvariationRequested && !game.history.get(index).subvariation) {
     game.history.removeSubvariation();
-    $('#exit-subvariation').hide();   
-    removeSubvariationRequested = false; 
+    $('#exit-subvariation').hide();
+    removeSubvariationRequested = false;
   }
 }
 
-export function updateBoard(playMove: boolean = false) {
-  var move = game.history.get().move;
-  var fen = game.history.get().fen;
+export function updateBoard(playMove = false) {
+  const move = game.history.get().move;
+  const fen = game.history.get().fen;
 
   if(playMove) {
     board.move(move.from, move.to);
     if (move.flags !== 'n') {
-      board.set({ fen: fen });
+      board.set({ fen });
     }
   }
-  else 
-    board.set({ fen: fen });
+  else
+    board.set({ fen });
 
-  var localChess = new Chess(fen);
+  const localChess = new Chess(fen);
 
   if(move) {
     board.set({ animation: { enabled: false }});
     board.move( move.to, move.from );
     board.move( move.from, move.to );
     board.set({ animation: { enabled: true }});
-  } 
-  else 
+  }
+  else
     board.set({ lastMove: false });
 
-  var dests : Map<Key, Key[]> | undefined = undefined;
-  var movableColor : string | undefined = undefined;
-  var turnColor : string | undefined = undefined;
+  let dests : Map<Key, Key[]> | undefined;
+  let movableColor : string | undefined;
+  let turnColor : string | undefined;
 
   if(game.isObserving()) {
     turnColor = toColor(game.chess);
@@ -1111,12 +1110,12 @@ export function updateBoard(playMove: boolean = false) {
   let movable : any = {};
   movable = {
     color: movableColor,
-    dests: dests
+    dests
   };
 
   board.set({
-    turnColor: turnColor,
-    movable: movable,
+    turnColor,
+    movable,
     check: localChess.in_check(),
     blockTouchScroll: (game.isPlaying() ? true : false),
   });
@@ -1126,20 +1125,20 @@ export function updateBoard(playMove: boolean = false) {
   if(playMove && soundToggle) {
     clearTimeout(soundTimer);
     soundTimer = setTimeout(() => {
-      var entry = game.history.get();
-      var chess = new Chess(entry.fen);
+      const entry = game.history.get();
+      const chess = new Chess(entry.fen);
       if(chess.in_check()) {
-        Sounds.checkSound.pause(); 
+        Sounds.checkSound.pause();
         Sounds.checkSound.currentTime = 0;
         Sounds.checkSound.play();
       }
       else if(entry.move.captured) {
-        Sounds.captureSound.pause(); 
+        Sounds.captureSound.pause();
         Sounds.captureSound.currentTime = 0;
         Sounds.captureSound.play();
-      } 
+      }
       else {
-        Sounds.moveSound.pause(); 
+        Sounds.moveSound.pause();
         Sounds.moveSound.currentTime = 0;
         Sounds.moveSound.play();
       }
@@ -1158,7 +1157,7 @@ function startEngine() {
   $('#start-engine').text('Stop');
 
   $('#engine-pvs').empty();
-  for(let i = 0; i < numPVs; i++) 
+  for(let i = 0; i < numPVs; i++)
     $('#engine-pvs').append('<li>&nbsp;</li>');
 
   engine = new Engine(board, numPVs);
@@ -1190,12 +1189,12 @@ function hideAnalysis() {
 function showAnalysis() {
   showStatusPanel();
   $('#analyze').hide();
-  $('#hide-analysis').show();  
+  $('#hide-analysis').show();
   openLeftBottomTab($('#engine-tab'));
   openLeftBottomTab($('#eval-graph-tab'));
   $('#eval-graph-tab').find('.nav-link').tab('show');
   $('#engine-pvs').empty();
-  for(let i = 0; i < numPVs; i++) 
+  for(let i = 0; i < numPVs; i++)
     $('#engine-pvs').append('<li>&nbsp;</li>');
   $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
   scrollToLeftPanelBottom();
@@ -1226,8 +1225,8 @@ function getMoves() {
   let moves = '';
   const history = game.chess.history({verbose: true});
   for (let i = 0; i < history.length; ++i) {
-      const move = history[i];
-      moves += ' ' + move.from + move.to + (move.promotion ? move.promotion : '');
+    const move = history[i];
+    moves += ' ' + move.from + move.to + (move.promotion ? move.promotion : '');
   }
   return moves;
 }
@@ -1239,7 +1238,7 @@ function getMoveNoFromFEN(fen: string) {
 $('#collapse-history').on('hidden.bs.collapse', (event) => {
   $('#history-toggle-icon').removeClass('fa-toggle-up').addClass('fa-toggle-down');
 
-  $('#pills-tab button').each(function () { 
+  $('#pills-tab button').each(function () {
     $(this).removeClass('active');
   });
 
@@ -1249,7 +1248,7 @@ $('#collapse-history').on('hidden.bs.collapse', (event) => {
 $('#collapse-history').on('shown.bs.collapse', (event) => {
   $('#history-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
 
-  var activeTabIndex = $('#left-menu > .tab-content > .tab-pane').index($('#left-menu > .tab-content > .tab-pane:visible'));
+  const activeTabIndex = $('#left-menu > .tab-content > .tab-pane').index($('#left-menu > .tab-content > .tab-pane:visible'));
   $('#pills-tab button').eq(activeTabIndex).addClass('active');
 
   scrollToTop();
@@ -1347,7 +1346,7 @@ $('#input-form').on('submit', (event) => {
       user: session.getUser(),
       message: cmd.slice(2).join(' '),
     });
-  } 
+  }
   session.send(text);
   $('#input-text').val('');
 });
@@ -1356,7 +1355,7 @@ function onDeviceReady() {
   disableOnlineInputs(true);
 
   game.role = Role.NONE;
-  game.history = new History(new Chess().fen(), board); 
+  game.history = new History(new Chess().fen(), board);
 
   const user = Cookies.get('user');
   const pass = Cookies.get('pass');
@@ -1381,7 +1380,7 @@ function onDeviceReady() {
     $('#pills-play-tab').tab('show');
     $('#collapse-history').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
-    $('#chat-toggle-btn').toggleClass("toggle-btn-selected");
+    $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
   }
 
   setPanelHeights();
@@ -1393,7 +1392,7 @@ function onDeviceReady() {
   selectOnFocus($('#examine-username'));
 
   evalEngine = new EvalEngine(game.history);
-  updateBoard(); 
+  updateBoard();
 }
 
 function selectOnFocus(input: any) {
@@ -1402,7 +1401,7 @@ function selectOnFocus(input: any) {
       $(this).trigger('select');
       return false;
     })
-    .trigger('select');
+      .trigger('select');
   });
 }
 
@@ -1426,13 +1425,13 @@ function useDesktopLayout() {
 
 function swapLeftRightPanelHeaders() {
   // Swap top left and top right panels to bring navigation buttons closer to board
-  var leftHeaderContents = $('#left-panel-header').children();
-  var rightHeaderContents = $('#right-panel-header').children();
+  const leftHeaderContents = $('#left-panel-header').children();
+  const rightHeaderContents = $('#right-panel-header').children();
   rightHeaderContents.appendTo($('#left-panel-header'));
   leftHeaderContents.appendTo($('#right-panel-header'));
 
-  var leftHeaderClass = $('#left-panel-header').attr('class');
-  var rightHeaderClass = $('#right-panel-header').attr('class');
+  const leftHeaderClass = $('#left-panel-header').attr('class');
+  const rightHeaderClass = $('#right-panel-header').attr('class');
   $('#left-panel-header').attr('class', rightHeaderClass);
   $('#right-panel-header').attr('class', leftHeaderClass);
 
@@ -1450,20 +1449,20 @@ function swapLeftRightPanelHeaders() {
 // Try to do it in a robust way that won't break if we add/remove elements later.
 function setPanelHeights() {
   // Get and store the height of the address bar in mobile browsers.
-  if(isSmallWindow() && addressBarHeight === undefined) 
-      addressBarHeight = $(window).height() - window.innerHeight;
+  if(isSmallWindow() && addressBarHeight === undefined)
+    addressBarHeight = $(window).height() - window.innerHeight;
 
   // On mobile, slim down player status panels in order to fit everything within window height
-  var originalHeight = $('#left-panel-header').height();
+  const originalHeight = $('#left-panel-header').height();
   if(isSmallWindow()) {
-    var cardBorders = $('#mid-card').outerHeight() - $('#mid-card').height() 
+    const cardBorders = $('#mid-card').outerHeight() - $('#mid-card').height()
       + Math.round(parseFloat($('#left-card').css('border-bottom-width')))
       + Math.round(parseFloat($('#right-card').css('border-top-width')));
-    var playerStatusBorder = $('#player-status').outerHeight() - $('#player-status').height();
+    const playerStatusBorder = $('#player-status').outerHeight() - $('#player-status').height();
     var playerStatusHeight = ($(window).height() - addressBarHeight - $('#board-card').outerHeight() - $('#left-panel-footer').outerHeight() - $('#right-panel-header').outerHeight() - cardBorders) / 2 - playerStatusBorder;
-    playerStatusHeight = Math.min(Math.max(playerStatusHeight, originalHeight - 20), originalHeight); 
+    playerStatusHeight = Math.min(Math.max(playerStatusHeight, originalHeight - 20), originalHeight);
   }
-  else 
+  else
     playerStatusHeight = originalHeight;
   $('#player-status').height(playerStatusHeight);
   $('#opponent-status').height(playerStatusHeight);
@@ -1477,10 +1476,10 @@ function setPanelHeights() {
       if($(this).is(':visible'))
         siblingsHeight += $(this).outerHeight();
     });
-    var leftPanelBorder = $('#left-panel').outerHeight() - $('#left-panel').height();
+    const leftPanelBorder = $('#left-panel').outerHeight() - $('#left-panel').height();
 
     if(isSmallWindow())
-      $('#left-panel').height(430);  
+      $('#left-panel').height(430);
     else
       $('#left-panel').height(boardHeight - leftPanelBorder - siblingsHeight);
 
@@ -1491,13 +1490,13 @@ function setPanelHeights() {
       if($(this).is(':visible'))
         siblingsHeight += $(this).outerHeight();
     });
-    var rightPanelBorder = $('#right-panel').outerHeight() - $('#right-panel').height();
+    const rightPanelBorder = $('#right-panel').outerHeight() - $('#right-panel').height();
 
-    if(isSmallWindow()) 
-      $('#right-panel').height($(window).height() - addressBarHeight - rightPanelBorder - siblingsHeight 
-          - $('#right-panel-header').outerHeight() - $('#right-panel-footer').outerHeight());    
+    if(isSmallWindow())
+      $('#right-panel').height($(window).height() - addressBarHeight - rightPanelBorder - siblingsHeight
+          - $('#right-panel-header').outerHeight() - $('#right-panel-footer').outerHeight());
     else
-      $('#right-panel').height(boardHeight - rightPanelBorder - siblingsHeight);     
+      $('#right-panel').height(boardHeight - rightPanelBorder - siblingsHeight);
   }
 }
 
@@ -1532,9 +1531,9 @@ $('#abort').on('click', (event) => {
 
 $('#takeback').on('click', (event) => {
   if (game.chess !== null) {
-    if (game.chess.turn() === game.color) 
+    if (game.chess.turn() === game.color)
       session.send('take 2');
-    else 
+    else
       session.send('take 1');
   } else {
     showStatusMsg('You are not playing a game.');
@@ -1549,18 +1548,18 @@ $('#draw').on('click', (event) => {
   }
 });
 
-$('#analyze').on('click', (event) => { 
+$('#analyze').on('click', (event) => {
   showAnalysis();
 });
 
-$('#hide-analysis').on('click', (event) => { 
+$('#hide-analysis').on('click', (event) => {
   hideAnalysis();
 });
 
 $('#start-engine').on('click', (event) => {
-  if(!engine) 
+  if(!engine)
     startEngine();
-  else 
+  else
     stopEngine();
 });
 
@@ -1577,7 +1576,7 @@ $('#add-pv').on('click', (event) => {
 $('#remove-pv').on('click', (event) => {
   if(numPVs == 1)
     return;
-  
+
   numPVs--;
   $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
   $('#engine-pvs li').last().remove();
@@ -1586,10 +1585,10 @@ $('#remove-pv').on('click', (event) => {
 });
 
 function getGame(min: number, sec: number) {
-  var opponent = getValue('#opponent-player-name')
+  let opponent = getValue('#opponent-player-name')
   opponent = opponent.trim().split(/\s+/)[0];
   $('#opponent-player-name').val(opponent);
-  matchRequest = {opponent: opponent, min: min, sec: sec};
+  matchRequest = {opponent, min, sec};
   const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek';
   session.send(cmd + ' ' + min + ' ' + sec);
 }
@@ -1610,7 +1609,7 @@ $('#input-text').on('focus', () => {
 });
 
 $('#new-game').on('click', (event) => {
-  if (game.chess === null) 
+  if (game.chess === null)
     session.send('getga');
 });
 
@@ -1635,9 +1634,9 @@ $('#custom-control').on('submit', (event) => {
 
 $('#fast-backward').off('click');
 $('#fast-backward').on('click', () => {
-  if (game.isExamining()) 
+  if (game.isExamining())
     session.send('back 999');
-  else if(game.history) 
+  else if(game.history)
     game.history.beginning();
   $('#pills-game-tab').tab('show');
 });
@@ -1649,7 +1648,7 @@ $('#backward').on('click', () => {
 
 function backward() {
   if(game.history) {
-    if(game.isExamining()) 
+    if(game.isExamining())
       session.send('back');
     else
       game.history.backward();
@@ -1665,10 +1664,10 @@ $('#forward').on('click', () => {
 function forward() {
   if(game.history) {
     if (game.isExamining()) {
-      var nextIndex = game.history.next();
+      const nextIndex = game.history.next();
       if(nextIndex !== undefined) {
-        var nextMove = game.history.get(nextIndex);
-        if(nextMove.subvariation || game.history.scratch()) 
+        const nextMove = game.history.get(nextIndex);
+        if(nextMove.subvariation || game.history.scratch())
           session.send(nextMove.move.from + nextMove.move.to);
         else
           session.send('for');
@@ -1693,7 +1692,7 @@ $('#fast-forward').on('click', () => {
         forward();
     }
   }
-  else if(game.history) 
+  else if(game.history)
     game.history.end();
   $('#pills-game-tab').tab('show');
 });
@@ -1701,9 +1700,9 @@ $('#fast-forward').on('click', () => {
 $('#exit-subvariation').off('click');
 $('#exit-subvariation').on('click', () => {
   if(game.isExamining()) {
-    var index = game.history.index();
-    var move = game.history.get(index);
-    var backNum = 0;
+    let index = game.history.index();
+    let move = game.history.get(index);
+    let backNum = 0;
     while(move.subvariation) {
       backNum++;
       index = game.history.prev(index);
@@ -1715,7 +1714,7 @@ $('#exit-subvariation').on('click', () => {
     }
     else {
       game.history.removeSubvariation();
-      $('#exit-subvariation').hide();    
+      $('#exit-subvariation').hide();
     }
   }
   else {
@@ -1726,7 +1725,7 @@ $('#exit-subvariation').on('click', () => {
 });
 
 $(document).on('keydown', (e) => {
-  if ($(e.target).closest("input")[0]) {
+  if ($(e.target).closest('input')[0]) {
     return;
   }
 
@@ -1734,7 +1733,7 @@ $(document).on('keydown', (e) => {
     backward();
 
   else if(e.key === 'ArrowRight')
-    forward();  
+    forward();
 });
 
 if (!soundToggle) {
@@ -1819,7 +1818,7 @@ $('#connect-user').on('click', (event) => {
 $('#connect-guest').on('click', (event) => {
   const proxy = Cookies.get('proxy');
   const enableProxy = (proxy !== undefined);
-  if(session) 
+  if(session)
     session.disconnect();
   session = new Session(messageHandler, enableProxy);
 });
@@ -1863,9 +1862,9 @@ $(window).on('beforeunload', () => {
 });
 
 function getHistory(user: string) {
-  if (session && session.isConnected()) {   
+  if (session && session.isConnected()) {
     user = user.trim().split(/\s+/)[0];
-    if(user.length === 0) 
+    if(user.length === 0)
       user = session.getUser();
     $('#examine-username').val(user);
     historyRequested++;
@@ -1874,7 +1873,7 @@ function getHistory(user: string) {
 }
 
 export function parseHistory(history: string) {
-  var h = history.split('\n');
+  const h = history.split('\n');
   h.splice(0, 2);
   return h;
 }
@@ -1895,12 +1894,12 @@ function showHistory(user: string, history: string) {
   if (exUser.localeCompare(user, undefined, { sensitivity: 'accent' }) !== 0) {
     return;
   }
-  var hArr = parseHistory(history);
+  const hArr = parseHistory(history);
   for(let i = hArr.length - 1; i >= 0; i--) {
     const id = hArr[i].slice(0, hArr[i].indexOf(':'));
     $('#history-table').append(
-      `<button type="button" class="w-100 btn btn-outline-secondary" onclick="sessionSend('ex ` + user + ' ' +
-      + id + `'); showGameTab();">` + hArr[i] + `</button>`);
+      '<button type="button" class="w-100 btn btn-outline-secondary" onclick="sessionSend(\'ex ' + user + ' ' +
+      + id + '\'); showGameTab();">' + hArr[i] + '</button>');
   }
 }
 
@@ -1960,11 +1959,11 @@ function showGames(games: string) {
   for (const g of games.split('\n').slice(0, -2).reverse()) {
     const gg = g.trim();
     const id = gg.split(' ')[0];
-    var match = gg.match(/\[\s*p/); // Don't list private games
+    const match = gg.match(/\[\s*p/); // Don't list private games
     if(!match)
       $('#games-table').append(
-        `<button type="button" class="w-100 btn btn-outline-secondary" onclick="observeGame('` 
-        + id + `');">` + gg + `</button>`);
+        '<button type="button" class="w-100 btn btn-outline-secondary" onclick="observeGame(\''
+        + id + '\');">' + gg + '</button>');
   }
 }
 
@@ -2055,8 +2054,8 @@ function parseSeeks(msgs: string) {
     $('#lobby-table').html('');
     seekMap.forEach((value, key) => {
       $('#lobby-table').append(
-        `<button type="button" class="btn btn-outline-secondary" onclick="sessionSend('play ` +
-        + key + `'); showGameTab();">` + value + `</button>`);
+        '<button type="button" class="btn btn-outline-secondary" onclick="sessionSend(\'play ' +
+        + key + '\'); showGameTab();">' + value + '</button>');
     });
   }
 }

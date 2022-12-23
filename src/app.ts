@@ -135,7 +135,7 @@ const template = [{
 
 function addUpdateMenuItems(items, position) {
   if (process.mas) {
-      return;
+    return;
   }
 
   const version = app.getVersion();

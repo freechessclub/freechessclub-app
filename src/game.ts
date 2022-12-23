@@ -25,15 +25,15 @@ class GameData {
   bstrength: number;                    // Black material strength
   wtime: number;                        // White's remaining time
   btime: number;                        // Black's remaining time
-  moveNo: number;                       // the number of the move about to be made 
-  moveVerbose: {                        // verbose coordinate notation for the previous move 
-    from: string,                       // from square 
-    to: string,                         // two square 
+  moveNo: number;                       // the number of the move about to be made
+  moveVerbose: {                        // verbose coordinate notation for the previous move
+    from: string,                       // from square
+    to: string,                         // two square
     promotion: string,                  // promotion piece
     san: string,                        // move in algebraec form
   };
-  prevMoveTime: {                       // time taken to make previous move 
-    minutes: number, 
+  prevMoveTime: {                       // time taken to make previous move
+    minutes: number,
     seconds: number,
   };
   move: string;                         // pretty notation for the previous move ("none" if there is none)
@@ -44,19 +44,19 @@ class GameData {
   public isPlaying() { return this.role === Role.MY_MOVE || this.role === Role.OPPONENTS_MOVE; }
   public isExamining() { return this.role === Role.EXAMINING; }
   public isObserving() { return this.role === Role.OBSERVING || this.role === Role.OBS_EXAMINED; }
-};
+}
 
 // An online chess game
 class Game extends GameData {
   playerCaptured: any = {};
   oppCaptured: any = {};
   chess: any = null;
-  color: string = '';
+  color = '';
   history: any = null;
   bclock: any = null;
   wclock: any = null;
   watchers: any = null;
-};
+}
 
 export const game = new Game();
 
