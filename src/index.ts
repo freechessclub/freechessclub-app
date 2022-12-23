@@ -997,12 +997,12 @@ function showStrengthDiff(fen: string) {
       let strength = 0;
       let panel;
       if (diff[key] > 0) {
-        piece = 'B' + key;
+        piece = 'b' + key;
         strength = diff[key];
         panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured'));
       }
       else if(diff[key] < 0) {
-        piece = 'W' + key;
+        piece = 'w' + key;
         strength = -diff[key];
         panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured'));
       }
