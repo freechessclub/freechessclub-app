@@ -1184,6 +1184,7 @@ function hideAnalysis() {
   board.setAutoShapes([]);
   closeLeftBottomTab($('#engine-tab'));
   closeLeftBottomTab($('#eval-graph-tab'));
+  hideStatusPanel();
 }
 
 function showAnalysis() {
