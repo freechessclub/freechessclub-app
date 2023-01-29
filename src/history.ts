@@ -148,14 +148,7 @@ export class History {
   }
 
   public removeLast(): void {
-    this.undo();
-
-    const id: number = this.length();
-    if (id % 2 === 1) {
-      $('#move-history tr:last td').children().last().remove();
-    } else {
-      $('#move-history tr:last').remove();
-    }
+    this.remove(this.length());
   }
 
   public removeAll(): void {
