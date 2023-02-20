@@ -10,15 +10,7 @@ $(() => {
   $('[data-bs-toggle="tooltip"]').tooltip();
 });
 
-/* if ($(window).width() < 767) {
-  $('#collapse-chat').removeClass('show');
-  $('#collapse-history').removeClass('show');
-}*/
-
 $('#version').text('Version: ' + packageInfo.version);
-const proxy = Cookies.get('proxy');
-const proxyEnabled = (proxy !== undefined);
-$('#proxy').text('Proxy: ' + (proxyEnabled ? 'ON' : 'OFF'));
 
 // color theme controls
 const colorTheme = Cookies.get('theme');

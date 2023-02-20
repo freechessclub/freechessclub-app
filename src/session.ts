@@ -35,19 +35,17 @@ export function GetMessageType(msg: any): MessageType {
 
 export class Session {
   private connected: boolean;
-  private proxy: boolean;
   private user: string;
   private websocket: WebSocket;
   private onRecv: (msg: any) => void;
   private timesealHello = 'TIMESEAL2|freeseal|icsgo|';
   private tsKey = 'Timestamp (FICS) v1.0 - programmed by Henrik Gram.';
 
-  constructor(onRecv: (msg: any) => void, proxy: boolean, user?: string, pass?: string) {
+  constructor(onRecv: (msg: any) => void, user?: string, pass?: string) {
     this.connected = false;
-    this.proxy = proxy;
     this.user = '';
     this.onRecv = onRecv;
-    this.connect(proxy, user, pass);
+    this.connect(user, pass);
   }
 
   public getUser(): string {
@@ -72,7 +70,7 @@ export class Session {
     return this.connected;
   }
 
-  public connect(proxy: boolean, user?: string, pass?: string) {
+  public connect(user?: string, pass?: string) {
     $('#game-requests').empty();
     $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');
     const login = (user !== undefined && pass !== undefined);
@@ -87,22 +85,11 @@ export class Session {
       text += ']';
     }
 
-    let host = location.host;
-    if (host === '') {
-      host = 'www.freechess.club';
-    }
-
-    let protocol = 'ws://';
-    if (location.protocol === 'https:' || location.protocol === 'file:') {
-      protocol = 'wss://';
-    }
-
-    const uri = proxy ? (protocol + host + '/ws' + loginOptions) : 'wss://www.freechess.org:5001';
-    this.websocket = new WebSocket(uri);
+    this.websocket = new WebSocket('wss://www.freechess.org:5001');
     // this.websocket.binaryType = 'arraybuffer';
     const parser = new Parser(this, user, pass);
     this.websocket.onmessage = async (message: any) => {
-      const data = proxy ? JSON.parse(message.data) : await parser.parse(message.data);
+      const data = await parser.parse(message.data);
       if (Array.isArray(data)) {
         data.map((m) => this.onRecv(m));
       } else {
@@ -113,13 +100,7 @@ export class Session {
     this.websocket.onclose = function(e) { that.reset(e); };
     this.websocket.onopen = () => {
       $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');
-      if (proxy) {
-        if (login) {
-          this.send(text);
-        }
-      } else {
-        this.send(this.timesealHello);
-      }
+      this.send(this.timesealHello);
     };
   }
 
@@ -140,11 +121,7 @@ export class Session {
   }
 
   public send(command: string) {
-    if (!this.proxy) {
-      this.websocket.send(this.encode(command).buffer);
-    } else {
-      this.websocket.send(command);
-    }
+    this.websocket.send(this.encode(command).buffer);
   }
 
   public encode(msg: string) {

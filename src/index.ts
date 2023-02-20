@@ -1360,12 +1360,10 @@ function onDeviceReady() {
 
   const user = Cookies.get('user');
   const pass = Cookies.get('pass');
-  const proxy = Cookies.get('proxy');
-  const enableProxy = (proxy !== undefined);
   if (user !== undefined && pass !== undefined) {
-    session = new Session(messageHandler, enableProxy, user, atob(pass));
+    session = new Session(messageHandler, user, atob(pass));
   } else {
-    session = new Session(messageHandler, enableProxy);
+    session = new Session(messageHandler);
   }
 
   $('#opponent-time').text('00:00');
@@ -1768,17 +1766,9 @@ $('#login-form').on('submit', (event) => {
     return false;
   }
   const pass: string = getValue('#login-pass');
-  const enableProxy = $('#enable-proxy').prop('checked');
-  if (enableProxy) {
-    Cookies.set('proxy', String(enableProxy), { expires: 365 });
-    $('#proxy').text('Proxy: ON');
-  } else {
-    Cookies.remove('proxy');
-    $('#proxy').text('Proxy: OFF');
-  }
   if(session)
     session.disconnect();
-  session = new Session(messageHandler, enableProxy, user, pass);
+  session = new Session(messageHandler, user, pass);
   if ($('#remember-me').prop('checked')) {
     Cookies.set('user', user, { expires: 365 });
     Cookies.set('pass', btoa(pass), { expires: 365 });
@@ -1802,10 +1792,6 @@ $('#login-screen').on('show.bs.modal', (e) => {
     $('#login-pass').val(atob(pass));
     $('#remember-me').prop('checked', true);
   }
-  const proxy = Cookies.get('proxy');
-  if (proxy !== undefined) {
-    $('#enable-proxy').prop('checked', true);
-  }
 });
 
 $('#sign-in').on('click', (event) => {
@@ -1817,11 +1803,9 @@ $('#connect-user').on('click', (event) => {
 });
 
 $('#connect-guest').on('click', (event) => {
-  const proxy = Cookies.get('proxy');
-  const enableProxy = (proxy !== undefined);
   if(session)
     session.disconnect();
-  session = new Session(messageHandler, enableProxy);
+  session = new Session(messageHandler);
 });
 
 $('#login-as-guest').on('click', (event) => {
