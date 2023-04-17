@@ -30,6 +30,7 @@ let gameInfoRequested = false;
 let gamesRequested = false;
 let movelistRequested = 0;
 let lobbyRequested = false;
+let channelListRequested = false;
 let modalCounter = 0;
 let numPVs = 1;
 let gameChangePending = false;
@@ -47,6 +48,7 @@ export function cleanup() {
   gamesRequested = false;
   movelistRequested = 0;
   lobbyRequested = false;
+  channelListRequested = false;
   gameChangePending = false;
   removeSubvariationRequested = false;
   matchRequestList = [];
@@ -377,6 +379,7 @@ function messageHandler(data) {
         session.send('set style 12');
         session.send('set interface www.freechess.club');
         session.send('=ch');
+        channelListRequested = true;
       } else if (data.command === 2) {
         if (session.isConnected()) {
           session.disconnect();
@@ -925,7 +928,19 @@ function messageHandler(data) {
 
       match = msg.match(/-- channel list: \d+ channels --([\d\s]*)/);
       if (match !== null && match.length > 1) {
+        if(!channelListRequested) 
+          chat.newMessage('console', data);
+
+        channelListRequested = false;
         return chat.addChannels(match[1].split(/\s+/));
+      }
+
+      match = msg.match(/^\[\d+\] (?:added to|removed from) your channel list\./m);
+      if (match != null && match.length > 0) {
+        session.send('=ch');
+        channelListRequested = true;
+        chat.newMessage('console', data);
+        return;
       }
 
       if (lobbyRequested) {
