@@ -15,14 +15,20 @@ export function SToHHMMSS(sec: number) {
   + (s >= 0 && s < 10 ? '0' : '') + s);
 }
 
-export function updateWhiteClock(game) {
+export function updateWhiteClock(game, wtime?: number) {
+  if(wtime === undefined)
+    wtime = game.wtime; 
+
   const clock = game.color === 'w' ? $('#player-time') : $('#opponent-time');
-  clock.text(SToHHMMSS(game.wtime));
+  clock.text(SToHHMMSS(wtime));
 }
 
-export function updateBlackClock(game) {
+export function updateBlackClock(game, btime?: number) {
+  if(btime === undefined)
+    btime = game.btime; 
+
   const clock = game.color === 'b' ? $('#player-time') : $('#opponent-time');
-  clock.text(SToHHMMSS(game.btime));
+  clock.text(SToHHMMSS(btime));
 }
 
 export function startBlackClock(game) {

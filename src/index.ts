@@ -337,16 +337,19 @@ export function parseMovelist(movelist: string) {
   let found : string[] & { index?: number } = [''];
   let n = 1;
   const chess = Chess();
-  game.history.reset(chess.fen());
+  var wtime = game.time * 60;
+  var btime = game.time * 60;
+  game.history.reset(chess.fen(), wtime, btime);
   while (found !== null) {
-    // Fixed regex to allow for O-O and other moves with symbols and fixed bug with brackets for optional 2nd column
-    found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*(?:\\(\\d+:\\d+\\))\\s*(?:(\\S*)\\s*(?:\\(\\d+:\\d+\\)))?.*', 'm'));
-    if (found !== null && found.length > 1) {
+    found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*\\((\\d+):(\\d+)\\)\\s*(?:(\\S*)\\s*\\((\\d+):(\\d+)\\))?.*', 'm'));
+    if (found !== null && found.length > 3) {
       const m1 = found[1].trim();
-      game.history.add(chess.move(m1), chess.fen());
-      if (found.length > 2 && found[2]) {
-        const m2 = found[2].trim();
-        game.history.add(chess.move(m2), chess.fen());
+      wtime += (n === 1 ? 0 : game.inc) - (+found[2] * 60 + +found[3]);
+      game.history.add(chess.move(m1), chess.fen(), false, wtime, btime);
+      if (found.length > 4 && found[4]) {
+        const m2 = found[4].trim();
+        btime += (n === 1 ? 0 : game.inc) - (+found[5] * 60 + +found[6]);
+        game.history.add(chess.move(m2), chess.fen(), false, wtime, btime);
       }
       n++;
       movelist += movelist[found.index];
@@ -449,7 +452,8 @@ function messageHandler(data) {
           $('#opponent-name').text(game.wname);
         }
 
-        game.history = new History(game.fen, board);
+        game.history = new History(game.fen, board, game.time * 60, game.time * 60);
+
         evalEngine.terminate();
         evalEngine = new EvalEngine(game.history);
         updateBoard();
@@ -485,19 +489,9 @@ function messageHandler(data) {
       }
 
       if (data.role === Role.NONE || data.role >= -2) {
-        clock.updateWhiteClock(game);
-        clock.updateBlackClock(game);
-
         let move = null;
         const lastPly = getPlyFromFEN(game.chess.fen());
         const thisPly = getPlyFromFEN(data.fen);
-
-        if (game.isPlaying() || data.role === Role.OBSERVING) {
-          if(thisPly >= 2 && !game.wclock)
-            game.wclock = clock.startWhiteClock(game);
-          if(thisPly >= 3 && !game.bclock)
-            game.bclock = clock.startBlackClock(game);
-        }
 
         if (data.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
           move = game.chess.move(data.move);
@@ -508,6 +502,13 @@ function messageHandler(data) {
         if (data.move === 'none' || (move === null && game.chess.fen() !== data.fen)) {
           game.chess.load(data.fen);
           updateHistory();
+        }
+
+        if (game.isPlaying() || data.role === Role.OBSERVING) {
+          if(thisPly >= 2 && !game.wclock)
+            game.wclock = clock.startWhiteClock(game);
+          if(thisPly >= 3 && !game.bclock) 
+            game.bclock = clock.startBlackClock(game);
         }
       }
       break;
@@ -1029,7 +1030,7 @@ function showStrengthDiff(fen: string) {
 }
 
 function updateHistory(move?: any, fen?: string) {
-  if(!fen)
+  if(!fen) 
     fen = game.chess.fen();
 
   const index = game.history.find(fen);
@@ -1045,10 +1046,14 @@ function updateHistory(move?: any, fen?: string) {
       if(subvariation)
         $('#exit-subvariation').show();
     }
-    game.history.add(move, fen, subvariation);
+
+    game.history.add(move, fen, subvariation, game.wtime, game.btime);
     $('#playing-game').hide();
   }
   else {
+    if(!movelistRequested) 
+      game.history.setClockTimes(index, game.wtime, game.btime);
+
     // move is beyond the end of the move list
     if(getPlyFromFEN(fen) - 1 > game.history.length()) {
       movelistRequested++;
@@ -1078,6 +1083,17 @@ function updateHistory(move?: any, fen?: string) {
 export function updateBoard(playMove = false) {
   const move = game.history.get().move;
   const fen = game.history.get().fen;
+
+  if(game.role === Role.NONE || game.role >= -2) {
+    if(game.isPlaying() || game.role === Role.OBSERVING) {
+      clock.updateWhiteClock(game);
+      clock.updateBlackClock(game);
+    }
+    else {
+      clock.updateWhiteClock(game, game.history.get().wtime);
+      clock.updateBlackClock(game, game.history.get().btime);
+    }
+  }
 
   if(playMove) {
     board.move(move.from, move.to);
