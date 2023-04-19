@@ -495,7 +495,7 @@ function messageHandler(data) {
         if (game.isPlaying() || data.role === Role.OBSERVING) {
           if(thisPly >= 2 && !game.wclock)
             game.wclock = clock.startWhiteClock(game);
-          else if(thisPly >= 3 && !game.bclock)
+          if(thisPly >= 3 && !game.bclock)
             game.bclock = clock.startBlackClock(game);
         }
 
