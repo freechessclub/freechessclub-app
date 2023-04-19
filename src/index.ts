@@ -267,14 +267,23 @@ function movePieceAfter(move: any, fen?: string) {
 }
 
 export function movePiece(source: any, target: any, metadata: any) {
-  if (game.isExamining() || (game.isPlaying() && game.chess.turn() === game.color))
-    session.send(source + '-' + target);
-
   let fen = '';
   let move = null;
+
   if(game.isPlaying() || game.isExamining()) {
+    if (game.isPlaying() && game.chess.turn() === game.color)
+      session.send(source + '-' + target);
+
     move = game.chess.move({from: source, to: target, promotion: 'q'}); // TODO: Allow non-queen promotions
     fen = game.chess.fen();
+
+    if(game.isExamining()) {
+      var nextMove = game.history.get(game.history.next());
+      if(nextMove && !nextMove.subvariation && fen === nextMove.fen) 
+        session.send('for');
+      else
+        session.send(source + '-' + target);
+    }
   }
   else if(game.role === Role.NONE) {
     const localChess = new Chess(game.history.get().fen);
