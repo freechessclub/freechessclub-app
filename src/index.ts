@@ -40,6 +40,7 @@ let prevWindowWidth = 0;
 let addressBarHeight;
 let soundTimer
 let removeSubvariationRequested = false;
+let prevDiff;
 
 export function cleanup() {
   historyRequested = 0;
@@ -1004,6 +1005,9 @@ function getPlyFromFEN(fen: string) {
 }
 
 function showStrengthDiff(fen: string) {
+  var whiteChanged = false;
+  var blackChanged = false;
+
   const diff = {
     P: 0, R: 0, B: 0, N: 0, Q: 0, K: 0
   };
@@ -1014,23 +1018,43 @@ function showStrengthDiff(fen: string) {
       diff[pos[i].toUpperCase()] = diff[pos[i].toUpperCase()] + (pos[i] === pos[i].toUpperCase() ? 1 : -1);
   }
 
-  $('#player-captured').empty();
-  $('#opponent-captured').empty();
+  if(prevDiff !== undefined) {
+    for(let key in diff) {
+      if(prevDiff[key] != diff[key]) {
+        if(prevDiff[key] > 0 || diff[key] > 0)
+          whiteChanged = true;
+        if(prevDiff[key] < 0 || diff[key] < 0) 
+          blackChanged = true;
+      }
+    }
+
+  }
+  prevDiff = diff;
+
+  if(whiteChanged) {
+    let panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured'));   
+    panel.empty();
+  }
+  if(blackChanged) {
+    let panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured'));   
+    panel.empty();
+  } 
+
   for (const key in diff) {
-    if(diff[key] !== 0) {
-      let piece = '';
-      let strength = 0;
-      let panel;
-      if (diff[key] > 0) {
-        piece = 'b' + key;
-        strength = diff[key];
-        panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured'));
-      }
-      else if(diff[key] < 0) {
-        piece = 'w' + key;
-        strength = -diff[key];
-        panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured'));
-      }
+    let piece = '';
+    let strength = 0;
+    let panel = undefined;
+    if (whiteChanged && diff[key] > 0) {
+      piece = 'b' + key;
+      strength = diff[key];
+      panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured'));
+    }
+    else if(blackChanged && diff[key] < 0) {
+      piece = 'w' + key;
+      strength = -diff[key];
+      panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured'));
+    }
+    if(panel) {
       panel.append(
         '<img id="' + piece + '" src="www/css/images/pieces/merida/' +
           piece + '.svg"/><small>' + strength + '</small>');
