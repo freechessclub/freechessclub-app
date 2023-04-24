@@ -30,6 +30,7 @@ let gameInfoRequested = false;
 let gamesRequested = false;
 let movelistRequested = 0;
 let lobbyRequested = false;
+let channelListRequested = false;
 let modalCounter = 0;
 let numPVs = 1;
 let gameChangePending = false;
@@ -39,6 +40,7 @@ let prevWindowWidth = 0;
 let addressBarHeight;
 let soundTimer
 let removeSubvariationRequested = false;
+let prevDiff;
 
 export function cleanup() {
   historyRequested = 0;
@@ -47,6 +49,7 @@ export function cleanup() {
   gamesRequested = false;
   movelistRequested = 0;
   lobbyRequested = false;
+  channelListRequested = false;
   gameChangePending = false;
   removeSubvariationRequested = false;
   matchRequestList = [];
@@ -265,14 +268,23 @@ function movePieceAfter(move: any, fen?: string) {
 }
 
 export function movePiece(source: any, target: any, metadata: any) {
-  if (game.isExamining() || (game.isPlaying() && game.chess.turn() === game.color))
-    session.send(source + '-' + target);
-
   let fen = '';
   let move = null;
+
   if(game.isPlaying() || game.isExamining()) {
+    if (game.isPlaying() && game.chess.turn() === game.color)
+      session.send(source + '-' + target);
+
     move = game.chess.move({from: source, to: target, promotion: 'q'}); // TODO: Allow non-queen promotions
     fen = game.chess.fen();
+
+    if(game.isExamining()) {
+      var nextMove = game.history.get(game.history.next());
+      if(nextMove && !nextMove.subvariation && fen === nextMove.fen) 
+        session.send('for');
+      else
+        session.send(source + '-' + target);
+    }
   }
   else if(game.role === Role.NONE) {
     const localChess = new Chess(game.history.get().fen);
@@ -335,16 +347,19 @@ export function parseMovelist(movelist: string) {
   let found : string[] & { index?: number } = [''];
   let n = 1;
   const chess = Chess();
-  game.history.reset(chess.fen());
+  var wtime = game.time * 60;
+  var btime = game.time * 60;
+  game.history.reset(chess.fen(), wtime, btime);
   while (found !== null) {
-    // Fixed regex to allow for O-O and other moves with symbols and fixed bug with brackets for optional 2nd column
-    found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*(?:\\(\\d+:\\d+\\))\\s*(?:(\\S*)\\s*(?:\\(\\d+:\\d+\\)))?.*', 'm'));
-    if (found !== null && found.length > 1) {
+    found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*\\((\\d+):(\\d+)\\)\\s*(?:(\\S*)\\s*\\((\\d+):(\\d+)\\))?.*', 'm'));
+    if (found !== null && found.length > 3) {
       const m1 = found[1].trim();
-      game.history.add(chess.move(m1), chess.fen());
-      if (found.length > 2 && found[2]) {
-        const m2 = found[2].trim();
-        game.history.add(chess.move(m2), chess.fen());
+      wtime += (n === 1 ? 0 : game.inc) - (+found[2] * 60 + +found[3]);
+      game.history.add(chess.move(m1), chess.fen(), false, wtime, btime);
+      if (found.length > 4 && found[4]) {
+        const m2 = found[4].trim();
+        btime += (n === 1 ? 0 : game.inc) - (+found[5] * 60 + +found[6]);
+        game.history.add(chess.move(m2), chess.fen(), false, wtime, btime);
       }
       n++;
       movelist += movelist[found.index];
@@ -377,6 +392,7 @@ function messageHandler(data) {
         session.send('set style 12');
         session.send('set interface www.freechess.club');
         session.send('=ch');
+        channelListRequested = true;
       } else if (data.command === 2) {
         if (session.isConnected()) {
           session.disconnect();
@@ -446,7 +462,8 @@ function messageHandler(data) {
           $('#opponent-name').text(game.wname);
         }
 
-        game.history = new History(game.fen, board);
+        game.history = new History(game.fen, board, game.time * 60, game.time * 60);
+
         evalEngine.terminate();
         evalEngine = new EvalEngine(game.history);
         updateBoard();
@@ -482,19 +499,9 @@ function messageHandler(data) {
       }
 
       if (data.role === Role.NONE || data.role >= -2) {
-        clock.updateWhiteClock(game);
-        clock.updateBlackClock(game);
-
         let move = null;
         const lastPly = getPlyFromFEN(game.chess.fen());
         const thisPly = getPlyFromFEN(data.fen);
-
-        if (game.isPlaying() || data.role === Role.OBSERVING) {
-          if(thisPly >= 2 && !game.wclock)
-            game.wclock = clock.startWhiteClock(game);
-          else if(thisPly >= 3 && !game.bclock)
-            game.bclock = clock.startBlackClock(game);
-        }
 
         if (data.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
           move = game.chess.move(data.move);
@@ -502,9 +509,16 @@ function messageHandler(data) {
             movePieceAfter(move);
           }
         }
-        if (data.move === 'none' || (move === null && game.chess.fen() !== data.fen)) {
+        if(move === null) {
           game.chess.load(data.fen);
           updateHistory();
+        }
+
+        if (game.isPlaying() || data.role === Role.OBSERVING) {
+          if(thisPly >= 2 && !game.wclock)
+            game.wclock = clock.startWhiteClock(game);
+          if(thisPly >= 3 && !game.bclock) 
+            game.bclock = clock.startBlackClock(game);
         }
       }
       break;
@@ -925,7 +939,19 @@ function messageHandler(data) {
 
       match = msg.match(/-- channel list: \d+ channels --([\d\s]*)/);
       if (match !== null && match.length > 1) {
+        if(!channelListRequested) 
+          chat.newMessage('console', data);
+
+        channelListRequested = false;
         return chat.addChannels(match[1].split(/\s+/));
+      }
+
+      match = msg.match(/^\[\d+\] (?:added to|removed from) your channel list\./m);
+      if (match != null && match.length > 0) {
+        session.send('=ch');
+        channelListRequested = true;
+        chat.newMessage('console', data);
+        return;
       }
 
       if (lobbyRequested) {
@@ -979,6 +1005,9 @@ function getPlyFromFEN(fen: string) {
 }
 
 function showStrengthDiff(fen: string) {
+  var whiteChanged = false;
+  var blackChanged = false;
+
   const diff = {
     P: 0, R: 0, B: 0, N: 0, Q: 0, K: 0
   };
@@ -989,23 +1018,43 @@ function showStrengthDiff(fen: string) {
       diff[pos[i].toUpperCase()] = diff[pos[i].toUpperCase()] + (pos[i] === pos[i].toUpperCase() ? 1 : -1);
   }
 
-  $('#player-captured').empty();
-  $('#opponent-captured').empty();
+  if(prevDiff !== undefined) {
+    for(let key in diff) {
+      if(prevDiff[key] != diff[key]) {
+        if(prevDiff[key] > 0 || diff[key] > 0)
+          whiteChanged = true;
+        if(prevDiff[key] < 0 || diff[key] < 0) 
+          blackChanged = true;
+      }
+    }
+
+  }
+  prevDiff = diff;
+
+  if(whiteChanged) {
+    let panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured'));   
+    panel.empty();
+  }
+  if(blackChanged) {
+    let panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured'));   
+    panel.empty();
+  } 
+
   for (const key in diff) {
-    if(diff[key] !== 0) {
-      let piece = '';
-      let strength = 0;
-      let panel;
-      if (diff[key] > 0) {
-        piece = 'b' + key;
-        strength = diff[key];
-        panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured'));
-      }
-      else if(diff[key] < 0) {
-        piece = 'w' + key;
-        strength = -diff[key];
-        panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured'));
-      }
+    let piece = '';
+    let strength = 0;
+    let panel = undefined;
+    if (whiteChanged && diff[key] > 0) {
+      piece = 'b' + key;
+      strength = diff[key];
+      panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured'));
+    }
+    else if(blackChanged && diff[key] < 0) {
+      piece = 'w' + key;
+      strength = -diff[key];
+      panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured'));
+    }
+    if(panel) {
       panel.append(
         '<img id="' + piece + '" src="www/css/images/pieces/merida/' +
           piece + '.svg"/><small>' + strength + '</small>');
@@ -1014,7 +1063,9 @@ function showStrengthDiff(fen: string) {
 }
 
 function updateHistory(move?: any, fen?: string) {
-  if(!fen)
+  var sameMove = false;
+  
+  if(!fen) 
     fen = game.chess.fen();
 
   const index = game.history.find(fen);
@@ -1030,7 +1081,8 @@ function updateHistory(move?: any, fen?: string) {
       if(subvariation)
         $('#exit-subvariation').show();
     }
-    game.history.add(move, fen, subvariation);
+
+    game.history.add(move, fen, subvariation, game.wtime, game.btime);
     $('#playing-game').hide();
   }
   else {
@@ -1040,15 +1092,23 @@ function updateHistory(move?: any, fen?: string) {
       session.send('moves ' + game.id);
     }
 
-    // already displaying this move
+    if(!movelistRequested && game.role !== Role.NONE) 
+      game.history.setClockTimes(index, game.wtime, game.btime);
+
+    // move is already displayed
     if(index === game.history.index())
-      return;
+      sameMove = true;
 
     // move is earlier, we need to take-back
     if(game.isPlaying() || game.isObserving()) {
       while(index < game.history.length())
         game.history.removeLast();
     }
+  }
+
+  if(sameMove) {
+    updateClocks();
+    return;
   }
 
   game.history.display(index, move !== undefined);
@@ -1060,9 +1120,21 @@ function updateHistory(move?: any, fen?: string) {
   }
 }
 
+function updateClocks() {
+  if(game.role === Role.NONE || game.role >= -2) {
+    if((!game.isPlaying() && game.role !== Role.OBSERVING) ||
+          game.history.index() === game.history.length()) {
+      clock.updateWhiteClock(game, game.history.get().wtime);
+      clock.updateBlackClock(game, game.history.get().btime);
+    }
+  }
+}
+
 export function updateBoard(playMove = false) {
   const move = game.history.get().move;
   const fen = game.history.get().fen;
+
+  updateClocks();
 
   if(playMove) {
     board.move(move.from, move.to);
