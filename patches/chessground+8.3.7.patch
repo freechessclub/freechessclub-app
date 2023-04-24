@@ -1,0 +1,16 @@
+diff --git a/node_modules/chessground/render.js b/node_modules/chessground/render.js
+index 020c889..9df02e6 100644
+--- a/node_modules/chessground/render.js
++++ b/node_modules/chessground/render.js
+@@ -155,9 +155,8 @@ export function updateBounds(s) {
+     var _a, _b;
+     const bounds = s.dom.elements.wrap.getBoundingClientRect();
+     const container = s.dom.elements.container;
+-    const ratio = bounds.height / bounds.width;
+-    const width = (Math.floor((bounds.width * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio;
+-    const height = width * ratio;
++    const width = bounds.width;
++    const height = bounds.height;
+     container.style.width = width + 'px';
+     container.style.height = height + 'px';
+     s.dom.bounds.clear();

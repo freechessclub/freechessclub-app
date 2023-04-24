@@ -10,7 +10,7 @@ export class History {
   private id: number;
   private _scratch: boolean;
 
-  constructor(fen: string, board: any) {
+  constructor(fen: string, board: any, wtime: number = 0, btime: number = 0) {
     this.board = board;
     this.moves = [];
     this.id = -1;
@@ -25,25 +25,36 @@ export class History {
       $('#history-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
     });
 
-    this.add(undefined, fen);
+    this.add(undefined, fen, false, wtime, btime);
   }
 
-  public reset(fen: string) {
+  public reset(fen: string, wtime: number, btime: number) {
     this.moves = [];
     this.id = -1;
     $('#move-history').empty();
-    this.add(undefined, fen);
+    this.add(undefined, fen, false, wtime, btime);
   }
 
-  public addPrev(moves: any[]): void {
-    for (let i = 0; i < moves.length; i++) {
-      this.moves[i] = moves[i];
-      if(moves[i].move)
-        this.addTableItem(moves[i].move.san, this.getPlyFromFEN(moves[i].fen), false, i);
+  public setClockTimes(index: number, wtime: number, btime: number) {
+    if(index === undefined)
+      index = this.id;
+    
+    // if subvariation, use clock times from last mainline move
+    var i = index;
+    while(this.moves[i].subvariation) {
+      i = this.prev(i);
+      wtime = this.moves[i].wtime;
+      btime = this.moves[i].btime;
     }
+
+    if(this.scratch()) 
+      wtime = btime = 0;
+    
+    this.moves[index].wtime = wtime;
+    this.moves[index].btime = btime;    
   }
 
-  public add(move: any, fen: string, subvariation?: boolean, score?: number): void {
+  public add(move: any, fen: string, subvariation: boolean = false, wtime: number = 0, btime: number = 0, score?: number): void {
     if(subvariation) {
       if(this.moves[this.id].subvariation) {
         while(this.id < this.length() && this.moves[this.id + 1].subvariation)
@@ -63,6 +74,7 @@ export class History {
     this.id++;
 
     this.moves.splice(this.id, 0, {move, fen, subvariation});
+    this.setClockTimes(this.id, wtime, btime);
 
     if(move)
       this.addTableItem(move.san, this.getPlyFromFEN(fen), subvariation, this.id, score);
@@ -144,7 +156,9 @@ export class History {
       this.id--;
 
     this.moves.splice(id, 1);
-    this.removeTableItem(id);
+
+    if(id > 0)
+      this.removeTableItem(id);
   }
 
   public removeLast(): void {
