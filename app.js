@@ -11,5 +11,5 @@ $('head').append('<meta name="format-detection" content="telephone=no">')
 $('head').append('<meta name="msapplication-tap-highlight" content="no">')
 
 $('body').append('<script type="text/javascript" src="cordova.js"></script>')
-fs.writeFileSync('www/index.html', $.html());
+fs.writeFileSync('app/index.html', $.html());
 

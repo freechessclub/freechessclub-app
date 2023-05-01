@@ -210,7 +210,7 @@ function showCapturePiece(color: string, p: string): void {
     if (game.playerCaptured.hasOwnProperty(key) && game.playerCaptured[key] > 0) {
       const piece = swapColor(game.color) + key.toUpperCase();
       $('#player-captured').append(
-        '<img id="' + piece + '" src="www/css/images/pieces/merida/' +
+        '<img id="' + piece + '" src="assets/css/images/pieces/merida/' +
           piece + '.svg"/><small>' + game.playerCaptured[key] + '</small>');
     }
   }
@@ -218,7 +218,7 @@ function showCapturePiece(color: string, p: string): void {
     if (game.oppCaptured.hasOwnProperty(key) && game.oppCaptured[key] > 0) {
       const piece = game.color + key.toUpperCase();
       $('#opponent-captured').append(
-        '<img id="' + piece + '" src="www/css/images/pieces/merida/' +
+        '<img id="' + piece + '" src="assets/css/images/pieces/merida/' +
           piece + '.svg"/><small>' + game.oppCaptured[key] + '</small>');
     }
   }
@@ -1056,7 +1056,7 @@ function showStrengthDiff(fen: string) {
     }
     if(panel) {
       panel.append(
-        '<img id="' + piece + '" src="www/css/images/pieces/merida/' +
+        '<img id="' + piece + '" src="assets/css/images/pieces/merida/' +
           piece + '.svg"/><small>' + strength + '</small>');
     }
   }

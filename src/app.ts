@@ -250,7 +250,7 @@ function createWindow() {
     center: true,
     resizable: true,
     title: app.getName(),
-    icon: path.join(__dirname, '../www/img/tfcc-small.png'),
+    icon: path.join(__dirname, '../assets/img/tfcc-small.png'),
     webPreferences: {
       nodeIntegration: false,
     },
