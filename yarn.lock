@@ -975,10 +975,10 @@ chess.js@^0.12.1:
   resolved "https://registry.yarnpkg.com/chess.js/-/chess.js-0.12.1.tgz#0884a771893b50b6a594164f01281a08842bdb5d"
   integrity sha512-95PsuUCtoxPyQNB+29k54OWGeEEpuWXu+d+oWL/fcko5T5NhDuGxaYmoXcZ6KUnFKyUYxdLjwqRqCWZonRuoJQ==
 
-chessground@^8.3.5:
-  version "8.3.5"
-  resolved "https://registry.yarnpkg.com/chessground/-/chessground-8.3.5.tgz#1f4c48d88a40646042a82bb6d12663e64082f816"
-  integrity sha512-MnrQ2sO9FfHcPYwALuLCEQujEUWFqaVzfsn02iOBmFkndzpOk+9zn7rlSwksoJKZ5+LcrA0EaWgN+GzB0gzX8A==
+chessground@^8.3.7:
+  version "8.3.7"
+  resolved "https://registry.yarnpkg.com/chessground/-/chessground-8.3.7.tgz#ed17e6240ff71ed6bd3ad53bd5410f1d59be88b1"
+  integrity sha512-5CIuml9i6XpucZiYSIy4QB8OAqh3gsWaxyfnAYk+7C6PK34DFslI5dqWaWSrk/KtNEdQnmEfa8mqAn4tVsTiZA==
 
 chownr@^2.0.0:
   version "2.0.0"
@@ -2802,7 +2802,7 @@ minimatch@^3.0.5, minimatch@^3.1.1, minimatch@^3.1.2:
   dependencies:
     brace-expansion "^1.1.7"
 
-minimist@^1.2.0, minimist@^1.2.5:
+minimist@^1.2.0:
   version "1.2.8"
   resolved "https://registry.yarnpkg.com/minimist/-/minimist-1.2.8.tgz#c1a464e7693302e082a075cee0c057741ac4772c"
   integrity sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==
