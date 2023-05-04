@@ -1,4 +1,5 @@
 node_modules
+app/assets
 dist
 platforms
 plugins
@@ -9,3 +10,5 @@ www/js/*bundle.js.*
 www/js/*.wasm
 www/www
 .idea
+android
+ios
