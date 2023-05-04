@@ -12,3 +12,4 @@ www/www
 .idea
 android
 ios
+.DS_Store
