@@ -104,7 +104,6 @@ html, body {
   display: inline-block;
   font-size: 1.6rem;
   line-height: 21px;
-  color: rgba(0, 0, 0, 0.4);
 }
 
 .captured img {
@@ -126,7 +125,6 @@ html, body {
   display: inline-block;
   font-size: 1.6rem;
   line-height: 21px;
-  color: rgba(0, 0, 0, 0.4);
 }
 
 .history {
