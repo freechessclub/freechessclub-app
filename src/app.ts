@@ -84,21 +84,6 @@ const template = [{
         focusedWindow.toggleDevTools();
       }
     },
-  }, {
-    type: 'separator',
-  }, {
-    label: 'App Menu Demo',
-    click: (item, focusedWindow) => {
-      if (focusedWindow) {
-        const options = {
-          type: 'info',
-          title: 'Application Menu Demo',
-          buttons: ['Ok'],
-          message: 'This demo is for the Menu section.',
-        };
-        dialog.showMessageBox(focusedWindow, options);
-      }
-    },
   }],
 }, {
   label: 'Window',
@@ -128,7 +113,7 @@ const template = [{
   submenu: [{
     label: 'Learn More',
     click: () => {
-      shell.openExternal('http://www.freechess.club');
+      shell.openExternal('https://www.freechess.club');
     },
   }],
 }];
@@ -240,26 +225,19 @@ function findReopenMenuItem() {
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
-  const minWidth = 1280;
-  const minHeight = 560;
   mainWindow = new BrowserWindow({
-    width: Math.max(width * 0.8, minWidth),
-    height: Math.max(height * 0.8, minHeight),
-    minWidth,
-    minHeight,
+    width: width,
+    height: height,
     center: true,
     resizable: true,
     title: app.getName(),
     icon: path.join(__dirname, '../assets/img/tfcc-small.png'),
-    webPreferences: {
-      nodeIntegration: false,
-    },
   });
 
   const ur = url.format({
     protocol: 'file',
     slashes: true,
-    pathname: path.join(__dirname, '../app.html'),
+    pathname: path.join(__dirname, '../play.html'),
   });
 
   mainWindow.loadURL(ur, {
