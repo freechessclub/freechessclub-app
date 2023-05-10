@@ -269,7 +269,19 @@
               </div>
               <div id="viewing-game-buttons" class="btn-toolbar center m-auto w-100" style="display: none">
                 <button type="button" id="analyze" class="btn btn-outline-secondary btn-md" title="Analyze">Analyze</button>         
-                <button type="button" id="hide-analysis" style="display: none" class="btn btn-outline-secondary btn-md" title="Hide Analysis">Hide Analysis</button>                
+                <button type="button" id="hide-analysis" style="display: none" class="btn btn-outline-secondary btn-md" title="Hide Analysis">Hide Analysis</button>              
+                <div class="dropup" id="share-game-dropup">
+                  <button class="btn btn-outline-secondary btn-md" style="display: none" title="Share Game" type="button" id="share-game" data-bs-toggle="dropdown">
+                    <span class="fa fa-share-square-o"></span>
+                  </button>
+                  <div class="dropdown-menu" style="min-width: 100%" aria-labelledby="share-game">
+                    <div id="share-game-caption">Share game link:</div>
+                    <div class="input-group">
+                      <input readonly type="text" class="form-control" id="share-game-url">
+                      <button class="btn btn-outline-secondary btn-md" type="button" id="share-game-copy" data-bs-toggle="tooltip" title="Copy to clipboard">Copy</button>        
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

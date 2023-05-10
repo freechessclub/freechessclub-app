@@ -25,6 +25,8 @@ let evalEngine: EvalEngine | null;
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
 
 let historyRequested = 0;
+let ficsGamesUser = null;
+let ficsGamesIndex = null;
 let obsRequested = 0;
 let gameInfoRequested = false;
 let gamesRequested = false;
@@ -41,10 +43,17 @@ let addressBarHeight;
 let soundTimer
 let removeSubvariationRequested = false;
 let prevDiff;
+let prevGameURL;
+let gameURL;
+let gameURLTimeout;
+let gameURLUser;
+let gameURLRetryCounter;
 let activeTab;
 
 export function cleanup() {
   historyRequested = 0;
+  ficsGamesUser = null;
+  ficsGamesIndex = null;
   obsRequested = 0;
   gameInfoRequested = false;
   gamesRequested = false;
@@ -71,7 +80,9 @@ export function cleanup() {
     clearInterval(game.watchers);
   game.watchers = null;
   $('#game-watchers').empty();
-
+  if(gameURLTimeout) 
+    clearTimeout(gameURLTimeout);
+  
   game.id = 0;
   delete game.chess;
   game.chess = null;
@@ -372,6 +383,87 @@ export function parseMovelist(movelist: string) {
     game.history.display();
 }
 
+function getGameURL(gameUser: string, gameNumber: number = 0, showShareButton: boolean = true) {
+  if(showShareButton) {
+    $('#share-game').prop('disabled', true);
+    $('#share-game').show();
+  }
+  
+  if(gameURLTimeout) 
+    clearTimeout(gameURLTimeout);
+  gameURLRetryCounter = 20;
+
+  if(gameUser)
+    gameURLUser = gameUser;
+
+  _getGameURL(gameUser, gameNumber, showShareButton);
+}
+
+function _getGameURL(gameUser: string, gameNumber: number = 0, showShareButton: boolean = true) {
+  var checkGameURL = function(data) {
+    gameURL = data;
+  
+    if(gameURL.startsWith('<?php')) 
+      return;
+
+    if(gameURL === "FAILED" || (!gameUser && gameURL === prevGameURL)) {
+      gameURLRetryCounter--;
+      if(gameURLRetryCounter > 0) {
+        _getGameURL(gameUser, gameNumber, showShareButton);
+        return;
+      }
+      else 
+        console.log("Error retrieving game URL from ficsgames.");
+    }
+    
+    if(showShareButton && (gameUser || gameURL !== prevGameURL)) {
+      $('#share-game-url').val(gameURL);
+      $('#share-game').prop('disabled', false);
+    }
+  
+    prevGameURL = gameURL;
+  }
+  
+  gameURLTimeout = setTimeout(() => { 
+    var domain = 'https://www.ficsgames.org';
+    var historyPath1 = '/cgi-bin/search.cgi?player=';
+    var historyPath2 = '&action=History';
+
+    if(navigator.userAgent.includes('Free Chess Club')) {
+      // We are in electron, fetch ficsgames web page directly
+      fetch(domain + historyPath1 + gameUser + historyPath2)
+        .then(function(response) {
+            return response.text();
+        }).then(function(html) {
+          var dom = $(new DOMParser().parseFromString(html, 'text/html'));
+          var element = $('.result-table tr:nth-child(' + (3 + gameNumber) + ') td:nth-child(11) a', dom);
+          var gamePath = '';
+          if(element) 
+            gamePath = element.attr('href');
+          checkGameURL(domain + gamePath);
+        }).catch(function() {
+          gameURLRetryCounter--;
+          if(gameURLRetryCounter > 0) 
+            _getGameURL(gameUser, gameNumber, showShareButton);
+          else 
+            console.log("Error retrieving game URL from ficsgames.");
+        });
+    }
+    // Fetch game URL using PHP proxy to get around same-origin policy
+    else {
+      fetch('assets/php/fetch_game_url.php', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({username: (gameUser ? gameUser : gameURLUser), game_number: gameNumber})
+      }).then(function(response) {
+        return response.text();
+      }).then(checkGameURL).catch(function() { 
+        console.log('Error retrieving game URL from ficsgames.');
+      });
+    }
+  }, 500);
+}
+
 function messageHandler(data) {
   if (data === undefined || data === null) {
     return;
@@ -435,6 +527,16 @@ function messageHandler(data) {
         $('#opponent-captured').text('');
         $('#player-status').css('background-color', '');
         $('#opponent-status').css('background-color', '');
+
+        $('#share-game').hide();
+        if(!game.wname.match(/^Guest[A-Z]{4}$/) && !game.bname.match(/^Guest[A-Z]{4}$/)) {
+          if(game.isPlaying() || game.role === Role.OBSERVING) 
+            getGameURL(game.wname, 0, false);
+          else if(game.isExamining() && ficsGamesUser)
+            getGameURL(ficsGamesUser, ficsGamesIndex, true);
+        }
+        ficsGamesUser = null;
+        ficsGamesIndex = null;
 
         if(game.isPlaying() || game.isExamining()) {
           session.send('allobs ' + game.id);
@@ -567,6 +669,10 @@ function messageHandler(data) {
       }
       showModal('Match Result', '', data.message, rematch, []);
       cleanup();
+
+      if(!$('#player-name').text().match(/^Guest[A-Z]{4}$/) && !$('#opponent-name').text().match(/^Guest[A-Z]{4}$/)) 
+        getGameURL(null, 0, true);
+      
       break;
     case MessageType.Unknown:
     default:
@@ -1979,12 +2085,32 @@ function showHistory(user: string, history: string) {
     return;
   }
   const hArr = parseHistory(history);
+  let index = 0; // Index into the user's history at ficsgames.org
   for(let i = hArr.length - 1; i >= 0; i--) {
     const id = hArr[i].slice(0, hArr[i].indexOf(':'));
+
+    var fgIndex = index; // Index into the user's history at ficsgames.org
+    if(hArr[i].match(/\sGuest[A-Z]{4}\s/) != null) {
+      fgIndex = -1;
+      index--;
+    }
+
+    
     $('#history-table').append(
-      '<button type="button" class="w-100 btn btn-outline-secondary" onclick="sessionSend(\'ex ' + user + ' ' +
-      + id + '\'); showGameTab();">' + hArr[i] + '</button>');
+      '<button type="button" class="w-100 btn btn-outline-secondary" onclick="examineHistoryGame(\'' + user + '\', ' +
+      + id + ', ' + fgIndex + ');">' + hArr[i] + '</button>');
+      
+    index++;
   }
+}
+
+(window as any).examineHistoryGame = (user: string, id: string, index: number) => {
+  session.send('ex ' + user + ' ' + id);
+  if(index !== -1) {
+    ficsGamesUser = user;
+    ficsGamesIndex = index; // Index into the user's history at ficsgames.org
+  }
+  $('#pills-game-tab').tab('show');
 }
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-examine"]', (e) => {
@@ -2098,6 +2224,34 @@ $(document).on('hidden.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => 
     session.send('iset seekinfo 0');
     lobbyRequested = false;
   }
+});
+
+$('#share-game-dropup').on('shown.bs.dropdown', (e) => {
+  selectOnFocus($('#share-game-url'));
+});
+
+$('#share-game-copy').on('click', (event) => {
+  $('#share-game-url').trigger('focus');
+  if(!navigator.clipboard) {
+    try {
+      if(document.execCommand('copy')) {
+        $('#share-game-copy').attr('data-bs-original-title', 'Copied');
+      }
+      else
+        $('#share-game-copy').attr('data-bs-original-title', 'Unable to copy to clipboard');
+    } catch (err) {
+      $('#share-game-copy').attr('data-bs-original-title', 'Unable to copy to clipboard');
+      console.error('Unable to copy to clipboard', err);
+    }
+  }
+  else {
+    navigator.clipboard.writeText($('#share-game-url').val() as string);
+    $('#share-game-copy').attr('data-bs-original-title', 'Copied');
+  }
+
+  $('#share-game-copy').tooltip('show');
+  $('#share-game-copy').attr('data-bs-original-title', 'Copy to clipboard');    
+  return false;
 });
 
 const seekMap = new Map();

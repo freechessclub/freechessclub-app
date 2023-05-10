@@ -261,7 +261,6 @@ electron_1.app.on('ready', createWindow);
 electron_1.app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') {
         electron_1.app.quit();
-        console.log('are we here?');
     }
     var reopenMenuItem = findReopenMenuItem();
     if (reopenMenuItem) {
