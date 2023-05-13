@@ -89,22 +89,22 @@ export function disableOnlineInputs(disable: boolean) {
 
 function hideCloseGamePanel() {
   $('#close-game-panel').hide();
-  setPanelHeights();
+  setPanelSizes();
 }
 
 function showCloseGamePanel() {
   $('#close-game-panel').show();
-  setPanelHeights();
+  setPanelSizes();
 }
 
 function hideStatusPanel() {
   $('#left-panel-bottom').hide();
-  setPanelHeights();
+  setPanelSizes();
 }
 
 function showStatusPanel() {
   $('#left-panel-bottom').show();
-  setPanelHeights();
+  setPanelSizes();
 }
 
 // Restricts input for the set of matched elements to the given inputFilter function.
@@ -1454,7 +1454,7 @@ function onDeviceReady() {
     $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
   }
 
-  setPanelHeights();
+  setPanelSizes();
 
   selectOnFocus($('#opponent-player-name'));
   selectOnFocus($('#custom-control-min'));
@@ -1516,9 +1516,28 @@ function swapLeftRightPanelHeaders() {
   }
 }
 
-// Set the height of dynamic elements inside left and right panel collapsables.
-// Try to do it in a robust way that won't break if we add/remove elements later.
-function setPanelHeights() {
+function setPanelSizes(secondAdjustment: Boolean = false) {
+  // Resize the middle column to match the width of the board. This is because chessground resizes the board to align with integer pixel boundaries.
+  if(!secondAdjustment) {
+    // Reset columns to using bootstrap's column width 
+    $('#mid-col').css('width', '');
+    $('#right-col').css('width', '');
+    // Set a timer to wait for chessground to adjust the board width 
+    // then set the middle column width to this new width
+    setTimeout(() => {
+      var widthDiff = $('#board').width() - $('#board cg-board').width() - 0.1; // Add 0.1px to column size, this is to stop chessground rounding down when board size is e.g. 59.999px due to floating point imprecision.
+      $('#mid-col').width($('#mid-col').width() - widthDiff);
+      $('#right-col').width($('#right-col').width() + widthDiff);
+      // We adjust the panel heights twice, a bigger adjustment when the window is resized, but 
+      // before chessground resizes the board, and a small one after chessground adjusts the board. 
+      // This is to prevent a 'flashing' effect due to the delay in the panels being resized.
+      setPanelSizes(true);
+    }, 0);
+  }
+
+  // Set the height of dynamic elements inside left and right panel collapsables.
+  // Try to do it in a robust way that won't break if we add/remove elements later.
+
   // Get and store the height of the address bar in mobile browsers.
   if(isSmallWindow() && addressBarHeight === undefined)
     addressBarHeight = $(window).height() - window.innerHeight;
@@ -1905,7 +1924,7 @@ $(window).on('resize', () => {
     useDesktopLayout();
 
   prevWindowWidth = window.innerWidth;
-  setPanelHeights();
+  setPanelSizes();
 
   if(evalEngine)
     evalEngine.redraw();
