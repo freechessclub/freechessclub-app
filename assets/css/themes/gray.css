@@ -2,7 +2,7 @@
   background-color: #424242;
   color: whitesmoke;
 }
-.blue .cg-wrap {
+cg-board {
   background-image: url('../images/board/gray.svg');
 }
 .chat-text,.nav-link,.btn-outline-secondary,.card-header,.card-footer {

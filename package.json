@@ -12,7 +12,7 @@
     "dist": "electron-builder",
     "build": "node app.js && electron-builder -mwl --x64 --arm64 -p always",
     "release": "yarn build",
-    "postinstall": "electron-builder install-app-deps && npx patch-package",
+    "postinstall": "electron-builder install-app-deps",
     "android": "node app.js && cp -pR assets app/assets && npx cap run android",
     "ios": "node app.js && cp -pR assets app/assets && npx cap run ios"
   },
