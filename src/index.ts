@@ -1522,6 +1522,13 @@ function setPanelSizes(secondAdjustment: Boolean = false) {
     // Reset columns to using bootstrap's column width 
     $('#mid-col').css('width', '');
     $('#right-col').css('width', '');
+
+    // Make sure the board is smaller than the window height
+    if(!isSmallWindow()) {
+      $('#mid-col').width(Math.min($('#mid-col').width(), $(window).height()
+          - $('#player-status').outerHeight() - $('#opponent-status').outerHeight()));
+    }
+
     // Set a timer to wait for chessground to adjust the board width 
     // then set the middle column width to this new width
     setTimeout(() => {
@@ -1534,6 +1541,10 @@ function setPanelSizes(secondAdjustment: Boolean = false) {
       setPanelSizes(true);
     }, 0);
   }
+
+  // Adjust right column so that it fills up any remaining space
+  if(!isSmallWindow())
+    $('#right-col').width(Math.max($('#right-col').width(), $('#col-group').width() - $('#left-col').width() - $('#mid-col').width()));
 
   // Set the height of dynamic elements inside left and right panel collapsables.
   // Try to do it in a robust way that won't break if we add/remove elements later.
