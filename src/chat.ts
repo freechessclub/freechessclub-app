@@ -330,22 +330,17 @@ function scrollToChat() {
 
 $('#chat-maximize-btn').on('click', () => {
   if (maximized) {
-    if (!isSmallWindow()) {
-      $('#right-col').width('33.33333333%');
-    }
     $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
     $('#chat-maximize-btn').attr('data-bs-original-title', 'Maximize');
     maximized = false;
   } else {
-    if (!isSmallWindow()) {
-      $('#right-col').width('100%');
-    }
     $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
     $('#chat-maximize-btn').attr('data-bs-original-title', 'Minimize');
     maximized = true;
   }
   $('#left-col').toggleClass('d-none');
   $('#mid-col').toggleClass('d-none');
+  window.dispatchEvent(new Event('resize'));
 });
 
 $('#collapse-chat').on('hidden.bs.collapse', () => {
