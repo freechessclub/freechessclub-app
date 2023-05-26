@@ -1427,17 +1427,6 @@ $('#input-form').on('submit', (event) => {
 function onDeviceReady() {
   disableOnlineInputs(true);
 
-  game.role = Role.NONE;
-  game.history = new History(new Chess().fen(), board);
-
-  const user = Cookies.get('user');
-  const pass = Cookies.get('pass');
-  if (user !== undefined && pass !== undefined) {
-    session = new Session(messageHandler, user, atob(pass));
-  } else {
-    session = new Session(messageHandler);
-  }
-
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
 
@@ -1454,16 +1443,30 @@ function onDeviceReady() {
     $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
   }
 
-  setPanelSizes();
-
   selectOnFocus($('#opponent-player-name'));
   selectOnFocus($('#custom-control-min'));
   selectOnFocus($('#custom-control-sec'));
   selectOnFocus($('#observe-username'));
   selectOnFocus($('#examine-username'));
 
-  evalEngine = new EvalEngine(game.history);
-  updateBoard();
+  setPanelSizes();
+
+  // Wait for panels to resize
+  setTimeout(() => {
+    game.role = Role.NONE;
+    game.history = new History(new Chess().fen(), board);
+
+    const user = Cookies.get('user');
+    const pass = Cookies.get('pass');
+    if (user !== undefined && pass !== undefined) {
+      session = new Session(messageHandler, user, atob(pass));
+    } else {
+      session = new Session(messageHandler);
+    }
+
+    evalEngine = new EvalEngine(game.history);
+    updateBoard();
+  }, 0);
 }
 
 function selectOnFocus(input: any) {
@@ -1518,33 +1521,39 @@ function swapLeftRightPanelHeaders() {
 
 function setPanelSizes(secondAdjustment: Boolean = false) {
   // Resize the middle column to match the width of the board. This is because chessground resizes the board to align with integer pixel boundaries.
-  if(!secondAdjustment) {
-    // Reset columns to using bootstrap's column width 
-    $('#mid-col').css('width', '');
-    $('#right-col').css('width', '');
 
-    // Make sure the board is smaller than the window height
-    if(!isSmallWindow()) {
-      $('#mid-col').width(Math.min($('#mid-col').width(), $(window).height()
-          - $('#player-status').outerHeight() - $('#opponent-status').outerHeight()));
+  // Reset columns to using bootstrap's column width 
+  $('#right-col').css('width', '');
+  $('#mid-col').css('width', '');
+  $('#mid-col').addClass('col');
+
+  $('#player-status').height('');
+  $('#opponent-status').height('');
+
+  // Make sure the board is smaller than the window height and also leaves room for the other columns
+  if(!isSmallWindow()) {
+    var cardBorderHeight = $('#mid-card').outerHeight() - $('#mid-card').height();
+    var boardMaxWidth = $('#mid-col').outerWidth();
+    var boardMaxHeight = $(window).height() - $('#player-status').outerHeight()
+        - $('#opponent-status').outerHeight() - cardBorderHeight;
+    $('#mid-col').removeClass('col');
+    $('#mid-col').width(Math.min(boardMaxWidth, boardMaxHeight) - 1);
+    
+    // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match 
+    // what chessground does internally
+    var newBoardWidth = (Math.floor(($('#board').width() * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio;
+    var widthDiff = $('#board').width() - newBoardWidth - 1; // Add 0.1px to column size, this is to stop chessground rounding down when board size is e.g. 59.999px due to floating point imprecision.
+    $('#mid-col').width($('#mid-col').width() - widthDiff);
+    
+    $('#right-col').width(Math.max($('#right-col').outerWidth(), $('#col-group').width() - $('#left-col').outerWidth() - $('#mid-col').outerWidth()));
+
+    // Annoying hack, wait for bootstrap row to recalculate width after scrollbar has disappeared then adjust again
+    if(!secondAdjustment) {
+      setTimeout(() => {
+        setPanelSizes(true);
+      }, 0);
     }
-
-    // Set a timer to wait for chessground to adjust the board width 
-    // then set the middle column width to this new width
-    setTimeout(() => {
-      var widthDiff = $('#board').width() - $('#board cg-board').width() - 0.1; // Add 0.1px to column size, this is to stop chessground rounding down when board size is e.g. 59.999px due to floating point imprecision.
-      $('#mid-col').width($('#mid-col').width() - widthDiff);
-      $('#right-col').width($('#right-col').width() + widthDiff);
-      // We adjust the panel heights twice, a bigger adjustment when the window is resized, but 
-      // before chessground resizes the board, and a small one after chessground adjusts the board. 
-      // This is to prevent a 'flashing' effect due to the delay in the panels being resized.
-      setPanelSizes(true);
-    }, 0);
   }
-
-  // Adjust right column so that it fills up any remaining space
-  if(!isSmallWindow())
-    $('#right-col').width(Math.max($('#right-col').width(), $('#col-group').width() - $('#left-col').width() - $('#mid-col').width()));
 
   // Set the height of dynamic elements inside left and right panel collapsables.
   // Try to do it in a robust way that won't break if we add/remove elements later.
@@ -1554,19 +1563,18 @@ function setPanelSizes(secondAdjustment: Boolean = false) {
     addressBarHeight = $(window).height() - window.innerHeight;
 
   // On mobile, slim down player status panels in order to fit everything within window height
-  const originalHeight = $('#left-panel-header').height();
   if(isSmallWindow()) {
+    const originalStatusHeight = $('#left-panel-header').height();
     const cardBorders = $('#mid-card').outerHeight() - $('#mid-card').height()
       + Math.round(parseFloat($('#left-card').css('border-bottom-width')))
       + Math.round(parseFloat($('#right-card').css('border-top-width')));
     const playerStatusBorder = $('#player-status').outerHeight() - $('#player-status').height();
     var playerStatusHeight = ($(window).height() - addressBarHeight - $('#board-card').outerHeight() - $('#left-panel-footer').outerHeight() - $('#right-panel-header').outerHeight() - cardBorders) / 2 - playerStatusBorder;
-    playerStatusHeight = Math.min(Math.max(playerStatusHeight, originalHeight - 20), originalHeight);
+    playerStatusHeight = Math.min(Math.max(playerStatusHeight, originalStatusHeight - 20), originalStatusHeight);
+
+    $('#player-status').height(playerStatusHeight);
+    $('#opponent-status').height(playerStatusHeight);
   }
-  else
-    playerStatusHeight = originalHeight;
-  $('#player-status').height(playerStatusHeight);
-  $('#opponent-status').height(playerStatusHeight);
 
   // set height of left menu panel inside collapsable
   const boardHeight = $('#board').innerHeight();
