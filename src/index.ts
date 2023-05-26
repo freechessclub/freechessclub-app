@@ -1525,8 +1525,10 @@ function setPanelSizes(secondAdjustment: Boolean = false) {
 
     // Make sure the board is smaller than the window height
     if(!isSmallWindow()) {
+      var cardBorder = $('#mid-card').outerHeight() - $('#mid-card').height();
       $('#mid-col').width(Math.min($('#mid-col').width(), $(window).height()
-          - $('#player-status').outerHeight() - $('#opponent-status').outerHeight()));
+          - $('#player-status').outerHeight() - $('#opponent-status').outerHeight() 
+          - cardBorder));
     }
 
     // Set a timer to wait for chessground to adjust the board width 
