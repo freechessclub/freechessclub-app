@@ -95,9 +95,9 @@ html, body {
 }
 
 #chat-status {
-  display: inline-block;
-  vertical-align: center;
-  line-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
 }
 
 .name {

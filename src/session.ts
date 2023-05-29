@@ -55,8 +55,7 @@ export class Session {
   public setUser(user: string): void {
     this.connected = true;
     this.user = user;
-    $('#chat-status').html('<span class="fa fa-circle text-success" aria-hidden="false"></span> <span class="h6"> '
-      + user + '</span>');
+    $('#chat-status').html('<span style="overflow: hidden; text-overflow: ellipsis"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;<span class="h6">' + user + '</span></span>');
     $('#chat-status').popover({
       animation: true,
       content: 'Connected as ' + user + '. Click here to connect as a different user!',
@@ -72,7 +71,7 @@ export class Session {
 
   public connect(user?: string, pass?: string) {
     $('#game-requests').empty();
-    $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');
+    $('#chat-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
     const login = (user !== undefined && pass !== undefined);
     let loginOptions = '';
     let text = '';
@@ -99,13 +98,13 @@ export class Session {
     const that = this;
     this.websocket.onclose = function(e) { that.reset(e); };
     this.websocket.onopen = () => {
-      $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-warning" role="status" aria-hidden="true"></span> Connecting...');
+      $('#chat-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
       this.send(this.timesealHello);
     };
   }
 
   public disconnect() {
-    $('#chat-status').html('<span class="spinner-grow spinner-grow-sm text-danger" role="status" aria-hidden="true"></span> Disconnecting...');
+    $('#chat-status').html('<span class="text-danger"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Disconnecting...</span>');
     if (this.isConnected()) {
       this.websocket.close();
     }
@@ -113,7 +112,7 @@ export class Session {
   }
 
   public reset(_e: any) {
-    $('#chat-status').html('<span class="fa fa-circle text-danger" aria-hidden="false"></span> Offline');
+    $('#chat-status').html('<span class="text-danger"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;Offline</span>');
     this.connected = false;
     this.user = '';
     disableOnlineInputs(true);
