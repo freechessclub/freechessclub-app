@@ -248,6 +248,11 @@ function createWindow() {
     mainWindow = null;
   });
 
+  // Stop 'beforeunload' event (confirmation dialog in browser) from preventing the window closing 
+  mainWindow.webContents.on('will-prevent-unload', (event) => {
+    event.preventDefault();
+  })
+
   const menu = Menu.buildFromTemplate(template as any);
   Menu.setApplicationMenu(menu);
   mainWindow.show();

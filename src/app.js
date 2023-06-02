@@ -2,7 +2,7 @@
 // Copyright 2019 Free Chess Club.
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
-Object.defineProperty(exports, "__esModule", { value: true });
+exports.__esModule = true;
 var electron_1 = require("electron");
 var path = require("path");
 var url = require("url");
@@ -13,30 +13,30 @@ var template = [{
         submenu: [{
                 label: 'Undo',
                 accelerator: 'CmdOrCtrl+Z',
-                role: 'undo',
+                role: 'undo'
             }, {
                 label: 'Redo',
                 accelerator: 'Shift+CmdOrCtrl+Z',
-                role: 'redo',
+                role: 'redo'
             }, {
-                type: 'separator',
+                type: 'separator'
             }, {
                 label: 'Cut',
                 accelerator: 'CmdOrCtrl+X',
-                role: 'cut',
+                role: 'cut'
             }, {
                 label: 'Copy',
                 accelerator: 'CmdOrCtrl+C',
-                role: 'copy',
+                role: 'copy'
             }, {
                 label: 'Paste',
                 accelerator: 'CmdOrCtrl+V',
-                role: 'paste',
+                role: 'paste'
             }, {
                 label: 'Select All',
                 accelerator: 'CmdOrCtrl+A',
-                role: 'selectall',
-            }],
+                role: 'selectall'
+            }]
     }, {
         label: 'View',
         submenu: [{
@@ -53,7 +53,7 @@ var template = [{
                         }
                         focusedWindow.reload();
                     }
-                },
+                }
             }, {
                 label: 'Toggle Full Screen',
                 accelerator: (function () {
@@ -68,7 +68,7 @@ var template = [{
                     if (focusedWindow) {
                         focusedWindow.setFullScreen(!focusedWindow.isFullScreen());
                     }
-                },
+                }
             }, {
                 label: 'Toggle Dev Tools',
                 accelerator: (function () {
@@ -83,21 +83,21 @@ var template = [{
                     if (focusedWindow) {
                         focusedWindow.toggleDevTools();
                     }
-                },
-            }],
+                }
+            }]
     }, {
         label: 'Window',
         role: 'window',
         submenu: [{
                 label: 'Minimize',
                 accelerator: 'CmdOrCtrl+M',
-                role: 'minimize',
+                role: 'minimize'
             }, {
                 label: 'Close',
                 accelerator: 'CmdOrCtrl+W',
-                role: 'close',
+                role: 'close'
             }, {
-                type: 'separator',
+                type: 'separator'
             }, {
                 label: 'Reopen Window',
                 accelerator: 'CmdOrCtrl+Shift+T',
@@ -105,8 +105,8 @@ var template = [{
                 key: 'reopenMenuItem',
                 click: function () {
                     electron_1.app.emit('activate');
-                },
-            }],
+                }
+            }]
     }, {
         label: 'Help',
         role: 'help',
@@ -114,8 +114,8 @@ var template = [{
                 label: 'Learn More',
                 click: function () {
                     electron_1.shell.openExternal('https://www.freechess.club');
-                },
-            }],
+                }
+            }]
     }];
 function addUpdateMenuItems(items, position) {
     if (process.mas) {
@@ -124,18 +124,18 @@ function addUpdateMenuItems(items, position) {
     var version = electron_1.app.getVersion();
     var updateItems = [{
             label: "Version ".concat(version),
-            enabled: false,
+            enabled: false
         }, {
             label: 'Checking for Update',
             enabled: false,
-            key: 'checkingForUpdate',
+            key: 'checkingForUpdate'
         }, {
             label: 'Check for Update',
             visible: false,
             key: 'checkForUpdate',
             click: function () {
                 electron_updater_1.autoUpdater.checkForUpdatesAndNotify();
-            },
+            }
         }, {
             label: 'Restart and Install Update',
             enabled: true,
@@ -143,7 +143,7 @@ function addUpdateMenuItems(items, position) {
             key: 'restartToUpdate',
             click: function () {
                 electron_updater_1.autoUpdater.quitAndInstall();
-            },
+            }
         }];
     items.splice.apply(items, [position, 0].concat(updateItems));
 }
@@ -153,42 +153,42 @@ if (process.platform === 'darwin') {
         label: name_1,
         submenu: [{
                 label: "About ".concat(name_1),
-                role: 'about',
+                role: 'about'
             }, {
-                type: 'separator',
+                type: 'separator'
             }, {
                 label: 'Services',
                 role: 'services',
-                submenu: [],
+                submenu: []
             }, {
-                type: 'separator',
+                type: 'separator'
             }, {
                 label: "Hide ".concat(name_1),
                 accelerator: 'Command+H',
-                role: 'hide',
+                role: 'hide'
             }, {
                 label: 'Hide Others',
                 accelerator: 'Command+Alt+H',
-                role: 'hideothers',
+                role: 'hideothers'
             }, {
                 label: 'Show All',
-                role: 'unhide',
+                role: 'unhide'
             }, {
-                type: 'separator',
+                type: 'separator'
             }, {
                 label: 'Quit',
                 accelerator: 'Command+Q',
                 click: function () {
                     electron_1.app.quit();
-                },
-            }],
+                }
+            }]
     });
     // Window menu.
     template[3].submenu.push({
-        type: 'separator',
+        type: 'separator'
     }, {
         label: 'Bring All to Front',
-        role: 'front',
+        role: 'front'
     });
     addUpdateMenuItems(template[0].submenu, 1);
 }
@@ -221,18 +221,22 @@ function createWindow() {
         center: true,
         resizable: true,
         title: electron_1.app.getName(),
-        icon: path.join(__dirname, '../assets/img/tfcc-small.png'),
+        icon: path.join(__dirname, '../assets/img/tfcc-small.png')
     });
     var ur = url.format({
         protocol: 'file',
         slashes: true,
-        pathname: path.join(__dirname, '../play.html'),
+        pathname: path.join(__dirname, '../play.html')
     });
     mainWindow.loadURL(ur, {
-        userAgent: 'Free Chess Club',
+        userAgent: 'Free Chess Club'
     });
     mainWindow.on('closed', function () {
         mainWindow = null;
+    });
+    // Stop 'beforeunload' event (confirmation dialog in browser) from preventing the window closing 
+    mainWindow.webContents.on('will-prevent-unload', function (event) {
+        event.preventDefault();
     });
     var menu = electron_1.Menu.buildFromTemplate(template);
     electron_1.Menu.setApplicationMenu(menu);
@@ -250,13 +254,14 @@ if (process.platform === 'darwin') {
         applicationName: electron_1.app.getName(),
         applicationVersion: electron_1.app.getVersion(),
         copyright: 'Released under the MIT license',
-        credits: 'Free Chess Club Author(s)',
+        credits: 'Free Chess Club Author(s)'
     });
 }
 electron_1.app.on('ready', createWindow);
 electron_1.app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') {
         electron_1.app.quit();
+        console.log('are we here?');
     }
     var reopenMenuItem = findReopenMenuItem();
     if (reopenMenuItem) {
