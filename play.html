@@ -24,13 +24,13 @@
   <link href="assets/css/main.css" rel="stylesheet">
   <link href="assets/css/application.css" rel="stylesheet">
   <link href="assets/css/themes/default.css" rel="stylesheet" id="colortheme">
-  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <link rel="shortcut icon" href="assets/img/favicon.ico" type="image/x-icon">
 </head>
 <body>
   <div class="feature3 p-0">
     <div class="row justify-content-md-center m-0">
       <div class="card-group p-0" id="col-group">
-        <div id="left-col" class="col-sm-12 col-md-5 col-lg-4 col-xl-3 align-self-center">
+        <div id="left-col" class="col-sm-12 col-md-3 col-lg-3 col-xl-3 align-self-center" style="min-width: 320px">
           <div class="card bg-transparent" id="left-card">
             <div class="card-header top-panel d-flex" id="left-panel-header" style="visibility: hidden">
               <div id="navigation-toolbar" class="btn-toolbar m-auto">
@@ -274,7 +274,7 @@
             </div>
           </div>
         </div>
-        <div id="mid-col" class="col-sm-12 col-md-7 col-lg-4 col-xl-6 align-self-center">
+        <div id="mid-col" class="col-sm-12 col-md-9 col-lg-4 col-xl-4 align-self-center">
           <div class="card bg-transparent" id="mid-card">
             <div class="top-panel d-flex flex-wrap justify-content-between align-items-center card-header status noselect" id="opponent-status">
               <div class="p-2 name" id="opponent-name"></div>
@@ -300,12 +300,12 @@
             </div>
           </div>
         </div>
-        <div id="right-col" class="col-sm-12 col-md-12 col-lg-4 col-xl-3 align-self-center">
+        <div id="right-col" class="col align-self-center" style="min-width: 320px">
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header status" id="right-panel-header" style="visibility: hidden">
-              <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto">
-                <button class="btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="connectButton" data-bs-toggle="dropdown" aria-expanded="false" title="User">
-                  <div id="chat-status"></div>
+              <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto" style="max-width: 50%">
+                <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="connectButton" data-bs-toggle="dropdown" aria-expanded="false" title="User">
+                  <div id="chat-status" class="w-100"></div>
                 </button>
                 <div class="dropdown-menu" aria-labelledby="connectButton">
                   <a class="dropdown-item noselect" id="disconnect"><span class="fa fa-unlink dropdown-icon" aria-hidden="false"></span>Disconnect</a>
