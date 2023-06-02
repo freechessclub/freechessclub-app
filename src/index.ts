@@ -1941,9 +1941,8 @@ $(window).on('resize', () => {
 
 // prompt before unloading page if in a game
 $(window).on('beforeunload', () => {
-  if (game.chess) {
+  if(game.isPlaying()) 
     return true;
-  }
 });
 
 function getHistory(user: string) {
