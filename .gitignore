@@ -5,10 +5,7 @@ platforms
 plugins
 package-lock.json
 yarn-error.log
-www/js/*bundle.js
-www/js/*bundle.js.*
-www/js/*.wasm
-www/www
+assets/js/*
 .idea
 android
 ios
