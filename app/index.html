@@ -28,7 +28,7 @@
   <div class="feature3 p-0">
     <div class="row justify-content-md-center m-0">
       <div class="card-group p-0" id="col-group">
-        <div id="left-col" class="col-sm-12 col-md-5 col-lg-4 col-xl-3 align-self-center" style="min-width: 320px">
+        <div id="left-col" class="col-sm-12 col-md-3 col-lg-3 col-xl-3 align-self-center" style="min-width: 320px">
           <div class="card bg-transparent" id="left-card">
             <div class="card-header top-panel d-flex" id="left-panel-header" style="visibility: hidden">
               <div id="navigation-toolbar" class="btn-toolbar m-auto">
@@ -267,12 +267,24 @@
               </div>
               <div id="viewing-game-buttons" class="btn-toolbar center m-auto w-100" style="display: none">
                 <button type="button" id="analyze" class="btn btn-outline-secondary btn-md" title="Analyze">Analyze</button>         
-                <button type="button" id="hide-analysis" style="display: none" class="btn btn-outline-secondary btn-md" title="Hide Analysis">Hide Analysis</button>                
+                <button type="button" id="hide-analysis" style="display: none" class="btn btn-outline-secondary btn-md" title="Hide Analysis">Hide Analysis</button>              
+                <div class="dropup" id="share-game-dropup">
+                  <button class="btn btn-outline-secondary btn-md" style="display: none" title="Share Game" type="button" id="share-game" data-bs-toggle="dropdown">
+                    <span class="fa fa-share-square-o"></span>
+                  </button>
+                  <div class="dropdown-menu" style="min-width: 100%" aria-labelledby="share-game">
+                    <div id="share-game-caption">Share game link:</div>
+                    <div class="input-group">
+                      <input readonly="" type="text" class="form-control" id="share-game-url">
+                      <button class="btn btn-outline-secondary btn-md" type="button" id="share-game-copy" data-bs-toggle="tooltip" title="Copy to clipboard">Copy</button>        
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        <div id="mid-col" class="col-sm-12 col-md-7 col-lg-4 col-xl-6 align-self-center">
+        <div id="mid-col" class="col-sm-12 col-md-9 col-lg-4 col-xl-4 align-self-center">
           <div class="card bg-transparent" id="mid-card">
             <div class="top-panel d-flex flex-wrap justify-content-between align-items-center card-header status noselect" id="opponent-status">
               <div class="p-2 name" id="opponent-name"></div>
@@ -298,12 +310,12 @@
             </div>
           </div>
         </div>
-        <div id="right-col" class="col-sm-12 col-md-12 col-lg-4 col-xl-3 align-self-center" style="min-width: 320px">
+        <div id="right-col" class="col align-self-center" style="min-width: 320px">
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header status" id="right-panel-header" style="visibility: hidden">
-              <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto">
-                <button class="btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="connectButton" data-bs-toggle="dropdown" aria-expanded="false" title="User">
-                  <div id="chat-status"></div>
+              <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto" style="max-width: 50%">
+                <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="connectButton" data-bs-toggle="dropdown" aria-expanded="false" title="User">
+                  <div id="chat-status" class="w-100"></div>
                 </button>
                 <div class="dropdown-menu" aria-labelledby="connectButton">
                   <a class="dropdown-item noselect" id="disconnect"><span class="fa fa-unlink dropdown-icon" aria-hidden="false"></span>Disconnect</a>
