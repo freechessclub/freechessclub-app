@@ -1528,18 +1528,22 @@ function setPanelSizes() {
 
   // Make sure the board is smaller than the window height and also leaves room for the other columns' min-widths
   if(!isSmallWindow()) {
+    var boardMaxWidth = $('#col-group').innerWidth() - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width'));    
+    if($('#mid-col').width() > boardMaxWidth) // Window is too small for 3 columns, use 2 instead.
+      var boardMaxWidth = $('#col-group').innerWidth() - $('#left-col').outerWidth();
+    
     var cardBorderHeight = $('#mid-card').outerHeight() - $('#mid-card').height();
-    var boardMaxWidth = Math.max($('#mid-col').width(), $('body').innerWidth() - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')));
     var boardMaxHeight = $(window).height() - $('#player-status').outerHeight()
         - $('#opponent-status').outerHeight() - cardBorderHeight;
+
     $('#mid-col').width(Math.min(boardMaxWidth, boardMaxHeight) - 0.1); 
-    
-    // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match 
-    // what chessground does internally
-    var newBoardWidth = (Math.floor(($('#board').width() * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio;
-    var widthDiff = $('#board').width() - newBoardWidth - 0.1; // Add 0.1px to column size, this is to stop chessground rounding down when board size is e.g. 59.999px due to floating point imprecision.
-    $('#mid-col').width($('#mid-col').width() - widthDiff);
   }
+
+  // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match 
+  // what chessground does internally
+  var newBoardWidth = (Math.floor(($('#board').width() * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio;
+  var widthDiff = $('#board').width() - newBoardWidth - 0.1; // Add 0.1px to column size, this is to stop chessground rounding down when board size is e.g. 59.999px due to floating point imprecision.
+  $('#mid-col').width($('#mid-col').width() - widthDiff);
 
   // Set the height of dynamic elements inside left and right panel collapsables.
   // Try to do it in a robust way that won't break if we add/remove elements later.
