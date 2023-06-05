@@ -1523,23 +1523,25 @@ function setPanelSizes() {
   $('#player-status').height('');
   $('#opponent-status').height('');
 
-  // Reset middle column to use bootstrap's column width 
-  $('#mid-col').css('width', '');
-
   // Make sure the board is smaller than the window height and also leaves room for the other columns' min-widths
   if(!isSmallWindow()) {
+    if($(window).innerWidth() < 992) // display 2 columns on md (medium) display
+      var boardMaxWidth = $('#col-group').innerWidth() - $('#left-col').outerWidth();
+    else
+      var boardMaxWidth = $('#col-group').innerWidth() - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width'));    
+    
     var cardBorderHeight = $('#mid-card').outerHeight() - $('#mid-card').height();
-    var boardMaxWidth = Math.max($('#mid-col').width(), $('body').innerWidth() - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')));
     var boardMaxHeight = $(window).height() - $('#player-status').outerHeight()
         - $('#opponent-status').outerHeight() - cardBorderHeight;
+
     $('#mid-col').width(Math.min(boardMaxWidth, boardMaxHeight) - 0.1); 
-    
-    // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match 
-    // what chessground does internally
-    var newBoardWidth = (Math.floor(($('#board').width() * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio;
-    var widthDiff = $('#board').width() - newBoardWidth - 0.1; // Add 0.1px to column size, this is to stop chessground rounding down when board size is e.g. 59.999px due to floating point imprecision.
-    $('#mid-col').width($('#mid-col').width() - widthDiff);
   }
+
+  // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match 
+  // what chessground does internally
+  var newBoardWidth = (Math.floor(($('#board').width() * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio;
+  var widthDiff = $('#board').width() - newBoardWidth - 0.1; // Add 0.1px to column size, this is to stop chessground rounding down when board size is e.g. 59.999px due to floating point imprecision.
+  $('#mid-col').width($('#mid-col').width() - widthDiff);
 
   // Set the height of dynamic elements inside left and right panel collapsables.
   // Try to do it in a robust way that won't break if we add/remove elements later.
