@@ -41,6 +41,7 @@ let addressBarHeight;
 let soundTimer
 let removeSubvariationRequested = false;
 let prevDiff;
+let activeTab;
 
 export function cleanup() {
   historyRequested = 0;
@@ -1311,23 +1312,22 @@ function getMoveNoFromFEN(fen: string) {
 $('#collapse-history').on('hidden.bs.collapse', (event) => {
   $('#history-toggle-icon').removeClass('fa-toggle-up').addClass('fa-toggle-down');
 
-  $('#pills-tab button').each(function () {
-    $(this).removeClass('active');
-  });
+  activeTab = $('#pills-tab button').filter('.active');
+  activeTab.removeClass('active');
+  activeTab.parent('li').removeClass('active');
+  $(activeTab.attr('data-bs-target')).removeClass('active');
 
   $('#collapse-history').removeClass('collapse-init');
 });
 
-$('#collapse-history').on('shown.bs.collapse', (event) => {
+$('#collapse-history').on('show.bs.collapse', (event) => {
   $('#history-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
-
-  const activeTabIndex = $('#left-menu > .tab-content > .tab-pane').index($('#left-menu > .tab-content > .tab-pane:visible'));
-  $('#pills-tab button').eq(activeTabIndex).addClass('active');
-
   scrollToTop();
+  activeTab.tab('show');
 });
 
 $('#pills-tab button').on('click', (event) => {
+  activeTab = $(this);
   $('#collapse-history').collapse('show');
   scrollToTop();
 });
@@ -1431,6 +1431,7 @@ function onDeviceReady() {
   $('#player-time').text('00:00');
 
   prevWindowWidth = $(window).innerWidth();
+  
   if(isSmallWindow()) {
     useMobileLayout();
     $('#collapse-chat').collapse('hide');
