@@ -299,10 +299,27 @@ ul.list-striped > li {
   text-align: center;
 }
 
-@media (max-width: 767px)
-{
+@media (max-width: 767px) {
   .collapse-init {
     display: none;
+  }
+
+  #close-status {
+    font-size: 30px;
+    top: 15px;
+    right: 9px;
+    line-height: 0px;
+    padding: 0px;
+  }
+}
+
+@media (min-width: 768px) {
+  #close-status {
+    font-size: 20px;
+    top: 9px;
+    right: 3px;
+    line-height: 0px;
+    padding: 0px;
   }
 }
 
@@ -342,4 +359,3 @@ ul.list-striped > li {
 #eval-progress {
   padding: 20px;
 }
-

@@ -60,8 +60,7 @@ export function cleanup() {
   $('#stop-examining').hide();
   hideCloseGamePanel();
   $('#playing-game-buttons').hide();
-  if(game.history.length() > 0)
-    $('#viewing-game-buttons').show();
+  $('#viewing-game-buttons').show();
 
   if(game.wclock)
     clearInterval(game.wclock);
@@ -78,6 +77,8 @@ export function cleanup() {
   game.role = Role.NONE;
   board.cancelMove();
   updateBoard();
+  if($('#left-panel-bottom').is(':visible'))
+    showStatusPanel();
 }
 
 export function disableOnlineInputs(disable: boolean) {
@@ -99,12 +100,30 @@ function showCloseGamePanel() {
 }
 
 function hideStatusPanel() {
+  $('#show-status-panel').text('Status/Analysis');
+  $('#show-status-panel').show();
   $('#left-panel-bottom').hide();
+  stopEngine();
   setPanelSizes();
 }
 
 function showStatusPanel() {
   $('#left-panel-bottom').show();
+  if(game.isPlaying()) {
+    $('#close-status').hide(); 
+    hideAnalysis();
+  }
+  else {
+    if(!$('#engine-tab').is(':visible')) {
+      $('#show-status-panel').text('Analyze');
+      $('#show-status-panel').show();
+    }
+    else {
+      $('#show-status-panel').hide();
+      evalEngine.evaluate();
+    }
+    $('#close-status').show();
+  }
   setPanelSizes();
 }
 
@@ -298,7 +317,7 @@ export function movePiece(source: any, target: any, metadata: any) {
 
   $('#pills-game-tab').tab('show');
   if(game.role === Role.NONE)
-    $('#viewing-game-buttons').show();
+    $('#show-status-panel').show();
 }
 
 function showStatusMsg(msg: string) {
@@ -499,7 +518,6 @@ function messageHandler(data) {
           $('#playing-game-buttons').hide();
           $('#viewing-game-buttons').show();
         }
-
         showStatusPanel();
         scrollToBoard();
       }
@@ -531,7 +549,6 @@ function messageHandler(data) {
     case MessageType.GameStart:
       matchRequestList = [];
       matchRequest = undefined;
-      hideAnalysis();
       $('#viewing-game-buttons').hide();
       $('#game-requests').empty();
       $('#playing-game').hide();
@@ -1251,22 +1268,16 @@ function stopEngine() {
 }
 
 function hideAnalysis() {
-  $('#hide-analysis').hide();
-  $('#analyze').show();
   stopEngine();
-  board.setAutoShapes([]);
   closeLeftBottomTab($('#engine-tab'));
   closeLeftBottomTab($('#eval-graph-tab'));
-  hideStatusPanel();
+  $('#show-status-panel').text('Analyze');
+  $('#show-status-panel').show();
 }
 
 function showAnalysis() {
-  showStatusPanel();
-  $('#analyze').hide();
-  $('#hide-analysis').show();
   openLeftBottomTab($('#engine-tab'));
   openLeftBottomTab($('#eval-graph-tab'));
-  $('#eval-graph-tab').find('.nav-link').tab('show');
   $('#engine-pvs').empty();
   for(let i = 0; i < numPVs; i++)
     $('#engine-pvs').append('<li>&nbsp;</li>');
@@ -1275,24 +1286,17 @@ function showAnalysis() {
   evalEngine.evaluate();
 }
 
-$('#engine-tab .closeTab').on('click', (event) => {
-  hideAnalysis();
-});
-
-$('#eval-graph-tab .closeTab').on('click', (event) => {
-  hideAnalysis();
-});
-
 function closeLeftBottomTab(tab: any) {
   $('#status-tab').tab('show');
-  tab.hide();
+  tab.parent().hide();
   if($('#left-bottom-tabs li:visible').length === 1)
     $('#left-bottom-tabs').css('visibility', 'hidden');
 }
 
 function openLeftBottomTab(tab: any) {
-  tab.show();
+  tab.parent().show();
   $('#left-bottom-tabs').css('visibility', 'visible');
+  tab.tab('show');
 }
 
 function getMoves() {
@@ -1645,12 +1649,14 @@ $('#draw').on('click', (event) => {
   }
 });
 
-$('#analyze').on('click', (event) => {
-  showAnalysis();
+$('#show-status-panel').on('click', (event) => {
+  if($('#show-status-panel').text() === 'Analyze') 
+    showAnalysis();
+  showStatusPanel();
 });
 
-$('#hide-analysis').on('click', (event) => {
-  hideAnalysis();
+$('#close-status').on('click', (event) => {
+  hideStatusPanel();
 });
 
 $('#start-engine').on('click', (event) => {
@@ -2077,6 +2083,12 @@ $('#puzzlebot').on('click', (event) => {
 
 $(document).on('shown.bs.tab', 'button[href="#eval-graph-panel"]', (e) => {
   evalEngine.redraw();
+});
+
+$('#left-bottom-tabs .closeTab').on('click', (event) => {
+  var id = $(event.target).parent().siblings('.nav-link').attr('id');
+  if(id === 'engine-tab' || id === 'eval-graph-tab')
+    hideAnalysis();
 });
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => {

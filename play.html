@@ -194,19 +194,20 @@
                 </div>
               </div>
               <div class="card-footer p-0" id="left-panel-bottom" style="display: none">
-                <div class="d-flex flex-column h-100 w-100">
-                  <ul class="nav nav-tabs mt-2" id="left-bottom-tabs" style="visibility: hidden" role="tablist">
+                <div class="d-flex flex-column h-100 w-100 position-relative">
+                  <button id="close-status" class="btn btn-default position-absolute">&times;</button>
+                  <ul class="nav nav-tabs pt-2" id="left-bottom-tabs" style="visibility: hidden" role="tablist">
                     <li class="nav-item" role="presentation">
                       <button class="nav-link active" id="status-tab" data-bs-toggle="tab" data-bs-target="#status-panel" type="button" role="tab" aria-controls="status-panel" aria-selected="true">Status</button>
                     </li>
-                    <li class="nav-item" role="presentation" id="engine-tab" style="position: relative; display: none">
-                      <button class="nav-link" style="padding-right: 30px" data-bs-toggle="tab" href="#engine-panel" role="tab" aria-controls="engine-panel" aria-selected="false">Engine</button>
+                    <li class="nav-item" role="presentation" style="position: relative; display: none">
+                      <button class="nav-link" id="engine-tab" style="padding-right: 30px" data-bs-toggle="tab" href="#engine-panel" role="tab" aria-controls="engine-panel" aria-selected="false">Engine</button>
                       <container class="h-100 d-flex" style="position: absolute; top: 0; right: 12px; z-index: 10">
                         <span class="closeTab align-self-center btn btn-default btn-sm">×</span>
                       </container>
                     </li>
-                    <li class="nav-item" role="presentation" id="eval-graph-tab" style="position: relative; display: none">
-                      <button class="nav-link" style="padding-right: 30px" data-bs-toggle="tab" href="#eval-graph-panel" role="tab" aria-controls="eval-graph-panel" aria-selected="false">Eval Graph</button>
+                    <li class="nav-item" role="presentation" style="position: relative; display: none">
+                      <button class="nav-link" id="eval-graph-tab" style="padding-right: 30px" data-bs-toggle="tab" href="#eval-graph-panel" role="tab" aria-controls="eval-graph-panel" aria-selected="false">Eval Graph</button>
                       <container class="h-100 d-flex" style="position: absolute; top: 0; right: 12px; z-index: 10">
                         <span class="closeTab align-self-center btn btn-default btn-sm">×</span>
                       </container>
@@ -263,9 +264,8 @@
                   <span class="fa fa-flag-o" aria-hidden="false"></span>
                 </button>
               </div>
-              <div id="viewing-game-buttons" class="btn-toolbar center m-auto w-100" style="display: none">
-                <button type="button" id="analyze" class="btn btn-outline-secondary btn-md" title="Analyze">Analyze</button>                    
-                <button type="button" id="hide-analysis" style="display: none" class="btn btn-outline-secondary btn-md" title="Hide Analysis">Hide Analysis</button>                
+              <div id="viewing-game-buttons" class="btn-toolbar center m-auto w-100">
+                <button type="button" id="show-status-panel" class="btn btn-outline-secondary btn-md" title="Show Status Panel" style="display: none">Analyze</button>         
               </div>
             </div>
           </div>
