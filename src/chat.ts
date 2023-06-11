@@ -117,23 +117,18 @@ export class Chat {
       console: $('#content-console'),
     };
 
-    $(document).on('shown.bs.tab', 'a[data-bs-toggle="tab"]', (e) => {
+    $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
+      this.updateChatBubble(tab);
+      $('#input-text').trigger('focus');
+    });
 
-      if(tab.hasClass('tab-unviewed')) {
-        if(!this.ignoreUnread(tab.attr('id'))) {
-          this.unreadNum--;
-          if(this.unreadNum === 0)
-            $('#chat-unread-bubble').hide();
-          else
-            $('#chat-unread-number').text(this.unreadNum);
-        }
-        tab.removeClass('tab-unviewed');
-      }
+    $('#collapse-chat').on('shown.bs.collapse', () => {
+      this.updateChatBubble($('#tabs button').filter('.active'));
     });
 
     $(document.body).on('click', '#tabs .closeTab', (event) => {
-      this.closeTab(event.target);
+      this.closeTab($(event.target).parent().siblings('.nav-link'));
     });
 
     if (!this.autoscrollToggle) {
@@ -173,20 +168,45 @@ export class Chat {
     });
   }
 
+  private updateChatBubble(tab: any) {
+    if(!tab.hasClass('tab-unviewed') && (!tab.hasClass('active') || !$('#collapse-chat').hasClass('show')) && tab.attr('id') !== 'console') {
+      // Add unread number to chat-toggle-icon
+      if(!this.ignoreUnread(tab.attr('id'))) { // only add if a private message
+        if(this.unreadNum === 0)
+          $('#chat-unread-bubble').show();
+        this.unreadNum++;
+        $('#chat-unread-number').text(this.unreadNum);
+      }
+      tab.addClass('tab-unviewed');
+    }
+    else if(tab.hasClass('tab-unviewed')) {
+      if(!this.ignoreUnread(tab.attr('id'))) {
+        this.unreadNum--;
+        if(this.unreadNum === 0)
+          $('#chat-unread-bubble').hide();
+        else
+          $('#chat-unread-number').text(this.unreadNum);
+      }
+      tab.removeClass('tab-unviewed');
+    }
+  }
+
   public closeTab(tab: any) {
-    const name: string = $(tab).parent().attr('id').toLowerCase();
-    $(tab).parent().remove();
+    this.updateChatBubble(tab);
+    if(tab.hasClass('active'))
+      $('#tabs .nav-link:first').tab('show');
+
+    const name: string = tab.attr('id').toLowerCase();
+    tab.parent().remove();
     this.deleteTab(name);
-    $('#tabs a:last').tab('show');
     $('#content-' + name).remove();
   }
 
   public setUser(user: string): void {
     if(this.user !== user) {
-      this.unreadNum = 0;
       const that = this;
       $('#tabs .closeTab').each(function (index) {
-        that.closeTab($(this));
+        that.closeTab($(this).parent().siblings('.nav-link'));
       });
     }
 
@@ -201,9 +221,14 @@ export class Chat {
         chName = channels[name];
       }
 
-      $('<li class="nav-item"><a class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-' +
-        from + '" id="' + from + '" role="tab">' + chName +
-        '<span class="btn btn-default btn-sm closeTab">×</span></a></li>').appendTo('#tabs');
+      $(`<li class="nav-item position-relative">
+          <button class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-` +
+              from + `" id="` + from + `" role="tab" style="padding-right: 30px">` + chName + `
+          </button>   
+          <container class="d-flex align-items-center h-100 position-absolute" style="top: 0; right: 12px; z-index: 10">       
+            <span class="closeTab btn btn-default btn-sm">×</span>
+          </container>
+        </li>`).appendTo('#tabs');
       $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('#chat-tabContent');
       const boardHeight = $('#board').height();
       if (boardHeight) {
@@ -229,7 +254,7 @@ export class Chat {
   }
 
   public currentTab(): string {
-    return $('ul#tabs a.active').attr('id');
+    return $('ul#tabs button.active').attr('id');
   }
 
   public addChannels(chans: string[]) {
@@ -285,25 +310,17 @@ export class Chat {
     tab.append(timestamp + who + text);
 
     const tabheader = $('#' + from.toLowerCase().replace(/\s/g, '-'));
+    this.updateChatBubble(tabheader);
+    
     if (tabheader.hasClass('active')) {
       if (this.autoscrollToggle) {
         tab.scrollTop(tab[0].scrollHeight);
       }
     }
-    else if(from !== 'console') {
-      // Add unread number to chat-toggle-icon
-      if(!tabheader.hasClass('tab-unviewed') && !this.ignoreUnread(from)) { // only add if a private message
-        if(this.unreadNum === 0)
-          $('#chat-unread-bubble').show();
-        this.unreadNum++;
-        $('#chat-unread-number').text(this.unreadNum);
-      }
-      tabheader.addClass('tab-unviewed');
-    }
   }
 
   private ignoreUnread(from: string) {
-    return /^\d+$/.test(from) || from === 'ROBOadmin' || from === 'adminBOT'
+    return /^\d+$/.test(from) || from === 'roboadmin' || from === 'adminbot'
   }
 
   public newNotification(msg: string) {
@@ -348,6 +365,7 @@ $('#collapse-chat').on('hidden.bs.collapse', () => {
     scrollToBoard();
   $('#collapse-chat').removeClass('collapse-init');
 });
+
 $('#collapse-chat').on('shown.bs.collapse', () => {
   scrollToChat();
 });
