@@ -984,7 +984,7 @@ function messageHandler(data) {
 
 export function scrollToBoard() {
   if(isSmallWindow())
-    $(document).scrollTop($('#left-panel-footer').offset().top);
+    $(document).scrollTop($('#right-panel').offset().top + $(window).height());
 }
 
 function scrollToLeftPanelBottom() {
