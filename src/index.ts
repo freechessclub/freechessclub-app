@@ -1169,11 +1169,6 @@ export function updateBoard(playMove = false) {
     dests = toDests(game.chess);
     turnColor = toColor(game.chess);
   }
-  else if(game.isExamining()) {
-    movableColor = toColor(localChess);
-    dests = toDests(localChess);
-    turnColor = toColor(localChess);
-  }
   else {
     movableColor = toColor(localChess);
     dests = toDests(localChess);
@@ -1189,7 +1184,7 @@ export function updateBoard(playMove = false) {
   board.set({
     turnColor,
     movable,
-    check: localChess.in_check(),
+    check: localChess.in_check() ? toColor(localChess) : false,
     blockTouchScroll: (game.isPlaying() ? true : false),
   });
 
