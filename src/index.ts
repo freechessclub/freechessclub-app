@@ -394,6 +394,11 @@ function messageHandler(data) {
         session.send('set interface www.freechess.club');
         session.send('=ch');
         channelListRequested = true;
+
+        if($('#pills-observe').hasClass('show'))
+          initObservePane();
+        else if($('#pills-observe').hasClass('show'))
+          initExaminePane();
       } else if (data.command === 2) {
         if (session.isConnected()) {
           session.disconnect();
@@ -586,8 +591,8 @@ function messageHandler(data) {
         return;
 
       match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
-      $('#game-watchers').empty();
       if (match != null && match.length > 1) {
+        $('#game-watchers').empty();
         if (+match[1] === game.id) {
           match[2] = match[2].replace(/\(U\)/g, '');
           const watchers = match[2].split(' ');
@@ -616,6 +621,55 @@ function messageHandler(data) {
           showModal('Takeback Request', match[1], 'would like to take back ' + match[2] + ' half move(s).',
             ['decline', 'Decline'], ['accept', 'Accept']);
         }
+        return;
+      }
+
+      // Parse results of 'games <game #> to get game info when examining
+      match = msg.match(/\d+\s+\(\s*Exam\.\s+(\d+)\s+(\w+)\s+(\d+)\s+(\w+)\s*\)\s+\[\s*p?(\w)(\w)\s+(\d+)\s+(\d+)\s*\]/);
+      if(match && match.length > 8 && gameInfoRequested) {
+        gameInfoRequested = false;
+
+        let wrating = game.wrating = match[1];
+        const wname = match[2];
+        let brating = game.brating = match[3];
+        const bname = match[4];
+        const style = match[5];
+        const rated = (match[6] === 'r' ? 'rated' : 'unrated');
+        const initialTime = match[7];
+        const increment = match[8];
+
+        const styleNames = new Map([
+          ['b', 'blitz'], ['l', 'lightning'], ['u', 'untimed'], ['e', 'examined'],
+          ['s', 'standard'], ['w', 'wild'], ['x', 'atomic'], ['z', 'crazyhouse'],
+          ['B', 'Bughouse'], ['L', 'losers'], ['S', 'Suicide'], ['n', 'nonstandard']
+        ]);
+
+        if(wrating === '0') wrating = '';
+        if(brating === '0') brating = '';
+        $('#player-rating').text(bname === session.getUser() ? brating : wrating);
+        $('#opponent-rating').text(bname === session.getUser() ? wrating : brating);
+
+        if(wrating === '') {
+          match = wname.match(/Guest[A-Z]{4}/);
+          if(match)
+            wrating = '++++';
+          else wrating = '----';
+        }
+        if(brating === '') {
+          match = bname.match(/Guest[A-Z]{4}/);
+          if(match)
+            brating = '++++';
+          else brating = '----';
+        }
+
+        let time = ' ' + initialTime + ' ' + increment;
+        if(style === 'u')
+          time = '';
+
+        const statusMsg = wname + ' (' + wrating + ') ' + bname + ' (' + brating + ') '
+          + rated + ' ' + styleNames.get(style) + time;
+
+        showStatusMsg(statusMsg);
         return;
       }
 
@@ -766,55 +820,6 @@ function messageHandler(data) {
         }
 
         chat.newMessage('console', data);
-        return;
-      }
-
-      // Parse results of 'games <game #> to get game info when examining
-      match = msg.match(/\d+\s+\(\s*Exam\.\s+(\d+)\s+(\w+)\s+(\d+)\s+(\w+)\s*\)\s+\[\s*p?(\w)(\w)\s+(\d+)\s+(\d+)\s*\]/);
-      if(match && match.length > 8) {
-        gameInfoRequested = false;
-
-        let wrating = game.wrating = match[1];
-        const wname = match[2];
-        let brating = game.brating = match[3];
-        const bname = match[4];
-        const style = match[5];
-        const rated = (match[6] === 'r' ? 'rated' : 'unrated');
-        const initialTime = match[7];
-        const increment = match[8];
-
-        const styleNames = new Map([
-          ['b', 'blitz'], ['l', 'lightning'], ['u', 'untimed'], ['e', 'examined'],
-          ['s', 'standard'], ['w', 'wild'], ['x', 'atomic'], ['z', 'crazyhouse'],
-          ['B', 'Bughouse'], ['L', 'losers'], ['S', 'Suicide'], ['n', 'nonstandard']
-        ]);
-
-        if(wrating === '0') wrating = '';
-        if(brating === '0') brating = '';
-        $('#player-rating').text(bname === session.getUser() ? brating : wrating);
-        $('#opponent-rating').text(bname === session.getUser() ? wrating : brating);
-
-        if(wrating === '') {
-          match = wname.match(/Guest[A-Z]{4}/);
-          if(match)
-            wrating = '++++';
-          else wrating = '----';
-        }
-        if(brating === '') {
-          match = bname.match(/Guest[A-Z]{4}/);
-          if(match)
-            brating = '++++';
-          else brating = '----';
-        }
-
-        let time = ' ' + initialTime + ' ' + increment;
-        if(style === 'u')
-          time = '';
-
-        const statusMsg = wname + ' (' + wrating + ') ' + bname + ' (' + brating + ') '
-          + rated + ' ' + styleNames.get(style) + time;
-
-        showStatusMsg(statusMsg);
         return;
       }
 
@@ -1981,6 +1986,10 @@ function showHistory(user: string, history: string) {
 }
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-examine"]', (e) => {
+  initExaminePane();
+});
+
+function initExaminePane() {
   historyRequested = 0;
   $('#history-table').html('');
   let username = getValue('#examine-username');
@@ -1991,7 +2000,7 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-examine"]', (e) =>
     }
   }
   getHistory(username);
-});
+}
 
 $('#examine-user').on('submit', (event) => {
   event.preventDefault();
@@ -2049,13 +2058,17 @@ function showGames(games: string) {
 };
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-observe"]', (e) => {
+  initObservePane();
+});
+
+function initObservePane() {
   obsRequested = 0;
   $('#games-table').html('');
   if (session && session.isConnected()) {
     gamesRequested = true;
     session.send('games /bsl');
   }
-});
+}
 
 $('#puzzlebot').on('click', (event) => {
   session.send('t puzzlebot getmate');
