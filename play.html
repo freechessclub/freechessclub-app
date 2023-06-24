@@ -28,9 +28,9 @@
 </head>
 <body>
   <div class="feature3 p-0">
-    <div class="row justify-content-md-center m-0">
-      <div class="card-group p-0" id="col-group">
-        <div id="left-col" class="col-sm-12 col-md-3 col-lg-3 col-xl-3 align-self-center" style="min-width: 320px">
+    <div class="row justify-content-md-center m-0" id="col-group">
+      <div class="card-group p-0">
+        <div id="left-col" class="col-sm-12 col-md-3 col-lg-3 col-xl-3 align-self-center" style="min-width: 340px">
           <div class="card bg-transparent" id="left-card">
             <div class="card-header top-panel d-flex" id="left-panel-header" style="visibility: hidden">
               <div id="navigation-toolbar" class="btn-toolbar m-auto">
@@ -64,7 +64,7 @@
               <div class="card-body p-0">
                 <ul class="nav nav-pills nav-fill user-select-none" id="pills-tab" role="tablist">
                   <li class="nav-item" role="presentation">
-                    <button class="nav-link py-2" id="pills-play-tab" data-bs-toggle="pill" data-bs-target="#pills-play" type="button" role="tab" aria-controls="pills-play" aria-selected="true">Play</button>
+                    <button class="active nav-link py-2" id="pills-play-tab" data-bs-toggle="pill" data-bs-target="#pills-play" type="button" role="tab" aria-controls="pills-play" aria-selected="true">Play</button>
                   </li>
                   <li class="nav-item" role="presentation">
                     <button class="nav-link py-2" id="pills-observe-tab" data-bs-toggle="pill" data-bs-target="#pills-observe" type="button" role="tab" aria-controls="pills-observe" aria-selected="false">Observe</button>
@@ -194,19 +194,20 @@
                 </div>
               </div>
               <div class="card-footer p-0" id="left-panel-bottom" style="display: none">
-                <div class="d-flex flex-column h-100 w-100">
-                  <ul class="nav nav-tabs mt-2" id="left-bottom-tabs" style="visibility: hidden" role="tablist">
+                <div class="d-flex flex-column h-100 w-100 position-relative">
+                  <button id="close-status" class="btn btn-default position-absolute">&times;</button>
+                  <ul class="nav nav-tabs pt-2" id="left-bottom-tabs" style="visibility: hidden" role="tablist">
                     <li class="nav-item" role="presentation">
                       <button class="nav-link active" id="status-tab" data-bs-toggle="tab" data-bs-target="#status-panel" type="button" role="tab" aria-controls="status-panel" aria-selected="true">Status</button>
                     </li>
-                    <li class="nav-item" role="presentation" id="engine-tab" style="position: relative; display: none">
-                      <button class="nav-link" style="padding-right: 30px" data-bs-toggle="tab" href="#engine-panel" role="tab" aria-controls="engine-panel" aria-selected="false">Engine</button>
+                    <li class="nav-item" role="presentation" style="position: relative; display: none">
+                      <button class="nav-link" id="engine-tab" style="padding-right: 30px" data-bs-toggle="tab" href="#engine-panel" role="tab" aria-controls="engine-panel" aria-selected="false">Engine</button>
                       <container class="h-100 d-flex" style="position: absolute; top: 0; right: 12px; z-index: 10">
                         <span class="closeTab align-self-center btn btn-default btn-sm">×</span>
                       </container>
                     </li>
-                    <li class="nav-item" role="presentation" id="eval-graph-tab" style="position: relative; display: none">
-                      <button class="nav-link" style="padding-right: 30px" data-bs-toggle="tab" href="#eval-graph-panel" role="tab" aria-controls="eval-graph-panel" aria-selected="false">Eval Graph</button>
+                    <li class="nav-item" role="presentation" style="position: relative; display: none">
+                      <button class="nav-link" id="eval-graph-tab" style="padding-right: 30px" data-bs-toggle="tab" href="#eval-graph-panel" role="tab" aria-controls="eval-graph-panel" aria-selected="false">Eval Graph</button>
                       <container class="h-100 d-flex" style="position: absolute; top: 0; right: 12px; z-index: 10">
                         <span class="closeTab align-self-center btn btn-default btn-sm">×</span>
                       </container>
@@ -263,14 +264,13 @@
                   <span class="fa fa-flag-o" aria-hidden="false"></span>
                 </button>
               </div>
-              <div id="viewing-game-buttons" class="btn-toolbar center m-auto w-100" style="display: none">
-                <button type="button" id="analyze" class="btn btn-outline-secondary btn-md" title="Analyze">Analyze</button>         
-                <button type="button" id="hide-analysis" style="display: none" class="btn btn-outline-secondary btn-md" title="Hide Analysis">Hide Analysis</button>                
+              <div id="viewing-game-buttons" class="btn-toolbar center m-auto w-100">
+                <button type="button" id="show-status-panel" class="btn btn-outline-secondary btn-md" title="Show Status Panel" style="display: none">Analyze</button>         
               </div>
             </div>
           </div>
         </div>
-        <div id="mid-col" class="col-sm-12 col-md-9 col-lg-4 col-xl-4 align-self-center">
+        <div id="mid-col" class="col-sm-12 col-md-9 col-lg-6 col-xl-6 align-self-center">
           <div class="card bg-transparent" id="mid-card">
             <div class="top-panel d-flex flex-wrap justify-content-between align-items-center card-header status noselect" id="opponent-status">
               <div class="p-2 name" id="opponent-name"></div>
@@ -280,9 +280,9 @@
               <div class="p-2 clock" id="opponent-time"></div>
             </div>
             <div class="card-body p-0 noselect" id="board-card">
-              <div class="mw-100">
-                <div class="toast-container">
-                  <div id="game-requests" aria-live="polite" aria-atomic="true" class="d-flex justify-content-center align-items-center w-100"></div>
+              <div class="mw-100 position-relative">
+                <div class="toast-container h-100 w-100">
+                  <div id="game-requests" aria-live="polite" aria-atomic="true"></div>
                 </div>
                 <div class="cg-wrap mw-100" id="board"></div>
               </div>
@@ -362,7 +362,7 @@
                       </div>
                     </div>
                     <li class="nav-item">
-                      <a class="text-sm-center nav-link active" data-bs-toggle="tab" href="#content-console" id="console" role="tab">Console</a>
+                      <button class="text-sm-center nav-link active" data-bs-toggle="tab" href="#content-console" id="console" role="tab">Console</button>
                     </li>
                   </ul>
                   <br/>
@@ -426,8 +426,8 @@
       </div>
     </div>
   </div>
-  <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+  <script src="https://code.jquery.com/jquery-3.7.0.slim.min.js" integrity="sha256-tG5mcZUtJsZvyKAxYLVXrmjKBVLd6VpVccqz/r4ypFE=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3@7.8.0/dist/d3.min.js" integrity="sha384-BfdMhEKmGjfIcPlLK2EXeY8IW+8aVgSwDo8P3DHR4+iceT2QW/ygYkMeZ2dZ77j4" crossorigin="anonymous"></script>
   <script defer type="text/javascript" src="assets/js/bundle.js"></script>
   <script>

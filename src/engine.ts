@@ -238,7 +238,7 @@ export class EvalEngine {
             .attr('x', xScale(closestIndex))
             .style('opacity', 1);
 
-          const oldIndex = xScale.invert($('#hover-circle').attr('cx'));
+          const oldIndex = Math.round(xScale.invert($('#hover-circle').attr('cx')));
 
           hoverCircle
             .attr('cx', xScale(closestIndex))
@@ -249,6 +249,7 @@ export class EvalEngine {
 
           if(oldIndex !== closestIndex) {
             $('#hover-circle')
+              .tooltip('dispose')
               .tooltip({
                 container: 'body',
                 placement: 'auto',
@@ -262,7 +263,7 @@ export class EvalEngine {
           hoverLine.style('opacity', 0);
           hoverCircle.style('opacity', 0)
             .attr('cx', -1);
-          $('#hover-circle').tooltip('hide');
+          $('#hover-circle').tooltip('dispose');
         })
         .on('click', function(event) {
           const mousePosition = d3.pointer(event);

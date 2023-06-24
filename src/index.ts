@@ -41,6 +41,7 @@ let addressBarHeight;
 let soundTimer
 let removeSubvariationRequested = false;
 let prevDiff;
+let activeTab;
 
 export function cleanup() {
   historyRequested = 0;
@@ -59,8 +60,7 @@ export function cleanup() {
   $('#stop-examining').hide();
   hideCloseGamePanel();
   $('#playing-game-buttons').hide();
-  if(game.history.length() > 0)
-    $('#viewing-game-buttons').show();
+  $('#viewing-game-buttons').show();
 
   if(game.wclock)
     clearInterval(game.wclock);
@@ -77,6 +77,8 @@ export function cleanup() {
   game.role = Role.NONE;
   board.cancelMove();
   updateBoard();
+  if($('#left-panel-bottom').is(':visible'))
+    showStatusPanel();
 }
 
 export function disableOnlineInputs(disable: boolean) {
@@ -98,12 +100,30 @@ function showCloseGamePanel() {
 }
 
 function hideStatusPanel() {
+  $('#show-status-panel').text('Status/Analysis');
+  $('#show-status-panel').show();
   $('#left-panel-bottom').hide();
+  stopEngine();
   setPanelSizes();
 }
 
 function showStatusPanel() {
   $('#left-panel-bottom').show();
+  if(game.isPlaying()) {
+    $('#close-status').hide(); 
+    hideAnalysis();
+  }
+  else {
+    if(!$('#engine-tab').is(':visible')) {
+      $('#show-status-panel').text('Analyze');
+      $('#show-status-panel').show();
+    }
+    else {
+      $('#show-status-panel').hide();
+      evalEngine.evaluate();
+    }
+    $('#close-status').show();
+  }
   setPanelSizes();
 }
 
@@ -297,7 +317,7 @@ export function movePiece(source: any, target: any, metadata: any) {
 
   $('#pills-game-tab').tab('show');
   if(game.role === Role.NONE)
-    $('#viewing-game-buttons').show();
+    $('#show-status-panel').show();
 }
 
 function showStatusMsg(msg: string) {
@@ -393,6 +413,11 @@ function messageHandler(data) {
         session.send('set interface www.freechess.club');
         session.send('=ch');
         channelListRequested = true;
+
+        if($('#pills-observe').hasClass('show'))
+          initObservePane();
+        else if($('#pills-observe').hasClass('show'))
+          initExaminePane();
       } else if (data.command === 2) {
         if (session.isConnected()) {
           session.disconnect();
@@ -493,7 +518,6 @@ function messageHandler(data) {
           $('#playing-game-buttons').hide();
           $('#viewing-game-buttons').show();
         }
-
         showStatusPanel();
         scrollToBoard();
       }
@@ -525,7 +549,6 @@ function messageHandler(data) {
     case MessageType.GameStart:
       matchRequestList = [];
       matchRequest = undefined;
-      hideAnalysis();
       $('#viewing-game-buttons').hide();
       $('#game-requests').empty();
       $('#playing-game').hide();
@@ -585,8 +608,8 @@ function messageHandler(data) {
         return;
 
       match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
-      $('#game-watchers').empty();
       if (match != null && match.length > 1) {
+        $('#game-watchers').empty();
         if (+match[1] === game.id) {
           match[2] = match[2].replace(/\(U\)/g, '');
           const watchers = match[2].split(' ');
@@ -615,6 +638,55 @@ function messageHandler(data) {
           showModal('Takeback Request', match[1], 'would like to take back ' + match[2] + ' half move(s).',
             ['decline', 'Decline'], ['accept', 'Accept']);
         }
+        return;
+      }
+
+      // Parse results of 'games <game #> to get game info when examining
+      match = msg.match(/\d+\s+\(\s*Exam\.\s+(\d+)\s+(\w+)\s+(\d+)\s+(\w+)\s*\)\s+\[\s*p?(\w)(\w)\s+(\d+)\s+(\d+)\s*\]/);
+      if(match && match.length > 8 && gameInfoRequested) {
+        gameInfoRequested = false;
+
+        let wrating = game.wrating = match[1];
+        const wname = match[2];
+        let brating = game.brating = match[3];
+        const bname = match[4];
+        const style = match[5];
+        const rated = (match[6] === 'r' ? 'rated' : 'unrated');
+        const initialTime = match[7];
+        const increment = match[8];
+
+        const styleNames = new Map([
+          ['b', 'blitz'], ['l', 'lightning'], ['u', 'untimed'], ['e', 'examined'],
+          ['s', 'standard'], ['w', 'wild'], ['x', 'atomic'], ['z', 'crazyhouse'],
+          ['B', 'Bughouse'], ['L', 'losers'], ['S', 'Suicide'], ['n', 'nonstandard']
+        ]);
+
+        if(wrating === '0') wrating = '';
+        if(brating === '0') brating = '';
+        $('#player-rating').text(bname === session.getUser() ? brating : wrating);
+        $('#opponent-rating').text(bname === session.getUser() ? wrating : brating);
+
+        if(wrating === '') {
+          match = wname.match(/Guest[A-Z]{4}/);
+          if(match)
+            wrating = '++++';
+          else wrating = '----';
+        }
+        if(brating === '') {
+          match = bname.match(/Guest[A-Z]{4}/);
+          if(match)
+            brating = '++++';
+          else brating = '----';
+        }
+
+        let time = ' ' + initialTime + ' ' + increment;
+        if(style === 'u')
+          time = '';
+
+        const statusMsg = wname + ' (' + wrating + ') ' + bname + ' (' + brating + ') '
+          + rated + ' ' + styleNames.get(style) + time;
+
+        showStatusMsg(statusMsg);
         return;
       }
 
@@ -765,55 +837,6 @@ function messageHandler(data) {
         }
 
         chat.newMessage('console', data);
-        return;
-      }
-
-      // Parse results of 'games <game #> to get game info when examining
-      match = msg.match(/\d+\s+\(\s*Exam\.\s+(\d+)\s+(\w+)\s+(\d+)\s+(\w+)\s*\)\s+\[\s*p?(\w)(\w)\s+(\d+)\s+(\d+)\s*\]/);
-      if(match && match.length > 8) {
-        gameInfoRequested = false;
-
-        let wrating = game.wrating = match[1];
-        const wname = match[2];
-        let brating = game.brating = match[3];
-        const bname = match[4];
-        const style = match[5];
-        const rated = (match[6] === 'r' ? 'rated' : 'unrated');
-        const initialTime = match[7];
-        const increment = match[8];
-
-        const styleNames = new Map([
-          ['b', 'blitz'], ['l', 'lightning'], ['u', 'untimed'], ['e', 'examined'],
-          ['s', 'standard'], ['w', 'wild'], ['x', 'atomic'], ['z', 'crazyhouse'],
-          ['B', 'Bughouse'], ['L', 'losers'], ['S', 'Suicide'], ['n', 'nonstandard']
-        ]);
-
-        if(wrating === '0') wrating = '';
-        if(brating === '0') brating = '';
-        $('#player-rating').text(bname === session.getUser() ? brating : wrating);
-        $('#opponent-rating').text(bname === session.getUser() ? wrating : brating);
-
-        if(wrating === '') {
-          match = wname.match(/Guest[A-Z]{4}/);
-          if(match)
-            wrating = '++++';
-          else wrating = '----';
-        }
-        if(brating === '') {
-          match = bname.match(/Guest[A-Z]{4}/);
-          if(match)
-            brating = '++++';
-          else brating = '----';
-        }
-
-        let time = ' ' + initialTime + ' ' + increment;
-        if(style === 'u')
-          time = '';
-
-        const statusMsg = wname + ' (' + wrating + ') ' + bname + ' (' + brating + ') '
-          + rated + ' ' + styleNames.get(style) + time;
-
-        showStatusMsg(statusMsg);
         return;
       }
 
@@ -983,7 +1006,7 @@ function messageHandler(data) {
 
 export function scrollToBoard() {
   if(isSmallWindow())
-    $(document).scrollTop($('#left-panel-footer').offset().top);
+    $(document).scrollTop($('#right-panel').offset().top + $(window).height());
 }
 
 function scrollToLeftPanelBottom() {
@@ -1168,11 +1191,6 @@ export function updateBoard(playMove = false) {
     dests = toDests(game.chess);
     turnColor = toColor(game.chess);
   }
-  else if(game.isExamining()) {
-    movableColor = toColor(localChess);
-    dests = toDests(localChess);
-    turnColor = toColor(localChess);
-  }
   else {
     movableColor = toColor(localChess);
     dests = toDests(localChess);
@@ -1188,7 +1206,7 @@ export function updateBoard(playMove = false) {
   board.set({
     turnColor,
     movable,
-    check: localChess.in_check(),
+    check: localChess.in_check() ? toColor(localChess) : false,
     blockTouchScroll: (game.isPlaying() ? true : false),
   });
 
@@ -1250,22 +1268,16 @@ function stopEngine() {
 }
 
 function hideAnalysis() {
-  $('#hide-analysis').hide();
-  $('#analyze').show();
   stopEngine();
-  board.setAutoShapes([]);
   closeLeftBottomTab($('#engine-tab'));
   closeLeftBottomTab($('#eval-graph-tab'));
-  hideStatusPanel();
+  $('#show-status-panel').text('Analyze');
+  $('#show-status-panel').show();
 }
 
 function showAnalysis() {
-  showStatusPanel();
-  $('#analyze').hide();
-  $('#hide-analysis').show();
   openLeftBottomTab($('#engine-tab'));
   openLeftBottomTab($('#eval-graph-tab'));
-  $('#eval-graph-tab').find('.nav-link').tab('show');
   $('#engine-pvs').empty();
   for(let i = 0; i < numPVs; i++)
     $('#engine-pvs').append('<li>&nbsp;</li>');
@@ -1274,24 +1286,17 @@ function showAnalysis() {
   evalEngine.evaluate();
 }
 
-$('#engine-tab .closeTab').on('click', (event) => {
-  hideAnalysis();
-});
-
-$('#eval-graph-tab .closeTab').on('click', (event) => {
-  hideAnalysis();
-});
-
 function closeLeftBottomTab(tab: any) {
   $('#status-tab').tab('show');
-  tab.hide();
+  tab.parent().hide();
   if($('#left-bottom-tabs li:visible').length === 1)
     $('#left-bottom-tabs').css('visibility', 'hidden');
 }
 
 function openLeftBottomTab(tab: any) {
-  tab.show();
+  tab.parent().show();
   $('#left-bottom-tabs').css('visibility', 'visible');
+  tab.tab('show');
 }
 
 function getMoves() {
@@ -1311,23 +1316,22 @@ function getMoveNoFromFEN(fen: string) {
 $('#collapse-history').on('hidden.bs.collapse', (event) => {
   $('#history-toggle-icon').removeClass('fa-toggle-up').addClass('fa-toggle-down');
 
-  $('#pills-tab button').each(function () {
-    $(this).removeClass('active');
-  });
+  activeTab = $('#pills-tab button').filter('.active');
+  activeTab.removeClass('active');
+  activeTab.parent('li').removeClass('active');
+  $(activeTab.attr('data-bs-target')).removeClass('active');
 
   $('#collapse-history').removeClass('collapse-init');
 });
 
-$('#collapse-history').on('shown.bs.collapse', (event) => {
+$('#collapse-history').on('show.bs.collapse', (event) => {
   $('#history-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
-
-  const activeTabIndex = $('#left-menu > .tab-content > .tab-pane').index($('#left-menu > .tab-content > .tab-pane:visible'));
-  $('#pills-tab button').eq(activeTabIndex).addClass('active');
-
   scrollToTop();
+  activeTab.tab('show');
 });
 
 $('#pills-tab button').on('click', (event) => {
+  activeTab = $(this);
   $('#collapse-history').collapse('show');
   scrollToTop();
 });
@@ -1431,6 +1435,7 @@ function onDeviceReady() {
   $('#player-time').text('00:00');
 
   prevWindowWidth = $(window).innerWidth();
+  
   if(isSmallWindow()) {
     useMobileLayout();
     $('#collapse-chat').collapse('hide');
@@ -1522,23 +1527,25 @@ function setPanelSizes() {
   $('#player-status').height('');
   $('#opponent-status').height('');
 
-  // Reset middle column to use bootstrap's column width 
-  $('#mid-col').css('width', '');
-
   // Make sure the board is smaller than the window height and also leaves room for the other columns' min-widths
   if(!isSmallWindow()) {
+    if($(window).innerWidth() < 992) // display 2 columns on md (medium) display
+      var boardMaxWidth = $('#col-group').innerWidth() - $('#left-col').outerWidth();
+    else
+      var boardMaxWidth = $('#col-group').innerWidth() - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width'));    
+    
     var cardBorderHeight = $('#mid-card').outerHeight() - $('#mid-card').height();
-    var boardMaxWidth = Math.max($('#mid-col').width(), $('body').innerWidth() - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')));
     var boardMaxHeight = $(window).height() - $('#player-status').outerHeight()
         - $('#opponent-status').outerHeight() - cardBorderHeight;
+
     $('#mid-col').width(Math.min(boardMaxWidth, boardMaxHeight) - 0.1); 
-    
-    // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match 
-    // what chessground does internally
-    var newBoardWidth = (Math.floor(($('#board').width() * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio;
-    var widthDiff = $('#board').width() - newBoardWidth - 0.1; // Add 0.1px to column size, this is to stop chessground rounding down when board size is e.g. 59.999px due to floating point imprecision.
-    $('#mid-col').width($('#mid-col').width() - widthDiff);
   }
+
+  // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match 
+  // what chessground does internally
+  var newBoardWidth = (Math.floor(($('#board').width() * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio;
+  var widthDiff = $('#board').width() - newBoardWidth - 0.1; // Add 0.1px to column size, this is to stop chessground rounding down when board size is e.g. 59.999px due to floating point imprecision.
+  $('#mid-col').width($('#mid-col').width() - widthDiff);
 
   // Set the height of dynamic elements inside left and right panel collapsables.
   // Try to do it in a robust way that won't break if we add/remove elements later.
@@ -1642,12 +1649,14 @@ $('#draw').on('click', (event) => {
   }
 });
 
-$('#analyze').on('click', (event) => {
-  showAnalysis();
+$('#show-status-panel').on('click', (event) => {
+  if($('#show-status-panel').text() === 'Analyze') 
+    showAnalysis();
+  showStatusPanel();
 });
 
-$('#hide-analysis').on('click', (event) => {
-  hideAnalysis();
+$('#close-status').on('click', (event) => {
+  hideStatusPanel();
 });
 
 $('#start-engine').on('click', (event) => {
@@ -1936,9 +1945,8 @@ $(window).on('resize', () => {
 
 // prompt before unloading page if in a game
 $(window).on('beforeunload', () => {
-  if (game.chess) {
+  if(game.isPlaying()) 
     return true;
-  }
 });
 
 function getHistory(user: string) {
@@ -1984,6 +1992,10 @@ function showHistory(user: string, history: string) {
 }
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-examine"]', (e) => {
+  initExaminePane();
+});
+
+function initExaminePane() {
   historyRequested = 0;
   $('#history-table').html('');
   let username = getValue('#examine-username');
@@ -1994,7 +2006,7 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-examine"]', (e) =>
     }
   }
   getHistory(username);
-});
+}
 
 $('#examine-user').on('submit', (event) => {
   event.preventDefault();
@@ -2052,13 +2064,17 @@ function showGames(games: string) {
 };
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-observe"]', (e) => {
+  initObservePane();
+});
+
+function initObservePane() {
   obsRequested = 0;
   $('#games-table').html('');
   if (session && session.isConnected()) {
     gamesRequested = true;
     session.send('games /bsl');
   }
-});
+}
 
 $('#puzzlebot').on('click', (event) => {
   session.send('t puzzlebot getmate');
@@ -2067,6 +2083,12 @@ $('#puzzlebot').on('click', (event) => {
 
 $(document).on('shown.bs.tab', 'button[href="#eval-graph-panel"]', (e) => {
   evalEngine.redraw();
+});
+
+$('#left-bottom-tabs .closeTab').on('click', (event) => {
+  var id = $(event.target).parent().siblings('.nav-link').attr('id');
+  if(id === 'engine-tab' || id === 'eval-graph-tab')
+    hideAnalysis();
 });
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => {

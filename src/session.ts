@@ -170,4 +170,8 @@ export class Session {
   }
 }
 
+$('#connectButton').on('click', (event) => {
+  $('#chat-status').popover('dispose');
+});
+
 export default Session;
