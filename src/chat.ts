@@ -120,7 +120,6 @@ export class Chat {
     $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
       this.updateChatBubble(tab);
-      $('#input-text').trigger('focus');
     });
 
     $('#collapse-chat').on('shown.bs.collapse', () => {
