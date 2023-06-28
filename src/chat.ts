@@ -167,7 +167,7 @@ export class Chat {
     });
   }
 
-  private updateChatBubble(tab: any) {
+  private updateChatBubble(tab: any, closingTab: boolean = false) {
     if(!tab.hasClass('tab-unviewed') && (!tab.hasClass('active') || !$('#collapse-chat').hasClass('show')) && tab.attr('id') !== 'console') {
       // Add unread number to chat-toggle-icon
       if(!this.ignoreUnread(tab.attr('id'))) { // only add if a private message
@@ -178,7 +178,7 @@ export class Chat {
       }
       tab.addClass('tab-unviewed');
     }
-    else if(tab.hasClass('tab-unviewed')) {
+    else if(tab.hasClass('tab-unviewed') && (closingTab || (tab.hasClass('active') && $('#collapse-chat').hasClass('show')))) {
       if(!this.ignoreUnread(tab.attr('id'))) {
         this.unreadNum--;
         if(this.unreadNum === 0)
@@ -191,7 +191,7 @@ export class Chat {
   }
 
   public closeTab(tab: any) {
-    this.updateChatBubble(tab);
+    this.updateChatBubble(tab, true);
     if(tab.hasClass('active'))
       $('#tabs .nav-link:first').tab('show');
 
