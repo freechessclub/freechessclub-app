@@ -119,11 +119,11 @@ export class Chat {
 
     $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
-      this.updateChatBubble(tab);
+      this.updateViewedState(tab);
     });
 
     $('#collapse-chat').on('shown.bs.collapse', () => {
-      this.updateChatBubble($('#tabs button').filter('.active'));
+      this.updateViewedState($('#tabs button').filter('.active'));
     });
 
     $(document.body).on('click', '#tabs .closeTab', (event) => {
@@ -167,7 +167,7 @@ export class Chat {
     });
   }
 
-  private updateChatBubble(tab: any) {
+  private updateViewedState(tab: any, closingTab: boolean = false) {
     if(!tab.hasClass('tab-unviewed') && (!tab.hasClass('active') || !$('#collapse-chat').hasClass('show')) && tab.attr('id') !== 'console') {
       // Add unread number to chat-toggle-icon
       if(!this.ignoreUnread(tab.attr('id'))) { // only add if a private message
@@ -178,7 +178,7 @@ export class Chat {
       }
       tab.addClass('tab-unviewed');
     }
-    else if(tab.hasClass('tab-unviewed')) {
+    else if(tab.hasClass('tab-unviewed') && (closingTab || (tab.hasClass('active') && $('#collapse-chat').hasClass('show')))) {
       if(!this.ignoreUnread(tab.attr('id'))) {
         this.unreadNum--;
         if(this.unreadNum === 0)
@@ -191,7 +191,7 @@ export class Chat {
   }
 
   public closeTab(tab: any) {
-    this.updateChatBubble(tab);
+    this.updateViewedState(tab, true);
     if(tab.hasClass('active'))
       $('#tabs .nav-link:first').tab('show');
 
@@ -309,7 +309,7 @@ export class Chat {
     tab.append(timestamp + who + text);
 
     const tabheader = $('#' + from.toLowerCase().replace(/\s/g, '-'));
-    this.updateChatBubble(tabheader);
+    this.updateViewedState(tabheader);
     
     if (tabheader.hasClass('active')) {
       if (this.autoscrollToggle) {

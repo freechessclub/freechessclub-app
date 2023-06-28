@@ -316,7 +316,8 @@ export function movePiece(source: any, target: any, metadata: any) {
     movePieceAfter(move, fen);
 
   $('#pills-game-tab').tab('show');
-  if(game.role === Role.NONE)
+  // Show 'Analyze' button once any moves have been made on the board
+  if(!$('#engine-tab').is(':visible'))
     $('#show-status-panel').show();
 }
 
