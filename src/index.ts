@@ -24,6 +24,9 @@ let evalEngine: EvalEngine | null;
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
 
+// toggle for auto-promote to queen
+let autoPromoteToggle: boolean = (Cookies.get('autopromote') === 'true');
+
 let historyRequested = 0;
 let obsRequested = 0;
 let gameInfoRequested = false;
@@ -42,6 +45,10 @@ let soundTimer
 let removeSubvariationRequested = false;
 let prevDiff;
 let activeTab;
+let promotePiece;
+let promoteSource;
+let promoteTarget;
+let promoteIsPremove;
 
 export function cleanup() {
   historyRequested = 0;
@@ -59,6 +66,7 @@ export function cleanup() {
   $('#stop-observing').hide();
   $('#stop-examining').hide();
   hideCloseGamePanel();
+  hidePromotionPanel();
   $('#playing-game-buttons').hide();
   $('#viewing-game-buttons').show();
 
@@ -125,6 +133,52 @@ function showStatusPanel() {
     $('#close-status').show();
   }
   setPanelSizes();
+}
+
+function showPromotionPanel(source: string, target: string, premove: boolean = false) {
+  promoteSource = source;
+  promoteTarget = target;
+  promoteIsPremove = premove;
+  var orientation = board.state.orientation;
+  var color = (target.charAt(1) === '8' ? 'white' : 'black');
+  var fileNum = target.toLowerCase().charCodeAt(0) - 97;
+  var bgQueen = $('.cg-wrap piece.queen.' + color).css('background-image').replace(/\"/g, '\'');
+  var bgKnight = $('.cg-wrap piece.knight.' + color).css('background-image').replace(/\"/g, '\'');
+  var bgRook = $('.cg-wrap piece.rook.' + color).css('background-image').replace(/\"/g, '\'');
+  var bgBishop = $('.cg-wrap piece.bishop.' + color).css('background-image').replace(/\"/g, '\'');
+  $('#promotion-panel').css('left', $('#promotion-panel').width() * (orientation === "white" ? fileNum : 7 - fileNum));
+  if(orientation === color) {
+    $('#promotion-panel').css('top', 0);
+    $('#promotion-panel').html(`
+      <button id="promote-piece-q" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgQueen + `; background-size: cover;"></button>
+      <button id="promote-piece-n" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgKnight + `; background-size: cover;"></button>
+      <button id="promote-piece-r" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgRook + `; background-size: cover;"></button>
+      <button id="promote-piece-b" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgBishop + `; background-size: cover;"></button>
+    `);
+  }
+  else {
+    $('#promotion-panel').css('top', '50%');
+    $('#promotion-panel').html(`
+      <button id="promote-piece-b" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgBishop + `; background-size: cover;"></button>
+      <button id="promote-piece-r" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgRook + `; background-size: cover;"></button>
+      <button id="promote-piece-n" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgKnight + `; background-size: cover;"></button>
+      <button id="promote-piece-q" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgQueen + `; background-size: cover;"></button>
+    `);
+  }
+
+  $('.promote-piece').on('click', (event) => {
+    hidePromotionPanel();
+    promotePiece = $(event.target).attr('id').slice(-1);
+    if(!premove)
+      movePiece(source, target, null);
+  });
+
+  $('#promotion-panel').show();
+}
+
+function hidePromotionPanel() {
+  promotePiece = null;
+  $('#promotion-panel').hide();
 }
 
 // Restricts input for the set of matched elements to the given inputFilter function.
@@ -252,6 +306,12 @@ const board: any = Chessground(document.getElementById('board'), {
       after: movePiece,
     }
   },
+  premovable: {
+    events: {
+      set: preMovePiece,
+      unset: hidePromotionPanel,
+    }
+  }
 });
 
 function toDests(chess: any): Map<Key, Key[]> {
@@ -284,6 +344,7 @@ function movePieceAfter(move: any, fen?: string) {
     game.history.display(game.history.length());
 
   updateHistory(move, fen);
+
   board.playPremove();
 }
 
@@ -291,27 +352,37 @@ export function movePiece(source: any, target: any, metadata: any) {
   let fen = '';
   let move = null;
 
-  if(game.isPlaying() || game.isExamining()) {
-    if (game.isPlaying() && game.chess.turn() === game.color)
-      session.send(source + '-' + target);
+  if(game.isPlaying() || game.isExamining() || game.role === Role.NONE) {  
+    if(game.isPlaying() || game.isExamining()) 
+      var chess = game.chess;
+    else
+      var chess = new Chess(game.history.get().fen);
 
-    move = game.chess.move({from: source, to: target, promotion: 'q'}); // TODO: Allow non-queen promotions
-    fen = game.chess.fen();
+    move = chess.move({from: source, to: target, promotion: (promotePiece ? promotePiece : 'q')});
+    fen = chess.fen();
 
+    if(!promotePiece && !autoPromoteToggle && move && move.flags.includes('p')) {
+      chess.undo();
+      showPromotionPanel(source, target, false);
+      board.set({ movable: { color: undefined } });
+      return;
+    }
+
+    var promotion = (promotePiece ? '=' + promotePiece : '');
+
+    if (game.isPlaying() && game.chess.turn() !== game.color)
+      session.send(source + '-' + target + promotion);
+   
     if(game.isExamining()) {
       var nextMove = game.history.get(game.history.next());
       if(nextMove && !nextMove.subvariation && fen === nextMove.fen) 
         session.send('for');
       else
-        session.send(source + '-' + target);
+        session.send(source + '-' + target + promotion);
     }
   }
-  else if(game.role === Role.NONE) {
-    const localChess = new Chess(game.history.get().fen);
-    move = localChess.move({from: source, to: target, promotion: 'q'});
-    fen = localChess.fen();
-  }
 
+  promotePiece = null;  
   if (move !== null)
     movePieceAfter(move, fen);
 
@@ -319,6 +390,13 @@ export function movePiece(source: any, target: any, metadata: any) {
   // Show 'Analyze' button once any moves have been made on the board
   if(!$('#engine-tab').is(':visible'))
     $('#show-status-panel').show();
+}
+
+function preMovePiece(source: any, target: any, metadata: any) {
+  var chess = new Chess(board.getFen() + ' w KQkq - 0 1'); 
+  if(!promotePiece && chess.get(source).type === 'p' && (target.charAt(1) === '1' || target.charAt(1) === '8')) {
+    showPromotionPanel(source, target, true);
+  }
 }
 
 function showStatusMsg(msg: string) {
@@ -450,6 +528,7 @@ function messageHandler(data) {
       if (game.chess === null) {
         game.chess = new Chess();
         game.wclock = game.bclock = null;
+        hidePromotionPanel();
         board.cancelMove();
         board.set({
           orientation: amIblack ? 'black' : 'white',
@@ -530,9 +609,8 @@ function messageHandler(data) {
 
         if (data.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
           move = game.chess.move(data.move);
-          if (move !== null) {
+          if (move !== null) 
             movePieceAfter(move);
-          }
         }
         if(move === null) {
           game.chess.load(data.fen);
@@ -1160,14 +1238,19 @@ export function updateBoard(playMove = false) {
 
   updateClocks();
 
-  if(playMove) {
+  if(playMove && !$('#promotion-panel').is(':visible')) {
     board.move(move.from, move.to);
     if (move.flags !== 'n') {
       board.set({ fen });
     }
   }
-  else
+  else 
     board.set({ fen });
+
+  if($('#promotion-panel').is(':visible')) {
+    board.cancelPremove();
+    hidePromotionPanel();
+  }
 
   const localChess = new Chess(fen);
 
@@ -1339,6 +1422,11 @@ $('#pills-tab button').on('click', (event) => {
 
 $('#flip-toggle').on('click', (event) => {
   board.toggleOrientation();
+
+  // If pawn promotion dialog is open, redraw it in the correct location
+  if($('#promotion-panel').is(':visible')) 
+    showPromotionPanel(promoteSource, promoteTarget, promoteIsPremove);
+
   const playerName = $('#player-name').html();
   const playerRating = $('#player-rating').html();
   const playerCaptured = $('#player-captured').html();
@@ -1541,6 +1629,8 @@ function setPanelSizes() {
 
     $('#mid-col').width(Math.min(boardMaxWidth, boardMaxHeight) - 0.1); 
   }
+  else 
+    $('#mid-col').css('width', '');
 
   // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match 
   // what chessground does internally
@@ -1852,6 +1942,18 @@ $('#sound-toggle').on('click', (event) => {
     '" aria-hidden="false"></span>Sounds ' + (soundToggle ? 'ON' : 'OFF'));
   Cookies.set('sound', String(soundToggle), { expires: 365 })
 });
+
+updateDropdownAutoPromote();
+$('#autopromote-toggle').on('click', (event) => {
+  autoPromoteToggle = !autoPromoteToggle;
+  updateDropdownAutoPromote();
+  Cookies.set('autopromote', String(autoPromoteToggle), { expires: 365 })
+});
+function updateDropdownAutoPromote() {
+  const iconClass = 'fa-solid fa-chess-queen';
+  $('#autopromote-toggle').html('<span id="autopromote-toggle-icon" class="' + iconClass +
+  ' dropdown-icon" aria-hidden="false"></span>Promote to Queen ' + (autoPromoteToggle ? 'ON' : 'OFF'));
+}
 
 $('#disconnect').on('click', (event) => {
   if (session) {
