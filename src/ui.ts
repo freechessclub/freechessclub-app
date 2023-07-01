@@ -5,11 +5,6 @@
 import Cookies from 'js-cookie';
 import packageInfo from '../package.json';
 
-// enable tooltips
-$(() => {
-  $('[data-bs-toggle="tooltip"]').tooltip();
-});
-
 $('#version').text('Version: ' + packageInfo.version);
 
 // color theme controls

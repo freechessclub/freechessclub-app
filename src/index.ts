@@ -109,6 +109,7 @@ function showCloseGamePanel() {
 
 function hideStatusPanel() {
   $('#show-status-panel').text('Status/Analysis');
+  $('#show-status-panel').attr('title', 'Show Status Panel');
   $('#show-status-panel').show();
   $('#left-panel-bottom').hide();
   stopEngine();
@@ -124,6 +125,7 @@ function showStatusPanel() {
   else {
     if(!$('#engine-tab').is(':visible')) {
       $('#show-status-panel').text('Analyze');
+      $('#show-status-panel').attr('title', 'Analyze Game');
       $('#show-status-panel').show();
     }
     else {
@@ -1356,6 +1358,7 @@ function hideAnalysis() {
   closeLeftBottomTab($('#engine-tab'));
   closeLeftBottomTab($('#eval-graph-tab'));
   $('#show-status-panel').text('Analyze');
+  $('#show-status-panel').attr('title', 'Analyze Game');
   $('#show-status-panel').show();
 }
 
@@ -1531,6 +1534,7 @@ function onDeviceReady() {
     $('#collapse-history').collapse('hide');
   }
   else {
+    configureTooltips();
     $('#pills-play-tab').tab('show');
     $('#collapse-history').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
@@ -1561,6 +1565,32 @@ function onDeviceReady() {
   updateBoard();
 }
 
+// Enable tooltips. 
+// Allow different tooltip placements for mobile vs desktop display.
+// Make tooltips stay after click/focus on mobile, but only when hovering on desktop.
+function configureTooltips() {
+  $('[data-bs-toggle="tooltip"]').each(function(index, element) {   
+    var trigger = $(element);
+    var windowWidth = $(window).width();
+
+    var sm = trigger.attr('data-bs-placement-sm');
+    var md = trigger.attr('data-bs-placement-md');
+    var lg = trigger.attr('data-bs-placement-lg');
+    var xl = trigger.attr('data-bs-placement-xl');
+    var general = trigger.attr('data-bs-placement');
+
+    var placement = (windowWidth >= 1200 ? xl : undefined) ||
+        (windowWidth >= 992 ? lg : undefined) ||
+        (windowWidth >= 768 ? md : undefined) ||
+        sm || general || "top";
+
+    trigger.tooltip('dispose').tooltip({
+      placement: placement as "left" | "top" | "bottom" | "right" | "auto",
+      trigger: (isSmallWindow() ? 'hover focus' : 'hover'), // Tooltips stay visible after element is clicked on mobile, but only when hovering on desktop 
+    });
+  });
+}
+
 function selectOnFocus(input: any) {
   $(input).on('focus', function (e) {
     $(this).one('mouseup', function () {
@@ -1578,6 +1608,7 @@ function useMobileLayout() {
   $('#stop-observing').appendTo($('#viewing-game-buttons').last());
   $('#stop-examining').appendTo($('#viewing-game-buttons').last());
   hideCloseGamePanel();
+  configureTooltips();
 }
 
 function useDesktopLayout() {
@@ -1587,6 +1618,7 @@ function useDesktopLayout() {
   $('#stop-examining').appendTo($('#close-game-panel').last());
   if(game.isObserving() || game.isExamining())
     showCloseGamePanel();
+  configureTooltips();
 }
 
 function swapLeftRightPanelHeaders() {
