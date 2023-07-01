@@ -35,22 +35,22 @@
           <div class="card bg-transparent" id="left-card">
             <div class="card-header top-panel d-flex" id="left-panel-header" style="visibility: hidden">
               <div id="navigation-toolbar" class="btn-toolbar m-auto">
-                <button type="button" id="fast-backward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Beginning">
+                <button type="button" id="fast-backward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-placement-md="right" title="Beginning">
                   <span class="fa fa-fast-backward" aria-hidden="false"></span>
                 </button>
-                <button type="button" id="backward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Back">
+                <button type="button" id="backward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-placement-md="right" title="Back">
                   <span class="fa fa-backward" aria-hidden="false"></span>
                 </button>
-                <button type="button" id="forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Forward">
+                <button type="button" id="forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-placement-md="right" title="Forward">
                   <span class="fa fa-forward" aria-hidden="false"></span>
                 </button>
-                <button type="button" id="fast-forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="End">
+                <button type="button" id="fast-forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-placement-md="right" title="End">
                   <span class="fa fa-fast-forward" aria-hidden="false"></span>
                 </button>
-                <button type="button" id="exit-subvariation" style="display: none" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Exit Subvariation">
+                <button type="button" id="exit-subvariation" style="display: none" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top"  data-bs-placement-md="right" title="Exit Subvariation">
                   <span class="fa fa-eject" aria-hidden="false"></span>
                 </button>
-                <button id="history-toggle-btn" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-history" aria-expanded="true" aria-controls="collapse-history">
+                <button id="history-toggle-btn" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-history" title="Show/Hide Menus" aria-expanded="true" aria-controls="collapse-history">
                   <span id="history-toggle-icon" class="fa fa-toggle-up" aria-hidden="false"></span>
                 </button>
               </div>
@@ -266,7 +266,7 @@
                 </button>
               </div>
               <div id="viewing-game-buttons" class="btn-toolbar center m-auto w-100">
-                <button type="button" id="show-status-panel" class="btn btn-outline-secondary btn-md" title="Show Status Panel" style="display: none">Analyze</button>         
+                <button type="button" id="show-status-panel" class="btn btn-outline-secondary btn-md" title="Analyze Game" style="display: none">Analyze</button>         
               </div>
             </div>
           </div>
@@ -302,7 +302,7 @@
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header status" id="right-panel-header" style="visibility: hidden">
               <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto" style="max-width: 50%">
-                <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="connectButton" data-bs-toggle="dropdown" aria-expanded="false" title="User">
+                <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="connectButton" data-bs-toggle="dropdown" title="Connect/Disconnect" aria-expanded="false" title="User">
                   <div id="chat-status" class="w-100"></div>
                 </button>
                 <div class="dropdown-menu" aria-labelledby="connectButton">
@@ -312,11 +312,11 @@
                 </div>
               </div>
               <div class="btn-toolbar my-auto ms-auto">
-                <button id="chat-maximize-btn" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="tooltip" data-bs-placement="top" title="Maximize">
+                <button id="chat-maximize-btn" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="tooltip" data-bs-placement="left" title="Maximize Chat">
                   <span id="chat-maximize-icon" class="fa fa-toggle-left" aria-hidden="false"></span>
                 </button>
-                <div id="settings-dropdown" class="dropdown" data-bs-toggle="tooltip" data-bs-placement="top" title="Settings">
-                  <button class="btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="settingsButton" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Settings">
+                <div id="settings-dropdown" class="dropdown">
+                  <button class="btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="settingsButton" data-bs-toggle="dropdown" data-bs-tooltip="true" data-bs-placement="left" title="Settings" aria-haspopup="true" aria-expanded="false">
                     <span class="fa fa-gear" aria-hidden="false"></span>
                   </button>
                   <div class="dropdown-menu dropdown-menu-right" aria-labelledby="settingsButton">
@@ -344,7 +344,7 @@
                     <div class="dropdown-item disabled noselect" id="version"></div>
                   </div>
                 </div>
-                <button id="chat-toggle-btn" style="position: relative" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-chat" aria-expanded="true" aria-controls="collapse-chat">
+                <button id="chat-toggle-btn" style="position: relative" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-chat" aria-expanded="true" title="Show/Hide Chat" aria-controls="collapse-chat">
                   <span id="chat-toggle-icon" class="fa fa-comment" aria-hidden="false"></span>
                   <svg id="chat-unread-bubble" class="h-100 w-100" style="display: none; position: absolute; top: 0; left: 0">
                     <circle cx="50%" cy="50%" transform="translate(6, -6)" r="6" />
@@ -357,8 +357,8 @@
               <div id="collapse-chat" class="collapse show collapse-init">
                 <div class="card-body d-flex flex-column" id="right-panel">
                   <ul class="nav nav-tabs d-flex flex-wrap justify-content-start user-select-none" role="tablist" id="tabs">
-                    <div id="chan-dropdown" class="d-flex dropdown" data-bs-toggle="tooltip" data-bs-placement="top" title="Join Channel">
-                      <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="chanButton" data-bs-toggle="dropdown" aria-expanded="false" title="Channel">
+                    <div id="chan-dropdown" class="d-flex dropdown">
+                      <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="chanButton" data-bs-toggle="dropdown" data-bs-tooltip="true" data-bs-placement="top" aria-expanded="false" title="Join Channel">
                         <span class="fa fa-plus-square" aria-hidden="false"></span>
                       </button>
                       <div id="chan-dropdown-menu" class="dropdown-menu" aria-labelledby="chanButton">
