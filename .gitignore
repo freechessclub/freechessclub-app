@@ -5,6 +5,7 @@ platforms
 plugins
 package-lock.json
 yarn-error.log
+yarn.lock
 assets/js/*
 .idea
 android
