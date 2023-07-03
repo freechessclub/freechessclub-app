@@ -536,8 +536,25 @@ function messageHandler(data) {
         game.wclock = game.bclock = null;
         hidePromotionPanel();
         board.cancelMove();
+
+        if (!amIblack) {
+          game.color = 'w';
+          $('#player-name').text(game.wname);
+          $('#opponent-name').text(game.bname);
+        } else {
+          game.color = 'b';
+          $('#player-name').text(game.bname);
+          $('#opponent-name').text(game.wname);
+        }       
+
+        // Check if server flip variable is set and flip board if necessary
+        var v_flip = (game.color === 'b') !== game.flip; // Is v_flip set?
+        var flipped = $('#opponent-status').hasClass('bottom-panel');
+        if(v_flip != flipped)
+          flipBoard();
+
         board.set({
-          orientation: amIblack ? 'black' : 'white',
+          orientation: (game.flip ? 'black' : 'white'),
         });
 
         $('#exit-subvariation').hide();
@@ -561,16 +578,6 @@ function messageHandler(data) {
               session.send('allobs ' + game.id);
             }, 5000);
           }
-        }
-
-        if (data.role !== Role.OPPONENTS_MOVE && !amIblack) {
-          game.color = 'w';
-          $('#player-name').text(game.wname);
-          $('#opponent-name').text(game.bname);
-        } else {
-          game.color = 'b';
-          $('#player-name').text(game.bname);
-          $('#opponent-name').text(game.wname);
         }
 
         game.history = new History(game.fen, board, game.time * 60, game.time * 60);
@@ -775,7 +782,7 @@ function messageHandler(data) {
         return;
       }
 
-      match = msg.match(/.*\d+\s[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s+\[\s*[bsl]r.*\]\s+\d+:\d+\s\-\s+\d+:\d+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed./g);
+      match = msg.match(/.*\d+\s[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s+\[[\w\s]+\]\s+\d+:\d+\s\-\s+\d+:\d+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed./g);
       if (match != null && match.length > 0) {
         showGames(data.message);
         if (!gamesRequested) {
@@ -1428,6 +1435,10 @@ $('#pills-tab button').on('click', (event) => {
 });
 
 $('#flip-toggle').on('click', (event) => {
+  flipBoard();
+});
+
+function flipBoard() {
   board.toggleOrientation();
 
   // If pawn promotion dialog is open, redraw it in the correct location
@@ -1473,7 +1484,7 @@ $('#flip-toggle').on('click', (event) => {
   $('#tmp-player-captured').prop('id', 'opponent-captured');
   $('#tmp-player-time').prop('id', 'opponent-time');
   $('#tmp-player-status').prop('id', 'opponent-status');
-});
+}
 
 function getValue(elt: string): string {
   return $(elt).val() as string;
