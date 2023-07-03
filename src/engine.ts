@@ -251,7 +251,7 @@ export class EvalEngine {
             $('#hover-circle')
               .tooltip('dispose')
               .tooltip({
-                container: 'body',
+                container: '#eval-graph-container',
                 placement: 'auto',
                 trigger: 'manual'
               });
