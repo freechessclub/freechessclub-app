@@ -415,9 +415,9 @@ function messageHandler(data) {
         session.send('=ch');
         channelListRequested = true;
 
-        if($('#pills-observe').hasClass('show'))
+        if($('#pills-observe').hasClass('active'))
           initObservePane();
-        else if($('#pills-observe').hasClass('show'))
+        else if($('#pills-examine').hasClass('active'))
           initExaminePane();
       } else if (data.command === 2) {
         if (session.isConnected()) {
@@ -1972,7 +1972,7 @@ export function parseHistory(history: string) {
 };
 
 function showHistory(user: string, history: string) {
-  if (!$('#pills-examine').hasClass('show')) {
+  if (!$('#pills-examine').hasClass('active')) {
     return;
   }
 
@@ -2043,7 +2043,7 @@ function observe(id?: string) {
 }
 
 function showGames(games: string) {
-  if (!$('#pills-observe').hasClass('show')) {
+  if (!$('#pills-observe').hasClass('active')) {
     return;
   }
 
