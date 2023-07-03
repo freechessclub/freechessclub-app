@@ -51,7 +51,7 @@ class Game extends GameData {
   playerCaptured: any = {};
   oppCaptured: any = {};
   chess: any = null;
-  color = '';
+  color = 'w';
   history: any = null;
   bclock: any = null;
   wclock: any = null;
