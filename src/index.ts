@@ -447,6 +447,28 @@ function showModal(type: string, title: string, msg: string, btnFailure: string[
   $('#' + modalId).toast('show');
 }
 
+function parseNonStandardMove(chess: any, san: string) {
+  if(san.includes('@')) {
+    // Parse crazyhouse piece placement
+    var piece = san.charAt(0).toLowerCase();
+    var to = san.substring(2).replace('+', '');
+
+    var beforeColor = chess.fen().includes(' w ') ? 'w' : 'b';
+    var afterColor = (beforeColor === 'w' ? 'b' : 'w');
+
+    var move = {color: beforeColor, flags: 'x', type: piece, piece: piece, to: to, san: san}
+    if(!chess.put(move, to)) 
+      return null;
+    
+    var splitStr = chess.fen().split(/\s+/);
+    var moveNo = +splitStr[5];
+
+    chess.load(splitStr[0] + ' ' + afterColor + ' ' + splitStr[2] + ' ' + splitStr[3] + ' 0 ' + (afterColor === 'w' ? moveNo + 1 : moveNo));
+    return move;
+  }
+  return null;
+}
+
 export function parseMovelist(movelist: string) {
   const moves = [];
   let found : string[] & { index?: number } = [''];
@@ -460,11 +482,21 @@ export function parseMovelist(movelist: string) {
     if (found !== null && found.length > 3) {
       const m1 = found[1].trim();
       wtime += (n === 1 ? 0 : game.inc) - (+found[2] * 60 + +found[3]);
-      game.history.add(chess.move(m1), chess.fen(), false, wtime, btime);
+      var move = chess.move(m1);
+      if(!move) 
+        move = parseNonStandardMove(chess, m1);
+      if(!move)
+        break;
+      game.history.add(move, chess.fen(), false, wtime, btime);
       if (found.length > 4 && found[4]) {
         const m2 = found[4].trim();
         btime += (n === 1 ? 0 : game.inc) - (+found[5] * 60 + +found[6]);
-        game.history.add(chess.move(m2), chess.fen(), false, wtime, btime);
+        move = chess.move(m2);
+        if(!move) 
+          move = parseNonStandardMove(chess, m2);
+        if(!move)
+          break;
+        game.history.add(move, chess.fen(), false, wtime, btime);
       }
       n++;
       movelist += movelist[found.index];
@@ -616,16 +648,18 @@ function messageHandler(data) {
       }
 
       if (data.role === Role.NONE || data.role >= -2) {
-        let move = null;
         const lastPly = getPlyFromFEN(game.chess.fen());
         const thisPly = getPlyFromFEN(data.fen);
 
         if (data.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
-          move = game.chess.move(data.move);
-          if (move !== null) 
-            movePieceAfter(move);
+          var move = game.chess.move(data.move);
+          if(!move)
+            move = parseNonStandardMove(game.chess, data.move);
+          if(!move) 
+            move = {san: data.move};
+          movePieceAfter(move);
         }
-        if(move === null) {
+        else {
           game.chess.load(data.fen);
           updateHistory();
         }
@@ -1216,6 +1250,7 @@ function updateHistory(move?: any, fen?: string) {
 
     // move is earlier, we need to take-back
     if(game.isPlaying() || game.isObserving()) {
+      board.cancelPremove();
       while(index < game.history.length())
         game.history.removeLast();
     }
@@ -1245,20 +1280,13 @@ function updateClocks() {
   }
 }
 
-export function updateBoard(playMove = false) {
+export function updateBoard(playSound = false) {
   const move = game.history.get().move;
   const fen = game.history.get().fen;
 
   updateClocks();
 
-  if(playMove && !$('#promotion-panel').is(':visible')) {
-    board.move(move.from, move.to);
-    if (move.flags !== 'n') {
-      board.set({ fen });
-    }
-  }
-  else 
-    board.set({ fen });
+  board.set({ fen });
 
   if($('#promotion-panel').is(':visible')) {
     board.cancelPremove();
@@ -1267,12 +1295,10 @@ export function updateBoard(playMove = false) {
 
   const localChess = new Chess(fen);
 
-  if(move) {
-    board.set({ animation: { enabled: false }});
-    board.move( move.to, move.from );
-    board.move( move.from, move.to );
-    board.set({ animation: { enabled: true }});
-  }
+  if(move && move.from && move.to) 
+    board.set({ lastMove: [move.from, move.to] });
+  else if(move && move.to)
+    board.set({ lastMove: [move.to] });
   else
     board.set({ lastMove: false });
 
@@ -1309,7 +1335,7 @@ export function updateBoard(playMove = false) {
 
   showStrengthDiff(fen);
 
-  if(playMove && soundToggle) {
+  if(playSound && soundToggle) {
     clearTimeout(soundTimer);
     soundTimer = setTimeout(() => {
       const entry = game.history.get();

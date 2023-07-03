@@ -28,7 +28,7 @@ class GameData {
   moveNo: number;                       // the number of the move about to be made
   moveVerbose: {                        // verbose coordinate notation for the previous move
     from: string,                       // from square
-    to: string,                         // two square
+    to: string,                         // to square
     promotion: string,                  // promotion piece
     san: string,                        // move in algebraec form
   };

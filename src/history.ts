@@ -175,13 +175,13 @@ export class History {
     return this.moves.length - 1;
   }
 
-  public display(id?: number, playMove = false): any {
+  public display(id?: number, playSound = false): any {
     if (id !== undefined) {
       this.id = id;
     }
 
     if (this.id >= 0 && this.id < this.moves.length)
-      updateBoard(playMove);
+      updateBoard(playSound);
 
     this.highlightMove();
 
