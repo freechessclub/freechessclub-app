@@ -359,3 +359,19 @@ ul.list-striped > li {
 #eval-progress {
   padding: 20px;
 }
+
+#promotion-panel {
+  display: none;
+  position: absolute;
+  z-index: 10;
+  height: 50%;
+  width: 12.5%;
+  top: 0;
+  left: 0;
+  background-color: white;
+  box-sizing: border-box;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2),
+              0 0 6px rgba(0, 0, 0, 0.2),
+              0 4px 6px -4px rgba(0, 0, 0, 0.2),
+              0 -4px 6px -4px rgba(0, 0, 0, 0.2);
+}

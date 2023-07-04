@@ -24,6 +24,9 @@ let evalEngine: EvalEngine | null;
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
 
+// toggle for auto-promote to queen
+let autoPromoteToggle: boolean = (Cookies.get('autopromote') === 'true');
+
 let historyRequested = 0;
 let obsRequested = 0;
 let gameInfoRequested = false;
@@ -42,6 +45,10 @@ let soundTimer
 let removeSubvariationRequested = false;
 let prevDiff;
 let activeTab;
+let promotePiece;
+let promoteSource;
+let promoteTarget;
+let promoteIsPremove;
 
 export function cleanup() {
   historyRequested = 0;
@@ -59,6 +66,7 @@ export function cleanup() {
   $('#stop-observing').hide();
   $('#stop-examining').hide();
   hideCloseGamePanel();
+  hidePromotionPanel();
   $('#playing-game-buttons').hide();
   $('#viewing-game-buttons').show();
 
@@ -101,6 +109,7 @@ function showCloseGamePanel() {
 
 function hideStatusPanel() {
   $('#show-status-panel').text('Status/Analysis');
+  $('#show-status-panel').attr('title', 'Show Status Panel');
   $('#show-status-panel').show();
   $('#left-panel-bottom').hide();
   stopEngine();
@@ -116,6 +125,7 @@ function showStatusPanel() {
   else {
     if(!$('#engine-tab').is(':visible')) {
       $('#show-status-panel').text('Analyze');
+      $('#show-status-panel').attr('title', 'Analyze Game');
       $('#show-status-panel').show();
     }
     else {
@@ -125,6 +135,56 @@ function showStatusPanel() {
     $('#close-status').show();
   }
   setPanelSizes();
+}
+
+function showPromotionPanel(source: string, target: string, premove: boolean = false) {
+  promoteSource = source;
+  promoteTarget = target;
+  promoteIsPremove = premove;
+  var orientation = board.state.orientation;
+  var color = (target.charAt(1) === '8' ? 'white' : 'black');
+  var fileNum = target.toLowerCase().charCodeAt(0) - 97;
+
+  // Add temporary pieces to the DOM in order to retrieve the background-image style from them
+  var pieces = $('<div class="cg-wrap d-none"></div>').appendTo($('body'));
+  var bgQueen = $('<piece class="queen ' + color + '"></piece>').appendTo(pieces).css('background-image').replace(/\"/g, '\'');
+  var bgKnight = $('<piece class="knight ' + color + '"></piece>').appendTo(pieces).css('background-image').replace(/\"/g, '\'');
+  var bgRook = $('<piece class="rook ' + color + '"></piece>').appendTo(pieces).css('background-image').replace(/\"/g, '\'');
+  var bgBishop = $('<piece class="bishop ' + color + '"></piece>').appendTo(pieces).css('background-image').replace(/\"/g, '\'');  
+  pieces.remove();
+  $('#promotion-panel').css('left', $('#promotion-panel').width() * (orientation === "white" ? fileNum : 7 - fileNum));
+  if(orientation === color) {
+    $('#promotion-panel').css('top', 0);
+    $('#promotion-panel').html(`
+      <button id="promote-piece-q" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgQueen + `; background-size: cover;"></button>
+      <button id="promote-piece-n" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgKnight + `; background-size: cover;"></button>
+      <button id="promote-piece-r" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgRook + `; background-size: cover;"></button>
+      <button id="promote-piece-b" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgBishop + `; background-size: cover;"></button>
+    `);
+  }
+  else {
+    $('#promotion-panel').css('top', '50%');
+    $('#promotion-panel').html(`
+      <button id="promote-piece-b" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgBishop + `; background-size: cover;"></button>
+      <button id="promote-piece-r" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgRook + `; background-size: cover;"></button>
+      <button id="promote-piece-n" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgKnight + `; background-size: cover;"></button>
+      <button id="promote-piece-q" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgQueen + `; background-size: cover;"></button>
+    `);
+  }
+
+  $('.promote-piece').on('click', (event) => {
+    hidePromotionPanel();
+    promotePiece = $(event.target).attr('id').slice(-1);
+    if(!premove)
+      movePiece(source, target, null);
+  });
+
+  $('#promotion-panel').show();
+}
+
+function hidePromotionPanel() {
+  promotePiece = null;
+  $('#promotion-panel').hide();
 }
 
 // Restricts input for the set of matched elements to the given inputFilter function.
@@ -252,6 +312,12 @@ const board: any = Chessground(document.getElementById('board'), {
       after: movePiece,
     }
   },
+  premovable: {
+    events: {
+      set: preMovePiece,
+      unset: hidePromotionPanel,
+    }
+  }
 });
 
 function toDests(chess: any): Map<Key, Key[]> {
@@ -284,6 +350,7 @@ function movePieceAfter(move: any, fen?: string) {
     game.history.display(game.history.length());
 
   updateHistory(move, fen);
+
   board.playPremove();
 }
 
@@ -291,27 +358,37 @@ export function movePiece(source: any, target: any, metadata: any) {
   let fen = '';
   let move = null;
 
-  if(game.isPlaying() || game.isExamining()) {
-    if (game.isPlaying() && game.chess.turn() === game.color)
-      session.send(source + '-' + target);
+  if(game.isPlaying() || game.isExamining() || game.role === Role.NONE) {  
+    if(game.isPlaying() || game.isExamining()) 
+      var chess = game.chess;
+    else
+      var chess = new Chess(game.history.get().fen);
 
-    move = game.chess.move({from: source, to: target, promotion: 'q'}); // TODO: Allow non-queen promotions
-    fen = game.chess.fen();
+    move = chess.move({from: source, to: target, promotion: (promotePiece ? promotePiece : 'q')});
+    fen = chess.fen();
 
+    if(!promotePiece && !autoPromoteToggle && move && move.flags.includes('p')) {
+      chess.undo();
+      showPromotionPanel(source, target, false);
+      board.set({ movable: { color: undefined } });
+      return;
+    }
+
+    var promotion = (promotePiece ? '=' + promotePiece : '');
+
+    if (game.isPlaying() && game.chess.turn() !== game.color)
+      session.send(source + '-' + target + promotion);
+   
     if(game.isExamining()) {
       var nextMove = game.history.get(game.history.next());
       if(nextMove && !nextMove.subvariation && fen === nextMove.fen) 
         session.send('for');
       else
-        session.send(source + '-' + target);
+        session.send(source + '-' + target + promotion);
     }
   }
-  else if(game.role === Role.NONE) {
-    const localChess = new Chess(game.history.get().fen);
-    move = localChess.move({from: source, to: target, promotion: 'q'});
-    fen = localChess.fen();
-  }
 
+  promotePiece = null;  
   if (move !== null)
     movePieceAfter(move, fen);
 
@@ -319,6 +396,13 @@ export function movePiece(source: any, target: any, metadata: any) {
   // Show 'Analyze' button once any moves have been made on the board
   if(!$('#engine-tab').is(':visible'))
     $('#show-status-panel').show();
+}
+
+function preMovePiece(source: any, target: any, metadata: any) {
+  var chess = new Chess(board.getFen() + ' w KQkq - 0 1'); 
+  if(!promotePiece && chess.get(source).type === 'p' && (target.charAt(1) === '1' || target.charAt(1) === '8')) {
+    showPromotionPanel(source, target, true);
+  }
 }
 
 function showStatusMsg(msg: string) {
@@ -363,6 +447,28 @@ function showModal(type: string, title: string, msg: string, btnFailure: string[
   $('#' + modalId).toast('show');
 }
 
+function parseNonStandardMove(chess: any, san: string) {
+  if(san.includes('@')) {
+    // Parse crazyhouse piece placement
+    var piece = san.charAt(0).toLowerCase();
+    var to = san.substring(2).replace('+', '');
+
+    var beforeColor = chess.fen().includes(' w ') ? 'w' : 'b';
+    var afterColor = (beforeColor === 'w' ? 'b' : 'w');
+
+    var move = {color: beforeColor, flags: 'x', type: piece, piece: piece, to: to, san: san}
+    if(!chess.put(move, to)) 
+      return null;
+    
+    var splitStr = chess.fen().split(/\s+/);
+    var moveNo = +splitStr[5];
+
+    chess.load(splitStr[0] + ' ' + afterColor + ' ' + splitStr[2] + ' ' + splitStr[3] + ' 0 ' + (afterColor === 'w' ? moveNo + 1 : moveNo));
+    return move;
+  }
+  return null;
+}
+
 export function parseMovelist(movelist: string) {
   const moves = [];
   let found : string[] & { index?: number } = [''];
@@ -376,11 +482,21 @@ export function parseMovelist(movelist: string) {
     if (found !== null && found.length > 3) {
       const m1 = found[1].trim();
       wtime += (n === 1 ? 0 : game.inc) - (+found[2] * 60 + +found[3]);
-      game.history.add(chess.move(m1), chess.fen(), false, wtime, btime);
+      var move = chess.move(m1);
+      if(!move) 
+        move = parseNonStandardMove(chess, m1);
+      if(!move)
+        break;
+      game.history.add(move, chess.fen(), false, wtime, btime);
       if (found.length > 4 && found[4]) {
         const m2 = found[4].trim();
         btime += (n === 1 ? 0 : game.inc) - (+found[5] * 60 + +found[6]);
-        game.history.add(chess.move(m2), chess.fen(), false, wtime, btime);
+        move = chess.move(m2);
+        if(!move) 
+          move = parseNonStandardMove(chess, m2);
+        if(!move)
+          break;
+        game.history.add(move, chess.fen(), false, wtime, btime);
       }
       n++;
       movelist += movelist[found.index];
@@ -450,10 +566,32 @@ function messageHandler(data) {
       if (game.chess === null) {
         game.chess = new Chess();
         game.wclock = game.bclock = null;
+        hidePromotionPanel();
         board.cancelMove();
+
+        if (!amIblack || amIwhite) {
+          game.color = 'w';
+          $('#player-name').text(game.wname);
+          $('#opponent-name').text(game.bname);
+        } else {
+          game.color = 'b';
+          $('#player-name').text(game.bname);
+          $('#opponent-name').text(game.wname);
+        }       
+
+        var flipped = $('#opponent-status').hasClass('bottom-panel');
         board.set({
-          orientation: amIblack ? 'black' : 'white',
+          orientation: ((game.color === 'b') === flipped ? 'white' : 'black'),
         });
+
+        // Check if server flip variable is set and flip board if necessary
+        if(game.isPlaying())
+          var v_flip = (game.color === 'b') !== game.flip; 
+        else 
+          var v_flip = game.flip;
+
+        if(v_flip != flipped)
+          flipBoard();
 
         $('#exit-subvariation').hide();
         $('#player-captured').text('');
@@ -476,16 +614,6 @@ function messageHandler(data) {
               session.send('allobs ' + game.id);
             }, 5000);
           }
-        }
-
-        if (data.role !== Role.OPPONENTS_MOVE && !amIblack) {
-          game.color = 'w';
-          $('#player-name').text(game.wname);
-          $('#opponent-name').text(game.bname);
-        } else {
-          game.color = 'b';
-          $('#player-name').text(game.bname);
-          $('#opponent-name').text(game.wname);
         }
 
         game.history = new History(game.fen, board, game.time * 60, game.time * 60);
@@ -524,17 +652,20 @@ function messageHandler(data) {
       }
 
       if (data.role === Role.NONE || data.role >= -2) {
-        let move = null;
         const lastPly = getPlyFromFEN(game.chess.fen());
         const thisPly = getPlyFromFEN(data.fen);
 
         if (data.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
-          move = game.chess.move(data.move);
-          if (move !== null) {
-            movePieceAfter(move);
+          var move = game.chess.move(data.move);
+          if(!move)
+            move = parseNonStandardMove(game.chess, data.move);
+          if(!move) {
+            move = {san: data.move};
+            game.chess.load(data.fen);
           }
+          movePieceAfter(move);
         }
-        if(move === null) {
+        else {
           game.chess.load(data.fen);
           updateHistory();
         }
@@ -691,7 +822,7 @@ function messageHandler(data) {
         return;
       }
 
-      match = msg.match(/.*\d+\s[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s+\[\s*[bsl]r.*\]\s+\d+:\d+\s\-\s+\d+:\d+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed./g);
+      match = msg.match(/.*\d+\s[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s+\[[\w\s]+\]\s+\d+:\d+\s\-\s+\d+:\d+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed./g);
       if (match != null && match.length > 0) {
         showGames(data.message);
         if (!gamesRequested) {
@@ -1125,6 +1256,7 @@ function updateHistory(move?: any, fen?: string) {
 
     // move is earlier, we need to take-back
     if(game.isPlaying() || game.isObserving()) {
+      board.cancelPremove();
       while(index < game.history.length())
         game.history.removeLast();
     }
@@ -1154,29 +1286,25 @@ function updateClocks() {
   }
 }
 
-export function updateBoard(playMove = false) {
+export function updateBoard(playSound = false) {
   const move = game.history.get().move;
   const fen = game.history.get().fen;
 
   updateClocks();
 
-  if(playMove) {
-    board.move(move.from, move.to);
-    if (move.flags !== 'n') {
-      board.set({ fen });
-    }
+  board.set({ fen });
+
+  if($('#promotion-panel').is(':visible')) {
+    board.cancelPremove();
+    hidePromotionPanel();
   }
-  else
-    board.set({ fen });
 
   const localChess = new Chess(fen);
 
-  if(move) {
-    board.set({ animation: { enabled: false }});
-    board.move( move.to, move.from );
-    board.move( move.from, move.to );
-    board.set({ animation: { enabled: true }});
-  }
+  if(move && move.from && move.to) 
+    board.set({ lastMove: [move.from, move.to] });
+  else if(move && move.to)
+    board.set({ lastMove: [move.to] });
   else
     board.set({ lastMove: false });
 
@@ -1213,7 +1341,7 @@ export function updateBoard(playMove = false) {
 
   showStrengthDiff(fen);
 
-  if(playMove && soundToggle) {
+  if(playSound && soundToggle) {
     clearTimeout(soundTimer);
     soundTimer = setTimeout(() => {
       const entry = game.history.get();
@@ -1273,6 +1401,7 @@ function hideAnalysis() {
   closeLeftBottomTab($('#engine-tab'));
   closeLeftBottomTab($('#eval-graph-tab'));
   $('#show-status-panel').text('Analyze');
+  $('#show-status-panel').attr('title', 'Analyze Game');
   $('#show-status-panel').show();
 }
 
@@ -1338,7 +1467,16 @@ $('#pills-tab button').on('click', (event) => {
 });
 
 $('#flip-toggle').on('click', (event) => {
+  flipBoard();
+});
+
+function flipBoard() {
   board.toggleOrientation();
+
+  // If pawn promotion dialog is open, redraw it in the correct location
+  if($('#promotion-panel').is(':visible')) 
+    showPromotionPanel(promoteSource, promoteTarget, promoteIsPremove);
+
   const playerName = $('#player-name').html();
   const playerRating = $('#player-rating').html();
   const playerCaptured = $('#player-captured').html();
@@ -1378,7 +1516,7 @@ $('#flip-toggle').on('click', (event) => {
   $('#tmp-player-captured').prop('id', 'opponent-captured');
   $('#tmp-player-time').prop('id', 'opponent-time');
   $('#tmp-player-status').prop('id', 'opponent-status');
-});
+}
 
 function getValue(elt: string): string {
   return $(elt).val() as string;
@@ -1443,6 +1581,7 @@ function onDeviceReady() {
     $('#collapse-history').collapse('hide');
   }
   else {
+    configureTooltips();
     $('#pills-play-tab').tab('show');
     $('#collapse-history').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
@@ -1473,6 +1612,32 @@ function onDeviceReady() {
   updateBoard();
 }
 
+// Enable tooltips. 
+// Allow different tooltip placements for mobile vs desktop display.
+// Make tooltips stay after click/focus on mobile, but only when hovering on desktop.
+function configureTooltips() {
+  $('[data-bs-toggle="tooltip"]').each(function(index, element) {   
+    var trigger = $(element);
+    var windowWidth = $(window).width();
+
+    var sm = trigger.attr('data-bs-placement-sm');
+    var md = trigger.attr('data-bs-placement-md');
+    var lg = trigger.attr('data-bs-placement-lg');
+    var xl = trigger.attr('data-bs-placement-xl');
+    var general = trigger.attr('data-bs-placement');
+
+    var placement = (windowWidth >= 1200 ? xl : undefined) ||
+        (windowWidth >= 992 ? lg : undefined) ||
+        (windowWidth >= 768 ? md : undefined) ||
+        sm || general || "top";
+
+    trigger.tooltip('dispose').tooltip({
+      placement: placement as "left" | "top" | "bottom" | "right" | "auto",
+      trigger: (isSmallWindow() ? 'hover focus' : 'hover'), // Tooltips stay visible after element is clicked on mobile, but only when hovering on desktop 
+    });
+  });
+}
+
 function selectOnFocus(input: any) {
   $(input).on('focus', function (e) {
     $(this).one('mouseup', function () {
@@ -1490,6 +1655,7 @@ function useMobileLayout() {
   $('#stop-observing').appendTo($('#viewing-game-buttons').last());
   $('#stop-examining').appendTo($('#viewing-game-buttons').last());
   hideCloseGamePanel();
+  configureTooltips();
 }
 
 function useDesktopLayout() {
@@ -1499,6 +1665,7 @@ function useDesktopLayout() {
   $('#stop-examining').appendTo($('#close-game-panel').last());
   if(game.isObserving() || game.isExamining())
     showCloseGamePanel();
+  configureTooltips();
 }
 
 function swapLeftRightPanelHeaders() {
@@ -1541,6 +1708,8 @@ function setPanelSizes() {
 
     $('#mid-col').width(Math.min(boardMaxWidth, boardMaxHeight) - 0.1); 
   }
+  else 
+    $('#mid-col').css('width', '');
 
   // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match 
   // what chessground does internally
@@ -1852,6 +2021,18 @@ $('#sound-toggle').on('click', (event) => {
     '" aria-hidden="false"></span>Sounds ' + (soundToggle ? 'ON' : 'OFF'));
   Cookies.set('sound', String(soundToggle), { expires: 365 })
 });
+
+updateDropdownAutoPromote();
+$('#autopromote-toggle').on('click', (event) => {
+  autoPromoteToggle = !autoPromoteToggle;
+  updateDropdownAutoPromote();
+  Cookies.set('autopromote', String(autoPromoteToggle), { expires: 365 })
+});
+function updateDropdownAutoPromote() {
+  const iconClass = 'fa-solid fa-chess-queen';
+  $('#autopromote-toggle').html('<span id="autopromote-toggle-icon" class="' + iconClass +
+  ' dropdown-icon" aria-hidden="false"></span>Promote to Queen ' + (autoPromoteToggle ? 'ON' : 'OFF'));
+}
 
 $('#disconnect').on('click', (event) => {
   if (session) {
