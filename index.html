@@ -182,14 +182,17 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
   <script>
     function getPlatform() {
-      var platform = window.navigator.platform;
-      var macPlatforms = ['Macintosh', 'MacIntel', 'MacPPC', 'Mac68K'];
+      var userAgent = window.navigator.userAgent;
+      var platform = window.navigator?.userAgentData?.platform || window.navigator.platform;
+      var macPlatforms = ['macOS', 'Macintosh', 'MacIntel', 'MacPPC', 'Mac68K'];
       var winPlatforms = ['Win32', 'Win64', 'Windows', 'WinCE'];
       if (macPlatforms.indexOf(platform) !== -1)
         return "Mac";
       else if (winPlatforms.indexOf(platform) !== -1)
         return "Windows";
-      else if (!os && /Linux/.test(platform))
+      else if (/Android/.test(userAgent))
+        return "Android";
+      else if (/Linux/.test(platform))
         return "Linux";
       return "";
     }
@@ -203,6 +206,8 @@
         return baseLink + 'download/v' + version + '/freechessclub-' + version + '.tar.gz';
       else if (platform ==='Windows')
         return baseLink + 'download/v' + version + '/Free-Chess-Club-Setup-' + version + '.exe';
+      else if (platform === 'Android')
+        return 'https://play.google.com/store/apps/details?id=club.freechess.FreeChessClub';
       else
         return baseLink;
     }
