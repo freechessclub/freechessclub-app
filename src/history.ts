@@ -77,7 +77,7 @@ export class History {
     this.setClockTimes(this.id, wtime, btime);
 
     if(move)
-      this.addTableItem(move.san, this.getPlyFromFEN(fen), subvariation, this.id, score);
+      this.addTableItem(move.san, History.getPlyFromFEN(fen), subvariation, this.id, score);
   }
 
   public scratch(_scratch?: boolean):  any {
@@ -175,6 +175,13 @@ export class History {
     return this.moves.length - 1;
   }
 
+  public goto(id?: number) {
+    if (id !== undefined) {
+      this.id = id;
+    }    
+    return this.moves[this.id];
+  }
+
   public display(id?: number, playSound = false): any {
     if (id !== undefined) {
       this.id = id;
@@ -189,26 +196,28 @@ export class History {
   }
 
   public find(fen: string): number {
+    // Search forward and back through the current line we're in (mainline or subvariation)
     let i = this.id;
     do {
-      if(this.moves[i].fen === fen)
+      if(History.compareFENs(this.moves[i].fen, fen))
         return i;
       i = this.next(i);
     } while(i !== undefined);
 
     i = this.id;
     do {
-      if(this.moves[i].fen === fen)
+      if(History.compareFENs(this.moves[i].fen, fen))
         return i;
       i = this.prev(i);
     } while(i !== undefined);
 
+    // Check whether the move is in a subvariation directly following the current mainline move
     if(this.id < this.length()) {
-      if(this.moves[this.id + 1].fen === fen)
+      if(History.compareFENs(this.moves[this.id + 1].fen, fen))
         return this.id + 1;
 
       if(this.id + 1 < this.length()) {
-        if(this.moves[this.id + 2].fen === fen)
+        if(History.compareFENs(this.moves[this.id + 2].fen, fen))
           return this.id + 2;
       }
     }
@@ -230,17 +239,17 @@ export class History {
     if(id === undefined)
       id = this.id;
 
-    return this.getPlyFromFEN(this.moves[id].fen);
+    return History.getPlyFromFEN(this.moves[id].fen);
   }
 
   public moveNo(id?: number): number {
     if(id === undefined)
       id = this.id;
 
-    return this.getMoveNoFromFEN(this.moves[id].fen);
+    return History.getMoveNoFromFEN(this.moves[id].fen);
   }
 
-  public getPlyFromFEN(fen: string) {
+  public static getPlyFromFEN(fen: string) {
     const turnColor = fen.split(/\s+/)[1];
     const moveNo = +fen.split(/\s+/).pop();
     const ply = moveNo * 2 - (turnColor === 'w' ? 1 : 0);
@@ -248,11 +257,25 @@ export class History {
     return ply;
   }
 
-  public getMoveNoFromFEN(fen: string): number {
+
+  // Tests equality for everything in the FENs except for halfmove clock
+  // This is necessary due to a bug in FICS where halfmove clock is not always set properly
+  public static compareFENs(fen1: string, fen2: string) : boolean {
+    var splitFen1 = fen1.split(/\s+/);
+    splitFen1[4] = '';
+    var fen1 = splitFen1.join();
+    var splitFen2 = fen2.split(/\s+/);
+    splitFen2[4] = '';
+    var fen2 = splitFen2.join();
+
+    return fen1 === fen2;
+  }
+
+  public static getMoveNoFromFEN(fen: string): number {
     return +fen.split(/\s+/).pop();
   }
 
-  public getTurnColorFromFEN(fen: string): string {
+  public static getTurnColorFromFEN(fen: string): string {
     return fen.split(/\s+/)[1];
   }
 
@@ -282,7 +305,7 @@ export class History {
       return;
 
     if(this.moves[id].subvariation) {
-      if(this.getTurnColorFromFEN(this.moves[id].fen) === this.getTurnColorFromFEN(this.moves[id - 1].fen))
+      if(History.getTurnColorFromFEN(this.moves[id].fen) === History.getTurnColorFromFEN(this.moves[id - 1].fen))
         return id - 2;
       else
         return id - 1;
@@ -395,8 +418,12 @@ export class History {
 
     const prevCell = $('#move-history .selectable').eq(id - 2);
 
-    if(prevCell.length === 0)
-      $('#move-history').append('<tr><th scope="row">' + moveNo + '</th><td class="selectable">' + cellBody + '</td><td></td></tr>');
+    if(prevCell.length === 0) {
+      if(ply % 2 == 0) 
+        $('#move-history').append('<tr><th scope="row">' + moveNo + '</th><td class="selectable">' + cellBody + '</td><td></td></tr>');
+      else
+        $('#move-history').append('<tr><th scope="row">' + moveNo + '</th><td></td><td class="selectable">' + cellBody + '</td></tr>');
+    }
     else if(subvariation && !prevCell.parent().hasClass('subvariation')) {
       if(ply % 2 == 0) {
         prevCell.parent().after('<tr class="subvariation"><th scope="row">' + moveNo + '</th><td class="selectable">' + cellBody + '</td><td></td></tr>');
