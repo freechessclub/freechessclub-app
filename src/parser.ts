@@ -281,12 +281,12 @@ export class Parser {
         role: +match[19],                     // my relation to this game
         time: +match[20],                     // initial time (in seconds) of the match
         inc: +match[21],                      // increment In seconds) of the match
-        wstrength: +match[22],  // White material strength
-        bstrength: +match[23],  // Black material strength
+        wstrength: +match[22],                // White material strength
+        bstrength: +match[23],                // Black material strength
         wtime: +match[24],                    // White's remaining time
         btime: +match[25],                    // Black's remaining time
         moveNo: +match[26],                   // the number of the move about to be made
-        moveVerbose,             // verbose coordinate notation for the previous move ("none" if there werenone) [note this used to be broken for examined games]
+        moveVerbose,                          // verbose coordinate notation for the previous move ("none" if there werenone) [note this used to be broken for examined games]
         prevMoveTime: {minutes: match[28], seconds: match[29]}, // time taken to make previous move "(min:sec)".
         move: match[30],                      // pretty notation for the previous move ("none" if there is none)
         flip: match[31] === '1'               // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.

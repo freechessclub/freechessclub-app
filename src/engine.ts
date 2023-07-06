@@ -3,10 +3,11 @@
 // license that can be found in the LICENSE file.
 
 import { Chessground } from 'chessground';
-import Chess from 'chess.js';
 import History from './history';
-import { gotoMove } from './index';
+import { gotoMove, parseMove } from './index';
 import * as d3 from 'd3';
+
+var SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'wild/fr'];
 
 export class EvalEngine {
   private stockfish: any;
@@ -16,7 +17,7 @@ export class EvalEngine {
   private _redraw: boolean;
   private numGraphMoves: number;
 
-  constructor(history: any) {
+  constructor(history: any, category: string = 'untimed') {
     this.history = history;
     this.currMove = undefined;
     this._redraw = true;
@@ -31,11 +32,19 @@ export class EvalEngine {
       this.stockfish = new Worker(new URL('stockfish.js/stockfish.js', import.meta.url));
 
     this.uci('uci');
+
+    if(category === 'wild/fr')  
+      this.uci('setoption name UCI_Chess960 value true');
+
     this.uci('ucinewgame');
     this.uci('isready');
 
     const that = this;
     this.stockfish.onmessage = function(response: any) { that.evaluate(response); }
+  }
+
+  public static categorySupported(category: string) {
+    return SupportedCategories.indexOf(category) > -1;
   }
 
   private uci(cmd: string, ports?: any) {
@@ -382,7 +391,7 @@ export class Engine {
   private numPVs: number;
   private fen: string;
 
-  constructor(board: any, numPVs = 1) {
+  constructor(board: any, category: string = 'untimed', numPVs = 1) {
     this.numPVs = numPVs;
     this.board = board;
     this.fen = '';
@@ -393,7 +402,6 @@ export class Engine {
     }
     else
       this.stockfish = new Worker(new URL('stockfish.js/stockfish.js', import.meta.url));
-
 
     this.stockfish.onmessage = (response) => {
       if (response.data.startsWith('info')) {
@@ -452,13 +460,20 @@ export class Engine {
         }
 
         if(pvArr.length) {
-          const pvChess = new Chess(this.fen);
-          for(const move of pvArr)
-            pvChess.move({ from: move.slice(0, 2), to: move.slice(2, 4), promotion: (move.length == 5 ? move.charAt(4) : undefined)});
-          let pv = pvChess.pgn();
-          const index = pv.indexOf(']', pv.indexOf(']') + 1);
-          pv = (index >= 0 ? pv.slice(index + 2) : pv);
-          pv = pv.replace(/\. /g, '.');
+          var pv = '';
+          var currFen = this.fen;
+          for(const move of pvArr) {
+            var parsedMove = parseMove(currFen, { from: move.slice(0, 2), to: move.slice(2, 4), promotion: (move.length == 5 ? move.charAt(4) : undefined)}, category);
+            var turnColor = History.getTurnColorFromFEN(currFen);
+            var moveNumber = History.getMoveNoFromFEN(currFen);
+            var moveNumStr = '';
+            if(turnColor === 'w')
+              moveNumStr = moveNumber + '.';
+            else if(this.fen === currFen && turnColor === 'b')
+              moveNumStr = moveNumber + '...';
+            pv += moveNumStr + parsedMove.move.san + ' ';
+            currFen = parsedMove.fen;
+          }
 
           var pvStr = '<b>(' + scoreStr + ')</b> ' + pv + '<b/>';
           $('#engine-pvs li').eq(pvNum - 1).html(pvStr);
@@ -480,8 +495,16 @@ export class Engine {
     };
     this.uci('uci');
     this.uci('setoption name MultiPV value ' + this.numPVs);
+
+    if(category === 'wild/fr')  
+      this.uci('setoption name UCI_Chess960 value true');
+
     this.uci('ucinewgame');
     this.uci('isready');
+  }
+
+  public static categorySupported(category: string) {
+    return SupportedCategories.indexOf(category) > -1;
   }
 
   public terminate() {
