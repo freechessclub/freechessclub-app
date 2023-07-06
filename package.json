@@ -47,6 +47,7 @@
     "@capacitor/assets": "^2.0.4",
     "@capacitor/core": "next",
     "@capacitor/ios": "next",
+    "@popperjs/core": "^2.11.6",
     "autolink-js": "freechessclub/autolink-js",
     "bootstrap": "5.2.3",
     "cheerio": "^1.0.0-rc.5",
@@ -57,7 +58,6 @@
     "gh-emoji": "^0.2.5",
     "jquery": "3.7.0",
     "js-cookie": "^3.0.1",
-    "@popperjs/core": "^2.11.6",
     "stockfish.js": "^10.0.2"
   },
   "devDependencies": {
@@ -70,8 +70,8 @@
     "css-loader": "^6.6.0",
     "electron": "^24.1.3",
     "electron-builder": "^24.3.0",
-    "eslint": "^8.30.0",
-    "eslint-plugin-jsdoc": "^39.6.4",
+    "eslint": "^8.44.0",
+    "eslint-plugin-jsdoc": "^46.4.3",
     "eslint-plugin-prefer-arrow": "^1.2.3",
     "exports-loader": "^3.1.0",
     "file-loader": "^6.2.0",
