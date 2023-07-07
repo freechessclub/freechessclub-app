@@ -50,31 +50,40 @@ export class Parser {
 
   private login(msg: any): any {
     let match = null;
+
+    msg = msg.replace(/\uFFFD/g, '');
+
+    match = msg.match(/Sorry, names may be at most 17 characters long\.\s+Try again./m);
+    if (match != null) {
+      return {
+        command: 2,
+        control: match[0],
+      }; 
+    }
+
     match = msg.match(/login:/);
     if (match != null) {
       this.session.send(this.user);
       return null;
     }
 
-    if (this.user === 'guest' || this.pass.length === 0) {
-      match = msg.match(/Press return to enter the server as/);
-      if (match != null) {
-        this.session.send('');
-        return null;
-      }
-      match = msg.match(/password:/);
-      if (match != null && this.pass.length === 0) {
+    match = msg.match(/Press return to enter the server as/);
+    if (match != null) {
+      this.pass = '';
+      this.session.send('');
+      return null;
+    }
+
+    match = msg.match(/password:/);
+    if (match != null) {
+      if(this.pass.length === 0) {
         return {
           command: 2,
-          control: msg,
+          control: msg.replace(/password:/, ''),
         };
       }
-    } else {
-      match = msg.match(/password:/);
-      if (match != null) {
-        this.session.send(this.pass);
-        return null;
-      }
+      this.session.send(this.pass);
+      return null;
     }
 
     match = msg.match(/\*\*\*\* Starting FICS session as ([a-zA-Z]+)(?:\(U\))? \*\*\*\*/);
@@ -189,6 +198,7 @@ export class Parser {
     msg = msg.replace(/\((?:told|kibitzed) .+\)/g, '');
     msg = msg.replace(/\u0007/g, '');
     msg = msg.replace(/\x00/g, '');
+    msg = msg.replace(/\x01/g, '');
     msg = msg.replace(/\\   /g, '');
     msg = msg.replace(/\r/g, '');
     msg = msg.replace(/fics%/g, '');

@@ -536,9 +536,7 @@ function messageHandler(data) {
         else if($('#pills-examine').hasClass('active'))
           initExaminePane();
       } else if (data.command === 2) {
-        if (session.isConnected()) {
-          session.disconnect();
-        }
+        session.disconnect();
         showModal('Authentication Failure', '', data.control, [], []);
       }
       break;

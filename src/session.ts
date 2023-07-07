@@ -105,9 +105,7 @@ export class Session {
 
   public disconnect() {
     $('#chat-status').html('<span class="text-danger"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Disconnecting...</span>');
-    if (this.isConnected()) {
-      this.websocket.close();
-    }
+    this.websocket.close();
     this.reset(undefined);
   }
 
