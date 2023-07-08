@@ -528,6 +528,7 @@ function messageHandler(data) {
         session.send('set echo 1');
         session.send('set style 12');
         session.send('set interface www.freechess.club');
+        session.send('iset defprompt 1'); // Force default prompt. Used for splitting up messages
         session.send('=ch');
         channelListRequested = true;
 
@@ -1124,6 +1125,7 @@ function messageHandler(data) {
         msg === 'You will now hear communications echoed.' ||
         msg === 'seekinfo unset.' ||
         msg === 'seekremove unset.' ||
+        msg === 'defprompt set.' ||
         msg.startsWith('No one is observing game ')
       ) {
         return;
