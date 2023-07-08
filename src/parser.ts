@@ -161,8 +161,8 @@ export class Parser {
     return String.fromCharCode.apply(null, new Uint8Array(buf));
   }
 
-  private splitMessage(msg: string) {
-    const msgs = msg.split(/\n/g);
+  private splitMessage(msg: string, pattern: any = /\n/) {
+    const msgs = msg.split(new RegExp(pattern, 'g')).filter(Boolean);
     if (msgs.length > 1) {
       const parsedMsgs = [];
       for (const m of msgs) {
@@ -170,7 +170,7 @@ export class Parser {
           parsedMsgs.push(this._parse(m));
         }
       }
-      return parsedMsgs;
+      return parsedMsgs.flat();
     }
 
     return undefined;
@@ -201,8 +201,16 @@ export class Parser {
     msg = msg.replace(/\x01/g, '');
     msg = msg.replace(/\\   /g, '');
     msg = msg.replace(/\r/g, '');
+    msg = msg.trim();
+
+    // FICS uses 'fics%' to separate multiple multi-line messages when sent together
+    msgs = this.splitMessage(msg, /fics%/);
+    if(msgs) 
+      return msgs;
+
     msg = msg.replace(/fics%/g, '');
     msg = msg.trim();
+
     if (msg === '' || msg === '\n') {
       return null;
     }
