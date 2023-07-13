@@ -49,6 +49,8 @@ let promotePiece;
 let promoteSource;
 let promoteTarget;
 let promoteIsPremove;
+let bufferedHistoryIndex = -1;
+let bufferedHistoryCount = 0;
 
 export function cleanup() {
   historyRequested = 0;
@@ -62,6 +64,8 @@ export function cleanup() {
   removeSubvariationRequested = false;
   matchRequestList = [];
   matchRequest = undefined;
+  bufferedHistoryIndex = -1;
+  bufferedHistoryCount = 0;
 
   $('#stop-observing').hide();
   $('#stop-examining').hide();
@@ -1219,6 +1223,11 @@ function showStrengthDiff(fen: string) {
 
 function updateHistory(move?: any, fen?: string) {
   var sameMove = false;
+
+  // This is to allow multiple fast 'forward' or 'back' button presses in examine mode before the command reaches the server
+  // bufferedHistoryIndex contains a temporary index of the current move which is used for subsequent forward/back button presses
+  if(bufferedHistoryCount)
+    bufferedHistoryCount--;
   
   if(!fen) 
     fen = game.chess.fen();
@@ -1256,7 +1265,8 @@ function updateHistory(move?: any, fen?: string) {
 
     // move is earlier, we need to take-back
     if(game.isPlaying() || game.isObserving()) {
-      board.cancelPremove();
+      if(index < game.history.length())
+        board.cancelPremove();
       while(index < game.history.length())
         game.history.removeLast();
     }
@@ -1907,12 +1917,22 @@ $('#custom-control').on('submit', (event) => {
 
 $('#fast-backward').off('click');
 $('#fast-backward').on('click', () => {
-  if (game.isExamining())
-    session.send('back 999');
+  fastBackward();
+});
+
+function fastBackward() {
+  if (game.isExamining()) {
+    var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
+    if(index !== 0) {
+      bufferedHistoryIndex = 0;
+      bufferedHistoryCount++;
+      session.send('back 999');
+    }
+  }
   else if(game.history)
     game.history.beginning();
   $('#pills-game-tab').tab('show');
-});
+}
 
 $('#backward').off('click');
 $('#backward').on('click', () => {
@@ -1921,8 +1941,16 @@ $('#backward').on('click', () => {
 
 function backward() {
   if(game.history) {
-    if(game.isExamining())
-      session.send('back');
+    if(game.isExamining()) {
+      var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
+      var prevIndex = game.history.prev(index);
+
+      if(prevIndex !== undefined) {
+        bufferedHistoryIndex = prevIndex;
+        bufferedHistoryCount++;
+        session.send('back');
+      }        
+    }
     else
       game.history.backward();
   }
@@ -1937,13 +1965,18 @@ $('#forward').on('click', () => {
 function forward() {
   if(game.history) {
     if (game.isExamining()) {
-      const nextIndex = game.history.next();
+      var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
+      var nextIndex = game.history.next(index);
+
       if(nextIndex !== undefined) {
         const nextMove = game.history.get(nextIndex);
         if(nextMove.subvariation || game.history.scratch())
           session.send(nextMove.move.from + nextMove.move.to);
         else
           session.send('for');
+
+        bufferedHistoryIndex = nextIndex;
+        bufferedHistoryCount++;
       }
     }
     else
@@ -1954,26 +1987,36 @@ function forward() {
 
 $('#fast-forward').off('click');
 $('#fast-forward').on('click', () => {
+  fastForward();
+});
+
+function fastForward() {
   if (game.isExamining()) {
     if(!game.history.scratch()) {
-      if(game.history.get().subvariation)
-        session.send('back 999');
-      session.send('for 999');
+      fastBackward();
+      var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
+      if(index !== game.history.last()) {
+        session.send('for 999');
+        bufferedHistoryCount++;
+        bufferedHistoryIndex = game.history.last();
+      }
     }
     else {
-      while(game.history.next())
+      var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
+      while(index = game.history.next(index))
         forward();
     }
   }
   else if(game.history)
     game.history.end();
   $('#pills-game-tab').tab('show');
-});
+}
+
 
 $('#exit-subvariation').off('click');
 $('#exit-subvariation').on('click', () => {
   if(game.isExamining()) {
-    let index = game.history.index();
+    var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
     let move = game.history.get(index);
     let backNum = 0;
     while(move.subvariation) {
@@ -1984,6 +2027,8 @@ $('#exit-subvariation').on('click', () => {
     if(backNum > 0) {
       session.send('back ' + backNum);
       removeSubvariationRequested = true;
+      bufferedHistoryCount++;
+      bufferedHistoryIndex = index;
     }
     else {
       game.history.removeSubvariation();
