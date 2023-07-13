@@ -582,7 +582,7 @@ function messageHandler(data) {
           $('#opponent-name').text(game.wname);
         }       
 
-        var flipped = $('#opponent-status').hasClass('bottom-panel');
+        var flipped = $('#opponent-status').parent().hasClass('bottom-panel');
         board.set({
           orientation: ((game.color === 'b') === flipped ? 'white' : 'black'),
         });
@@ -1487,46 +1487,17 @@ function flipBoard() {
   if($('#promotion-panel').is(':visible')) 
     showPromotionPanel(promoteSource, promoteTarget, promoteIsPremove);
 
-  const playerName = $('#player-name').html();
-  const playerRating = $('#player-rating').html();
-  const playerCaptured = $('#player-captured').html();
-  const playerTime = $('#player-time').html();
-  const playerStatus = $('#player-status').html();
-
-  const opponentName = $('#opponent-name').html();
-  const opponentRating = $('#opponent-rating').html();
-  const opponentCaptured = $('#opponent-captured').html();
-  const opponentTime = $('#opponent-time').html();
-  const opponentStatus = $('#opponent-status').html();
-
-  $('#player-name').html(opponentName);
-  $('#player-rating').html(opponentRating);
-  $('#player-captured').html(opponentCaptured);
-  $('#player-time').html(opponentTime);
-
-  $('#opponent-name').html(playerName);
-  $('#opponent-rating').html(playerRating);
-  $('#opponent-captured').html(playerCaptured);
-  $('#opponent-time').html(playerTime);
-
-  $('#player-name').prop('id', 'tmp-player-name');
-  $('#player-rating').prop('id', 'tmp-player-rating');
-  $('#player-captured').prop('id', 'tmp-player-captured');
-  $('#player-time').prop('id', 'tmp-player-time');
-  $('#player-status').prop('id', 'tmp-player-status');
-
-  $('#opponent-name').prop('id', 'player-name');
-  $('#opponent-rating').prop('id', 'player-rating');
-  $('#opponent-captured').prop('id', 'player-captured');
-  $('#opponent-time').prop('id', 'player-time');
-  $('#opponent-status').prop('id', 'player-status');
-
-  $('#tmp-player-name').prop('id', 'opponent-name');
-  $('#tmp-player-rating').prop('id', 'opponent-rating');
-  $('#tmp-player-captured').prop('id', 'opponent-captured');
-  $('#tmp-player-time').prop('id', 'opponent-time');
-  $('#tmp-player-status').prop('id', 'opponent-status');
+  // Swap player and opponent status panels
+  if($('#player-status').parent().hasClass('top-panel')) {
+    $('#player-status').appendTo('#mid-card .bottom-panel');
+    $('#opponent-status').appendTo('#mid-card .top-panel');
+  }
+  else {
+    $('#player-status').appendTo('#mid-card .top-panel');
+    $('#opponent-status').appendTo('#mid-card .bottom-panel');
+  }
 }
+
 
 function getValue(elt: string): string {
   return $(elt).val() as string;
