@@ -293,6 +293,24 @@ export class Parser {
       };
     }
 
+    // held pieces (Crazyhouse/Bughouse)
+    match = msg.match(/^<b1> game (\d+) white \[(\w*)\] black \[(\w*)\](?: <- (\w+))?/m);
+    if (match != null && match.length > 3) {
+      var holdings = {P: 0, R: 0, B: 0, N: 0, Q: 0, K: 0, p: 0, r: 0, b: 0, n: 0, q: 0, k: 0};
+
+      for(const piece of match[2]) 
+        holdings[piece.toLowerCase()]++;
+      
+      for(const piece of match[3])
+        holdings[piece.toUpperCase()]++;
+
+      return {
+        game_id: match[1],
+        holdings: holdings,
+        new_holding: match[4],
+      };
+    }
+
     // game start
     match = msg.match(/^\s*\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\sCreating.*\}.*/s);
     if (match != null && match.length > 2) {

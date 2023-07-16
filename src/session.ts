@@ -12,6 +12,7 @@ export const enum MessageType {
   GameMove,
   GameStart,
   GameEnd,
+  GameHoldings,
   Unknown,
 }
 
@@ -24,6 +25,8 @@ export function GetMessageType(msg: any): MessageType {
     return MessageType.GameStart;
   } else if (msg.winner !== undefined) {
     return MessageType.GameEnd;
+  } else if (msg.holdings !== undefined) {
+    return MessageType.GameHoldings;
   } else if (msg.channel !== undefined) {
     return MessageType.ChannelTell;
   } else if (msg.user !== undefined && msg.message !== undefined) {

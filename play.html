@@ -115,12 +115,12 @@
                           </ul>
                           <div id="play-pane-subcontent" class="tab-content flex-grow-1 overflow-auto" style="min-height: 0">
                             <div class="tab-pane fade show active" id="pills-pairing" role="tabpanel" aria-labelledby="pills-pairing-tab">                            
-                              <div class="btn-group-vertical btn-block center" role="group" aria-label="New Game Menu">
+                              <div class="btn-group-vertical btn-block center position-static" role="group" aria-label="New Game Menu">
                                 <div class="pane-status" id="matches-status" style="display: none"></div>
                                 <div class="center pane-status" id="pairing-pane-status" style="display: none"></div>
                                 <div class="input-group">
-                                  <span class="input-group-text" id="opponent-player">Play against</span>
-                                  <input type="text" class="form-control" id="opponent-player-name" placeholder="Anyone" aria-describedby="opponent-player" spellcheck="false">
+                                  <span class="input-group-text" id="opponent-player-label">Play against</span>
+                                  <input type="text" class="form-control" id="opponent-player-name" placeholder="Anyone" aria-describedby="opponent-player-label" spellcheck="false">
                                 </div>
                                 <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true"><span class="me-2 fa fa-bolt" aria-hidden="false"></span>Lightning</a>
                                 <div class="btn-group" role="group" aria-label="Lightning">
@@ -151,7 +151,23 @@
                                     </span>
                                   </div>
                                 </form>
-                                <div class="btn-group dropup" role="group" aria-label="Study">
+                                <div class="btn-group dropdown position-static" role="group" aria-label="Study">
+                                  <button class="btn btn-outline-secondary dropdown-toggle" id="variants-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">Variants</button>
+                                  <ul class="dropdown-menu" id="variants-menu">
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Standard', '');">Standard</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Chess960', 'wild fr');">Chess960</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Bughouse', 'bughouse');">Bughouse (4 player)</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Crazyhouse', 'crazyhouse');">Crazyhouse</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Losers', 'losers');">Losers</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 0', 'wild 0');">Wild 0</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 1', 'wild 1');">Wild 1</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 2', 'wild 2');">Wild 2</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 3', 'wild 3');">Wild 3</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 4', 'wild 4');">Wild 4</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 5', 'wild 5');">Wild 5</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 8', 'wild 8');">Wild 8</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 8a', 'wild 8a');">Wild 8a</a></li>
+                                  </ul>
                                   <button type="button" class="btn btn-outline-secondary btn-md" id="puzzlebot">Puzzle</button>
                                   <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Endgames</button>
                                   <ul class="dropdown-menu dropdown-menu-end" id="endgamebot">
@@ -338,7 +354,7 @@
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header status" id="right-panel-header" style="visibility: hidden">
               <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto" style="max-width: 50%">
-                <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="connectButton" data-bs-toggle="dropdown" title="Connect/Disconnect" aria-expanded="false" title="User">
+                <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle hide-caret" type="button" id="connectButton" data-bs-toggle="dropdown" title="Connect/Disconnect" aria-expanded="false" title="User">
                   <div id="chat-status" class="w-100"></div>
                 </button>
                 <div class="dropdown-menu" aria-labelledby="connectButton">
@@ -352,7 +368,7 @@
                   <span id="chat-maximize-icon" class="fa fa-toggle-left" aria-hidden="false"></span>
                 </button>
                 <div id="settings-dropdown" class="dropdown" data-bs-toggle="tooltip" data-bs-placement="left" title="Settings">
-                  <button class="btn btn-outline-secondary btn-md dropdown-toggle" type="button" id="settingsButton" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Settings">
+                  <button class="btn btn-outline-secondary btn-md dropdown-toggle hide-caret" type="button" id="settingsButton" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Settings">
                     <span class="fa fa-gear" aria-hidden="false"></span>
                   </button>
                   <div class="dropdown-menu dropdown-menu-right" aria-labelledby="settingsButton">
@@ -404,7 +420,7 @@
                 <div class="card-body d-flex flex-column" id="right-panel">
                   <ul class="nav nav-tabs d-flex flex-wrap justify-content-start user-select-none" role="tablist" id="tabs">
                     <div id="chan-dropdown" class="d-flex dropdown" data-bs-toggle="tooltip" data-bs-placement="top" title="Join Channel">
-                      <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="chanButton" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Join Channel">
+                      <button class="btn btn-outline-secondary btn-sm dropdown-toggle hide-caret" type="button" id="chanButton" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Join Channel">
                         <span class="fa fa-plus-square" aria-hidden="false"></span>
                       </button>
                       <div id="chan-dropdown-menu" class="dropdown-menu" aria-labelledby="chanButton">
