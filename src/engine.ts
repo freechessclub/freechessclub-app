@@ -50,7 +50,7 @@ export class EvalEngine {
     let done = false;
 
     if(this.currMove) {
-      if(!response && this.currMove)
+      if(!response)
         return;
 
       if (response.data.startsWith('info')) {
@@ -108,7 +108,7 @@ export class EvalEngine {
     if(this._redraw)
       $('#eval-graph-container').html('');
 
-    if(this.history.length() === 0)
+    if(this.history.length() === 0 || !$('#eval-graph-panel').is(':visible'))
       return;
 
     if(!this.currMove) {
@@ -130,7 +130,7 @@ export class EvalEngine {
 
       if(this.currMove) {
         this.uci('position fen ' + this.currMove.fen);
-        const moveTime = ($('#eval-graph-tab').is(':visible') ? 100 : 2000);
+        const moveTime = 100;
         this.uci('go movetime ' + moveTime);
 
         const progress = Math.round(100 * completed / total);
@@ -157,9 +157,6 @@ export class EvalEngine {
   }
 
   private drawGraph() {
-    if(!$('#eval-graph-panel').is(':visible'))
-      return;
-
     const dataset = [];
     let currIndex;
     const that = this;
