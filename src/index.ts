@@ -1080,17 +1080,15 @@ function messageHandler(data) {
       }
 
       match = msg.match(/^Notification: .*/m);
-      if (match != null && match.length > 0) {
-        chat.newNotification(match[0]);
-        return;
-      }
-      match = msg.match(/^\w+ is not logged in./m);
-      if (match != null && match.length > 0) {
-        chat.newNotification(match[0]);
-        return;
-      }
-      match = msg.match(/^Player [a-zA-Z\"]+ is censoring you./m);
-      if (match != null && match.length > 0) {
+      if(!match)
+        match = msg.match(/^\w+ is not logged in./m);
+      if(!match)
+        match = msg.match(/^Player [a-zA-Z\"]+ is censoring you./m);
+      if(!match)
+        match = msg.match(/^Sorry the message is too long./m);
+      if(!match)
+        match = msg.match(/^You are muted./m);
+      if(match && match.length > 0) {
         chat.newNotification(match[0]);
         return;
       }
@@ -1115,11 +1113,6 @@ function messageHandler(data) {
       if (lobbyRequested) {
         match = msg.match(/.*\<(s|sc|sr)\>.*/g);
         parseSeeks(data.message);
-        return;
-      }
-
-      if (msg === 'You are muted.') {
-        chat.newNotification(msg);
         return;
       }
 
