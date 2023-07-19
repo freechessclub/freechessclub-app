@@ -168,9 +168,9 @@ export class Chat {
   }
 
   private updateViewedState(tab: any, closingTab: boolean = false) {
-    if(!tab.hasClass('tab-unviewed') && (!tab.hasClass('active') || !$('#collapse-chat').hasClass('show')) && tab.attr('id') !== 'console') {
+    if(!tab.hasClass('tab-unviewed') && (!tab.hasClass('active') || !$('#collapse-chat').hasClass('show')) && tab.attr('id') !== 'tab-console') {
       // Add unread number to chat-toggle-icon
-      if(!this.ignoreUnread(tab.attr('id'))) { // only add if a private message
+      if(!this.ignoreUnread(tab.attr('id').split(/-(.*)/)[1])) { // only add if a private message
         if(this.unreadNum === 0)
           $('#chat-unread-bubble').show();
         this.unreadNum++;
@@ -179,7 +179,7 @@ export class Chat {
       tab.addClass('tab-unviewed');
     }
     else if(tab.hasClass('tab-unviewed') && (closingTab || (tab.hasClass('active') && $('#collapse-chat').hasClass('show')))) {
-      if(!this.ignoreUnread(tab.attr('id'))) {
+      if(!this.ignoreUnread(tab.attr('id').split(/-(.*)/)[1])) {
         this.unreadNum--;
         if(this.unreadNum === 0)
           $('#chat-unread-bubble').hide();
@@ -195,7 +195,7 @@ export class Chat {
     if(tab.hasClass('active'))
       $('#tabs .nav-link:first').tab('show');
 
-    const name: string = tab.attr('id').toLowerCase();
+    const name: string = tab.attr('id').toLowerCase().split(/-(.*)/)[1];
     tab.parent().remove();
     this.deleteTab(name);
     $('#content-' + name).remove();
@@ -222,7 +222,7 @@ export class Chat {
 
       $(`<li class="nav-item position-relative">
           <button class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-` +
-              from + `" id="` + from + `" role="tab" style="padding-right: 30px">` + chName + `
+              from + `" id="tab-` + from + `" role="tab" style="padding-right: 30px">` + chName + `
           </button>   
           <container class="d-flex align-items-center h-100 position-absolute" style="top: 0; right: 12px; z-index: 10">       
             <span class="closeTab btn btn-default btn-sm">×</span>
@@ -240,7 +240,7 @@ export class Chat {
 
     if(showTab) {
       const tabs = $('#tabs a').filter(function (index) {
-        return $(this).attr('id') === from;
+        return $(this).attr('id') === 'tab-' + from;
       });
       tabs.first().tab('show');
     }
@@ -253,7 +253,7 @@ export class Chat {
   }
 
   public currentTab(): string {
-    return $('ul#tabs button.active').attr('id');
+    return $('ul#tabs button.active').attr('id').split(/-(.*)/)[1];
   }
 
   public addChannels(chans: string[]) {
@@ -308,8 +308,10 @@ export class Chat {
 
     tab.append(timestamp + who + text);
 
-    const tabheader = $('#' + from.toLowerCase().replace(/\s/g, '-'));
-    this.updateViewedState(tabheader);
+    const tabheader = $('#tab-' + from.toLowerCase().replace(/\s/g, '-'));
+
+    if(this.user !== data.user)
+      this.updateViewedState(tabheader);
     
     if (tabheader.hasClass('active')) {
       if (this.autoscrollToggle) {
