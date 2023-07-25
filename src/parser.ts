@@ -86,7 +86,7 @@ export class Parser {
       return null;
     }
 
-    match = msg.match(/\*\*\*\* Starting FICS session as ([a-zA-Z]+)(?:\(U\))? \*\*\*\*/);
+    match = msg.match(/\*\*\*\* Starting FICS session as ([a-zA-Z]+)(?:\(.*\))? \*\*\*\*/);
     if (match != null && match.length > 1) {
       this.loggedin = true;
       return [{
