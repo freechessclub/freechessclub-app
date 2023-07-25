@@ -40,6 +40,7 @@ export class Session {
   private onRecv: (msg: any) => void;
   private timesealHello = 'TIMESEAL2|freeseal|icsgo|';
   private tsKey = 'Timestamp (FICS) v1.0 - programmed by Henrik Gram.';
+  private parser: Parser;
 
   constructor(onRecv: (msg: any) => void, user?: string, pass?: string) {
     this.connected = false;
@@ -50,6 +51,10 @@ export class Session {
 
   public getUser(): string {
     return this.user;
+  }
+
+  public getParser(): Parser {
+    return this.parser;
   }
 
   public setUser(user: string): void {
@@ -86,9 +91,9 @@ export class Session {
 
     this.websocket = new WebSocket('wss://www.freechess.org:5001');
     // this.websocket.binaryType = 'arraybuffer';
-    const parser = new Parser(this, user, pass);
+    this.parser = new Parser(this, user, pass);
     this.websocket.onmessage = async (message: any) => {
-      const data = await parser.parse(message.data);
+      const data = this.parser.parse(await message.data.text());
       if (Array.isArray(data)) {
         data.map((m) => this.onRecv(m));
       } else {
@@ -105,9 +110,7 @@ export class Session {
 
   public disconnect() {
     $('#chat-status').html('<span class="text-danger"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Disconnecting...</span>');
-    if (this.isConnected()) {
-      this.websocket.close();
-    }
+    this.websocket.close();
     this.reset(undefined);
   }
 
