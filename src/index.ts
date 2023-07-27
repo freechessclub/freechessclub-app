@@ -65,8 +65,8 @@ export function cleanup() {
   bufferedHistoryIndex = -1;
   bufferedHistoryCount = 0;
 
-  $('#stop-observing').hide();
-  $('#stop-examining').hide();
+  hideButton($('#stop-observing'));
+  hideButton($('#stop-examining'));
   hideCloseGamePanel();
   hidePromotionPanel();
   $('#playing-game-buttons').hide();
@@ -473,7 +473,7 @@ export function movePiece(source: any, target: any, metadata: any) {
   if (move !== null)
     movePieceAfter(move, fen);
 
-  $('#pills-game-tab').tab('show');
+  showTab($('#pills-game-tab'));
   // Show 'Analyze' button once any moves have been made on the board
   showAnalyzeButton();
 }
@@ -987,7 +987,7 @@ function messageHandler(data) {
               showCloseGamePanel();
             
             if(game.isExamining()) {
-              $('#stop-examining').show();
+              showButton($('#stop-examining'));
               if(game.wname === game.bname)
                 game.history.scratch(true);
               else {
@@ -997,7 +997,7 @@ function messageHandler(data) {
               }
             }
             else if(game.isObserving()) 
-              $('#stop-observing').show();
+              showButton($('#stop-observing'));
 
             movelistRequested++;
             session.send('iset startpos 1'); // Show the initial board position before the moves list 
@@ -1006,12 +1006,12 @@ function messageHandler(data) {
           }
 
           $('#playing-game').hide();
-          $('#pills-game-tab').tab('show');
 
           // Show analysis buttons
           $('#playing-game-buttons').hide();
           $('#viewing-game-buttons').show();
         }
+        showTab($('#pills-game-tab'));
         showStatusPanel();
         scrollToBoard();
       }
@@ -1045,7 +1045,6 @@ function messageHandler(data) {
       $('#game-requests').empty();
       $('#playing-game').hide();
       $('#playing-game-buttons').show();
-      $('#pills-game-tab').tab('show');
       if (data.player_one === session.getUser()) {
         chat.createTab(data.player_two);
       } else {
@@ -1133,14 +1132,10 @@ function messageHandler(data) {
         return;
       }
 
-      match = msg.match(/.*\d+\s[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s+\[[\w\s]+\]\s+[\d:]+\s\-\s+[\d:]+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed./g);
-      if (match != null && match.length > 0) {
+      match = msg.match(/.*\d+\s[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s+\[[\w\s]+\]\s+[\d:]+\s*\-\s*[\d:]+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed./g);
+      if (match != null && match.length > 0 && gamesRequested) {
         showGames(data.message);
-        if (!gamesRequested) {
-          chat.newMessage('console', data);
-        } else {
-          gamesRequested = false;
-        }
+        gamesRequested = false;
         return;
       }
 
@@ -1182,7 +1177,13 @@ function messageHandler(data) {
         match = msg.match(/^(You can't match yourself\.)/m);
       if(!match)
         match = msg.match(/^(You cannot challenge while you are (?:examining|playing) a game\.)/m);
-      if(match != null) {
+      if(!match) 
+        match = msg.match(/^(You are already offering an identical match to \w+\.)/m);
+      if(!match)
+        match = msg.match(/^(You can only have 3 active seeks\.)/m);
+      if(!match) 
+        match = msg.match(/^(There is no such game\.)/m);
+      if(match !== null) {
         if(historyRequested || obsRequested || matchRequest) {
           let user = '';
           let status;
@@ -1232,7 +1233,6 @@ function messageHandler(data) {
         if(obsRequested) {
           obsRequested--;
           $('#observe-pane-status').hide();
-          $('#pills-game-tab').tab('show');
         }
 
         chat.newMessage('console', data);
@@ -1475,7 +1475,7 @@ function messageHandler(data) {
 
 export function scrollToBoard() {
   if(isSmallWindow())
-    $(document).scrollTop($('#right-panel').offset().top + $(window).height());
+    $(document).scrollTop($('#right-panel-header').offset().top + $('#right-panel-header').outerHeight() - $(window).height());
 }
 
 function scrollToLeftPanelBottom() {
@@ -1767,7 +1767,6 @@ function showAnalysis() {
   for(let i = 0; i < numPVs; i++)
     $('#engine-pvs').append('<li>&nbsp;</li>');
   $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
-  scrollToLeftPanelBottom();
   if(evalEngine)
     evalEngine.evaluate();
 }
@@ -1976,12 +1975,32 @@ function selectOnFocus(input: any) {
   });
 }
 
+// Wrapper function for showing hidden button in btn-toolbar 
+// Hidden buttons were causing visible buttons to not center properly in toolbar
+// Set the margin of the last visible button to 0
+function showButton(button: any) {
+  button.parent().find('visible:last').removeClass('me-0');
+  button.addClass('me-0');
+  button.show();
+}
+
+// Wrapper function for hiding a button in btn-toolbar 
+// Hidden buttons were causing visible buttons to not center properly in toolbar
+// Set the margin of the last visible button to 0
+function hideButton(button: any) {
+  button.hide();
+  button.removeClass('me-0');
+  button.parent().find('visible:last').addClass('me-0');
+}
+
 // If on small screen device displaying 1 column, move the navigation buttons so they are near the board
 function useMobileLayout() {
   swapLeftRightPanelHeaders();
   $('#chat-maximize-btn').hide();
+  $('#viewing-games-buttons:visible:last').removeClass('me-0'); 
   $('#stop-observing').appendTo($('#viewing-game-buttons').last());
   $('#stop-examining').appendTo($('#viewing-game-buttons').last());
+  $('#viewing-games-buttons:visible:last').addClass('me-0'); // This is so visible buttons in the btn-toolbar center properly
   hideCloseGamePanel();
   configureTooltips();
 }
@@ -2151,6 +2170,7 @@ $('#show-status-panel').on('click', (event) => {
   if($('#show-status-panel').text() === 'Analyze') 
     showAnalysis();
   showStatusPanel();
+  scrollToLeftPanelBottom();
 });
 
 $('#close-status').on('click', (event) => {
@@ -2249,7 +2269,7 @@ function fastBackward() {
   }
   else if(game.history)
     game.history.beginning();
-  $('#pills-game-tab').tab('show');
+  showTab($('#pills-game-tab'));
 }
 
 $('#backward').off('click');
@@ -2272,7 +2292,7 @@ function backward() {
     else
       game.history.backward();
   }
-  $('#pills-game-tab').tab('show');
+  showTab($('#pills-game-tab'));
 }
 
 $('#forward').off('click');
@@ -2301,7 +2321,7 @@ function forward() {
     else
       game.history.forward();
   }
-  $('#pills-game-tab').tab('show');
+  showTab($('#pills-game-tab'));
 }
 
 $('#fast-forward').off('click');
@@ -2328,7 +2348,7 @@ function fastForward() {
   }
   else if(game.history)
     game.history.end();
-  $('#pills-game-tab').tab('show');
+  showTab($('#pills-game-tab'));
 }
 
 
@@ -2358,7 +2378,7 @@ $('#exit-subvariation').on('click', () => {
     game.history.removeSubvariation();
     $('#exit-subvariation').hide();
   }
-  $('#pills-game-tab').tab('show');
+  showTab($('#pills-game-tab'));
 });
 
 $(document).on('keydown', (e) => {
@@ -2485,8 +2505,12 @@ $(window).on('resize', () => {
   prevWindowWidth = window.innerWidth;
   setPanelSizes();
 
-  if(evalEngine)
-    evalEngine.redraw();
+  // Put other resizing stuff in here. Need time for columns to resize properly, 
+  // i.e. scrollbar takes a while to appear/disappear after resizing board
+  setTimeout(() => {
+    if(evalEngine)
+      evalEngine.redraw();
+  }, 0);
 });
 
 // prompt before unloading page if in a game
@@ -2512,8 +2536,15 @@ export function parseHistory(history: string) {
   return h;
 }
 
+function showTab(tab: any) {
+  if($('#collapse-history').hasClass('show'))
+    tab.tab('show');
+  else
+    activeTab = tab;  
+}
+
 (window as any).showGameTab = () => {
-  $('#pills-game-tab').tab('show');
+  showTab($('#pills-game-tab'));
 };
 
 function showHistory(user: string, history: string) {
@@ -2624,7 +2655,7 @@ function initObservePane() {
 
 $('#puzzlebot').on('click', (event) => {
   session.send('t puzzlebot getmate');
-  $('#pills-game-tab').tab('show');
+  showTab($('#pills-game-tab'));
 });
 
 $(document).on('shown.bs.tab', 'button[href="#eval-graph-panel"]', (e) => {
