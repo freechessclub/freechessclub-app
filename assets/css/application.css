@@ -375,3 +375,9 @@ ul.list-striped > li {
               0 4px 6px -4px rgba(0, 0, 0, 0.2),
               0 -4px 6px -4px rgba(0, 0, 0, 0.2);
 }
+
+/* Fix margin collapse glitch */
+#lobby-table .btn:not(:last-child) {
+  margin: 0px;
+  border-bottom: none;  
+}

@@ -23,9 +23,10 @@ let evalEngine: EvalEngine | null;
 
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
-
 // toggle for auto-promote to queen
 let autoPromoteToggle: boolean = (Cookies.get('autopromote') === 'true');
+// toggle for showing Computer opponents in the lobby
+let lobbyShowComputersToggle: boolean = (Cookies.get('lobbyshowcomputers') === 'true');
 
 let historyRequested = 0;
 let obsRequested = 0;
@@ -33,6 +34,8 @@ let gamesRequested = false;
 let movelistRequested = 0;
 let lobbyRequested = false;
 let channelListRequested = false;
+let computerListRequested = false;
+let computerList = [];
 let modalCounter = 0;
 let numPVs = 1;
 let gameChangePending = false;
@@ -50,27 +53,16 @@ let promoteTarget;
 let promoteIsPremove;
 let bufferedHistoryIndex = -1;
 let bufferedHistoryCount = 0;
+let seekMap = new Map();
 
-export function cleanup() {
-  historyRequested = 0;
-  obsRequested = 0;
-  gamesRequested = false;
-  movelistRequested = 0;
-  lobbyRequested = false;
-  channelListRequested = false;
-  gameChangePending = false;
-  removeSubvariationRequested = false;
-  matchRequestList = [];
-  matchRequest = undefined;
-  bufferedHistoryIndex = -1;
-  bufferedHistoryCount = 0;
-
+function cleanupGame() {
   hideButton($('#stop-observing'));
   hideButton($('#stop-examining'));
   hideCloseGamePanel();
   hidePromotionPanel();
   $('#playing-game-buttons').hide();
   $('#viewing-game-buttons').show();
+  $('#lobby-pane-status').hide();
 
   if(game.wclock)
     clearInterval(game.wclock);
@@ -89,6 +81,28 @@ export function cleanup() {
   updateBoard();
   if($('#left-panel-bottom').is(':visible'))
     showStatusPanel();
+
+  if($('#pills-play').hasClass('active') && $('#pills-lobby').hasClass('active'))
+    initLobbyPane();
+
+  bufferedHistoryIndex = -1;
+  bufferedHistoryCount = 0;
+}
+
+export function cleanup() {
+  historyRequested = 0;
+  obsRequested = 0;
+  gamesRequested = false;
+  movelistRequested = 0;
+  lobbyRequested = false;
+  channelListRequested = false;
+  computerListRequested = false;
+  gameChangePending = false;
+  removeSubvariationRequested = false;
+  matchRequestList = [];
+  matchRequest = undefined;
+
+  cleanupGame();
 }
 
 export function disableOnlineInputs(disable: boolean) {
@@ -884,11 +898,16 @@ function messageHandler(data) {
         session.send('iset nowrap 1'); // Stop chat messages wrapping which was causing spaces to get removed erroneously
         session.send('=ch');
         channelListRequested = true;
+        session.send('=computer'); // get Computers list, to augment names in Observe panel
+        computerListRequested = true;
 
         if($('#pills-observe').hasClass('active'))
           initObservePane();
         else if($('#pills-examine').hasClass('active'))
           initExaminePane();
+        else if($('#pills-play').hasClass('active') && $('#pills-lobby').hasClass('active'))
+          initLobbyPane();
+
       } else if (data.command === 2) {
         session.disconnect();
         showModal('Authentication Failure', '', data.control, [], []);
@@ -1079,7 +1098,7 @@ function messageHandler(data) {
         rematch = ['rematch', 'Rematch']
       }
       showModal('Match Result', '', data.message, rematch, []);
-      cleanup();
+      cleanupGame();
       break;
     case MessageType.Unknown:
     default:
@@ -1134,7 +1153,7 @@ function messageHandler(data) {
 
       match = msg.match(/.*\d+\s[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s+\[[\w\s]+\]\s+[\d:]+\s*\-\s*[\d:]+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed./g);
       if (match != null && match.length > 0 && gamesRequested) {
-        showGames(data.message);
+        showGames(msg);
         gamesRequested = false;
         return;
       }
@@ -1197,7 +1216,7 @@ function messageHandler(data) {
           }
           else if(matchRequest) {
             user = getValue('#opponent-player-name');
-            status = $('#play-pane-status');
+            status = $('#pairing-pane-status');
           }
 
           if(match.length >= 2) {
@@ -1239,6 +1258,13 @@ function messageHandler(data) {
         return;
       }
 
+      match = msg.match(/^(Issuing match request since the seek was set to )(manual\.)/m);
+      if(match && match.length > 2 && lobbyRequested) {
+        $('#lobby-pane-status').html(match[1] + 
+          `<span style="white-space: nowrap">` + match[2] + `<span class="fa fa-times-circle btn btn-default btn-sm" onclick="withdrawAll()" aria-hidden="false"></span></span>`); 
+        $('#lobby-pane-status').show();
+      }
+
       match = msg.match(/^Your seek has been posted with index \d+\./m);
       if(!match)
         match = msg.match(/^Issuing: \w+ \([-\d]+\) \w+ \([-\d]+\)/m);
@@ -1276,13 +1302,13 @@ function messageHandler(data) {
             showModal('Game Request', '', modalText, ['cancelMatchRequests();', 'Cancel'], [], true, false);
           }
           matchRequest = undefined;
-          $('#play-pane-status').hide();
+          $('#pairing-pane-status').hide();
         }
 
         chat.newMessage('console', data);
         return;
       }
-
+     
       match = msg.match(/(?:^|\n)\s*Movelist for game (\d+):\s+(\w+) \((\d+|UNR)\) vs\. (\w+) \((\d+|UNR)\)[^\n]+\s+(\w+) (\S+) match, initial time: (\d+) minutes, increment: (\d+) seconds\./);
       if (match != null && match.length > 9) {
         if (+match[1] === game.id && movelistRequested) {
@@ -1391,7 +1417,7 @@ function messageHandler(data) {
           session.send('refresh');
 
         stopEngine();
-        cleanup();
+        cleanupGame();
         return;
       }
 
@@ -1400,7 +1426,7 @@ function messageHandler(data) {
         if(gameChangePending)
           session.send('refresh');
         stopEngine();
-        cleanup();
+        cleanupGame();
         return;
       }
 
@@ -1426,6 +1452,16 @@ function messageHandler(data) {
         channelListRequested = false;
         return chat.addChannels(match[1].split(/\s+/));
       }
+      
+      match = msg.match(/-- computer list: \d+ names --([\w\s]*)/);
+      if (match !== null && match.length > 1) {
+        if(!computerListRequested) 
+          chat.newMessage('console', data);
+
+        computerListRequested = false;
+        computerList = match[1].split(/\s+/);
+        return; 
+      }
 
       match = msg.match(/^\[\d+\] (?:added to|removed from) your channel list\./m);
       if (match != null && match.length > 0) {
@@ -1435,8 +1471,7 @@ function messageHandler(data) {
         return;
       }
 
-      if (lobbyRequested) {
-        match = msg.match(/.*\<(s|sc|sr)\>.*/g);
+      if (lobbyRequested && msg.match(/.*\<(s|sc|sr)\>.*/g)) {
         parseSeeks(data.message);
         return;
       }
@@ -1459,11 +1494,11 @@ function messageHandler(data) {
         msg === 'You will not see seek ads.' ||
         msg === 'You will now hear communications echoed.' ||
         msg === 'seekinfo unset.' ||
-        msg === 'seekremove unset.' ||
+        msg === 'seekremove set.' || msg === 'seekremove unset.' || 
         msg === 'defprompt set.' ||
         msg === 'nowrap set.' ||
         msg === 'startpos set.' || msg === 'startpos unset.' ||
-        msg.startsWith('No one is observing game ')
+        msg.startsWith('No one is observing game ') 
       ) {
         return;
       }
@@ -2211,6 +2246,8 @@ function getGame(min: number, sec: number) {
   $('#opponent-player-name').val(opponent);
   matchRequest = {opponent, min, sec};
   const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek';
+  if(game.isExamining())
+    session.send('unex');
   session.send(cmd + ' ' + min + ' ' + sec);
 }
 (window as any).getGame = getGame;
@@ -2547,6 +2584,11 @@ function showTab(tab: any) {
   showTab($('#pills-game-tab'));
 };
 
+(window as any).withdrawAll = () => {
+  session.send('withdraw t all');
+  $('#lobby-pane-status').hide();
+};
+
 function showHistory(user: string, history: string) {
   if (!$('#pills-examine').hasClass('active')) {
     return;
@@ -2563,10 +2605,16 @@ function showHistory(user: string, history: string) {
   for(let i = hArr.length - 1; i >= 0; i--) {
     const id = hArr[i].slice(0, hArr[i].indexOf(':'));
     $('#history-table').append(
-      '<button type="button" class="w-100 btn btn-outline-secondary" onclick="sessionSend(\'ex ' + user + ' ' +
-      + id + '\'); showGameTab();">' + hArr[i] + '</button>');
+      `<button type="button" class="w-100 btn btn-outline-secondary" onclick="examineGame('` + user + `', '` +
+      + id + `');">` + hArr[i] + `</button>`);
   }
 }
+
+(window as any).examineGame = (user, id) => {
+  if(game.isExamining())
+    session.send('unex');
+  session.send('ex ' + user + ' ' + id);
+};
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-examine"]', (e) => {
   initExaminePane();
@@ -2626,13 +2674,26 @@ function showGames(games: string) {
   $('#observe-pane-status').hide();
 
   for (const g of games.split('\n').slice(0, -2).reverse()) {
-    const gg = g.trim();
-    const id = gg.split(' ')[0];
-    const match = gg.match(/\[\s*p/); // Don't list private games
-    if(!match)
+    var match = g.match(/\s+(\d+)\s+(\(Exam\.\s+)?(\S+)\s+(\w+)\s+(\S+)\s+(\w+)\s+(\)\s+)?(\[\s*)(\w+)(.*)/);
+    if(match) {
+      var id = match[1];
+
+      if(match[9].startsWith('p')) // Don't list private games
+        continue;
+
+      computerList.forEach(comp => {
+        if(comp === match[4] || (match[4].length === 11 && comp.startsWith(match[4])))
+          match[4] += '(C)';
+        if(comp === match[6] || (match[6].length === 11 && comp.startsWith(match[6])))
+          match[6] += '(C)';
+      });
+
+      var gg = match.slice(1).join(' ')
+
       $('#games-table').append(
         '<button type="button" class="w-100 btn btn-outline-secondary" onclick="observeGame(\''
         + id + '\');">' + gg + '</button>');
+    }
   }
 }
 
@@ -2669,34 +2730,60 @@ $('#left-bottom-tabs .closeTab').on('click', (event) => {
     hideAnalysis();
 });
 
+$(document).on('shown.bs.tab', 'button[data-bs-target="#pills-play"]', (e) => {
+  if($('#pills-lobby').hasClass('active'))
+    initLobbyPane();
+});
+
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => {
-  $('#lobby-table').html('');
-  if (session && session.isConnected()) {
+  initLobbyPane();
+});
+
+function initLobbyPane() {
+  if(game.isExamining() || game.isPlaying() || !session || !session.isConnected()) {
+    if(game.isExamining())
+      $('#lobby-pane-status').text('Can\'t enter lobby while examining a game.');
+    else
+      $('#lobby-pane-status').text('Can\'t enter lobby while playing a game.');
+    $('#lobby-pane-status').show();
+    $('#lobby').hide();
+  }
+  else {
+    $('#lobby-show-computers').prop('checked', lobbyShowComputersToggle);
+    $('#lobby').show();
+    $('#lobby-table').html('');
     lobbyRequested = true;
+    seekMap.clear();
     session.send('iset seekremove 1');
     session.send('iset seekinfo 1');
   }
-});
+}
 
 $(document).on('hidden.bs.tab', 'button[data-bs-target="#pills-play"]', (e) => {
-  if (lobbyRequested) {
-    $('#lobby-table').html('');
-    session.send('iset seekremove 0');
-    session.send('iset seekinfo 0');
-    lobbyRequested = false;
-  }
+  leaveLobbyPane();
 });
 
 $(document).on('hidden.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => {
-  $('#lobby-table').html('');
-  if (session && session.isConnected()) {
-    session.send('iset seekremove 0');
-    session.send('iset seekinfo 0');
-    lobbyRequested = false;
-  }
+  leaveLobbyPane();
 });
 
-const seekMap = new Map();
+function leaveLobbyPane() {
+  if(lobbyRequested) {
+    $('#lobby-table').html('');
+    lobbyRequested = false;
+
+    if (session && session.isConnected()) {
+      session.send('iset seekremove 0');
+      session.send('iset seekinfo 0');
+    }
+  }
+}
+
+$('#lobby-show-computers').on('change', function (e) {
+  lobbyShowComputersToggle = $(this).is(':checked');
+  Cookies.set('lobbyshowcomputers', String(lobbyShowComputersToggle), { expires: 365 });
+  initLobbyPane();
+});
 
 const titleToString = {
   0x0 : '',
@@ -2713,17 +2800,16 @@ const titleToString = {
 function parseSeeks(msgs: string) {
   for (const msg of msgs.split('\n')) {
     const m = msg.trim();
-    if (m.startsWith('<sc>')) {
-      $('#lobby-table').html('');
-    }
-    else if (m.startsWith('<s>')) {
-      const seek = m.split(' ').slice(1);
+    if (m.startsWith('<s>')) {
+      const seek = m.split(/\s+/).slice(1);
       const seekDetails = seek.slice(1).map(pair => pair.split('=')[1]).slice(0, -3);
       seekDetails[0] = seekDetails[0] + titleToString[+seekDetails[1]];
       if (seekDetails[2] !== '0P') {
         seekDetails[0] = seekDetails[0] + '(' + seekDetails[2] + ')';
       }
       seekDetails.splice(1, 2);
+      if(seekDetails[5] === '?') 
+        seekDetails.splice(5, 1);
       seekMap.set(seek[0], seekDetails.join(' '));
     }
     else if (m.startsWith('<sr>')) {
@@ -2733,9 +2819,12 @@ function parseSeeks(msgs: string) {
     }
     $('#lobby-table').html('');
     seekMap.forEach((value, key) => {
+      if(!lobbyShowComputersToggle && value.includes('(C)'))
+        return;
+
       $('#lobby-table').append(
         '<button type="button" class="btn btn-outline-secondary" onclick="sessionSend(\'play ' +
-        + key + '\'); showGameTab();">' + value + '</button>');
+        + key + '\');">' + value + '</button>');
     });
   }
 }
