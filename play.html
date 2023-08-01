@@ -98,11 +98,12 @@
                           <div class="tab-content flex-grow-1 overflow-auto" style="min-height: 0">
                             <div class="tab-pane fade show active" id="pills-pairing" role="tabpanel" aria-labelledby="pills-pairing-tab">                            
                               <div class="btn-group-vertical btn-block center" role="group" aria-label="New Game Menu">
+                                <div class="pane-status" id="matches-status" style="display: none"></div>
+                                <div class="center pane-status" id="pairing-pane-status" style="display: none"></div>
                                 <div class="input-group">
                                   <span class="input-group-text" id="opponent-player">Play against</span>
                                   <input type="text" class="form-control" id="opponent-player-name" placeholder="Anyone" aria-describedby="opponent-player" spellcheck="false">
                                 </div>
-                                <div class="center pane-status" id="pairing-pane-status" style="display: none"></div>
                                 <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true"><span class="me-2 fa fa-bolt" aria-hidden="false"></span>Lightning</a>
                                 <div class="btn-group" role="group" aria-label="Lightning">
                                   <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(1,0);">1 min</button>
@@ -174,6 +175,7 @@
                       </div>
                       <div class="tab-pane fade h-100" id="pills-observe" role="tabpanel" aria-labelledby="pills-observe-tab">
                         <div class="d-flex flex-column h-100">
+                          <div class="center pane-status" id="observe-pane-status"></div>
                           <form id="observe-user">
                             <div class="input-group">
                               <span class="input-group-text" id="observe-user-group">Observe</span>
@@ -181,12 +183,12 @@
                               <button type="submit" class="btn btn-outline-secondary btn-md" id="observe-go">Go</button>
                             </div>
                           </form>
-                          <div class="center pane-status" id="observe-pane-status"></div>
                           <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="games-table"></div>
                         </div>
                       </div>
                       <div class="tab-pane fade h-100" id="pills-examine" role="tabpanel" aria-labelledby="pills-examine-tab">
                         <div class="d-flex flex-column h-100">
+                          <div class="center pane-status" id="examine-pane-status"></div>
                           <form id="examine-user">
                             <div class="input-group" id="examine-user-group">
                               <span class="input-group-text" id="examine-user-label">History</span>
@@ -194,7 +196,6 @@
                               <button type="submit" class="btn btn-outline-secondary btn-md" id="examine-go">Go</button>
                             </div>
                           </form>
-                          <div class="center pane-status" id="examine-pane-status"></div>
                           <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="history-table"></div>
                         </div>
                       </div>

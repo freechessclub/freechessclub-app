@@ -39,11 +39,12 @@ let computerList = [];
 let modalCounter = 0;
 let numPVs = 1;
 let gameChangePending = false;
-let matchRequestList = [];
-let matchRequest;
+let matchRequested = 0;
+let matchRequests = new Map();
 let prevWindowWidth = 0;
 let addressBarHeight;
 let soundTimer
+let showMatchTimer;
 let removeSubvariationRequested = false;
 let prevDiff;
 let activeTab;
@@ -99,8 +100,7 @@ export function cleanup() {
   computerListRequested = false;
   gameChangePending = false;
   removeSubvariationRequested = false;
-  matchRequestList = [];
-  matchRequest = undefined;
+  clearMatchRequests();
 
   cleanupGame();
 }
@@ -971,6 +971,7 @@ function messageHandler(data) {
         $('#opponent-status').css('background-color', '');
 
         if(game.isPlaying() || game.isExamining()) {
+          clearMatchRequests();
           session.send('allobs ' + game.id);
           if(game.isPlaying()) {
             game.watchers = setInterval(() => {
@@ -1058,10 +1059,7 @@ function messageHandler(data) {
       }
       break;
     case MessageType.GameStart:
-      matchRequestList = [];
-      matchRequest = undefined;
       $('#viewing-game-buttons').hide();
-      $('#game-requests').empty();
       $('#playing-game').hide();
       $('#playing-game-buttons').show();
       if (data.player_one === session.getUser()) {
@@ -1203,7 +1201,7 @@ function messageHandler(data) {
       if(!match) 
         match = msg.match(/^(There is no such game\.)/m);
       if(match !== null) {
-        if(historyRequested || obsRequested || matchRequest) {
+        if(historyRequested || obsRequested || matchRequested) {
           let user = '';
           let status;
           if(historyRequested) {
@@ -1214,7 +1212,7 @@ function messageHandler(data) {
             user = getValue('#observe-username');
             status = $('#observe-pane-status');
           }
-          else if(matchRequest) {
+          else if(matchRequested) {
             user = getValue('#opponent-player-name');
             status = $('#pairing-pane-status');
           }
@@ -1232,6 +1230,14 @@ function messageHandler(data) {
               if(obsRequested)
                 return;
             }
+            else if(matchRequested) {
+              matchRequested--;
+              if(!matchRequested) {
+                session.send('iset seekinfo 0');
+                session.send('iset showownseek 0');  
+                session.send('iset pendinfo 0');
+              }
+            }
 
             status.show();
             if(match[1].startsWith('Ambiguous name'))
@@ -1239,7 +1245,6 @@ function messageHandler(data) {
             else
               status.text(match[1]);
 
-            matchRequest = undefined;
             return;
           }
         }
@@ -1265,45 +1270,89 @@ function messageHandler(data) {
         $('#lobby-pane-status').show();
       }
 
-      match = msg.match(/^Your seek has been posted with index \d+\./m);
-      if(!match)
-        match = msg.match(/^Issuing: \w+ \([-\d]+\) \w+ \([-\d]+\)/m);
-      if(!match)
-        match = msg.match(/^Updating offer already made to "\w+"\./m);
-      if(match) {
-        if(matchRequest) {
-          let found = false;
-          for(let i = matchRequestList.length - 1; i >= 0; i--) {
-            if(matchRequestList[i].opponent.localeCompare(matchRequest.opponent, undefined, { sensitivity: 'accent' }) === 0) {
-              if(matchRequestList[i].min === matchRequest.min && matchRequestList[i].sec === matchRequest.sec)
-                found = true;
-              else if(matchRequest.opponent != '')
-                matchRequestList.splice(i, 1);
-            }
-          }
-          if(!found) {
-            matchRequestList.push(matchRequest);
-            $('#game-requests').empty();
-            let modalText = '';
-            for(const request of matchRequestList) {
-              if(request.opponent.length) {
-                if(request.min === 0 && request.sec === 0)
-                  modalText += 'Challenging ' + request.opponent + ' to an untimed game...<br>';
-                else
-                  modalText += 'Challenging ' + request.opponent + ' to a ' + request.min + ' ' + request.sec + ' game...<br>';
-              }
-              else {
-                if(request.min === 0 && request.sec === 0)
-                  modalText += 'Seeking an untimed game...<br>';
-                else
-                  modalText += 'Seeking a ' + request.min + ' ' + request.sec + ' game...<br>';
-              }
-            }
-            showModal('Game Request', '', modalText, ['cancelMatchRequests();', 'Cancel'], [], true, false);
-          }
-          matchRequest = undefined;
-          $('#pairing-pane-status').hide();
+      if(/^\<(?:sn|pt)\>.*/m.test(msg) && matchRequested) {
+        var newRequest = false;
+        match = msg.match(/^\<sn\>.*/m);
+        if(match) {
+          var seeks = parseSeeks(match.join('\n'));
+          seeks.forEach((value, key) => {
+            value = value.substring(value.indexOf(' ') + 1); 
+            if(matchRequests.get(key) !== value) {
+              newRequest = true;
+              matchRequested--;
+              matchRequests.set(key, value);   
+            }       
+          });
         }
+        match = msg.match(/^\<pt\>.*/m);
+        if(match) {
+          var pending = parsePending(match.join('\n'));
+          pending.forEach((pValue, pKey) => {
+            if(matchRequests.get(pKey) !== pValue) {
+              newRequest = true;
+              var opponent = pValue.split(/s+/)[0];
+              matchRequests.forEach((mValue, mKey) => {
+                if(opponent === mValue.split(/s+/)[0])
+                  matchRequests.delete(mKey);
+              });
+              matchRequested--;
+              matchRequests.set(pKey, pValue);   
+            }     
+          });
+        }
+        if(!matchRequested) {
+          session.send('iset seekinfo 0');
+          session.send('iset showownseek 0');
+          session.send('iset pendinfo 0');
+        }
+        if(newRequest) {
+          clearTimeout(showMatchTimer);
+          showMatchTimer = setTimeout(() => showMatchRequests(), 1000);
+        }
+        $('#pairing-pane-status').hide();
+        return;
+      }
+          
+      if(/^\<(s|sc|sr)\>/m.test(msg)) {
+        if(lobbyRequested) {
+          parseSeeks(msg, seekMap);
+          $('#lobby-table').html('');
+          seekMap.forEach((value, key) => {
+            if(!lobbyShowComputersToggle && value.includes('(C)'))
+              return;
+
+            $('#lobby-table').append(
+              `<button type="button" class="btn btn-outline-secondary" onclick="acceptSeek(` 
+                + key + `);">` + value + `</button>`);
+          });
+        }
+        return;
+      }
+
+      match = msg.match(/^Your seeks have been removed\./m);
+      if(!match) 
+        match = msg.match(/^Your seek (\d+) has been removed\./m);
+      if(!match)
+        match = msg.match(/^You withdraw the match offer to (\w+)\./m);
+      if(match) {
+        if(match.length > 1) {
+          if(isNaN(match[1])) { // delete match offer by opponent name
+            matchRequests.forEach((value, key) => {
+              if(value.split(/\s+/)[0] === match[1]) // First word matches opponent name
+                matchRequests.delete(key);
+            });
+          }
+          else // delete seek by id
+            matchRequests.delete(match[1]);
+        }
+        else { // Remove all seeks
+          matchRequests.forEach((value, key) => {
+            if(!isNaN(value.split(/\s+/)[0])) // First word is not opponent, therefore it's a seek
+              matchRequests.delete(key);
+          });
+        }
+
+        showMatchRequests();
 
         chat.newMessage('console', data);
         return;
@@ -1471,11 +1520,6 @@ function messageHandler(data) {
         return;
       }
 
-      if (lobbyRequested && msg.match(/.*\<(s|sc|sr)\>.*/g)) {
-        parseSeeks(data.message);
-        return;
-      }
-
       // Suppress messages when 'moves' command issued internally
       match = msg.match(/^You're at the (?:beginning|end) of the game\./m);
       if(match && movelistRequested)
@@ -1498,6 +1542,8 @@ function messageHandler(data) {
         msg === 'defprompt set.' ||
         msg === 'nowrap set.' ||
         msg === 'startpos set.' || msg === 'startpos unset.' ||
+        msg === 'showownseek set.' || msg === 'showownseek unset.' ||
+        msg === 'pendinfo set.' || msg === 'pendinfo unset.' ||
         msg.startsWith('No one is observing game ') 
       ) {
         return;
@@ -1505,6 +1551,43 @@ function messageHandler(data) {
 
       chat.newMessage('console', data);
       break;
+  }
+}
+
+function showMatchRequests() {
+  $('#matches-status').hide();
+  let requestsHtml = '';
+  matchRequests.forEach((value, key) => {
+    requestsHtml += '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>&nbsp;&nbsp;'
+    
+    var words = value.split(/\s+/);
+    if(isNaN(words[0])) {
+      var opponent = words[0];
+      words.splice(0, 1);
+    }
+    words.splice(2, 1); // remove rated/unrated
+    // Change 0 0 to 'untimed'
+    if(words[0] === '0' && words[1] === '0') {
+      if(words[2] !== 'untimed') 
+        words.splice(0, 2, 'untimed');
+      else
+        words.splice(0, 2);
+    }
+
+    if(opponent) {
+      requestsHtml += 'Challenging ' + opponent + ' to ' + (words[0] === 'untimed' ? 'an ' : 'a ') + words.join(' ') + ' ';
+      var removeCmd = 'withdraw ' + key;
+    }
+    else {
+      requestsHtml += 'Seeking ' + (words[0] === 'untimed' ? 'an ' : 'a ') + words.join(' ') + ' ';
+      var removeCmd = 'unseek ' + key;
+    }
+
+    requestsHtml += `<span style="white-space: nowrap">game.<span class="fa fa-times-circle btn btn-default btn-sm" onclick="sessionSend('` + removeCmd + `')" aria-hidden="false"></span></span><br>`;
+  });
+  if(matchRequests.size > 0) {
+    $('#matches-status').html(requestsHtml);
+    $('#matches-status').show();
   }
 }
 
@@ -2244,20 +2327,30 @@ function getGame(min: number, sec: number) {
   let opponent = getValue('#opponent-player-name')
   opponent = opponent.trim().split(/\s+/)[0];
   $('#opponent-player-name').val(opponent);
-  matchRequest = {opponent, min, sec};
+  matchRequested++;
   const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek';
   if(game.isExamining())
     session.send('unex');
+  if(cmd === 'seek') {
+    session.send('iset showownseek 1');
+    session.send('iset seekinfo 1');
+  }
+  else
+    session.send('iset pendinfo 1');
   session.send(cmd + ' ' + min + ' ' + sec);
 }
 (window as any).getGame = getGame;
 
-(window as any).cancelMatchRequests = () => {
-  session.send('unseek');
-  session.send('withdraw t all');
-  matchRequestList = [];
-  matchRequest = undefined;
-};
+function clearMatchRequests() {
+  if(session && session.isConnected()) {
+    session.send('iset seekinfo 0');
+    session.send('iset showownseek 0');
+    session.send('iset pendinfo 0');
+  }
+  matchRequested = 0;
+  matchRequests.clear();
+  $('#matches-status').hide();
+}
 
 $('#input-text').on('focus', () => {
   $('#board').on('touchstart', () => {
@@ -2589,6 +2682,12 @@ function showTab(tab: any) {
   $('#lobby-pane-status').hide();
 };
 
+(window as any).acceptSeek = (id: number) => {
+  matchRequested++;
+  session.send('iset pendinfo 1'); // in case seek was set to 'manual', display the resulting match request in the pairing pane
+  session.send('play ' + id);
+};
+
 function showHistory(user: string, history: string) {
   if (!$('#pills-examine').hasClass('active')) {
     return;
@@ -2797,10 +2896,13 @@ const titleToString = {
   0x80 : '(WFM)',
 };
 
-function parseSeeks(msgs: string) {
+function parseSeeks(msgs: string, map?: any): any {
+  if(!map)
+    map = new Map();
+
   for (const msg of msgs.split('\n')) {
     const m = msg.trim();
-    if (m.startsWith('<s>')) {
+    if (m.startsWith('<s>') || m.startsWith('<sn>')) {
       const seek = m.split(/\s+/).slice(1);
       const seekDetails = seek.slice(1).map(pair => pair.split('=')[1]).slice(0, -3);
       seekDetails[0] = seekDetails[0] + titleToString[+seekDetails[1]];
@@ -2810,21 +2912,44 @@ function parseSeeks(msgs: string) {
       seekDetails.splice(1, 2);
       if(seekDetails[5] === '?') 
         seekDetails.splice(5, 1);
-      seekMap.set(seek[0], seekDetails.join(' '));
+      map.set(seek[0], seekDetails.join(' '));
     }
     else if (m.startsWith('<sr>')) {
       for (const r of m.split(' ').slice(1)) {
-        seekMap.delete(r);
+        map.delete(r);
       }
     }
-    $('#lobby-table').html('');
-    seekMap.forEach((value, key) => {
-      if(!lobbyShowComputersToggle && value.includes('(C)'))
-        return;
-
-      $('#lobby-table').append(
-        '<button type="button" class="btn btn-outline-secondary" onclick="sessionSend(\'play ' +
-        + key + '\');">' + value + '</button>');
-    });
   }
+
+  return map;
+}
+
+function parsePending(msgs: string): any {
+  const pending = new Map();
+
+  var lines = msgs.split('\n');
+  for(const line of lines) {
+    var match = line.match(/\<pt\> (\d+) w=(\S+) \S+ \S+ \S+(?: \[(black|white)\])? \S+ \S+ (rated|unrated) (\S+)( \d+ \d+)?/m); 
+    if(match) {
+      // output match offers in the same format as parseSeeks returns
+      var color = '';
+      if(match[3] === 'black')
+        color = ' B';
+      else if(match[2] === 'white')
+        color = ' W';
+
+      if(match[4] === 'rated')
+        var rated = 'r';
+      else if(match[4] === 'unrated')
+        var rated = 'u';
+
+      var time = match[6];
+      if(!time)
+        time = ' 0 0';
+      
+      pending.set(match[1], match[2] + time + ' ' + rated + ' ' + match[5] + color);
+    }
+  }
+  
+  return pending;
 }
