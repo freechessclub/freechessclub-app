@@ -98,11 +98,12 @@
                           <div class="tab-content flex-grow-1 overflow-auto" style="min-height: 0">
                             <div class="tab-pane fade show active" id="pills-pairing" role="tabpanel" aria-labelledby="pills-pairing-tab">                            
                               <div class="btn-group-vertical btn-block center" role="group" aria-label="New Game Menu">
+                                <div class="pane-status" id="matches-status" style="display: none"></div>
+                                <div class="center pane-status" id="pairing-pane-status" style="display: none"></div>
                                 <div class="input-group">
                                   <span class="input-group-text" id="opponent-player">Play against</span>
                                   <input type="text" class="form-control" id="opponent-player-name" placeholder="Anyone" aria-describedby="opponent-player" spellcheck="false">
                                 </div>
-                                <div class="center pane-status" id="play-pane-status" style="display: none"></div>
                                 <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true"><span class="me-2 fa fa-bolt" aria-hidden="false"></span>Lightning</a>
                                 <div class="btn-group" role="group" aria-label="Lightning">
                                   <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(1,0);">1 min</button>
@@ -150,9 +151,23 @@
                                 </div>
                               </div>
                             </div>
-                            <div class="tab-pane fade" id="pills-lobby" role="tabpanel" aria-labelledby="pills-lobby-tab">
-                              <div class="d-grid gap-2">
-                                <div class="btn-group-vertical" id="lobby-table"></div>
+                            <div class="tab-pane fade h-100" id="pills-lobby" role="tabpanel" aria-labelledby="pills-lobby-tab">
+                              <div class="d-flex flex-column h-100">
+                                <div class="pane-status" id="lobby-pane-status" style="display: none"></div>
+                                <div id="lobby" class="flex-grow-1" style="min-height: 0">
+                                  <div class="d-flex flex-column h-100">
+                                    <div class="center p-2">
+                                      <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="lobby-show-computers">
+                                        <label class="form-check-label" for="lobby-show-computers">Show Computer Opponents</label>
+                                      </div>
+                                    </div>
+                                    <div class="flex-grow-1 overflow-auto d-flex" style="min-height: 0; flex-direction: column-reverse">
+                                      <div style="flex: 1 1 0"></div> <!-- this line and the column-reverse in the line above create an auto-scroll that only scrolls when at the bottom (without any JS amazing!) -->
+                                      <div class="btn-group-vertical w-100" id="lobby-table"></div>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -160,6 +175,7 @@
                       </div>
                       <div class="tab-pane fade h-100" id="pills-observe" role="tabpanel" aria-labelledby="pills-observe-tab">
                         <div class="d-flex flex-column h-100">
+                          <div class="center pane-status" id="observe-pane-status"></div>
                           <form id="observe-user">
                             <div class="input-group">
                               <span class="input-group-text" id="observe-user-group">Observe</span>
@@ -167,12 +183,12 @@
                               <button type="submit" class="btn btn-outline-secondary btn-md" id="observe-go">Go</button>
                             </div>
                           </form>
-                          <div class="center pane-status" id="observe-pane-status"></div>
                           <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="games-table"></div>
                         </div>
                       </div>
                       <div class="tab-pane fade h-100" id="pills-examine" role="tabpanel" aria-labelledby="pills-examine-tab">
                         <div class="d-flex flex-column h-100">
+                          <div class="center pane-status" id="examine-pane-status"></div>
                           <form id="examine-user">
                             <div class="input-group" id="examine-user-group">
                               <span class="input-group-text" id="examine-user-label">History</span>
@@ -180,7 +196,6 @@
                               <button type="submit" class="btn btn-outline-secondary btn-md" id="examine-go">Go</button>
                             </div>
                           </form>
-                          <div class="center pane-status" id="examine-pane-status"></div>
                           <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="history-table"></div>
                         </div>
                       </div>
@@ -265,7 +280,7 @@
                   <span class="fa fa-flag-o" aria-hidden="false"></span>
                 </button>
               </div>
-              <div id="viewing-game-buttons" class="btn-toolbar center m-auto w-100">
+              <div id="viewing-game-buttons" class="btn-toolbar center w-100">
                 <button type="button" id="show-status-panel" class="btn btn-outline-secondary btn-md" title="Analyze Game" style="display: none">Analyze</button>         
               </div>
             </div>
