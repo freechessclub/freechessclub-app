@@ -5,7 +5,10 @@
 cg-board {
   background-image: url('../images/board/gray.svg');
 }
-.chat-text,.nav-link,.btn-outline-secondary,.card-header,.card-footer {
+.btn-outline-secondary {
+  --bs-btn-color: lightgray; /* Override bs variable rather than style directly so we can refer to it in sub-stles like :hover */
+}
+.chat-text,.nav-link,.card-header,.card-footer {
   color: lightgray;
 }
 .top-panel,.bottom-panel {
