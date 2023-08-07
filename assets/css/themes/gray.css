@@ -5,7 +5,11 @@
 cg-board {
   background-image: url('../images/board/gray.svg');
 }
-.chat-text,.nav-link,.btn-outline-secondary,.card-header,.card-footer {
+.btn-outline-secondary {
+  --btn-outline-secondary-color: lightgray; /* used to set hover color to the regular button color on mobile (effectively disabling hover for buttons on mobile) */
+  color: var(--btn-outline-secondary-color)
+}
+.chat-text,.nav-link,.card-header,.card-footer {
   color: lightgray;
 }
 .top-panel,.bottom-panel {

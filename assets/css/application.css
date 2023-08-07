@@ -323,6 +323,22 @@ ul.list-striped > li {
   }
 }
 
+/* Turn hover state off for buttons on devices with no mouse (mobile) because it looks stupid */
+/* We achieve this by setting the hover color to match the normal button color */
+@media (hover: none) {
+  .btn-outline-secondary { 
+    /* Use these variables so that themes can set them to match their own button color */
+    --btn-outline-secondary-color: var(--bs-btn-color)
+    --btn-outline-secondary-bg: var(--bs-btn-bg)
+  }
+
+  .btn-outline-secondary:where(:not(.dropdown-toggle)):hover { /* leave hover on for dropdown buttons so they stay highlighted when clicked */
+    background-color: var(--btn-outline-secondary-bg);
+    color: var(--btn-outline-secondary-color);
+    text-decoration: none;
+  } 
+}} 
+
 .eval-line-above {
   fill: none;
   stroke: #ffab00;
