@@ -28,7 +28,23 @@
   <link rel="shortcut icon" href="assets/img/favicon.ico" type="image/x-icon">
 </head>
 <body>
-  <div class="feature3 p-0">
+  <div id="notifications" style="z-index: 2000; position: fixed; top: 0; right: 0; width: 100%">
+    <div class="toast notification-panel" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-header">
+      <div class="toast-body position-relative d-flex">
+        <span class="mx-auto">Notifications</span>
+        <button type="button" class="btn-close" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%);" aria-label="Close"></button>
+      </div>
+    </div>
+    <div class="toast notification-panel" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-footer">
+      <div class="toast-body">
+        <div class="d-flex">
+          <a class="me-auto" id="notifications-clear-all" style="cursor: pointer; text-decoration: none; font-style: italic">Clear all</a>
+          <a class="ms-auto" id="notifications-show-all" style="cursor: pointer; text-decoration: none; font-style: italic">Show all >></a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="feature3 p-0 position-relative">
     <div class="row justify-content-md-center m-0" id="col-group">
       <div class="card-group p-0">
         <div id="left-col" class="col-sm-12 col-md-3 col-lg-3 col-xl-3 align-self-center" style="min-width: 340px">
@@ -286,7 +302,7 @@
             </div>
           </div>
         </div>
-        <div id="mid-col" class="col-sm-12 col-md-9 col-lg-6 col-xl-6 align-self-center">
+        <div id="mid-col" class="col-sm-12 col-md-9 col-lg-6 col-xl-6 position-relative align-self-center">
           <div class="card bg-transparent" id="mid-card">
             <div class="top-panel card-header p-0">
               <div class="ps-2 pe-2 h-100 w-100 d-flex flex-wrap justify-content-between align-items-center status noselect" id="opponent-status">
@@ -317,7 +333,7 @@
             </div>
           </div>
         </div>
-        <div id="right-col" class="col align-self-center" style="min-width: 320px">
+        <div id="right-col" class="col position-relative align-self-center" style="min-width: 360px">
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header status" id="right-panel-header" style="visibility: hidden">
               <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto" style="max-width: 50%">
@@ -363,11 +379,21 @@
                     <div class="dropdown-item disabled noselect" id="version"></div>
                   </div>
                 </div>
+                <span tabindex="0" data-bs-toggle="tooltip" data-bs-placement="left" title="No notifications">
+                  <button id="notifications-btn" style="position: relative" class="btn btn-outline-secondary btn-md" type="button" aria-label="Notifications" data-bs-toggle="button" disabled>
+                    <span id="notifications-icon" class="fa fa-bell" aria-hidden="false"></span>
+                    <svg id="notifications-bubble" class="counter-bubble h-100 w-100" style="display: none; position: absolute; top: 0; left: 0">
+                      <circle cx="50%" cy="50%" transform="translate(6, -6)" r="6" />
+                      <text id="notifications-number" class="counter-number" x="50%" y="50%" transform="translate(6, -5)" text-anchor="middle" alignment-baseline="middle"></text>
+                    </svg>
+                  </button>
+                  <span></span> <!-- This tricks bootstrap into allowing the outer <span> wrapper in a btn-toolbar (so we can have a tooltip on a disabled button) -->
+                </span>
                 <button id="chat-toggle-btn" style="position: relative" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-chat" aria-expanded="true" title="Show/Hide Chat" aria-controls="collapse-chat">
                   <span id="chat-toggle-icon" class="fa fa-comment" aria-hidden="false"></span>
-                  <svg id="chat-unread-bubble" class="h-100 w-100" style="display: none; position: absolute; top: 0; left: 0">
+                  <svg id="chat-unread-bubble" class="counter-bubble h-100 w-100" style="display: none; position: absolute; top: 0; left: 0">
                     <circle cx="50%" cy="50%" transform="translate(6, -6)" r="6" />
-                    <text id="chat-unread-number" x="50%" y="50%" transform="translate(6, -5)" text-anchor="middle" alignment-baseline="middle"></text>
+                    <text id="chat-unread-number" class="counter-number" x="50%" y="50%" transform="translate(6, -5)" text-anchor="middle" alignment-baseline="middle"></text>
                   </svg>
                 </button>
               </div>

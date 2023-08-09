@@ -27,6 +27,8 @@ let soundToggle: boolean = (Cookies.get('sound') !== 'false');
 let autoPromoteToggle: boolean = (Cookies.get('autopromote') === 'true');
 // toggle for showing Computer opponents in the lobby
 let lobbyShowComputersToggle: boolean = (Cookies.get('lobbyshowcomputers') === 'true');
+// toggle for automatically showing new slide-down notifications or notifications in chat channels
+export let notificationsToggle: boolean = (Cookies.get('notifications') !== 'false');
 
 let historyRequested = 0;
 let obsRequested = 0;
@@ -101,7 +103,7 @@ export function cleanup() {
   gameChangePending = false;
   removeSubvariationRequested = false;
   clearMatchRequests();
-
+  clearNotifications();
   cleanupGame();
 }
 
@@ -505,40 +507,343 @@ function showStatusMsg(msg: string) {
 }
 
 function showModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true) {
+  var modalHtml = createModal(type, title, msg, btnFailure, btnSuccess, progress, useSessionSend);
+  var modal = $(modalHtml).appendTo($('#game-requests'));
+  modal.toast('show');
+}
+
+function createModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true) { 
   const modalId = 'modal' + modalCounter++;
   let req = `
   <div id="` + modalId + `" class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
-    <div class="toast-header"><strong class="me-auto">` + type + `</strong>
-    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button></div>
-    <div class="toast-body"><div class="d-flex align-items-center">
-    <strong class="text-primary my-auto">` + title + ' ' + msg + '</strong>';
-
+    <div class="toast-header">
+      <strong class="header-text me-auto">` + type + `</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body">
+      <div class="d-flex align-items-center">
+        <strong class="body-text text-primary my-auto">` + title + ' ' + msg + '</strong>';
+  
   if (progress) {
     req += '<div class="spinner-border ms-auto" role="status" aria-hidden="true"></div>';
   }
+  req += '</div>';
 
-  req += '</div><div class="mt-2 pt-2 border-top center">';
-
-  let successCmd = btnSuccess[0];
-  let failureCmd = btnFailure[0];
-  if(useSessionSend) {
-    successCmd = "sessionSend('" + btnSuccess[0] + "');";
-    failureCmd = "sessionSend('" + btnFailure[0] + "');";
+  if(btnSuccess !== undefined || btnFailure !== undefined) {
+    req += '<div class="mt-2 pt-2 border-top center">';
+    if (btnSuccess !== undefined && btnSuccess.length === 2) {
+      let successCmd = btnSuccess[0];
+      if(useSessionSend) 
+        successCmd = "sessionSend('" + btnSuccess[0] + "');";
+      req += '<button type="button" id="btn-success" onclick="' + successCmd + `" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
+          <span class="fa fa-check-circle-o" aria-hidden="false"></span> ` + btnSuccess[1] + '</button>';
+    }
+    if (btnFailure !== undefined && btnFailure.length === 2) {
+      let failureCmd = btnFailure[0];
+      if(useSessionSend) 
+        failureCmd = "sessionSend('" + btnFailure[0] + "');";  
+      req += '<button type="button" id="btn-failure" onclick="' + failureCmd + `" class="btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
+          <span class="fa fa-times-circle-o" aria-hidden="false"></span> ` + btnFailure[1] + '</button>';
+    }
+    req += '</div>';
   }
 
-  if (btnSuccess !== undefined && btnSuccess.length === 2) {
-    req += '<button type="button" id="btn-success" onclick="' + successCmd + `" class="btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
-        <span class="fa fa-check-circle-o" aria-hidden="false"></span> ` + btnSuccess[1] + '</button>';
+  req += '</div></div>';
+
+  return req;
+}
+
+function createNotification(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true) {
+  var modalHtml = createModal(type, title, msg, btnFailure, btnSuccess, progress, useSessionSend);
+  var modal = $(modalHtml).insertBefore($('#notifications-footer')); 
+  modal.find('[data-bs-dismiss="toast"]').removeAttr('data-bs-dismiss');  
+  modal.on('click', 'button', (event) => {
+    removeNotification(modal);
+  });
+  modal.addClass('notification'); 
+  modal.addClass('notification-panel');
+  $('#notifications-btn').prop('disabled', false); 
+  $('#notifications-btn').parent().prop('title', 'Notifications');
+  createTooltip($('#notifications-btn').parent());
+
+  $('#notifications-number').text($('.notification:not([data-remove="true"])').length);
+  $('#notifications-bubble').show();
+  
+  if(notificationsToggle || $('#notifications-header').attr('data-show'))
+    showNotifications(modal);
+}
+
+function removeNotification(element: any) {
+  element.removeAttr('data-show');
+  element.attr('data-remove', 'true');
+
+  if(!$('.notification:not([data-remove="true"])').length) {
+    $('#notifications-btn').prop('disabled', true); 
+    $('#notifications-btn').parent().prop('title', 'No notifications');
+    createTooltip($('#notifications-btn').parent());
+    $('#notifications-bubble').hide();
+  }
+  $('#notifications-number').text($('.notification:not([data-remove="true"])').length);
+
+  if($('#notifications-header').attr('data-show') && !$('.notification[data-show="true"]').length) {
+    $('#notifications-header').removeAttr('data-show');
+    $('#notifications-header').toast('hide');
+    if($('#notifications-btn').hasClass('active'))
+      $('#notifications-btn').button('toggle');
+  }
+  if($('#notifications-footer').attr('data-show') && (!$('.notification[data-show="true"]').length || $('.notification:not([data-remove="true"])').length <= 1)) {
+    $('#notifications-footer').removeAttr('data-show');
+    $('#notifications-footer').toast('hide');
   }
 
-  if (btnFailure !== undefined && btnFailure.length === 2) {
-    req += '<button type="button" id="btn-failure" onclick="' + failureCmd + `" class="btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
-        <span class="fa fa-times-circle-o" aria-hidden="false"></span> ` + btnFailure[1] + '</button>';
+  // Remove notification half way through its slide, because remove() takes a while. 
+  setTimeout(() => element.remove(), 400);
+
+  var transformMatrix = element.css('transform');
+  var matrix = transformMatrix.replace(/[^0-9\-.,]/g, '').split(',');
+  var x = matrix[12] || matrix[4]; // translate x
+  slideNotification(element, (x < 0 ? 'left' : 'right'));
+}
+
+function showNotifications(modals: any) {
+  // If not all notifications are displayed, add a 'Show All' button to the footer
+  var allShown = true;
+  $('.notification').each((index, element) => {
+    if(!$(element).attr('data-show') && !$(element).attr('data-remove') && modals.index($(element)) === -1) 
+      allShown = false;
+  });
+  if(allShown) 
+    $('#notifications-show-all').hide();
+  else
+    $('#notifications-show-all').show(); 
+
+  if(!$('#notifications-header').attr('data-show')) {
+    $('#notifications-header').attr('data-show', 'true');
+    $('#notifications-header').toast('show');
+    slideNotification($('#notifications-header'), 'down');
   }
 
-  req += '</div></div></div>';
-  $('#game-requests').append(req);
-  $('#' + modalId).toast('show');
+  modals.each((index, element) => {
+    if(!$(element).attr('data-show')) {
+      $(element).attr('data-show', 'true');
+      $(element).toast('show');
+      slideNotification($(element), 'down');
+    }
+  });
+
+  if($('.notification:not([data-remove="true"])').length > 1 && !$('#notifications-footer').attr('data-show')) {
+    $('#notifications-footer').attr('data-show', 'true');
+    $('#notifications-footer').toast('show');
+    slideNotification($('#notifications-footer'), 'down');
+  }
+}
+
+/* Perform slide transition (animation) on Notification panel */
+function slideNotification(element: any, direction: 'down' | 'up' | 'left' | 'right') {
+  if(direction === 'down') {
+    // Set initial state before transition
+    resetSlide(element);
+    $('#notifications').css('opacity', '');
+    $('#notifications').css('transform', '');
+    $('#notifications').show();
+    element.css('margin-top', -element[0].getBoundingClientRect().height);
+    element.css('z-index', '-1');
+    element.css('opacity', '0');
+    // Trigger transition after toast is shown
+    element.one('shown.bs.toast', (event) => {
+      // Add transition (animation)
+      $(event.target).addClass('slide-down'); 
+      $(event.target).css('margin-top', '');
+      $(event.target).css('z-index', '');
+      $(event.target).css('opacity', '');
+      $(event.target).one('transitionend', (event) => {
+        $(event.target).removeClass('slide-down');
+        $(event.target).height($(event.target).height()); // Fixes a layout glitch from the transition
+      });
+    });
+  }
+  else if(direction === 'up') {
+    // Set initial state before transition
+    element.addClass('slide-up'); 
+    element.css('margin-top', -element[0].getBoundingClientRect().height);
+    element.css('opacity', '0');
+    element.one('transitionend', (event) => {
+      if(!$(event.target).attr('data-show')) 
+        $(event.target).toast('hide');
+      $(event.target).removeClass('slide-up');
+      $(event.target).css('opacity', '');
+      $(event.target).css('margin-top', '');
+    });
+  }
+  else if(direction === 'left' || direction === 'right') {
+    // Set initial state before transition
+    element.css('z-index', '-1');
+    element.addClass('slide-sideways'); 
+    element.css('transform', 'translateX(' + (direction === 'left' ? '-' : '') + '100%)');
+    element.css('opacity', '0');
+    element.one('transitionend', (event) => {
+      $(event.target).removeClass('slide-sideways');
+      $(event.target).toast('hide');
+      $(event.target).css('z-index', ''); 
+      $(event.target).css('transform', '');
+      $(event.target).css('opacity', '');
+    });
+  }
+}
+
+function slideAllNotifications() {
+  $('#notifications').children().each((index, element) => resetSlide($(element)));
+  $('#notifications').addClass('slide-up'); 
+  $('#notifications').css('opacity', 0);
+  $('#notifications').css('transform', 'translateY(-100%)');
+  $('#notifications').one('transitionend', (event) => {
+    $(event.currentTarget).removeClass('slide-up');
+    var shown = false;
+    $(event.currentTarget).children().each((index, element) => {
+      if(!$(element).attr('data-show')) 
+        $(element).toast('hide');
+      else
+        shown = true;
+    });
+    if(!shown) 
+      $('#notifications').hide();
+    $(event.currentTarget).css('transform', '');
+    $(event.currentTarget).css('opacity', '');
+  });
+}
+
+function resetSlide(element: any) {
+  element.removeClass('slide-sideways'); 
+  element.removeClass('slide-down'); 
+  element.removeClass('slide-up'); 
+  element.css('z-index', ''); 
+  element.css('transform', '');
+  element.css('opacity', '');
+  element.css('margin-top', '');
+}
+
+$('#notifications')[0].addEventListener('mousedown', notificationMouseDown);
+$('#notifications')[0].addEventListener('touchstart', notificationMouseDown, {passive: true});
+function notificationMouseDown(e) {
+  if(!$(e.target).is('div'))
+    return;
+
+  if(window.getSelection) 
+    window.getSelection().removeAllRanges();
+
+  $('#notifications').css('--dragX', 0);
+  $('#notifications').css('--dragY', 0);
+  $('#notifications').css('--opacityY', 1);   
+  $('#notifications').css('--opacityX', 1);   
+
+  var modal = $(e.target).closest('.toast');
+  modal.css('transition', 'none');
+
+  // Prevent mouse pointer events on webpage while dragging panel
+  jQuery('<div/>', {
+    id: 'mouse-capture-layer',
+    css: {'z-index': '9999', 
+      'top': '0',
+      'left': '0',
+      'position': 'fixed',
+      'height': '100%',
+      'width': '100%' 
+    }
+  }).appendTo('body');
+
+  var swipeStart = getTouchClickCoordinates(e);
+  var swipeLocked = '';
+  const mouseMoveHandler = (e) => {   
+    var mouse = getTouchClickCoordinates(e);
+    if(swipeLocked) {
+      var xMax = $('#notifications').outerWidth(true);
+      var yMax = $('#notifications').outerHeight(true);
+      var xOffset = Math.min(xMax, Math.max(-xMax, mouse.x - swipeStart.x));
+      var yOffset = Math.min(0, mouse.y - swipeStart.y);
+      $('#notifications').css('--dragX', xOffset + 'px');
+      $('#notifications').css('--dragY', yOffset + 'px');
+      $('#notifications').css('--opacityY', (yMax - Math.abs(yOffset)) / yMax);   
+      $('#notifications').css('--opacityX', (xMax - Math.abs(xOffset)) / xMax);   
+    }
+    else {
+      if(swipeStart.y - mouse.y > 20 && Math.abs(swipeStart.y - mouse.y) > Math.abs(swipeStart.x - mouse.x)) {
+        // Perform vertical swipe
+        swipeStart = mouse;
+        swipeLocked = 'vertical';
+        $('#notifications').css('transform', 'translateY(var(--dragY))');
+        $('#notifications').css('opacity', 'var(--opacityY)');
+      }
+      else if(modal.hasClass('notification') && Math.abs(swipeStart.x - mouse.x) > 20 && Math.abs(swipeStart.x - mouse.x) > Math.abs(swipeStart.y - mouse.y)) {
+        // Perform horizontal swipe
+        swipeStart = mouse;
+        swipeLocked = 'horizontal';
+        modal.css('transform', 'translateX(var(--dragX))');
+        modal.css('opacity', 'var(--opacityX)');
+      }
+    }
+  };
+  $(document).on('mousemove touchmove', mouseMoveHandler);
+
+  $(document).one('mouseup touchend touchcancel', (e) => {
+    var mouse = getTouchClickCoordinates(e);
+    $('#mouse-capture-layer').remove();
+    $(document).off('mousemove touchmove', mouseMoveHandler);
+    if(swipeLocked === 'vertical') {
+      if(swipeStart.y - mouse.y > 30 && e.type !== 'touchcancel')
+        hideAllNotifications();
+      else {
+        $('#notifications').css('transform', '');
+        $('#notifications').css('opacity', '');
+      }
+    }
+    else if(swipeLocked === 'horizontal') {
+      if(Math.abs(mouse.x - swipeStart.x) > 50 && e.type !== 'touchcancel')
+        removeNotification(modal);
+      else {
+        modal.css('transform', '');
+        modal.css('opacity', '');
+      }
+    }
+    swipeLocked = '';
+    swipeStart = null;
+    modal.css('transition', '');
+  });
+
+  e.preventDefault();
+}
+
+function getTouchClickCoordinates(event: any) {
+  if(event.type == 'touchstart' || event.type == 'touchmove' || event.type == 'touchend' || event.type == 'touchcancel') {
+      var touch = event.originalEvent.touches[0] || event.originalEvent.changedTouches[0];
+      var x = touch.pageX;
+      var y = touch.pageY;
+  } else if (event.type == 'mousedown' || event.type == 'mouseup' || event.type == 'mousemove' || event.type == 'mouseover' || event.type=='mouseout' || event.type=='mouseenter' || event.type=='mouseleave') {
+      var x = event.clientX;
+      var y = event.clientY;
+  }
+  return {x, y};
+}
+
+function showAllNotifications() {
+  showNotifications($('.notification:not([data-show="true"])'));
+}
+
+function hideAllNotifications() {
+  $('#notifications').children('[data-show="true"]').each((index, element) => {
+    $(element).removeAttr('data-show'); 
+  });
+  if($('#notifications-btn').hasClass('active'))
+    $('#notifications-btn').button('toggle');
+  slideAllNotifications();
+}
+
+function clearNotifications() {
+  $('.notification').removeAttr('data-show'); 
+  var delay = 0;
+  $('.notification.show').each((index, element) => {
+    setTimeout(() => removeNotification($(element)), delay);
+    delay += 100;
+  });
 }
 
 // Check if square is under attack. We can remove this after upgrading to latest version of chess.js, 
@@ -1437,8 +1742,30 @@ function messageHandler(data) {
       if (match != null && match.length > 4) {
         const [opponentName, opponentRating] = (match[1] === session.getUser()) ?
           match.slice(4, 6) : match.slice(1, 3);
-        showModal('Match Request', opponentName + '(' + opponentRating + ')' + (match[3] ? ' ' + match[3] : ''),
-          match[6], ['decline', 'Decline'], ['accept', 'Accept']);
+        var bodyTitle = opponentName + '(' + opponentRating + ')' + (match[3] ? ' ' + match[3] : '');
+        var bodyText = match[6];
+        var found = false;
+        $('.notification').each((index, element) => {
+          var headerTextElement = $(element).find('.header-text');
+          var bodyTextElement = $(element).find('.body-text');
+          if(headerTextElement.text() === 'Match Request' && bodyTextElement.text().startsWith(opponentName + '(')) {
+            bodyTextElement.text(bodyTitle + ' ' + bodyText);
+            found = true;
+          }
+        });
+        if(!found)
+          createNotification('Match Request', bodyTitle, bodyText, ['decline', 'Decline'], ['accept', 'Accept']);
+        return;
+      }
+
+      match = msg.match(/^(\w+) withdraws the match offer\./m);
+      if (match != null && match.length > 1) {
+        $('.notification').each((index, element) => {
+          var headerTextElement = $(element).find('.header-text');
+          var bodyTextElement = $(element).find('.body-text');
+          if(headerTextElement.text() === 'Match Request' && bodyTextElement.text().startsWith(match[1] + '('))
+            removeNotification($(element));
+        });
         return;
       }
 
@@ -1933,7 +2260,7 @@ $('#collapse-history').on('show.bs.collapse', (event) => {
   activeTab.tab('show');
 });
 
-$('#pills-tab button').on('click', (event) => {
+$('#pills-tab button').on('click', function(event) {
   activeTab = $(this);
   $('#collapse-history').collapse('show');
   scrollToTop();
@@ -2016,16 +2343,13 @@ function onDeviceReady() {
 
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
-
-  prevWindowWidth = $(window).innerWidth();
   
   if(isSmallWindow()) {
-    useMobileLayout();
     $('#collapse-chat').collapse('hide');
     $('#collapse-history').collapse('hide');
   }
   else {
-    configureTooltips();
+    createTooltips();
     $('#pills-play-tab').tab('show');
     $('#collapse-history').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
@@ -2038,9 +2362,9 @@ function onDeviceReady() {
   selectOnFocus($('#observe-username'));
   selectOnFocus($('#examine-username'));
 
-  setPanelSizes();
+  prevWindowWidth = NaN;
+  $(window).trigger('resize');
 
-  // Wait for panels to resize
   game.role = Role.NONE;
   game.category = 'untimed';
   game.history = new History(new Chess().fen(), board);
@@ -2060,26 +2384,32 @@ function onDeviceReady() {
 // Enable tooltips. 
 // Allow different tooltip placements for mobile vs desktop display.
 // Make tooltips stay after click/focus on mobile, but only when hovering on desktop.
-function configureTooltips() {
-  $('[data-bs-toggle="tooltip"]').each(function(index, element) {   
-    var trigger = $(element);
-    var windowWidth = $(window).width();
+function createTooltip(element: any) {
+  var windowWidth = $(window).width();
 
-    var sm = trigger.attr('data-bs-placement-sm');
-    var md = trigger.attr('data-bs-placement-md');
-    var lg = trigger.attr('data-bs-placement-lg');
-    var xl = trigger.attr('data-bs-placement-xl');
-    var general = trigger.attr('data-bs-placement');
+  var sm = element.attr('data-bs-placement-sm');
+  var md = element.attr('data-bs-placement-md');
+  var lg = element.attr('data-bs-placement-lg');
+  var xl = element.attr('data-bs-placement-xl');
+  var general = element.attr('data-bs-placement');
 
-    var placement = (windowWidth >= 1200 ? xl : undefined) ||
-        (windowWidth >= 992 ? lg : undefined) ||
-        (windowWidth >= 768 ? md : undefined) ||
-        sm || general || "top";
+  var placement = (windowWidth >= 1200 ? xl : undefined) ||
+      (windowWidth >= 992 ? lg : undefined) ||
+      (windowWidth >= 768 ? md : undefined) ||
+      sm || general || "top";
 
-    trigger.tooltip('dispose').tooltip({
-      placement: placement as "left" | "top" | "bottom" | "right" | "auto",
-      trigger: (isSmallWindow() ? 'hover focus' : 'hover'), // Tooltips stay visible after element is clicked on mobile, but only when hovering on desktop 
-    });
+  var newTitle = element.prop('title');
+
+  element.tooltip('dispose').tooltip({
+    placement: placement as "left" | "top" | "bottom" | "right" | "auto",
+    trigger: (isSmallWindow() ? 'hover focus' : 'hover'), // Tooltips stay visible after element is clicked on mobile, but only when hovering on desktop 
+    ...newTitle && {title: newTitle}, // Only set title if it's defined
+  });
+}
+
+function createTooltips() {
+  $('[data-bs-toggle="tooltip"]').each(function(index, element) {  
+    createTooltip($(element));
   });
 }
 
@@ -2120,7 +2450,7 @@ function useMobileLayout() {
   $('#stop-examining').appendTo($('#viewing-game-buttons').last());
   $('#viewing-games-buttons:visible:last').addClass('me-0'); // This is so visible buttons in the btn-toolbar center properly
   hideCloseGamePanel();
-  configureTooltips();
+  createTooltips();
 }
 
 function useDesktopLayout() {
@@ -2130,7 +2460,7 @@ function useDesktopLayout() {
   $('#stop-examining').appendTo($('#close-game-panel').last());
   if(game.isObserving() || game.isExamining())
     showCloseGamePanel();
-  configureTooltips();
+  createTooltips();
 }
 
 function swapLeftRightPanelHeaders() {
@@ -2162,6 +2492,8 @@ function setPanelSizes() {
 
   // Make sure the board is smaller than the window height and also leaves room for the other columns' min-widths
   if(!isSmallWindow()) {
+    $('#mid-col').width(0);
+
     if($(window).innerWidth() < 992) // display 2 columns on md (medium) display
       var boardMaxWidth = $('#col-group').innerWidth() - $('#left-col').outerWidth();
     else
@@ -2170,7 +2502,7 @@ function setPanelSizes() {
     var cardBorderHeight = $('#mid-card').outerHeight() - $('#mid-card').height();
     var boardMaxHeight = $(window).height() - $('#player-status').outerHeight()
         - $('#opponent-status').outerHeight() - cardBorderHeight;
-
+    
     $('#mid-col').width(Math.min(boardMaxWidth, boardMaxHeight) - 0.1); 
   }
   else 
@@ -2234,6 +2566,14 @@ function setPanelSizes() {
     else
       $('#right-panel').height(boardHeight - rightPanelBorder - siblingsHeight);
   }
+
+  // Adjust Notifications drop-down width
+  if(isSmallWindow() && !isSmallWindow(prevWindowWidth)) 
+    $('#notifications').css('width', '100%');
+  else if(isMediumWindow() && !isMediumWindow(prevWindowWidth)) 
+    $('#notifications').css('width', '50%');
+  else if(isLargeWindow()) 
+    $('#notifications').width($(document).outerWidth(true) - $('#left-col').outerWidth(true) - $('#mid-col').outerWidth(true));
 }
 
 $(document).ready(() => {
@@ -2247,6 +2587,25 @@ $(document).ready(() => {
 $(window).on('load', function() {
   $('#left-panel-header').css('visibility', 'visible');
   $('#right-panel-header').css('visibility', 'visible');
+});
+
+$('#notifications-header .btn-close').on('click', (event) => {
+  hideAllNotifications();
+});
+
+$('#notifications-show-all').on('click', (event) => {
+  showAllNotifications();
+});
+
+$('#notifications-clear-all').on('click', (event) => {
+  clearNotifications();
+});
+
+$('#notifications-btn').on('click', function(event) {
+  if($(this).hasClass('active')) 
+    showAllNotifications();
+  else 
+    hideAllNotifications();
 });
 
 $('#resign').on('click', (event) => {
@@ -2353,10 +2712,9 @@ function clearMatchRequests() {
 }
 
 $('#input-text').on('focus', () => {
-  $('#board').on('touchstart', () => {
+  $('#board')[0].addEventListener('touchstart', (event) => {
     $('#input-text').trigger('blur');
-    $('#board').off('touchstart');
-  });
+  }, {once: true, passive: true}); // Got sick of Google Chrome complaining about passive event listeners
 });
 
 $('#new-game').on('click', (event) => {
@@ -2523,18 +2881,31 @@ $(document).on('keydown', (e) => {
     forward();
 });
 
-if (!soundToggle) {
-  const iconClass = 'dropdown-icon fa fa-volume-off';
-  $('#sound-toggle').html('<span id="sound-toggle-icon" class="' + iconClass +
-    '" aria-hidden="false"></span>Sounds OFF');
-}
+updateDropdownSound();
 $('#sound-toggle').on('click', (event) => {
   soundToggle = !soundToggle;
+  updateDropdownSound();
+  Cookies.set('sound', String(soundToggle), { expires: 365 })
+});
+function updateDropdownSound() {
   const iconClass = 'dropdown-icon fa fa-volume-' + (soundToggle ? 'up' : 'off');
   $('#sound-toggle').html('<span id="sound-toggle-icon" class="' + iconClass +
     '" aria-hidden="false"></span>Sounds ' + (soundToggle ? 'ON' : 'OFF'));
-  Cookies.set('sound', String(soundToggle), { expires: 365 })
+}
+
+updateDropdownNotifications();
+$('#notifications-toggle').on('click', (event) => {
+  notificationsToggle = !notificationsToggle;
+  updateDropdownNotifications();
+  Cookies.set('notifications', String(notificationsToggle), { expires: 365 })
 });
+function updateDropdownNotifications() {
+  const iconClass = 'dropdown-icon fa fa-bell' + (notificationsToggle ? '' : '-slash');
+  $('#notifications-toggle').html('<span id="notifications-toggle-icon" class="' + iconClass +
+    '" aria-hidden="false"></span>Notifications ' + (notificationsToggle ? 'ON' : 'OFF'));
+  $('#notifications-icon').removeClass(notificationsToggle ? 'fa-bell-slash' : 'fa-bell');
+  $('#notifications-icon').addClass(notificationsToggle ? 'fa-bell' : 'fa-bell-slash');
+}
 
 updateDropdownAutoPromote();
 $('#autopromote-toggle').on('click', (event) => {
@@ -2622,18 +2993,33 @@ $('#login-as-guest').on('click', (event) => {
   }
 });
 
-export function isSmallWindow() {
-  return window.innerWidth < 768;
+export function isSmallWindow(size?: number) {
+  if(size === undefined)
+    size = window.innerWidth;
+  return size < 768;
+}
+
+export function isMediumWindow(size?: number) {
+  if(size === undefined)
+    size = window.innerWidth;
+  return size < 992 && size >= 768;
+}
+
+export function isLargeWindow(size?: number) {
+  if(size === undefined)
+    size = window.innerWidth;
+  return size >= 992;
 }
 
 $(window).on('resize', () => {
-  if(isSmallWindow() && prevWindowWidth >= 768)
+  if(isSmallWindow() && !isSmallWindow(prevWindowWidth))
     useMobileLayout();
-  else if(!isSmallWindow() && prevWindowWidth < 768)
+  else if(!isSmallWindow() && isSmallWindow(prevWindowWidth))
     useDesktopLayout();
 
-  prevWindowWidth = window.innerWidth;
   setPanelSizes();
+
+  prevWindowWidth = window.innerWidth;
 
   // Put other resizing stuff in here. Need time for columns to resize properly, 
   // i.e. scrollbar takes a while to appear/disappear after resizing board
@@ -2839,7 +3225,9 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => {
 });
 
 function initLobbyPane() {
-  if(game.isExamining() || game.isPlaying() || !session || !session.isConnected()) {
+  if(!session || !session.isConnected())
+    $('#lobby').hide();
+  else if(game.isExamining() || game.isPlaying()) {
     if(game.isExamining())
       $('#lobby-pane-status').text('Can\'t enter lobby while examining a game.');
     else

@@ -75,11 +75,11 @@ html, body {
   text-decoration: none;
 }
 
-#chat-unread-bubble {
+.counter-bubble {
   fill: red;
 }
 
-#chat-unread-number {
+.counter-number {
   font-size: 8px;
   fill: white;
 }
@@ -390,3 +390,54 @@ ul.list-striped > li {
   margin: 0px;
   border-bottom: none;  
 }
+
+.notification-panel {
+  transition: none;
+  width: 100%;
+  position: relative;
+  z-index: 0;
+  background-color: white;
+  border-color: #DDDDDD;
+}
+
+#notifications.slide-up {
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.notification-panel.slide-down {
+  transition: opacity 0.8s ease, margin-top 0.8s ease, z-index 0s ease 0.8s;
+}
+
+.notification-panel.slide-sideways {
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.notification-panel.slide-up {
+  transition: opacity 0.8s ease, margin-top 0.8s ease;  
+}
+
+.notification .toast-header {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  background-color: white;
+}
+
+.notification .toast-body {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+#notifications-header {
+  background-color: ghostwhite;
+} 
+
+#notifications-header .toast-body {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+#notifications-footer .toast-body {
+  padding-top: 3px;
+  padding-bottom: 4px;
+}
+
