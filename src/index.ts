@@ -1067,6 +1067,9 @@ function messageHandler(data) {
       } else {
         chat.createTab(data.player_one);
       }
+      if (soundToggle) {
+        Sounds.startSound.play();
+      }
       break;
     case MessageType.GameEnd:
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
