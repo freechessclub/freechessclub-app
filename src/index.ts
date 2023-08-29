@@ -471,15 +471,16 @@ export function movePiece(source: any, target: any, metadata: any) {
 
     chess.load(fen);
 
+    var promotion = (promotePiece ? '=' + promotePiece : '');
     if (game.isPlaying() && game.chess.turn() !== game.color)
-      session.send(move.san);
+      session.send(move.from + '-' + move.to + promotion);
    
     if(game.isExamining()) {
       var nextMove = game.history.get(game.history.next());
       if(nextMove && !nextMove.subvariation && !game.history.scratch() && fen === nextMove.fen) 
         session.send('for');
       else
-        session.send(move.san);
+        session.send(move.from + '-' + move.to + promotion);
     }
   }
 
