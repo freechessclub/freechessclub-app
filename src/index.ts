@@ -272,16 +272,26 @@ export function gotoMove(id: number) {
     if(!prevMove.subvariation && move.subvariation) {
       i = firstSubvarId;
       const iMove = game.history.get(i);
-      session.send(iMove.move.san);
+      sendMove(iMove.move);
     }
     while(i < id) {
       i = game.history.next(i);
       const iMove = game.history.get(i);
-      session.send(iMove.move.san);
+      sendMove(iMove.move);
     }
   }
   else
     var entry = game.history.display(id);
+}
+
+function sendMove(move: any) {
+  var moveStr = '';
+  if(move.san.startsWith('O-O') || move.san.includes('@')) // support for variants
+    moveStr = move.san;
+  else
+    moveStr = move.from + '-' + move.to + (move.promotion ? '=' + move.promotion : ''); 
+
+  session.send(moveStr);
 }
 
 function showCapturePiece(color: string, p: string): void {
@@ -471,16 +481,15 @@ export function movePiece(source: any, target: any, metadata: any) {
 
     chess.load(fen);
 
-    var promotion = (promotePiece ? '=' + promotePiece : '');
     if (game.isPlaying() && game.chess.turn() !== game.color)
-      session.send(move.from + '-' + move.to + promotion);
+      sendMove(move);
    
     if(game.isExamining()) {
       var nextMove = game.history.get(game.history.next());
       if(nextMove && !nextMove.subvariation && !game.history.scratch() && fen === nextMove.fen) 
         session.send('for');
       else
-        session.send(move.from + '-' + move.to + promotion);
+        sendMove(move);
     }
   }
 
@@ -2443,7 +2452,7 @@ function forward() {
       if(nextIndex !== undefined) {
         const nextMove = game.history.get(nextIndex);
         if(nextMove.subvariation || game.history.scratch()) {
-          session.send(nextMove.move.san);
+          sendMove(nextMove.move);
         }
         else
           session.send('for');
