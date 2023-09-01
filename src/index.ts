@@ -57,6 +57,8 @@ let promoteIsPremove;
 let bufferedHistoryIndex = -1;
 let bufferedHistoryCount = 0;
 let seekMap = new Map();
+let lobbyScrolledToBottom;
+let scrollBarWidth; // Used for sizing the layout
 
 function cleanupGame() {
   hideButton($('#stop-observing'));
@@ -1284,6 +1286,7 @@ function messageHandler(data) {
         if(v_flip != flipped)
           flipBoard();
 
+        $('#exit-subvariation').tooltip('hide');
         $('#exit-subvariation').hide();
         $('#player-captured').text('');
         $('#opponent-captured').text('');
@@ -1637,6 +1640,7 @@ function messageHandler(data) {
       if(/^\<(s|sc|sr)\>/m.test(msg)) {
         if(lobbyRequested) {
           parseSeeks(msg, seekMap);
+
           $('#lobby-table').html('');
           seekMap.forEach((value, key) => {
             if(!lobbyShowComputersToggle && value.includes('(C)'))
@@ -1646,6 +1650,11 @@ function messageHandler(data) {
               `<button type="button" class="btn btn-outline-secondary" onclick="acceptSeek(` 
                 + key + `);">` + value + `</button>`);
           });
+
+          if(lobbyScrolledToBottom) {
+            var container = $('#lobby-table-container')[0];
+            container.scrollTop = container.scrollHeight;
+          }
         }
         return;
       }
@@ -1942,6 +1951,7 @@ function showMatchRequests() {
   if(matchRequests.size > 0) {
     $('#matches-status').html(requestsHtml);
     $('#matches-status').show();
+    $('#play-pane-subcontent')[0].scrollTop = 0;
   }
 }
 
@@ -2046,8 +2056,10 @@ function updateHistory(move?: any, fen?: string) {
           game.history.scratch(true);
 
         var subvariation = !game.history.scratch();
-        if(subvariation)
+        if(subvariation) {
           $('#exit-subvariation').show();
+          $('#navigation-toolbar [data-bs-toggle="tooltip"]').tooltip('update');
+        }
       }
 
       game.history.add(move, fen, subvariation, game.wtime, game.btime);
@@ -2084,6 +2096,7 @@ function updateHistory(move?: any, fen?: string) {
 
   if(removeSubvariationRequested && !game.history.get(index).subvariation) {
     game.history.removeSubvariation();
+    $('#exit-subvariation').tooltip('hide');
     $('#exit-subvariation').hide();
     removeSubvariationRequested = false;
   }
@@ -2274,6 +2287,8 @@ $('#collapse-history').on('hidden.bs.collapse', (event) => {
   $('#history-toggle-icon').removeClass('fa-toggle-up').addClass('fa-toggle-down');
 
   activeTab = $('#pills-tab button').filter('.active');
+  if(!activeTab.length)
+    activeTab = $('#pills-play-tab');
   activeTab.removeClass('active');
   activeTab.parent('li').removeClass('active');
   $(activeTab.attr('data-bs-target')).removeClass('active');
@@ -2285,6 +2300,11 @@ $('#collapse-history').on('show.bs.collapse', (event) => {
   $('#history-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
   scrollToTop();
   activeTab.tab('show');
+});
+
+$('#lobby-table-container').on('scroll', (e) => {
+  var container = $('#lobby-table-container')[0];
+  lobbyScrolledToBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 1;
 });
 
 $('#pills-tab button').on('click', function(event) {
@@ -2374,6 +2394,7 @@ function onDeviceReady() {
   if(isSmallWindow()) {
     $('#collapse-chat').collapse('hide');
     $('#collapse-history').collapse('hide');
+    //activeTab = $('#pills-play-tab');
   }
   else {
     createTooltips();
@@ -2390,7 +2411,14 @@ function onDeviceReady() {
   selectOnFocus($('#examine-username'));
 
   prevWindowWidth = NaN;
-  $(window).trigger('resize');
+  // Here we create a temporary hidden element in order to measure its scrollbar width.
+  $('body').append(`<div id="scrollbar-measure" style="position: absolute; top: -9999px; overflow: scroll"></div>`);
+  scrollBarWidth = $('#scrollbar-measure')[0].offsetWidth - $('#scrollbar-measure')[0].clientWidth;
+  $('#scrollbar-measure').remove();
+  
+  // Change layout for mobile or desktop and resize panels 
+  // Split it off into a timeout so that onDeviceReady doesn't take too long.
+  setTimeout(() => { $(window).trigger('resize'); }, 0);
 
   game.role = Role.NONE;
   game.category = 'untimed';
@@ -2514,32 +2542,43 @@ function swapLeftRightPanelHeaders() {
 
 function setPanelSizes() {
   // Reset player status panels that may have been previously slimmed down on single column screen
-  $('#player-status').height('');
-  $('#opponent-status').height('');
+  if(!isSmallWindow() && isSmallWindow(prevWindowWidth)) {
+    $('#mid-panel-header').css('height', '');
+    $('#mid-panel-footer').css('height', '');
+  }
 
   // Make sure the board is smaller than the window height and also leaves room for the other columns' min-widths
   if(!isSmallWindow()) {
-    $('#mid-col').width(0);
-
-    if($(window).innerWidth() < 992) // display 2 columns on md (medium) display
-      var boardMaxWidth = $('#col-group').innerWidth() - $('#left-col').outerWidth();
+    // Set board width a bit smaller in order to leave room for a scrollbar on <body>. This is because 
+    // we don't want to resize all the panels whenever a dropdown or something similar overflows the body.   
+    var cardBorderWidth = $('#mid-card').outerWidth() - $('#mid-card').width();
+    var bordersWidth = cardBorderWidth + scrollBarWidth;
+    if(window.innerWidth < 992) // display 2 columns on md (medium) display
+      var boardMaxWidth = window.innerWidth - $('#left-col').outerWidth() - bordersWidth;
     else
-      var boardMaxWidth = $('#col-group').innerWidth() - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width'));    
+      var boardMaxWidth = window.innerWidth - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')) - bordersWidth;    
     
+    var feature3Border = $('.feature3').outerHeight(true) - $('.feature3').height();
     var cardBorderHeight = $('#mid-card').outerHeight() - $('#mid-card').height();
-    var boardMaxHeight = $(window).height() - $('#player-status').outerHeight()
-        - $('#opponent-status').outerHeight() - cardBorderHeight;
+    var bordersHeight = feature3Border + cardBorderHeight;
+    var boardMaxHeight = $(window).height() - $('#mid-panel-header').outerHeight()
+        - $('#mid-panel-footer').outerHeight() - bordersHeight;
     
-    $('#mid-col').width(Math.min(boardMaxWidth, boardMaxHeight) - 0.1); 
+    var boardWidth = Math.min(boardMaxWidth, boardMaxHeight) - 0.1; // Subtract 0.1 for rounding error
+
+    // Force resizing of bootstrap row after scrollbars disappear
+    setTimeout(() => { $('#mid-card').width($('#mid-card').width()); }, 0);
   }
-  else 
-    $('#mid-col').css('width', '');
+  else {
+    $('#mid-card').css('width', '');
+    var boardWidth = $('#mid-card').width();
+  }
 
   // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match 
   // what chessground does internally
-  var newBoardWidth = (Math.floor(($('#board').width() * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio;
-  var widthDiff = $('#board').width() - newBoardWidth - 0.1; // Add 0.1px to column size, this is to stop chessground rounding down when board size is e.g. 59.999px due to floating point imprecision.
-  $('#mid-col').width($('#mid-col').width() - widthDiff);
+  boardWidth = (Math.floor((boardWidth * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio + 0.1;
+  // Set board width
+  $('#mid-card').width(boardWidth);
 
   // Set the height of dynamic elements inside left and right panel collapsables.
   // Try to do it in a robust way that won't break if we add/remove elements later.
@@ -2554,15 +2593,17 @@ function setPanelSizes() {
     const cardBorders = $('#mid-card').outerHeight() - $('#mid-card').height()
       + Math.round(parseFloat($('#left-card').css('border-bottom-width')))
       + Math.round(parseFloat($('#right-card').css('border-top-width')));
-    const playerStatusBorder = $('#player-status').outerHeight() - $('#player-status').height();
+    const playerStatusBorder = $('#mid-panel-header').outerHeight() - $('#mid-panel-header').height();
     var playerStatusHeight = ($(window).height() - addressBarHeight - $('#board-card').outerHeight() - $('#left-panel-footer').outerHeight() - $('#right-panel-header').outerHeight() - cardBorders) / 2 - playerStatusBorder;
     playerStatusHeight = Math.min(Math.max(playerStatusHeight, originalStatusHeight - 20), originalStatusHeight);
 
-    $('#player-status').height(playerStatusHeight);
-    $('#opponent-status').height(playerStatusHeight);
+    $('#mid-panel-header').height(playerStatusHeight);
+    $('#mid-panel-footer').height(playerStatusHeight);
   }
 
   // set height of left menu panel inside collapsable
+  if(!isSmallWindow())
+    $('#left-panel-bottom').css('height', '');
   const boardHeight = $('#board').innerHeight();
   if (boardHeight) {
     var siblingsHeight = 0;
@@ -2575,8 +2616,13 @@ function setPanelSizes() {
 
     if(isSmallWindow())
       $('#left-panel').height(430);
-    else
-      $('#left-panel').height(boardHeight - leftPanelBorder - siblingsHeight);
+    else {
+      var leftPanelHeight = boardHeight - leftPanelBorder - siblingsHeight;
+      $('#left-panel').height(Math.max(leftPanelHeight, 0));
+      // If we've made the left panel height as small as possible, reduce size of status panel instead
+      // Note leftPanelHeight is negative in that case
+      $('#left-panel-bottom').height($('#left-panel-bottom').height() + Math.min(leftPanelHeight, 0));
+    }
 
     // set height of right panel inside collapsable
     var siblingsHeight = 0;
@@ -2883,11 +2929,13 @@ $('#exit-subvariation').on('click', () => {
     }
     else {
       game.history.removeSubvariation();
+      $('#exit-subvariation').tooltip('hide');
       $('#exit-subvariation').hide();
     }
   }
   else {
     game.history.removeSubvariation();
+    $('#exit-subvariation').tooltip('hide');
     $('#exit-subvariation').hide();
   }
   showTab($('#pills-game-tab'));
@@ -3045,12 +3093,8 @@ $(window).on('resize', () => {
 
   prevWindowWidth = window.innerWidth;
 
-  // Put other resizing stuff in here. Need time for columns to resize properly, 
-  // i.e. scrollbar takes a while to appear/disappear after resizing board
-  setTimeout(() => {
-    if(evalEngine)
-      evalEngine.redraw();
-  }, 0);
+  if(evalEngine)
+    evalEngine.redraw();
 });
 
 // prompt before unloading page if in a game
@@ -3262,6 +3306,7 @@ function initLobbyPane() {
     $('#lobby-show-computers').prop('checked', lobbyShowComputersToggle);
     $('#lobby').show();
     $('#lobby-table').html('');
+    lobbyScrolledToBottom = true;
     lobbyRequested = true;
     seekMap.clear();
     session.send('iset seekremove 1');
@@ -3340,7 +3385,7 @@ function parsePending(msgs: string): any {
 
   var lines = msgs.split('\n');
   for(const line of lines) {
-    var match = line.match(/\<pt\> (\d+) w=(\S+) \S+ \S+ \S+(?: \[(black|white)\])? \S+ \S+ (rated|unrated) (\S+)( \d+ \d+)?/m); 
+    var match = line.match(/\<pt\> (\d+) w=(\S+) \S+ \S+ \S+(?: \[(black|white)\])? \S+ \S+ (rated|unrated) (\S+)( \d+ \d+)?(?: Loaded from (\S+))?/m); 
     if(match) {
       // output match offers in the same format as parseSeeks returns
       var color = '';
@@ -3354,11 +3399,13 @@ function parsePending(msgs: string): any {
       else if(match[4] === 'unrated')
         var rated = 'u';
 
+      var category = match[7] || match[5];
+
       var time = match[6];
       if(!time)
         time = ' 0 0';
       
-      pending.set(match[1], match[2] + time + ' ' + rated + ' ' + match[5] + color);
+      pending.set(match[1], match[2] + time + ' ' + rated + ' ' + category + color);
     }
   }
   

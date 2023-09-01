@@ -47,7 +47,7 @@
     </div>
   </div>
   <div class="feature3 p-0 position-relative">
-    <div class="row justify-content-md-center m-0" id="col-group">
+    <div class="row justify-content-md-center m-0" id="main-row">
       <div class="card-group p-0">
         <div id="left-col" class="col-sm-12 col-md-3 col-lg-3 col-xl-3 align-self-center" style="min-width: 340px">
           <div class="card bg-transparent" id="left-card">
@@ -65,7 +65,7 @@
                 <button type="button" id="fast-forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-placement-md="right" title="End">
                   <span class="fa fa-fast-forward" aria-hidden="false"></span>
                 </button>
-                <button type="button" id="exit-subvariation" style="display: none" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top"  data-bs-placement-md="right" title="Exit Subvariation">
+                <button type="button" id="exit-subvariation" style="display: none" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-container="#exit-subvariation" data-bs-placement="top" data-bs-placement-md="right" title="Exit Subvariation">
                   <span class="fa fa-eject" aria-hidden="false"></span>
                 </button>
                 <button id="history-toggle-btn" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-history" title="Show/Hide Menus" aria-expanded="true" aria-controls="collapse-history">
@@ -83,7 +83,7 @@
               <div class="card-body p-0">
                 <ul class="nav nav-pills nav-fill user-select-none" id="pills-tab" role="tablist">
                   <li class="nav-item" role="presentation">
-                    <button class="active nav-link py-2" id="pills-play-tab" data-bs-toggle="pill" data-bs-target="#pills-play" type="button" role="tab" aria-controls="pills-play" aria-selected="true">Play</button>
+                    <button class="nav-link py-2" id="pills-play-tab" data-bs-toggle="pill" data-bs-target="#pills-play" type="button" role="tab" aria-controls="pills-play" aria-selected="true">Play</button>
                   </li>
                   <li class="nav-item" role="presentation">
                     <button class="nav-link py-2" id="pills-observe-tab" data-bs-toggle="pill" data-bs-target="#pills-observe" type="button" role="tab" aria-controls="pills-observe" aria-selected="false">Observe</button>
@@ -113,7 +113,7 @@
                               <button class="nav-link" id="pills-lobby-tab" data-bs-toggle="tab" data-bs-target="#pills-lobby" type="button" role="tab" aria-controls="pills-lobby" aria-selected="false">Lobby</button>
                             </li>
                           </ul>
-                          <div class="tab-content flex-grow-1 overflow-auto" style="min-height: 0">
+                          <div id="play-pane-subcontent" class="tab-content flex-grow-1 overflow-auto" style="min-height: 0">
                             <div class="tab-pane fade show active" id="pills-pairing" role="tabpanel" aria-labelledby="pills-pairing-tab">                            
                               <div class="btn-group-vertical btn-block center" role="group" aria-label="New Game Menu">
                                 <div class="pane-status" id="matches-status" style="display: none"></div>
@@ -180,8 +180,7 @@
                                         <label class="form-check-label" for="lobby-show-computers">Show Computer Opponents</label>
                                       </div>
                                     </div>
-                                    <div class="flex-grow-1 overflow-auto d-flex" style="min-height: 0; flex-direction: column-reverse">
-                                      <div style="flex: 1 1 0"></div> <!-- this line and the column-reverse in the line above create an auto-scroll that only scrolls when at the bottom (without any JS amazing!) -->
+                                    <div class="flex-grow-1 overflow-auto" id="lobby-table-container" style="min-height: 0;">
                                       <div class="btn-group-vertical w-100" id="lobby-table"></div>
                                     </div>
                                   </div>
@@ -193,7 +192,7 @@
                       </div>
                       <div class="tab-pane fade h-100" id="pills-observe" role="tabpanel" aria-labelledby="pills-observe-tab">
                         <div class="d-flex flex-column h-100">
-                          <div class="center pane-status" id="observe-pane-status"></div>
+                          <div class="center pane-status" id="observe-pane-status" style="display: none"></div>
                           <form id="observe-user">
                             <div class="input-group">
                               <span class="input-group-text" id="observe-user-group">Observe</span>
@@ -206,7 +205,7 @@
                       </div>
                       <div class="tab-pane fade h-100" id="pills-examine" role="tabpanel" aria-labelledby="pills-examine-tab">
                         <div class="d-flex flex-column h-100">
-                          <div class="center pane-status" id="examine-pane-status"></div>
+                          <div class="center pane-status" id="examine-pane-status" style="display: none"></div>
                           <form id="examine-user">
                             <div class="input-group" id="examine-user-group">
                               <span class="input-group-text" id="examine-user-label">History</span>
@@ -304,9 +303,9 @@
             </div>
           </div>
         </div>
-        <div id="mid-col" class="col-sm-12 col-md-9 col-lg-6 col-xl-6 position-relative align-self-center">
+        <div id="mid-col" class="col-sm-12 col-md-auto position-relative align-self-center">
           <div class="card bg-transparent" id="mid-card">
-            <div class="top-panel card-header p-0">
+            <div class="top-panel card-header p-0" id="mid-panel-header">
               <div class="ps-2 pe-2 h-100 w-100 d-flex flex-wrap justify-content-between align-items-center status noselect" id="opponent-status">
                 <div class="p-2 name" id="opponent-name"></div>
                 <span class="badge bg-secondary" id="opponent-rating"></span>
@@ -324,7 +323,7 @@
                 <div class="cg-wrap mw-100" id="board"></div>
               </div>
             </div>
-            <div class="bottom-panel card-footer p-0">
+            <div class="bottom-panel card-footer p-0" id="mid-panel-footer">
               <div class="ps-2 pe-2 h-100 w-100 d-flex flex-wrap justify-content-between align-items-center status noselect" id="player-status">
                 <div class="p-2 name" id="player-name"></div>
                 <span class="badge bg-secondary" id="player-rating"></span>
@@ -335,7 +334,7 @@
             </div>
           </div>
         </div>
-        <div id="right-col" class="col position-relative align-self-center" style="min-width: 360px">
+        <div id="right-col" class="col-sm-12 col-md-12 col-lg position-relative align-self-center" style="min-width: 360px">
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header status" id="right-panel-header" style="visibility: hidden">
               <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto" style="max-width: 50%">
