@@ -42,11 +42,10 @@ let modalCounter = 0;
 let numPVs = 1;
 let gameChangePending = false;
 let matchRequested = 0;
-let matchRequests = new Map();
 let prevWindowWidth = 0;
 let addressBarHeight;
 let soundTimer
-let showMatchTimer;
+let showSentOffersTimer;
 let removeSubvariationRequested = false;
 let prevCaptured;
 let activeTab;
@@ -57,7 +56,7 @@ let promoteIsPremove;
 let bufferedHistoryIndex = -1;
 let bufferedHistoryCount = 0;
 let newGameVariant = '';
-let seekMap = new Map();
+let lobbyEntries = new Map();
 let lobbyScrolledToBottom;
 let scrollBarWidth; // Used for sizing the layout
 
@@ -494,10 +493,13 @@ function showStatusMsg(msg: string) {
   $('#game-status').html(msg + '<br/>');
 }
 
-function showModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true) {
+function showBoardModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true): any {
   var modalHtml = createModal(type, title, msg, btnFailure, btnSuccess, progress, useSessionSend);
   var modal = $(modalHtml).appendTo($('#game-requests'));
+  modal.addClass('board-modal');
   modal.toast('show');
+
+  return modal;
 }
 
 function createModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true) { 
@@ -541,7 +543,7 @@ function createModal(type: string, title: string, msg: string, btnFailure: strin
   return req;
 }
 
-function createNotification(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true) {
+function createNotification(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true): any {
   var modalHtml = createModal(type, title, msg, btnFailure, btnSuccess, progress, useSessionSend);
   var modal = $(modalHtml).insertBefore($('#notifications-footer')); 
   modal.find('[data-bs-dismiss="toast"]').removeAttr('data-bs-dismiss');  
@@ -1305,7 +1307,12 @@ function messageHandler(data) {
 
       } else if (data.command === 2) {
         session.disconnect();
-        showModal('Authentication Failure', '', data.control, [], []);
+        $('#chat-status').popover({
+          animation: true,
+          content: data.control,
+          placement: 'top',
+        });
+        $('#chat-status').popover('show');
       }
       break;
     case MessageType.ChannelTell:
@@ -1365,6 +1372,7 @@ function messageHandler(data) {
         $('#opponent-captured').text('');
         $('#player-status').css('background-color', '');
         $('#opponent-status').css('background-color', '');
+        $('#pairing-pane-status').hide();
 
         if(game.isPlaying() || game.isExamining()) {
           clearMatchRequests();
@@ -1494,30 +1502,135 @@ function messageHandler(data) {
         && data.reason !== 2 && data.reason !== 7) {
         rematch = ['rematch', 'Rematch']
       }
-      showModal('Match Result', '', data.message, rematch, []);
+      showBoardModal('Match Result', '', data.message, rematch, []);
       cleanupGame();
       break;
     case MessageType.GameHoldings:
       game.history.get().holdings = data.holdings;
       break;
+    case MessageType.Offers:
+      var offers = data.offers;
+      // Clear the lobby
+      if(offers[0].type === 'sc')
+        $('#lobby-table').html('');
+
+      // Add seeks to the lobby
+      var seeks = offers.filter((item) => item.type === 's');
+      if(seeks.length && lobbyRequested) {
+        seeks.forEach((item) => {
+          if(!lobbyShowComputersToggle && item.title === 'C')
+            return;
+
+          var lobbyEntryText = formatLobbyEntry(item);
+
+          $('#lobby-table').append(
+            `<button type="button" data-offer-id="` + item.id + `" class="btn btn-outline-secondary lobby-entry" onclick="acceptSeek(` 
+              + item.id + `);">` + lobbyEntryText + `</button>`);
+        });
+
+        if(lobbyScrolledToBottom) {
+          var container = $('#lobby-table-container')[0];
+          container.scrollTop = container.scrollHeight;
+        }
+      }      
+
+      // Add our own seeks and match requests to the top of the Play pairing pane 
+      var sentOffers = offers.filter((item) => item.type === 'sn' 
+        || (item.type === 'pt' && (item.subtype === 'partner' || item.subtype === 'match')));
+      if(sentOffers.length) {
+        var newOffers = [];
+        sentOffers.forEach((item) => {
+          if(!$('.sent-offer[data-offer-id="' + item.id + '"]').length) {
+            if(matchRequested)
+              matchRequested--;
+            newOffers.push(item);
+          }
+        });
+        if(newOffers.length) {
+          clearTimeout(showSentOffersTimer);
+          showSentOffersTimer = setTimeout(() => showSentOffers(newOffers), 1000);
+        }
+        $('#pairing-pane-status').hide();
+      }
+
+      // Offers received from another player
+      var otherOffers = offers.filter((item) => item.type === 'pf');
+      otherOffers.forEach((item) => {
+        var headerTitle = '', bodyTitle = '', bodyText = '', displayType = '';
+        switch(item.subtype) {
+          case 'match': 
+            displayType = 'notification';
+            bodyText = item.ratedUnrated + ' ' + item.category + ' ' + item.initialTime + ' ' + item.increment;
+            headerTitle = 'Match Request';
+            bodyTitle = item.opponent + ' (' + item.opponentRating + ')' + (item.color ? ' [' + item.color + ']' : '');
+            $('.notification').each((index, element) => {
+              var headerTextElement = $(element).find('.header-text');
+              var bodyTextElement = $(element).find('.body-text');
+              if(headerTextElement.text() === 'Match Request' && bodyTextElement.text().startsWith(item.opponent + '(')) {
+                $(element).attr('data-offer-id', item.id);
+                bodyTextElement.text(bodyTitle + ' ' + bodyText);
+                var btnSuccess = $(element).find('.button-success');
+                var btnFailure = $(element).find('.button-failure');
+                btnSuccess.attr('onclick', `sessionSend('accept ` + item.id + `');`);
+                btnFailure.attr('onclick', `sessionSend('decline ` + item.id + `');`);
+                displayType = '';
+              }
+            });
+            break;
+          case 'partner':
+            displayType = 'notification';
+            headerTitle = 'Partnership Request';
+            bodyTitle = item.toFrom;
+            bodyText = 'offers to be your bughouse partner.';
+            break;
+          case 'takeback':
+            displayType = 'modal';
+            headerTitle = 'Takeback Request';
+            bodyTitle = item.toFrom;
+            bodyText = 'would like to take back ' + item.parameters + ' half move(s).';
+            break;
+          case 'abort': 
+            displayType = 'modal';
+            headerTitle = 'Abort Request';
+            bodyTitle = item.toFrom;
+            bodyText = 'would like to abort the game.';
+            break;
+          case 'draw':
+            displayType = 'modal';
+            headerTitle = 'Draw Request';
+            bodyTitle = item.toFrom;
+            bodyText = 'offers you a draw.';
+            break;
+        }
+        
+        if(displayType) {
+          if(displayType === 'notification')
+            var modal = createNotification(headerTitle, bodyTitle, bodyText, ['decline ' + item.id, 'Decline'], ['accept ' + item.id, 'Accept']);
+          else if(displayType === 'modal')
+            var modal = showBoardModal(headerTitle, bodyTitle, bodyText, ['decline ' + item.id, 'Decline'], ['accept ' + item.id, 'Accept']);
+          modal.attr('data-offer-id', item.id);
+        }
+      });
+
+      // Remove match requests and seeks. Note our own seeks are removed in the MessageType.Unknown section
+      // since <sr> info is only received when we are in the lobby. 
+      var removals = offers.filter((item) => item.type === 'pr' || item.type === 'sr');
+      removals.forEach((item) => {
+        item.ids.forEach((id) => {
+          removeNotification($('.notification[data-offer-id="' + id + '"]')); // If match request was not ours, remove the Notification
+          $('.board-modal[data-offer-id="' + id + '"]').toast('hide'); // if in-game request, hide the modal
+          $('.sent-offer[data-offer-id="' + id + '"]').remove(); // If offer, match request or seek was sent by us, remove it from the Play pane
+          $('.lobby-entry[data-offer-id="' + id + '"]').remove(); // Remove seek from lobby
+        });
+        if(!$('#sent-offers-status').children().length)
+          $('#sent-offers-status').hide();
+      });
+      break;
     case MessageType.Unknown:
     default:
-      // const msg = data.message.replace(/\n/g, ''); // Not sure this is a good idea. Newlines provide
-      // useful information for parsing. For example, to
-      // prevent other people injecting commands into messages
-      // somehow
       const msg = data.message;
 
-      // For takebacks, board was already updated when new move received and
-      // updating the history is now done more generally in updateHistory().
-      let match = msg.match(/(\w+) (\w+) the takeback request\./);
-      if (match !== null && match.length > 1)
-        return;
-      match = msg.match(/You (\w+) the takeback request from (\w+)\./);
-      if (match !== null && match.length > 1)
-        return;
-
-      match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
+      var match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
       if (match != null && match.length > 1) {
         $('#game-watchers').empty();
         if (+match[1] === game.id) {
@@ -1538,15 +1651,6 @@ function messageHandler(data) {
             }
           }
           $('#game-watchers').html(req);
-        }
-        return;
-      }
-
-      match = msg.match(/(\w+) would like to take back (\d+) half move\(s\)\./);
-      if (match != null && match.length > 1) {
-        if (match[1] === $('#opponent-name').text()) {
-          showModal('Takeback Request', match[1], 'would like to take back ' + match[2] + ' half move(s).',
-            ['decline', 'Decline'], ['accept', 'Accept']);
         }
         return;
       }
@@ -1574,97 +1678,93 @@ function messageHandler(data) {
       }
 
       // Retrieve status/error messages from commands sent to the server via the left menus
-      match = msg.match(/^(There is no player matching the name (\w+)\.)/m);
+      match = msg.match(/^There is no player matching the name \w+\./m);
       if(!match)
-        match = msg.match(/^('(\S+(?='))' is not a valid handle\.)/m);
+        match = msg.match(/^\S+ is not a valid handle\./m);
       if(!match)
-        match = msg.match(/^((\w+) has no history games\.)/m);
+        match = msg.match(/^\w+ has no history games\./m);
       if(!match)
-        match = msg.match(/^(You need to specify at least two characters of the name\.)/m);
+        match = msg.match(/^You need to specify at least two characters of the name\./m);
       if(!match)
-        match = msg.match(/^(Ambiguous name ([^s:]+):)/m);
+        match = msg.match(/^Ambiguous name (\w+):/m);
       if(!match)
-        match = msg.match(/^((\w+) is not logged in\.)/m);
+        match = msg.match(/^\w+ is not logged in\./m);
       if(!match)
-        match = msg.match(/^((\w+) is not playing a game\.)/m);
+        match = msg.match(/^\w+ is not playing a game\./m);
       if(!match)
-        match = msg.match(/^(Sorry, game \d+ is a private game\.)/m);
+        match = msg.match(/^Sorry, game \d+ is a private game\./m);
       if(!match)
-        match = msg.match(/^((\w+) is playing a game\.)/m);
+        match = msg.match(/^\w+ is playing a game\./m);
       if(!match)
-        match = msg.match(/^((\w+) is examining a game\.)/m);
+        match = msg.match(/^\w+ is examining a game\./m);
       if(!match)
-        match = msg.match(/^(You can't match yourself\.)/m);
+        match = msg.match(/^You can't match yourself\./m);
       if(!match)
-        match = msg.match(/^(You cannot challenge while you are (?:examining|playing) a game\.)/m);
+        match = msg.match(/^You cannot challenge while you are (?:examining|playing) a game\./m);
       if(!match) 
-        match = msg.match(/^(You are already offering an identical match to \w+\.)/m);
+        match = msg.match(/^You are already offering an identical match to \w+\./m);
       if(!match)
-        match = msg.match(/^(You can only have 3 active seeks\.)/m);
+        match = msg.match(/^You can only have 3 active seeks\./m);
       if(!match) 
-        match = msg.match(/^(There is no such game\.)/m);
+        match = msg.match(/^There is no such game\./m);
       if(!match)
-        match = msg.match(/^(You cannot seek bughouse games\.)/m);
+        match = msg.match(/^You cannot seek bughouse games\./m);
       if(!match)
-        match = msg.match(/^((\w+) is not open for bughouse\.)/m);
+        match = msg.match(/^\w+ is not open for bughouse\./m);
       if(!match)
-        match = msg.match(/^(Your opponent has no partner for bughouse\.)/m);
+        match = msg.match(/^Your opponent has no partner for bughouse\./m);
       if(!match) 
-        match = msg.match(/^(You have no partner for bughouse\.)/m);
-      if(match !== null) {
-        if(historyRequested || obsRequested || matchRequested) {
-          let user = '';
-          let status;
-          if(historyRequested) {
-            user = getValue('#examine-username');
-            status = $('#examine-pane-status');
-          }
-          else if(obsRequested) {
-            user = getValue('#observe-username');
-            status = $('#observe-pane-status');
-          }
-          else if(matchRequested) {
-            user = getValue('#opponent-player-name');
-            status = $('#pairing-pane-status');
-          }
-
-          if(match.length >= 2) {
-            if(historyRequested) {
-              historyRequested--;
-              if(historyRequested)
-                return;
-
-              $('#history-table').html('');
-            }
-            else if(obsRequested) {
-              obsRequested--;
-              if(obsRequested)
-                return;
-            }
-            else if(matchRequested) {
-              matchRequested--;
-              if(!matchRequested) {
-                session.send('iset seekinfo 0');
-                session.send('iset showownseek 0');  
-              }
-            }
-
-            status.show();
-            if(match[1].startsWith('Ambiguous name'))
-              status.text('There is no player matching the name ' + user + '.');
-            else if(match[1].includes('is not open for bughouse.'))
-              status.text(match[1] + ' Ask them to \'set bugopen 1\' in the Console.');
-            else if(match[1] === 'You cannot seek bughouse games.') 
-              status.text('You must specify an opponent for bughouse.');
-            else if(match[1].includes('no partner for bughouse.'))
-              status.text(match[1] + ' Get one by using \'partner <username>\' in the Console.');
-            else
-              status.text(match[1]);
-
+        match = msg.match(/^You have no partner for bughouse\./m);
+      if(match && (historyRequested || obsRequested || matchRequested)) {
+        let status;
+        if(historyRequested) 
+          status = $('#examine-pane-status');
+        else if(obsRequested) 
+          status = $('#observe-pane-status');
+        else if(matchRequested) 
+          status = $('#pairing-pane-status');
+        
+        if(historyRequested) {
+          historyRequested--;
+          if(historyRequested)
             return;
-          }
+
+          $('#history-table').html('');
         }
-        chat.newMessage('console', data);
+        else if(obsRequested) {
+          obsRequested--;
+          if(obsRequested)
+            return;
+        }
+        else if(matchRequested) 
+          matchRequested--;
+        
+        if(match[0].startsWith('Ambiguous name'))
+          status.text('There is no player matching the name ' + match[1] + '.');
+        else if(match[0].includes('is not open for bughouse.'))
+          status.text(match[0] + ' Ask them to \'set bugopen 1\' in the Console.');
+        else if(match[0] === 'You cannot seek bughouse games.') 
+          status.text('You must specify an opponent for bughouse.');
+        else if(match[0].includes('no partner for bughouse.'))
+          status.text(match[0] + ' Get one by using \'partner <username>\' in the Console.');
+        else
+          status.text(match[0]);
+        status.show();
+
+        return;
+      }
+
+      match = msg.match(/^Notification: .*/m);
+      if(!match)
+        match = msg.match(/^\w+ is not logged in./m);
+      if(!match)
+        match = msg.match(/^Player [a-zA-Z\"]+ is censoring you./m);
+      if(!match)
+        match = msg.match(/^Sorry the message is too long./m);
+      if(!match)
+        match = msg.match(/^You are muted./m);
+      if(match && match.length > 0) {
+        chat.newNotification(match[0]);
         return;
       }
 
@@ -1696,74 +1796,19 @@ function messageHandler(data) {
       }
 
       match = msg.match(/^(Issuing match request since the seek was set to manual\.)/m);
-      if(match && match.length > 2 && lobbyRequested) {
+      if(match && match.length > 1 && lobbyRequested) {
         $('#lobby-pane-status').text(match[1]); 
         $('#lobby-pane-status').show();
       }
-
-      if(/^\<(?:sn|pt)\>.*/m.test(msg)) {
-        var newRequest = false;
-        match = msg.match(/^\<sn\>.*/m);
-        if(match) {
-          var seeks = parseSeeks(match.join('\n'));
-          seeks.forEach((value, key) => {
-            value = value.substring(value.indexOf(' ') + 1); 
-            if(matchRequests.get(key) !== value) {
-              newRequest = true;
-              if(matchRequested)
-                matchRequested--;
-              matchRequests.set(key, value);   
-            }       
-          });
-        }
-        match = msg.match(/^\<pt\>.*/m);
-        if(match) {
-          var pending = parsePending(match.join('\n'));
-          pending.forEach((pValue, pKey) => {
-            if(matchRequests.get(pKey) !== pValue) {
-              newRequest = true;
-              if(matchRequested)
-                matchRequested--;
-              matchRequests.set(pKey, pValue);   
-            }     
-          });
-        }
-        if(!matchRequested) {
-          session.send('iset seekinfo 0');
-          session.send('iset showownseek 0');
-        }
-        if(newRequest) {
-          clearTimeout(showMatchTimer);
-          showMatchTimer = setTimeout(() => showMatchRequests(), 1000);
-        }
-        $('#pairing-pane-status').hide();
-        var plainText = msg.match(/^\s*[^<\s].*/m); // If there's a line without '<>' characters print it to the console
-        if(plainText) {
-          data.message = plainText[0];
-          chat.newMessage('console', data);
-        }
-        return;
-      }
-          
-      if(/^\<(s|sc|sr)\>/m.test(msg)) {
-        if(lobbyRequested) {
-          parseSeeks(msg, seekMap);
-
-          $('#lobby-table').html('');
-          seekMap.forEach((value, key) => {
-            if(!lobbyShowComputersToggle && value.includes('(C)'))
-              return;
-
-            $('#lobby-table').append(
-              `<button type="button" class="btn btn-outline-secondary" onclick="acceptSeek(` 
-                + key + `);">` + value + `</button>`);
-          });
-
-          if(lobbyScrolledToBottom) {
-            var container = $('#lobby-table-container')[0];
-            container.scrollTop = container.scrollHeight;
-          }
-        }
+        
+      match = msg.match(/^Your seek has been posted with index \d+\./m);
+      if(match) {
+        // retrieve <sn> notification
+        session.send('iset showownseek 1');
+        session.send('iset seekinfo 1');
+        session.send('iset seekinfo 0');
+        session.send('iset showownseek 0');
+        chat.newMessage('console', data);
         return;
       }
 
@@ -1771,18 +1816,13 @@ function messageHandler(data) {
       if(!match) 
         match = msg.match(/^Your seek (\d+) has been removed\./m);
       if(match) {
-        if(match.length > 1) {
-          // delete seek by id
-          matchRequests.delete(match[1]);
-        }
-        else { // Remove all seeks
-          matchRequests.forEach((value, key) => {
-            if(!isNaN(value.split(/\s+/)[0])) // First word is not opponent, therefore it's a seek
-              matchRequests.delete(key);
-          });
-        }
+        if(match.length > 1) // delete seek by id
+          $('.sent-offer[data-offer-id="' + match[1] + '"]').remove();
+        else  // Remove all seeks
+          $('.sent-offer[data-offer-type="sn"]').remove();
 
-        showMatchRequests();
+        if(!$('#sent-offers-status').children().length)
+          $('#sent-offers-status').hide();
 
         chat.newMessage('console', data);
         return;
@@ -1862,84 +1902,6 @@ function messageHandler(data) {
         return;
       }
 
-      // Match request received from another player
-      // <pf> 4 w=GuestKPNL t=partner p=#
-      // /\<pt\> (\d+) w=(\S+) t=(\S+) p=(?:#|\S+ \S+(?: \[(black|white)\])? \S+ \S+ (rated|unrated) (\S+)( \d+ \d+)?(?: Loaded from (\S+))?)/m
-      match = msg.match(/^\<pf\> (\d+) w=(\S+) t=(\S+) p=(?:#|(\S+) (\S+)(?: (\[(?:black|white)\]))? \S+ \S+ (.+))/m); 
-      if(match) {
-        let id = match[1];
-        let sender = match[2];
-        let type = match[3];
-        var found = false;
-        var headerTitle, bodyTitle, bodyText = '';
-        if(type === 'match') {
-          var opponentName = match[4];
-          var opponentRating = match[5];
-          var color = match[6];
-          bodyText = match[7];
-          headerTitle = 'Match Request';
-          bodyTitle = opponentName + opponentRating + (color ? ' ' + color : '');
-          $('.notification').each((index, element) => {
-            var headerTextElement = $(element).find('.header-text');
-            var bodyTextElement = $(element).find('.body-text');
-            if(headerTextElement.text() === 'Match Request' && bodyTextElement.text().startsWith(opponentName + '(')) {
-              $(element).attr('data-request-id', id);
-              bodyTextElement.text(bodyTitle + ' ' + bodyText);
-              var btnSuccess = $(element).find('.button-success');
-              var btnFailure = $(element).find('.button-failure');
-              btnSuccess.attr('onclick', `sessionSend('accept ` + id + `');`);
-              btnFailure.attr('onclick', `sessionSend('decline ` + id + `');`);
-              found = true;
-            }
-          });
-        }
-        else if(type === 'partner') {
-          headerTitle = 'Partnership Request';
-          bodyTitle = sender + ' offers to be your bughouse partner.';
-        }
-        if(!found) {
-          var modal = createNotification(headerTitle, bodyTitle, bodyText, ['decline ' + id, 'Decline'], ['accept ' + id, 'Accept']);
-          modal.attr('data-request-id', id);
-        }
-        return;
-      }
-      if(/^Challenge:/m.test(msg)) // Ignore challenge messages. Using <pf> instead
-        return;
-
-      /* Remove match requests when they are withdrawn or declined */
-      match = msg.match(/^\<pr\>.*/m);
-      if (match != null) {
-        for (const r of match[0].split(' ').slice(1)) {
-          removeNotification($('[data-request-id="' + r + '"]')); // If match request was not ours, remove the Notification
-          if(matchRequests.delete(r)) // If match request was sent by us, remove it from the Play pane
-            showMatchRequests();
-        }
-        var plainText = msg.match(/^\s*[^<\s].*/m); // If there's a line without '<>' characters print it to the console
-        if(plainText) {
-          data.message = plainText[0];
-          chat.newMessage('console', data);
-        }
-        return;
-      }
-
-      match = msg.match(/(\w+) would like to abort the game; type "abort" to accept./);
-      if (match != null && match.length > 1) {
-        if (match[1] === $('#opponent-name').text()) {
-          showModal('Abort Request', match[1], 'would like to abort the game.',
-            ['decline', 'Decline'], ['accept', 'Accept']);
-        }
-        return;
-      }
-
-      match = msg.match(/(\w+) offers you a draw./);
-      if (match != null && match.length > 1) {
-        if (match[1] === $('#opponent-name').text()) {
-          showModal('Draw Request', match[1], 'offers you a draw.',
-            ['decline', 'Decline'], ['accept', 'Accept']);
-        }
-        return;
-      }
-
       match = msg.match(/Removing game (\d+) from observation list./);
       if (match != null && match.length > 1) {
         if(gameChangePending)
@@ -1956,20 +1918,6 @@ function messageHandler(data) {
           session.send('refresh');
         stopEngine();
         cleanupGame();
-        return;
-      }
-
-      match = msg.match(/^Notification: .*/m);
-      if(!match)
-        match = msg.match(/^\w+ is not logged in./m);
-      if(!match)
-        match = msg.match(/^Player [a-zA-Z\"]+ is censoring you./m);
-      if(!match)
-        match = msg.match(/^Sorry the message is too long./m);
-      if(!match)
-        match = msg.match(/^You are muted./m);
-      if(match && match.length > 0) {
-        chat.newNotification(match[0]);
         return;
       }
 
@@ -2017,7 +1965,7 @@ function messageHandler(data) {
         msg === 'Style 12 set.' ||
         msg === 'You will not see seek ads.' ||
         msg === 'You will now hear communications echoed.' ||
-        msg === 'seekinfo unset.' ||
+        msg === 'seekinfo set.' || msg === 'seekinfo unset.' ||
         msg === 'seekremove set.' || msg === 'seekremove unset.' || 
         msg === 'defprompt set.' ||
         msg === 'nowrap set.' ||
@@ -2034,53 +1982,68 @@ function messageHandler(data) {
   }
 }
 
-function showMatchRequests() {
-  $('#matches-status').hide();
-  let requestsHtml = '';
-  matchRequests.forEach((value, key) => {
-    requestsHtml += '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>&nbsp;&nbsp;'
-    
-    var words = value.split(/\s+/);
-    if(isNaN(words[0])) {
-      var opponent = words[0];
-      words.splice(0, 1);
-    }
+function showSentOffers(offers: any) {
+  var requestsHtml = '';
+  offers.forEach((offer) => {
+    requestsHtml += `<div class="sent-offer" data-offer-type="` + offer.type + `" data-offer-id="` + offer.id + `">`;
+    requestsHtml += `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>&nbsp;&nbsp;`;
 
-    if(words[0] === 'partner') {
-      requestsHtml += 'Making a partnership offer to ' + opponent + '.';
-      var removeCmd = 'withdraw ' + key;
+    if(offer.type === 'pt') {
+      if(offer.subtype === 'partner') {
+        requestsHtml += 'Making a partnership offer to ' + offer.toFrom + '.';
+        var removeCmd = 'withdraw ' + offer.id;
+      }
+      else if(offer.subtype === 'match') {
+        // convert match offers to the same format as seeks
+        let color = '';
+        if(offer.color === 'black')
+          color = ' B';
+        else if(offer.color === 'white')
+          color = ' W';
+
+        // Display 'u' if we are a registered user playing an unrated game.
+        let unrated = '';
+        if(session.isRegistered() && offer.ratedUnrated === 'unrated') 
+          unrated = 'u ';
+
+        let time = offer.initialTime + ' ' + offer.increment + ' ';
+        if(offer.category === 'untimed') {
+          time = '';
+          unrated = '';
+        }
+
+        requestsHtml += 'Challenging ' + offer.opponent + ' to ' + (time === '' ? 'an ' : 'a ') + time + unrated + offer.category + color + ' game.';
+        var removeCmd = 'withdraw ' + offer.id;
+      }
     }
-    else {
-      words.splice(2, 1); // remove rated/unrated
+    else if(offer.type === 'sn') {
+      // Display 'u' if we are a registered user playing an unrated game.
+      let unrated = '';
+      if(session.isRegistered() && offer.ratedUnrated === 'u')
+        unrated = 'u ';
+
       // Change 0 0 to 'untimed'
-      if(words[0] === '0' && words[1] === '0') {
-        if(words[2] !== 'untimed') 
-          words.splice(0, 2, 'untimed');
-        else
-          words.splice(0, 2);
+      let time = offer.initialTime + ' ' + offer.increment + ' ';
+      if(offer.category === 'untimed') {
+        unrated = '';
+        time = '';
       }
+      let color = (offer.color !== '?' ? offer.color : '');
 
-      if(opponent) {
-        requestsHtml += 'Challenging ' + opponent + ' to ' + (words[0] === 'untimed' ? 'an ' : 'a ') + words.join(' ') + ' game.';
-        var removeCmd = 'withdraw ' + key;
-      }
-      else {
-        requestsHtml += 'Seeking ' + (words[0] === 'untimed' ? 'an ' : 'a ') + words.join(' ') + ' game.';
-        var removeCmd = 'unseek ' + key;
-      }
+      requestsHtml += 'Seeking ' + (time === '' ? 'an ' : 'a ') + time + unrated + offer.category + color + ' game.';
+      var removeCmd = 'unseek ' + offer.id;
     }
     
     var lastIndex = requestsHtml.lastIndexOf(' ') + 1;
     var lastWord = requestsHtml.slice(lastIndex);
     requestsHtml = requestsHtml.substring(0, lastIndex);
 
-    requestsHtml += `<span style="white-space: nowrap">` + lastWord + `<span class="fa fa-times-circle btn btn-default btn-sm" onclick="sessionSend('` + removeCmd + `')" aria-hidden="false"></span></span><br>`;
+    requestsHtml += `<span style="white-space: nowrap">` + lastWord + `<span class="fa fa-times-circle btn btn-default btn-sm" onclick="sessionSend('` + removeCmd + `')" aria-hidden="false"></span></span></div>`;
   });
-  if(matchRequests.size > 0) {
-    $('#matches-status').html(requestsHtml);
-    $('#matches-status').show();
-    $('#play-pane-subcontent')[0].scrollTop = 0;
-  }
+
+  $('#sent-offers-status').append(requestsHtml);
+  $('#sent-offers-status').show();
+  $('#play-pane-subcontent')[0].scrollTop = 0;
 }
 
 export function scrollToBoard() {
@@ -3031,22 +2994,14 @@ function getGame(min: number, sec: number) {
   const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek'; 
   if(game.isExamining())
     session.send('unex'); 
-  if(cmd === 'seek') {
-    session.send('iset showownseek 1');
-    session.send('iset seekinfo 1');
-  }
   session.send(cmd + ' ' + min + ' ' + sec + ' ' + newGameVariant);
 }
 (window as any).getGame = getGame;
 
 function clearMatchRequests() {
-  if(session && session.isConnected()) {
-    session.send('iset seekinfo 0');
-    session.send('iset showownseek 0');
-  }
   matchRequested = 0;
-  matchRequests.clear();
-  $('#matches-status').hide();
+  $('#sent-offers-status').html('');
+  $('#sent-offers-status').hide();
 }
 
 $('#input-text').on('focus', () => {
@@ -3399,11 +3354,6 @@ function showTab(tab: any) {
   showTab($('#pills-game-tab'));
 };
 
-(window as any).withdrawAll = () => {
-  session.send('withdraw t all');
-  $('#lobby-pane-status').hide();
-};
-
 (window as any).acceptSeek = (id: number) => {
   matchRequested++;
   session.send('play ' + id);
@@ -3571,12 +3521,13 @@ function initLobbyPane() {
     $('#lobby').hide();
   }
   else {
+    $('#lobby-pane-status').hide();
     $('#lobby-show-computers').prop('checked', lobbyShowComputersToggle);
     $('#lobby').show();
     $('#lobby-table').html('');
     lobbyScrolledToBottom = true;
     lobbyRequested = true;
-    seekMap.clear();
+    lobbyEntries.clear();
     session.send('iset seekremove 1');
     session.send('iset seekinfo 1');
   }
@@ -3608,80 +3559,13 @@ $('#lobby-show-computers').on('change', function (e) {
   initLobbyPane();
 });
 
-const titleToString = {
-  0x0 : '',
-  0x1 : '(U)',
-  0x2 : '(C)',
-  0x4 : '(GM)',
-  0x8 : '(IM)',
-  0x10 : '(FM)',
-  0x20 : '(WGM)',
-  0x40 : '(WIM)',
-  0x80 : '(WFM)',
-};
-
-function parseSeeks(msgs: string, map?: any): any {
-  if(!map)
-    map = new Map();
-
-  for (const msg of msgs.split('\n')) {
-    const m = msg.trim();
-    if (m.startsWith('<s>') || m.startsWith('<sn>')) {
-      const seek = m.split(/\s+/).slice(1);
-      const seekDetails = seek.slice(1).map(pair => pair.split('=')[1]).slice(0, -3);
-      seekDetails[0] = seekDetails[0] + titleToString[+seekDetails[1]];
-      if (seekDetails[2] !== '0P') {
-        seekDetails[0] = seekDetails[0] + '(' + seekDetails[2] + ')';
-      }
-      seekDetails.splice(1, 2);
-      if(seekDetails[5] === '?') 
-        seekDetails.splice(5, 1);
-      map.set(seek[0], seekDetails.join(' '));
-    }
-    else if (m.startsWith('<sr>')) {
-      for (const r of m.split(' ').slice(1)) {
-        map.delete(r);
-      }
-    }
-  }
-
-  return map;
+function formatLobbyEntry(seek: any): string {
+  var title = (seek.title !== '' ? '(' + seek.title + ')' : '');
+  var color = (seek.color !== '?' ? ' ' + seek.color : '');
+  var rating = (seek.rating !== '' ? '(' + seek.rating + ')' : '');
+  return seek.toFrom + title + rating + ' ' + seek.initialTime + ' ' + seek.increment + ' ' 
+      + seek.ratedUnrated + ' ' + seek.category + color;
 }
 
-function parsePending(msgs: string): any {
-  const pending = new Map();
 
-  var lines = msgs.split('\n');
-  for(const line of lines) {
-    var match = line.match(/\<pt\> (\d+) w=(\S+) t=(\S+) p=(?:#|\S+ \S+(?: \[(black|white)\])? \S+ \S+ (rated|unrated) (\S+)( \d+ \d+)?(?: Loaded from (\S+))?)/m); 
-    if(match) {
-      let type = match[3];
 
-      if(type === 'match') {
-        // output match offers in the same format as parseSeeks returns
-        var color = '';
-        if(match[4] === 'black')
-          color = ' B';
-        else if(match[4] === 'white')
-          color = ' W';
-
-        if(match[5] === 'rated')
-          var rated = 'r';
-        else if(match[5] === 'unrated')
-          var rated = 'u';
-
-        var category = match[8] || match[6];
-
-        var time = match[7];
-        if(!time)
-          time = ' 0 0';
-        
-        pending.set(match[1], match[2] + time + ' ' + rated + ' ' + category + color);
-      }
-      else if(type === 'partner') 
-        pending.set(match[1], match[2] + ' partner');
-    }
-  }
-  
-  return pending;
-}

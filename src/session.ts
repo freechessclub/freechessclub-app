@@ -13,6 +13,7 @@ export const enum MessageType {
   GameStart,
   GameEnd,
   GameHoldings,
+  Offers,
   Unknown,
 }
 
@@ -31,6 +32,8 @@ export function GetMessageType(msg: any): MessageType {
     return MessageType.ChannelTell;
   } else if (msg.user !== undefined && msg.message !== undefined) {
     return MessageType.PrivateTell;
+  } else if (msg.offers !== undefined) {
+    return MessageType.Offers;
   } else {
     return MessageType.Unknown;
   }
@@ -44,12 +47,22 @@ export class Session {
   private timesealHello = 'TIMESEAL2|freeseal|icsgo|';
   private tsKey = 'Timestamp (FICS) v1.0 - programmed by Henrik Gram.';
   private parser: Parser;
+  private registered: boolean;
 
   constructor(onRecv: (msg: any) => void, user?: string, pass?: string) {
     this.connected = false;
     this.user = user;
     this.onRecv = onRecv;
     this.connect(user, pass);
+    this.registered = false;
+  }
+
+  public isRegistered(): boolean {
+    return this.registered;
+  }
+
+  public setRegistered(registered: boolean) {
+    this.registered = registered;
   }
 
   public getUser(): string {
@@ -178,8 +191,12 @@ export class Session {
   }
 }
 
-$('#connectButton').on('click', (event) => {
-  $('#chat-status').popover('dispose');
+// Hide popover if user clicks anywhere outside
+$('body').on('click', function (e) {
+  if(!$('#chat-status').is(e.target) 
+      && $('#chat-status').has(e.target).length === 0
+      && $('.popover').has(e.target).length === 0)
+    $('#chat-status').popover('dispose');
 });
 
 export default Session;

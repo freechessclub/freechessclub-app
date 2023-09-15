@@ -63,6 +63,7 @@ export class Parser {
 
     match = msg.match(/login:/);
     if (match != null) {
+      this.session.setRegistered(false);
       this.session.send(this.user);
       return null;
     }
@@ -82,6 +83,7 @@ export class Parser {
           control: msg.replace(/password:/, ''),
         };
       }
+      this.session.setRegistered(true);
       this.session.send(this.pass);
       return null;
     }
@@ -371,8 +373,105 @@ export class Parser {
         message: match[3].replace(/\n/g, ''),
       };
     }
+
+    // offers info (seekinfo and pendinfo)
+    var index = msg.search(/^<(pt|pf|pr|s|sc|sn|sr)>/m)
+    if(index !== -1) {
+      // if plain text componenet, split into 2 messages
+      let plainText = msg.slice(0, index).trim();
+      if(plainText) 
+        return [this._parse(plainText), this._parse(msg.slice(index))];
+
+      let offers = [];
+      let lines = msg.split('\n');
+      for(let line of lines) {
+        line = line.trim();
+        // parse pendinfo
+        match = line.match(/^<(pt|pf)> (\d+) w=(\S+) t=(\S+) p=((\S+)(?: \((\S+)\)(?: \[(black|white)\])? (\S+) \((\S+)\) (rated|unrated) (\S+)(?: (\d+) (\d+))?(?: Loaded from (\S+))?)?)/);
+        if(match) {
+          let type = match[1];
+          let subtype = match[4];
+
+          if(subtype === 'match') {
+            offers.push({
+              type: match[1],
+              id: match[2],
+              toFrom: match[3],
+              subtype: match[4],
+              asString: match[5],
+              player: (type === 'pt' ? match[6] : match[9]),
+              playerRating: (type === 'pt' ? match[7] : match[10]),
+              opponent: (type === 'pt' ? match[9] : match[6]),
+              opponentRating: (type === 'pt' ? match[10] : match[7]),
+              color: match[8],
+              ratedUnrated: match[11],
+              category: match[15] || match[12],
+              initialTime: +match[13],
+              increment: +match[14],
+            });
+          }
+          else {
+            offers.push({
+              type: match[1],
+              id: match[2],
+              toFrom: match[3],
+              subtype: match[4],
+              parameters: match[5]
+            });
+          }
+          continue;
+        }   
+        // parse seekinfo
+        if(line === '<sc>') {
+          offers.push({ type: 'sc' });
+          continue;
+        }
+        match = line.match(/^<(s|sn)> (\d+) w=(\S+) ti=(\d+) rt=(\S+)\s+t=(\d+) i=(\d+) r=(\S+) tp=(\S+) c=(\S+) rr=(\S+) a=(\S+) f=(\S+)/);
+        if(match) {
+          offers.push({
+            type: match[1],
+            id: match[2],
+            toFrom: match[3],
+            title: titleToString[+match[4]],
+            rating: (match[5] === '0P' ? '' : match[5]),
+            initialTime: +match[6],
+            increment: +match[7],
+            ratedUnrated: match[8],
+            category: match[9],
+            color: match[10],
+            ratingRange: match[11],
+            automatic: match[12] === 't',
+            formula: match[13] === 't'
+          });
+          continue;
+        }
+        match = line.match(/^<(pr|sr)> (.+)/);
+        if(match) {
+          offers.push({
+            type: match[1],
+            ids: match[2].split(' ')
+          });
+        }
+      }
+      return {
+        offers: offers,
+      }
+    }
+
     return { message: msg };
   }
 }
+
+const titleToString = {
+  0x0 : '',
+  0x1 : 'U',
+  0x2 : 'C',
+  0x4 : 'GM',
+  0x8 : 'IM',
+  0x10 : 'FM',
+  0x20 : 'WGM',
+  0x40 : 'WIM',
+  0x80 : 'WFM',
+};
 
 export default Parser;
