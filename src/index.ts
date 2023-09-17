@@ -6,7 +6,7 @@ import Chess from 'chess.js';
 import Cookies from 'js-cookie';
 import { Chessground } from 'chessground';
 import { Color, Key } from 'chessground/types';
-
+import NoSleep from '@uriopass/nosleep.js'; // Prevent screen dimming
 import Chat from './chat';
 import * as clock from './clock';
 import { Engine, EvalEngine } from './engine';
@@ -59,6 +59,7 @@ let newGameVariant = '';
 let lobbyEntries = new Map();
 let lobbyScrolledToBottom;
 let scrollBarWidth; // Used for sizing the layout
+let noSleep = new NoSleep(); // Prevent screen dimming
 
 function cleanupGame() {
   hideButton($('#stop-observing'));
@@ -2884,6 +2885,11 @@ $(document).ready(() => {
   } else {
     onDeviceReady();
   }
+});
+
+// Prevent screen dimming, must be enabled in a user input event handler
+$(document).one('click', (event) => {
+  noSleep.enable();
 });
 
 $(window).on('load', function() {
