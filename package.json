@@ -13,8 +13,8 @@
     "build": "node app.js && electron-builder -mwl --x64 --arm64 -p always",
     "release": "yarn build",
     "postinstall": "electron-builder install-app-deps",
-    "android": "node app.js && cp -pR assets app/assets && npx cap run android",
-    "ios": "node app.js && cp -pR assets app/assets && npx cap run ios"
+    "android": "node app.js && node copy-app-files.js && npx cap run android",
+    "ios": "node app.js && node copy-app-files.js && npx cap run ios"
   },
   "repository": {
     "type": "git",
