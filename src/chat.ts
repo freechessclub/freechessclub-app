@@ -338,12 +338,13 @@ $('#chat-maximize-btn').on('click', () => {
     maximized = false;
   } else {
     $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
-    $('#chat-maximize-btn').attr('data-bs-original-title', 'Minimize');
+    $('#chat-maximize-btn').attr('data-bs-original-title', 'Unmaximize');
+    $('#collapse-chat').collapse('show');
     maximized = true;
   }
   $('#left-col').toggleClass('d-none');
   $('#mid-col').toggleClass('d-none');
-  window.dispatchEvent(new Event('resize'));
+  $(window).trigger('resize');
 });
 
 $('#collapse-chat').on('hidden.bs.collapse', () => {
@@ -356,8 +357,12 @@ $('#collapse-chat').on('shown.bs.collapse', () => {
   scrollToChat();
 });
 
-$('#chat-toggle-btn').on('click', (event) => {
-  $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
+$('#collapse-chat').on('show.bs.collapse', () => {
+  $('#chat-toggle-btn').addClass('toggle-btn-selected');
+});
+
+$('#collapse-chat').on('hide.bs.collapse', () => {
+  $('#chat-toggle-btn').removeClass('toggle-btn-selected');
 });
 
 export default Chat;

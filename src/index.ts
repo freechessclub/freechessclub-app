@@ -16,6 +16,12 @@ import { GetMessageType, MessageType, Session } from './session';
 import * as Sounds from './sounds';
 import './ui';
 
+export const enum Layout {
+  Desktop = 0,
+  Mobile,
+  ChatMaximized
+}
+
 let session: Session;
 let chat: Chat;
 let engine: Engine | null;
@@ -43,6 +49,7 @@ let numPVs = 1;
 let gameChangePending = false;
 let matchRequested = 0;
 let prevWindowWidth = 0;
+let layout = Layout.Desktop;
 let addressBarHeight;
 let soundTimer
 let showSentOffersTimer;
@@ -1561,7 +1568,8 @@ function messageHandler(data) {
         switch(item.subtype) {
           case 'match': 
             displayType = 'notification';
-            bodyText = item.ratedUnrated + ' ' + item.category + ' ' + item.initialTime + ' ' + item.increment;
+            var time = !isNaN(item.initialTime) ? ' ' + item.initialTime + ' ' + item.increment : '';
+            bodyText = item.ratedUnrated + ' ' + item.category + time;
             headerTitle = 'Match Request';
             bodyTitle = item.opponent + ' (' + item.opponentRating + ')' + (item.color ? ' [' + item.color + ']' : '');
             $('.notification').each((index, element) => {
@@ -2624,7 +2632,6 @@ function onDeviceReady() {
   if(isSmallWindow()) {
     $('#collapse-chat').collapse('hide');
     $('#collapse-history').collapse('hide');
-    //activeTab = $('#pills-play-tab');
   }
   else {
     createTooltips();
@@ -2693,9 +2700,11 @@ function createTooltip(element: any) {
 }
 
 function createTooltips() {
-  $('[data-bs-toggle="tooltip"]').each(function(index, element) {  
-    createTooltip($(element));
-  });
+  setTimeout(() => { // Split this off since it's quite slow.
+    $('[data-bs-toggle="tooltip"]').each(function(index, element) {  
+      createTooltip($(element));
+    });
+  }, 0);
 }
 
 function selectOnFocus(input: any) {
@@ -2736,6 +2745,7 @@ function useMobileLayout() {
   $('#viewing-games-buttons:visible:last').addClass('me-0'); // This is so visible buttons in the btn-toolbar center properly
   hideCloseGamePanel();
   createTooltips();
+  layout = Layout.Mobile;
 }
 
 function useDesktopLayout() {
@@ -2746,6 +2756,7 @@ function useDesktopLayout() {
   if(game.isObserving() || game.isExamining())
     showCloseGamePanel();
   createTooltips();
+  layout = Layout.Desktop;
 }
 
 function swapLeftRightPanelHeaders() {
@@ -2814,7 +2825,7 @@ function setPanelSizes() {
   // Try to do it in a robust way that won't break if we add/remove elements later.
 
   // Get and store the height of the address bar in mobile browsers.
-  if(isSmallWindow() && addressBarHeight === undefined)
+  if(addressBarHeight === undefined)
     addressBarHeight = $(window).height() - window.innerHeight;
 
   // On mobile, slim down player status panels in order to fit everything within window height
@@ -2832,10 +2843,11 @@ function setPanelSizes() {
   }
 
   // set height of left menu panel inside collapsable
-  if(!isSmallWindow())
-    $('#left-panel-bottom').css('height', '');
   const boardHeight = $('#board').innerHeight();
   if (boardHeight) {
+    if($('#left-panel').height() === 0)
+        $('#left-panel-bottom').css('height', '');
+
     var siblingsHeight = 0;
     var siblings = $('#collapse-history').siblings();
     siblings.each(function() {
@@ -2844,31 +2856,38 @@ function setPanelSizes() {
     });
     const leftPanelBorder = $('#left-panel').outerHeight() - $('#left-panel').height();
 
-    if(isSmallWindow())
+    if(isSmallWindow()) 
       $('#left-panel').height(430);
     else {
       var leftPanelHeight = boardHeight - leftPanelBorder - siblingsHeight;
       $('#left-panel').height(Math.max(leftPanelHeight, 0));
       // If we've made the left panel height as small as possible, reduce size of status panel instead
       // Note leftPanelHeight is negative in that case
-      $('#left-panel-bottom').height($('#left-panel-bottom').height() + Math.min(leftPanelHeight, 0));
+      if(leftPanelHeight < 0)
+        $('#left-panel-bottom').height($('#left-panel-bottom').height() + leftPanelHeight);
     }
-
-    // set height of right panel inside collapsable
-    var siblingsHeight = 0;
-    var siblings = $('#collapse-chat').siblings();
-    siblings.each(function() {
-      if($(this).is(':visible'))
-        siblingsHeight += $(this).outerHeight();
-    });
-    const rightPanelBorder = $('#right-panel').outerHeight() - $('#right-panel').height();
-
-    if(isSmallWindow())
-      $('#right-panel').height($(window).height() - addressBarHeight - rightPanelBorder - siblingsHeight
-          - $('#right-panel-header').outerHeight() - $('#right-panel-footer').outerHeight());
-    else
-      $('#right-panel').height(boardHeight - rightPanelBorder - siblingsHeight);
   }
+
+  // set height of right panel inside collapsable
+  var siblingsHeight = 0;
+  var siblings = $('#collapse-chat').siblings();
+  siblings.each(function() {
+    if($(this).is(':visible'))
+      siblingsHeight += $(this).outerHeight();
+  });
+  const rightPanelBorder = $('#right-panel').outerHeight() - $('#right-panel').height();
+
+  if(isSmallWindow() || !boardHeight) {
+    var stuff = $(window).height() - addressBarHeight - rightPanelBorder - siblingsHeight
+    - $('#right-panel-header').outerHeight() - $('#right-panel-footer').outerHeight();
+    var feature3Border = $('.feature3').outerHeight(true) - $('.feature3').height();
+    var rightCardBorder = $('#right-card').outerHeight(true) - $('#right-card').height();
+    var borders = rightPanelBorder + rightCardBorder + feature3Border + addressBarHeight;
+    $('#right-panel').height($(window).height() - borders - siblingsHeight
+        - $('#right-panel-header').outerHeight() - $('#right-panel-footer').outerHeight());
+  }
+  else
+    $('#right-panel').height(boardHeight - rightPanelBorder - siblingsHeight);
 
   // Adjust Notifications drop-down width
   if(isSmallWindow() && !isSmallWindow(prevWindowWidth)) 
@@ -3313,9 +3332,14 @@ export function isLargeWindow(size?: number) {
 }
 
 $(window).on('resize', () => {
-  if(isSmallWindow() && !isSmallWindow(prevWindowWidth))
+  if(!$('#mid-col').is(':visible'))
+    layout = Layout.ChatMaximized;
+  else if(layout === Layout.ChatMaximized)
+    layout = Layout.Desktop;
+
+  if(isSmallWindow() && layout === Layout.Desktop)
     useMobileLayout();
-  else if(!isSmallWindow() && isSmallWindow(prevWindowWidth))
+  else if(!isSmallWindow() && layout === Layout.Mobile)
     useDesktopLayout();
 
   setPanelSizes();
