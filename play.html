@@ -375,7 +375,6 @@
                     <div class="dropdown-item noselect" id="flip-toggle"><span id="flip-toggle-icon" class="fa fa-refresh dropdown-icon" aria-hidden="false"></span>Flip Board</div>
                     <div class="dropdown-item noselect" id="sound-toggle"><span id="sound-toggle-icon" class="fa fa-volume-up dropdown-icon" aria-hidden="false"></span>Sounds ON</div>
                     <div class="dropdown-item noselect" id="notifications-toggle"><span id="notifications-toggle-icon" class="fa fa-bell dropdown-icon" aria-hidden="false"></span>Notifications ON</div>
-                    <div class="dropdown-item noselect" id="autoscroll-toggle"><span id="autoscroll-toggle-icon" class="fa fa-toggle-on dropdown-icon" aria-hidden="false"></span>Auto-scroll ON</div>
                     <div class="dropdown-item noselect" id="timestamp-toggle"><span id="timestamp-toggle-icon" class="fa fa-clock-o dropdown-icon" aria-hidden="false"></span>Timestamp ON</div>
                     <div class="dropdown-item noselect" id="autopromote-toggle"><span id="autopromote-toggle-icon" class="fa-solid fa-chess-queen dropdown-icon" aria-hidden="false"></span>Promote to Queen OFF</div>
                     <span class="dropdown-item-text noselect" id="textsize-control">
@@ -431,7 +430,10 @@
                     </li>
                   </ul>
                   <br/>
-                  <div class="tab-content d-flex flex-column flex-grow-1" style="min-height: 0" id="chat-tabContent">
+                  <div class="tab-content d-flex flex-column flex-grow-1 position-relative" style="min-height: 0" id="chat-tabContent">
+                    <button id="chat-scroll-button" class="btn btn-info" title="Scroll to bottom">
+                      <span class="fa-solid fa-arrow-down" aria-hidden="false"></span>
+                    </button>
                     <div class="tab-pane chat-text show active" id="content-console" role="tabpanel"></div>
                   </div>
                 </div>

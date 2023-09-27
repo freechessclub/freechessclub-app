@@ -79,6 +79,14 @@ html, body {
   text-decoration: none;
 }
 
+#chat-scroll-button {
+  display: none;
+  position: absolute; 
+  bottom: 10px; 
+  left: 50%; 
+  transform: translateX(-50%);
+}
+
 .counter-bubble {
   fill: red;
 }
