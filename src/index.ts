@@ -67,6 +67,8 @@ let lobbyEntries = new Map();
 let lobbyScrolledToBottom;
 let scrollBarWidth; // Used for sizing the layout
 let noSleep = new NoSleep(); // Prevent screen dimming
+let openings;
+let fetchOpeningsPromise = null;
 
 function cleanupGame() {
   hideButton($('#stop-observing'));
@@ -1257,6 +1259,7 @@ export function parseMovelist(movelist: string) {
           break;
         chess.load(parsedMove.fen);
         game.history.add(parsedMove.move, parsedMove.fen, false, wtime, btime);
+        getOpening();
         updateVariantMoveData();
       }
       if (found.length > 4 && found[4]) {
@@ -1267,6 +1270,7 @@ export function parseMovelist(movelist: string) {
           break;
         chess.load(parsedMove.fen);
         game.history.add(parsedMove.move, parsedMove.fen, false, wtime, btime);
+        getOpening();
         updateVariantMoveData();
       }
       n++;
@@ -1381,6 +1385,7 @@ function messageHandler(data) {
         $('#player-status').css('background-color', '');
         $('#opponent-status').css('background-color', '');
         $('#pairing-pane-status').hide();
+        $('#opening-name').hide();
 
         if(game.isPlaying() || game.isExamining()) {
           clearMatchRequests();
@@ -2221,6 +2226,7 @@ function updateHistory(move?: any, fen?: string) {
       }
 
       game.history.add(move, fen, subvariation, game.wtime, game.btime);
+      getOpening();      
       updateVariantMoveData();
       $('#playing-game').hide();
     }
@@ -2396,6 +2402,7 @@ export function updateBoard(playSound = false) {
   });
 
   showCapturedMaterial(fen);
+  showOpeningName();
 
   if(playSound && soundToggle) {
     clearTimeout(soundTimer);
@@ -2443,6 +2450,25 @@ function startEngine() {
     else
       engine.move(game.fen);
   }
+}
+
+async function showOpeningName() {
+  await fetchOpeningsPromise; // Wait for the openings file to be loaded
+
+  var index = game.history.index();
+  if(index === 0)
+    index = game.history.last();
+
+  var hItem = game.history.get(index);
+  while(!hItem.opening) {
+    index = game.history.prev(index);
+    if(index === undefined)
+      return;
+    hItem = game.history.get(index);
+  }
+
+  $('#opening-name').text(hItem.opening.name);
+  $('#opening-name').show();
 }
 
 function stopEngine() {
@@ -2896,6 +2922,47 @@ function setPanelSizes() {
     $('#notifications').css('width', '50%');
   else if(isLargeWindow()) 
     $('#notifications').width($(document).outerWidth(true) - $('#left-col').outerWidth(true) - $('#mid-col').outerWidth(true));
+}
+
+async function getOpening() {
+  var historyItem = game.history.get();
+  
+  var fetchOpenings = async () => {
+    var inputFilePath = 'assets/data/openings.tsv';
+    openings = new Map();
+    var chess = new Chess();
+    await fetch(inputFilePath)
+    .then(response => response.text())
+    .then(data => {
+      const rows = data.split('\n');
+      for(const row of rows) {
+        var cols = row.split('\t');
+        if(cols.length === 4 && cols[2].startsWith('1.')) {
+          var eco = cols[0];
+          var name = cols[1];
+          var moves = cols[2];
+          var fen = cols[3];
+          var fenNoPlyCounts = fen.split(' ').slice(0, -2).join(' ');
+          openings.set(fenNoPlyCounts, {eco, name, moves}); 
+        }
+      }
+    })
+    .catch(error => {
+      console.error('Couldn\'t fetch opening:', error);
+    });
+  };
+
+  if(!openings && !fetchOpeningsPromise) {
+    fetchOpeningsPromise = fetchOpenings();
+  }
+  await fetchOpeningsPromise;
+
+  var fen = historyItem.fen.split(' ').slice(0, -2).join(' '); // Remove ply counts
+  var opening = null;
+  if(['blitz', 'lightning', 'untimed', 'standard', 'nonstandard'].includes(game.category)) 
+    var opening = openings.get(fen);
+  
+  historyItem.opening = opening;
 }
 
 $(document).ready(() => {

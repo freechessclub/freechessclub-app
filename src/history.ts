@@ -73,7 +73,7 @@ export class History {
 
     this.id++;
 
-    this.moves.splice(this.id, 0, {move, fen, subvariation});
+    this.moves.splice(this.id, 0, {move, fen, subvariation, opening: null});
     this.setClockTimes(this.id, wtime, btime);
 
     if(move)

@@ -49,6 +49,10 @@ html, body {
   color: rgba(80, 80, 120, 0.65);
 }
 
+#opening-name {
+  text-align: center;
+}
+
 #left-panel-bottom {
   height: 192px;
   width: 100%;
