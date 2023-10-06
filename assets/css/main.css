@@ -148,16 +148,17 @@ a.logo img {
     font-size: 7.25vw;
   }
 }
+
+.nav {
+  --bs-nav-link-color: inherit;
+  --bs-nav-link-hover-color: sandybrown;
+}
 .nav-link2,
 .nav-link {
   text-decoration: none;
-  color: inherit;
 }
 .nav-link:not(:first-of-type) {
   margin-left: 20px;
-}
-.nav-link:hover {
-  color: sandybrown;
 }
 .text-center {
   text-align: center;

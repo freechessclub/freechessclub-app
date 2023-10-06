@@ -529,7 +529,7 @@ function createModal(type: string, title: string, msg: string, btnFailure: strin
   }
   req += '</div>';
 
-  if(btnSuccess || btnFailure) {
+  if((btnSuccess && btnSuccess.length === 2) || (btnFailure && btnFailure.length === 2)) {
     req += '<div class="mt-2 pt-2 border-top center">';
     if (btnSuccess && btnSuccess.length === 2) {
       let successCmd = btnSuccess[0];
@@ -1491,22 +1491,22 @@ function messageHandler(data) {
     case MessageType.GameEnd:
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
         // player won
-        $('#player-status').css('background-color', '#d4f9d9');
-        $('#opponent-status').css('background-color', '#f9d4d4');
+        $('#player-status').css('background-color', 'var(--game-win-color)');
+        $('#opponent-status').css('background-color', 'var(--game-lose-color)');
         if (soundToggle) {
           Sounds.winSound.play();
         }
       } else if (data.reason <= 4 && $('#player-name').text() === data.loser) {
         // opponent won
-        $('#player-status').css('background-color', '#f9d4d4');
-        $('#opponent-status').css('background-color', '#d4f9d9');
+        $('#player-status').css('background-color', 'var(--game-lose-color)');
+        $('#opponent-status').css('background-color', 'var(--game-win-color)');
         if (soundToggle) {
           Sounds.loseSound.play();
         }
       } else {
         // tie
-        $('#player-status').css('background-color', '#fcddae');
-        $('#opponent-status').css('background-color', '#fcddae');
+        $('#player-status').css('background-color', 'var(--game-tie-color)');
+        $('#opponent-status').css('background-color', 'var(--game-tie-color)');
       }
 
       showStatusMsg(data.message);

@@ -1,14 +1,23 @@
-.feature3 {
-  background-color: #424242;
-  color: whitesmoke;
+:root {
+  color-scheme: dark;
+  --bg-color: #424242;
+  --bg-color-rgb: 66, 66, 66;
+  --fg-color: whitesmoke;
+  --bs-body-color: var(--fg-color);
+  --bs-body-bg: var(--bg-color);
+  --bs-border-color: #555555;
+  --bs-border-color-translucent: rgba(255, 255, 255, 0.175);
 }
+
 cg-board {
   background-image: url('../images/board/gray.svg');
 }
-.btn-outline-secondary {
-  --bs-btn-color: lightgray; /* Override bs variable rather than style directly so we can refer to it in sub-stles like :hover */
+
+.feature3 {
+  background-color: var(--bg-color);
+  color: var(--fg-color);
 }
-.chat-text,.nav-link,.card-header,.card-footer {
+.chat-text,.card-header,.card-footer {
   color: lightgray;
 }
 .top-panel,.bottom-panel {
@@ -20,3 +29,192 @@ cg-board {
 #game-status,#game-watchers,.chat-text strong.mine {
   color: rgba(240, 159, 67, 0.95);
 }
+
+.text-danger {
+  --bs-danger-rgb: 250, 128, 114;
+}
+.btn-outline-secondary {
+  --bs-btn-color: lightgray; /* Override bs variable rather than style directly so we can refer to it in sub-stles like :hover */
+  --bs-btn-disabled-color: #8E9DA5;
+}
+.toggle-btn-selected.btn-outline-secondary {
+  --bs-btn-bg: #555555;
+}
+.btn-default {
+  --bs-btn-color: lightgray;
+}
+.btn-outline-success {
+  --bs-btn-color: #61cb9a;
+  --bs-btn-border-color: var(--bs-btn-color);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--bs-btn-color);
+  --bs-btn-hover-border-color: var(--bs-btn-color);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--bs-btn-color);
+  --bs-btn-active-border-color: var(--bs-btn-color);
+  --bs-btn-disabled-color: var(--bs-btn-color);
+  --bs-btn-disabled-border-color: var(--bs-btn-color);
+}
+.btn-outline-danger {
+  --bs-btn-color: #f68699;
+  --bs-btn-border-color: var(--bs-btn-color);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--bs-btn-color);
+  --bs-btn-hover-border-color: var(--bs-btn-color);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--bs-btn-color);
+  --bs-btn-active-border-color: var(--bs-btn-color);
+  --bs-btn-disabled-color: var(--bs-btn-color);
+  --bs-btn-disabled-border-color: var(--bs-btn-color);
+}
+
+.form-control,
+.form-control:active,
+.form-control:focus {
+  background-color: #555555; 
+  border-color: #888888;
+  color: lightgray;
+}
+.form-control:disabled {
+  background-color: #777777;
+}
+.form-control::selection {
+  background: #052078;
+}
+.form-control::placeholder {
+  color: #7A8D98;
+}
+.input-group-text {
+  background-color: #777777;
+  border-color: #888888;
+}
+
+.nav {
+  --bs-nav-link-color: lightgray;
+}
+.nav-tabs {
+  --bs-nav-tabs-border-color: #888888;
+  --bs-nav-tabs-link-hover-border-color: #888888 #888888 #666666;
+  --bs-nav-tabs-link-active-border-color: #888888 #888888 #666666;
+  --bs-nav-tabs-link-active-color: lightgray;
+  --bs-nav-tabs-link-active-bg: #555555;
+}
+.nav-pills {
+  --bs-nav-pills-link-active-color: lightgray;
+  --bs-nav-pills-link-active-bg: #555555;
+}
+
+.card {
+  --bs-card-border-color: #555555;
+  --bs-card-cap-bg: rgba(0, 0, 0, 0.06);
+}
+
+.modal {
+  --bs-modal-bg: var(--bg-color);
+}
+
+.history th {
+  color: rgba(255, 255, 255, 0.4);
+}
+.history tr:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+.history .selectable:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+.history .selected {
+  background-color: #606060; 
+}
+.history .subvariation:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+.history .subvariation .selected {
+  background-color: #777777; 
+}
+.history .subvariation td {
+  background: #606060;
+}
+.history .subvariation th {
+  background: #606060;
+}
+.history .subvariation a {
+  color: #DDDDDD
+}
+
+#engine-pvs > li:nth-of-type(even) {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.eval-line-above {
+  stroke: lightsteelblue;
+}
+.eval-line-below {
+  stroke: #614e6e;
+}
+.eval-area-above {
+  fill: #ffab00;
+}
+.eval-area-below {
+  fill: red;
+}
+.eval-axis .tick line {
+  stroke: #555555;
+}
+.eval-circle {
+  stroke: #af9358;
+  fill: white;
+}
+.eval-hover-line {
+  stroke: lightgray;
+}
+#eval-progress .progress {
+  --bs-progress-bg: #555555;
+}
+#eval-progress .progress-bar {
+  --bs-progress-bar-bg: #0d6efd;
+}
+
+.status {
+  --game-tie-color: #654D2F;
+  --game-win-color: #35644D;
+  --game-lose-color: #804545;
+}
+.clock.low-time {
+  color: red;
+}
+
+.toast {
+  --bs-toast-bg: rgba(51, 51, 51, 0.95);
+  --bs-toast-header-bg: #333333;
+  --bs-toast-header-color: #B4C9D2;
+}
+.toast .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+.notification-panel {
+  --bs-toast-bg: #333333;
+  --bs-toast-border-color: #303030;
+}
+#notifications-header {
+  --bs-toast-bg: #383838;
+} 
+
+.popover {
+  --bs-popover-bg: var(--bg-color);
+  --bs-popover-body-color: var(--fg-color);
+}
+
+.dropdown-menu {
+  --bs-dropdown-bg: var(--bg-color);
+  --bs-dropdown-color: var(--fg-color);
+  --bs-dropdown-link-color: var(--fg-color);
+  --bs-dropdown-link-hover-color: white;
+  --bs-dropdown-link-hover-bg: #666666;
+  --bs-dropdown-link-active-color: black;
+  --bs-dropdown-link-active-bg: lightgray;
+  --bs-dropdown-link-disabled-color: #adb5bd;
+  --bs-dropdown-header-color: #8c959d;
+}
+
+

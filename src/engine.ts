@@ -299,7 +299,7 @@ export class EvalEngine {
 
       // Render y-axis
       const yAxis = svg.append('g')
-        .attr('class', 'y-axis noselect')
+        .attr('class', 'eval-axis y-axis noselect')
         .call(d3.axisLeft(yScale).tickSize(-width, 0, 0)); // Create an axis component with d3.axisLeft
       yAxis.select('.domain').remove();
 
@@ -349,6 +349,7 @@ export class EvalEngine {
 
       const hoverLine = svg.append('g')
         .append('rect')
+        .attr('class', 'eval-hover-line')
         .attr('stroke-width', '1px')
         .attr('width', '.5px')
         .attr('height', height)

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
   <title>Free Chess Club: Play Online Chess on the Free Internet Chess Server</title>
   <meta charset="utf-8">
@@ -383,10 +383,10 @@
                     </span>
                     <div class="dropdown-divider"></div>
                     <div class="dropdown-header">Themes</div>
-                    <div class="dropdown-item noselect" style="color: #5789a9; background-color: white" id="colortheme-default" onmouseover="this.style.background='#E4F4FF';" onmouseout="this.style.background='white';"><div class="color-box" style="background-color: #82B1CD"></div>Arctic Blue</div>
-                    <div class="dropdown-item noselect" style="background-color: white" id="colortheme-green" onmouseover="this.style.background='#EAFFEA';" onmouseout="this.style.background='white';"><div class="color-box" style="background-color: #7AAB80"></div>Green Bean</div>
-                    <div class="dropdown-item noselect" style="background-color: white" id="colortheme-yellow" onmouseover="this.style.background='#F4EDE1';" onmouseout="this.style.background='white';"><div class="color-box" style="background-color: #C6AB8E"></div>Coffee & Cream</div>
-                    <div class="dropdown-item noselect" style="background-color: white" id="colortheme-gray" onmouseover="this.style.background='#c9cbd1';" onmouseout="this.style.background='white';"><div class="color-box" style="background-color: #9298a5"></div>Space Gray</div>
+                    <div class="dropdown-item noselect" style="color: #5789a9;" id="colortheme-default" onmouseover="this.style.background='#E4F4FF'; this.style.color='black'" onmouseout="this.style.background=''; this.style.color='';"><div class="color-box" style="background-color: #82B1CD"></div>Arctic Blue</div>
+                    <div class="dropdown-item noselect" id="colortheme-green" onmouseover="this.style.background='#EAFFEA'; this.style.color='black'" onmouseout="this.style.background=''; this.style.color='';"><div class="color-box" style="background-color: #7AAB80"></div>Green Bean</div>
+                    <div class="dropdown-item noselect" id="colortheme-yellow" onmouseover="this.style.background='#F4EDE1'; this.style.color='black'" onmouseout="this.style.background=''; this.style.color='';"><div class="color-box" style="background-color: #C6AB8E"></div>Coffee & Cream</div>
+                    <div class="dropdown-item noselect" id="colortheme-gray" onmouseover="this.style.background='#c9cbd1'; this.style.color='black'" onmouseout="this.style.background=''; this.style.color='';"><div class="color-box" style="background-color: #9298a5"></div>Space Gray</div>
                     <div class="dropdown-header">Pieces</div>
                     <div class="dropdown-item noselect btn-group" role="group" aria-label="Pieces">
                       <button type="button" class="btn btn-outline-secondary" id="pieces-merida"><img src="assets/css/images/pieces/merida/wN.svg" width="36"/></button>
@@ -453,7 +453,7 @@
               <div class="modal-content">
                 <div class="modal-header">
                   <h5 class="modal-title" id="login-modal">Login to FICS</h5>
-                  <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                  <button type="button" class="btn btn-outline-secondary close" data-bs-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                   </button>
                 </div>

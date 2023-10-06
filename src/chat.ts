@@ -328,18 +328,13 @@ export class Chat {
 
   public newNotification(msg: string) {
     if(!msg.startsWith('Notification:') || notificationsToggle) {
-      const currentTab = this.currentTab().toLowerCase().replace(/\s/g, '-');
-      const tab = this.tabs[currentTab];
+      var currentTab = this.currentTab().toLowerCase().replace(/\s/g, '-');
       msg = '<strong class="notification">' + msg + '</strong>';
-
-      let timestamp = '';
-      if (this.timestampToggle) {
-        timestamp = '<span class="timestamp">[' + new Date().toLocaleTimeString() + ']</span> ';
-      }
-      tab.append(timestamp + msg + '</br>');
-    } else {
-      this.newMessage('console', {message: msg});
     }
+    else 
+      var currentTab = 'console';
+
+    this.newMessage(currentTab, {message: msg});
   }
 }
 

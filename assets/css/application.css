@@ -101,7 +101,7 @@ html, body {
 }
 
 .toggle-btn-selected.btn-outline-secondary {
-  background-color: #BBBBBB !important;
+  --bs-btn-bg: #BBBBBB;
 }
 
 .btn-toolbar .btn {
@@ -230,14 +230,17 @@ html, body {
   font-weight: bold;
 }
 
-#left-bottom-tabs .nav-link.active {
-  background-color: #f7f7f7;
-  border-bottom-color: #f7f7f7;
+.nav-tabs {
+  --bs-nav-tabs-link-active-bg: rgba(255, 255, 255, 0.5);
 }
 
-.nav-pills .nav-link.active {
-  color: #6c757d;
-  background-color: #f7f7f7;
+.nav-pills {
+  --bs-nav-pills-link-active-color: #6c757d;
+  --bs-nav-pills-link-active-bg: #f7f7f7;
+}
+
+.nav-pills .nav-link.active,
+.nav-pills .show > .nav-link {
   border: 1px solid rgba(0,0,0,.125);
 }
 
@@ -274,16 +277,16 @@ html, body {
   padding-left: 5px;
 }
 
-ul.list-striped {
+#engine-pvs {
   list-style-type: none;
   margin: 0;
   padding: 0;
   overflow: auto;
 }
-ul.list-striped > li:nth-of-type(even) {
-  background-color: #e9e9f9;
+#engine-pvs > li:nth-of-type(even) {
+  background-color: rgba(0, 0, 0, 0.05);
 }
-ul.list-striped > li {
+#engine-pvs > li {
   padding: 6px;
 }
 
@@ -375,7 +378,7 @@ ul.list-striped > li {
   stroke-width: 0;
 }
 
-.tick line {
+.eval-axis .tick line {
   stroke-width: 1;
   stroke: #DDD;
 }
@@ -417,8 +420,8 @@ ul.list-striped > li {
   width: 100%;
   position: relative;
   z-index: 0;
-  background-color: white;
-  border-color: #DDDDDD;
+  --bs-toast-bg: white;
+  --bs-toast-border-color: #DDDDDD;
 }
 
 #notifications.slide-up {
@@ -437,19 +440,18 @@ ul.list-striped > li {
   transition: opacity 0.8s ease, margin-top 0.8s ease;  
 }
 
-.notification .toast-header {
+.notifications-panel.notification .toast-header {
   padding-top: 6px;
   padding-bottom: 6px;
-  background-color: white;
 }
 
-.notification .toast-body {
+.notifications-panel.notification .toast-body {
   padding-top: 10px;
   padding-bottom: 10px;
 }
 
 #notifications-header {
-  background-color: ghostwhite;
+  --bs-toast-bg: ghostwhite;
 } 
 
 #notifications-header .toast-body {
@@ -468,3 +470,20 @@ ul.list-striped > li {
   padding-bottom: 4px;
 }
 
+.status {
+  --game-tie-color: #fcddae;
+  --game-win-color: #d4f9d9;
+  --game-lose-color: #f9d4d4;
+}
+
+.clock.low-time {
+  color: red; 
+}
+
+.close {
+  padding-left: 6px;
+  padding-right: 6px;
+  padding-top: 1px;
+  padding-bottom: 1px;
+  background-color: rgba(0, 0, 0, 0.05);
+}
