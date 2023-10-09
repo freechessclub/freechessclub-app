@@ -2066,10 +2066,10 @@ autolink-js@freechessclub/autolink-js:
   languageName: node
   linkType: hard
 
-"chessground@npm:^8.3.7":
-  version: 8.3.7
-  resolution: "chessground@npm:8.3.7"
-  checksum: 94889a79f8f1398e2a85956ed3c8a26877717ed8022536da033a6064852a5cb4e528eef5365448f398f0ab78c0c8b2250bb18a8fc804534bbcd78346b195064f
+"chessground@npm:^9.0.4":
+  version: 9.0.4
+  resolution: "chessground@npm:9.0.4"
+  checksum: a2618a41be6c79cfe1c2ec52dfd33febf3de8ba41a907d08917f9ed334b7d4c315fa1ef2ac525ff90a8e0bbf6f80f6e27d101cce82f4dc502948c76438b67d16
   languageName: node
   linkType: hard
 
@@ -4017,7 +4017,7 @@ autolink-js@freechessclub/autolink-js:
     bootstrap: 5.2.3
     cheerio: ^1.0.0-rc.5
     chess.js: ^0.12.1
-    chessground: ^8.3.7
+    chessground: ^9.0.4
     css-loader: ^6.6.0
     d3: ^7.8.0
     electron: ^24.1.3

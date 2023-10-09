@@ -1,6 +1,6 @@
 {
   "name": "freechessclub",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "license": "MIT",
   "description": "Free Chess Club: A modern web client for FICS.",
   "main": "src/app.js",
@@ -53,7 +53,7 @@
     "bootstrap": "5.2.3",
     "cheerio": "^1.0.0-rc.5",
     "chess.js": "^0.12.1",
-    "chessground": "^8.3.7",
+    "chessground": "^9.0.4",
     "d3": "^7.8.0",
     "electron-updater": "^5.3.0",
     "gh-emoji": "^0.2.5",
