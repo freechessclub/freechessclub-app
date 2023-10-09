@@ -49,6 +49,10 @@ html, body {
   color: rgba(80, 80, 120, 0.65);
 }
 
+#opening-name {
+  text-align: center;
+}
+
 #left-panel-bottom {
   height: 192px;
   width: 100%;
@@ -77,6 +81,14 @@ html, body {
 
 .chat-text a {
   text-decoration: none;
+}
+
+#chat-scroll-button {
+  display: none;
+  position: absolute; 
+  bottom: 10px; 
+  left: 50%; 
+  transform: translateX(-50%);
 }
 
 .counter-bubble {

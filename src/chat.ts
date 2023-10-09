@@ -86,20 +86,20 @@ const channels = {
 };
 
 let maximized = false;
+let windowResizing = false;
 
 export class Chat {
   private user: string;
   private userRE: RegExp;
   private tabs: object;
+  private scrolledToBottom: object;
   private emojisLoaded: boolean;
   private maximized: boolean;
-  private autoscrollToggle: boolean;
   private timestampToggle: boolean;
   private unreadNum: number;
 
   constructor(user: string) {
     this.unreadNum = 0;
-    this.autoscrollToggle = (Cookies.get('autoscroll') !== 'false');
     this.timestampToggle = (Cookies.get('timestamp') !== 'false');
     // load emojis
     this.emojisLoaded = false;
@@ -111,34 +111,35 @@ export class Chat {
     this.userRE = new RegExp('\\b' + user + '\\b', 'ig');
 
     // initialize tabs
-    this.tabs = {
-      console: $('#content-console'),
-    };
+    this.tabs = {};
+    this.scrolledToBottom = {};
 
     $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
       this.updateViewedState(tab);
+      var contentPane = $(tab.attr('href'));
+      if(this.scrolledToBottom[contentPane.attr('id')]) 
+        contentPane.scrollTop(contentPane[0].scrollHeight);
+      contentPane.trigger('scroll');
+    });
+
+    $('#chat-scroll-button').on('click', (e) => {
+      var tab = $('.chat-text.active');
+      $('#chat-scroll-button').hide();
+      tab.scrollTop(tab[0].scrollHeight);
+    });
+
+    $(window).on('resize', () => {
+      $('.chat-text.active').trigger('scroll'); // Trigger scroll in case scrollbar appears/disappears
     });
 
     $('#collapse-chat').on('shown.bs.collapse', () => {
-      this.updateViewedState($('#tabs button').filter('.active'));
+      var activeTab = $('#tabs button').filter('.active');
+      activeTab.trigger('shown.bs.tab');
     });
 
     $(document.body).on('click', '#tabs .closeTab', (event) => {
       this.closeTab($(event.target).parent().siblings('.nav-link'));
-    });
-
-    if (!this.autoscrollToggle) {
-      const iconClass = 'dropdown-icon fa fa-toggle-off';
-      $('#autoscroll-toggle').html('<span id="autoscroll-toggle-icon" class="' + iconClass +
-        '" aria-hidden="false"></span>Auto-scroll OFF');
-    }
-    $('#autoscroll-toggle').on('click', (event) => {
-      this.autoscrollToggle = !this.autoscrollToggle;
-      const iconClass = 'dropdown-icon fa fa-toggle-' + (this.autoscrollToggle ? 'on' : 'off');
-      $('#autoscroll-toggle').html('<span id="autoscroll-toggle-icon" class="' + iconClass +
-        '" aria-hidden="false"></span>Auto-scroll ' + (this.autoscrollToggle ? 'ON' : 'OFF'));
-      Cookies.set('autoscroll', String(this.autoscrollToggle), { expires: 365 })
     });
 
     const timestampIcon = '<span id="timestamp-toggle-icon" class="fa fa-clock-o dropdown-icon" aria-hidden="false"></span>';
@@ -205,22 +206,41 @@ export class Chat {
         chName = channels[name];
       }
 
-      $(`<li class="nav-item position-relative">
-          <button class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-` +
-              from + `" id="tab-` + from + `" role="tab" style="padding-right: 30px">` + chName + `
-          </button>   
-          <container class="d-flex align-items-center h-100 position-absolute" style="top: 0; right: 12px; z-index: 10">       
-            <span class="closeTab btn btn-default btn-sm">×</span>
-          </container>
-        </li>`).appendTo('#tabs');
-      $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('#chat-tabContent');
-      const boardHeight = $('#board').height();
-      if (boardHeight) {
-        $('.chat-text').height(boardHeight - 90);
-      } else {
-        $('#content-' + from).height($('#chat-tabContent').height());
+      if(!$('#tabs').find('#tab-' + from).length) {
+        $(`<li class="nav-item position-relative">
+            <button class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-` +
+                from + `" id="tab-` + from + `" role="tab" style="padding-right: 30px">` + chName + `
+            </button>   
+            <container class="d-flex align-items-center h-100 position-absolute" style="top: 0; right: 12px; z-index: 10">       
+              <span class="closeTab btn btn-default btn-sm">×</span>
+            </container>
+          </li>`).appendTo('#tabs');
+        $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('#chat-tabContent');
       }
+
       this.tabs[from] = $('#content-' + from);
+      this.scrolledToBottom['content-' + from] = true;
+
+      var lastWidth, lastHeight;
+      $('#content-' + from).on('scroll', (e) => {
+        var tab = e.target;
+        if($(tab).hasClass('active')) {
+          var atBottom = tab.scrollHeight - tab.clientHeight <= tab.scrollTop + 1;      
+          if(atBottom) {
+            $('#chat-scroll-button').hide();
+            this.scrolledToBottom[$(tab).attr('id')] = true; 
+          }
+          else if(lastWidth === tab.clientWidth && lastHeight === tab.clientHeight) { // Only assume user rmoved scrollbar if window is not resizing
+            this.scrolledToBottom[$(tab).attr('id')] = false; 
+            $('#chat-scroll-button').show();
+          }
+          else if(this.scrolledToBottom[$(tab).attr('id')]) 
+            $(tab).scrollTop(tab.scrollHeight); // Scrollbar moved due to resizing, move it back to the bottom
+
+          lastWidth = tab.clientWidth;
+          lastHeight = tab.clientHeight;
+        }
+      });
     }
 
     if(showTab) {
@@ -298,11 +318,8 @@ export class Chat {
     if(this.user !== data.user)
       this.updateViewedState(tabheader);
     
-    if (tabheader.hasClass('active')) {
-      if (this.autoscrollToggle) {
-        tab.scrollTop(tab[0].scrollHeight);
-      }
-    }
+    if(tab.hasClass('active') && this.scrolledToBottom[tab.attr('id')]) 
+      tab.scrollTop(tab[0].scrollHeight);
   }
 
   private ignoreUnread(from: string) {
@@ -338,12 +355,13 @@ $('#chat-maximize-btn').on('click', () => {
     maximized = false;
   } else {
     $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
-    $('#chat-maximize-btn').attr('data-bs-original-title', 'Minimize');
+    $('#chat-maximize-btn').attr('data-bs-original-title', 'Unmaximize');
+    $('#collapse-chat').collapse('show');
     maximized = true;
   }
   $('#left-col').toggleClass('d-none');
   $('#mid-col').toggleClass('d-none');
-  window.dispatchEvent(new Event('resize'));
+  $(window).trigger('resize');
 });
 
 $('#collapse-chat').on('hidden.bs.collapse', () => {
@@ -356,8 +374,12 @@ $('#collapse-chat').on('shown.bs.collapse', () => {
   scrollToChat();
 });
 
-$('#chat-toggle-btn').on('click', (event) => {
-  $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
+$('#collapse-chat').on('show.bs.collapse', () => {
+  $('#chat-toggle-btn').addClass('toggle-btn-selected');
+});
+
+$('#collapse-chat').on('hide.bs.collapse', () => {
+  $('#chat-toggle-btn').removeClass('toggle-btn-selected');
 });
 
 export default Chat;
