@@ -21,6 +21,11 @@ export function updateWhiteClock(game, wtime?: number) {
 
   const clock = game.color === 'w' ? $('#player-time') : $('#opponent-time');
   clock.text(SToHHMMSS(wtime));
+
+  if(game.wtime < 20) 
+    clock.addClass('low-time');
+  else
+    clock.removeClass('low-time');
 }
 
 export function updateBlackClock(game, btime?: number) {
@@ -29,6 +34,11 @@ export function updateBlackClock(game, btime?: number) {
 
   const clock = game.color === 'b' ? $('#player-time') : $('#opponent-time');
   clock.text(SToHHMMSS(btime));
+
+  if(game.btime < 20) 
+    clock.addClass('low-time');
+  else
+    clock.removeClass('low-time');
 }
 
 export function startBlackClock(game) {
@@ -39,14 +49,11 @@ export function startBlackClock(game) {
 
     game.btime = game.btime - 1;
     const clock = game.color === 'w' ? $('#opponent-time') : $('#player-time');
-    if (game.btime < 20 && clock.css('color') !== 'red') {
-      clock.css('color', 'red');
-    }
-
-    if (game.btime > 20) {
-      clock.css('color', '');
-    }
-
+    if(game.btime < 20) 
+      clock.addClass('low-time');
+    else
+      clock.removeClass('low-time');
+  
     clock.text(SToHHMMSS(game.btime));
   }, 1000);
 }
@@ -59,13 +66,10 @@ export function startWhiteClock(game) {
 
     game.wtime = game.wtime - 1;
     const clock = game.color === 'w' ? $('#player-time') : $('#opponent-time');
-    if (game.wtime < 20 && clock.css('color') !== 'red') {
-      clock.css('color', 'red');
-    }
-
-    if (game.wtime > 20) {
-      clock.css('color', '');
-    }
+    if(game.wtime < 20)
+      clock.addClass('low-time');
+    else
+      clock.removeClass('low-time');
 
     clock.text(SToHHMMSS(game.wtime));
   }, 1000);
