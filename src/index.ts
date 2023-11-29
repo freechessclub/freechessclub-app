@@ -35,6 +35,9 @@ let autoPromoteToggle: boolean = (Cookies.get('autopromote') === 'true');
 let lobbyShowComputersToggle: boolean = (Cookies.get('lobbyshowcomputers') === 'true');
 // toggle for automatically showing new slide-down notifications or notifications in chat channels
 export let notificationsToggle: boolean = (Cookies.get('notifications') !== 'false');
+// toggle for showing highlights/graphics on the board
+let highlightsToggle: boolean = (Cookies.get('highlights') === 'true');
+
 
 let historyRequested = 0;
 let obsRequested = 0;
@@ -309,6 +312,10 @@ function sendMove(move: any) {
 }
 
 const board: any = Chessground(document.getElementById('board'), {
+  highlight: {
+    lastMove: highlightsToggle,
+    check: highlightsToggle
+  },  
   movable: {
     free: false,
     color: undefined,
@@ -2390,6 +2397,7 @@ export function updateBoard(playSound = false) {
   movable = {
     color: movableColor,
     dests,
+    showDests: highlightsToggle,
     rookCastle: game.category === 'wild/fr'
   };
 
@@ -3280,31 +3288,28 @@ function updateDropdownSound() {
     '" aria-hidden="false"></span>Sounds ' + (soundToggle ? 'ON' : 'OFF'));
 }
 
-updateDropdownNotifications();
+$('#notifications-toggle').prop('checked', notificationsToggle);
 $('#notifications-toggle').on('click', (event) => {
   notificationsToggle = !notificationsToggle;
-  updateDropdownNotifications();
   Cookies.set('notifications', String(notificationsToggle), { expires: 365 })
 });
-function updateDropdownNotifications() {
-  const iconClass = 'dropdown-icon fa fa-bell' + (notificationsToggle ? '' : '-slash');
-  $('#notifications-toggle').html('<span id="notifications-toggle-icon" class="' + iconClass +
-    '" aria-hidden="false"></span>Notifications ' + (notificationsToggle ? 'ON' : 'OFF'));
-  $('#notifications-icon').removeClass(notificationsToggle ? 'fa-bell-slash' : 'fa-bell');
-  $('#notifications-icon').addClass(notificationsToggle ? 'fa-bell' : 'fa-bell-slash');
-}
 
-updateDropdownAutoPromote();
+$('#autopromote-toggle').prop('checked', autoPromoteToggle);
 $('#autopromote-toggle').on('click', (event) => {
   autoPromoteToggle = !autoPromoteToggle;
-  updateDropdownAutoPromote();
   Cookies.set('autopromote', String(autoPromoteToggle), { expires: 365 })
 });
-function updateDropdownAutoPromote() {
-  const iconClass = 'fa-solid fa-chess-queen';
-  $('#autopromote-toggle').html('<span id="autopromote-toggle-icon" class="' + iconClass +
-  ' dropdown-icon" aria-hidden="false"></span>Promote to Queen ' + (autoPromoteToggle ? 'ON' : 'OFF'));
-}
+
+$('#highlights-toggle').prop('checked', highlightsToggle);
+$('#highlights-toggle').on('click', (event) => {
+  highlightsToggle = !highlightsToggle;
+  board.set({ highlight: {
+    lastMove: highlightsToggle,
+    check: highlightsToggle
+  } });
+  Cookies.set('highlights', String(highlightsToggle), { expires: 365 })
+});
+
 
 $('#disconnect').on('click', (event) => {
   if (session) {

@@ -142,13 +142,9 @@ export class Chat {
       this.closeTab($(event.target).parent().siblings('.nav-link'));
     });
 
-    const timestampIcon = '<span id="timestamp-toggle-icon" class="fa fa-clock-o dropdown-icon" aria-hidden="false"></span>';
-    if (!this.timestampToggle) {
-      $('#timestamp-toggle').html(timestampIcon + 'Timestamp OFF');
-    }
+    $('#timestamp-toggle').prop('checked', this.timestampToggle);
     $('#timestamp-toggle').on('click', (event) => {
       this.timestampToggle = !this.timestampToggle;
-      $('#timestamp-toggle').html(timestampIcon + 'Timestamp ' + (this.timestampToggle ? 'ON' : 'OFF'));
       Cookies.set('timestamp', String(this.timestampToggle), { expires: 365 })
     });
   }

@@ -368,6 +368,72 @@
                 <button id="chat-maximize-btn" class="btn btn-outline-secondary btn-md" type="button" title="Maximize Chat">
                   <span id="chat-maximize-icon" class="fa fa-toggle-left" aria-hidden="false"></span>
                 </button>
+                <div class="modal fade" id="settings-modal" tabindex="-1" aria-labelledby="settings-modal-label" aria-hidden="true">
+                  <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-title" id="settings-modal-label"><span class="fa fa-gear" aria-hidden="false"></span> Advanced Settings</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body">
+                        <form>
+                          <div class="form-group row">
+                            <div class="col">
+                              <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="autopromote-toggle" checked>
+                                <label class="form-check-label" for="autopromote-toggle"><span id="autopromote-toggle-icon" class="fa fa-chess-queen dropdown-icon" aria-hidden="false"></span>Auto-promote to Queen</label>
+                              </div>
+                            </div>
+                          </div>
+                          <hr/>
+                          <div class="form-group row">
+                            <div class="col">
+                              <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="notifications-toggle" checked>
+                                <label class="form-check-label" for="notifications-toggle"><span id="notifications-toggle-icon" class="fa fa-bell dropdown-icon" aria-hidden="false"></span>Notifications</label>
+                              </div>
+                            </div>
+                            <div class="col">
+                              <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="timestamp-toggle" checked>
+                                <label class="form-check-label" for="timestamp-toggle"><span id="timestamp-toggle-icon" class="fa fa-clock-o dropdown-icon" aria-hidden="false"></span>Timestamp</label>
+                              </div>
+                            </div>
+                          </div>
+                          <hr/>
+                          <div class="form-group row">
+                            <div class="col" id="textsize-control">
+                              <input type="range" class="custom-range" value="1" min="0.8" max="1.4" step="0.2" id="textsize-range">
+                              <label for="textsize-range">Text Size</label>
+                            </div>
+                            <div class="col">
+                              <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="highlights-toggle" checked>
+                                <label class="form-check-label" for="highlights-toggle"><span id="highlights-toggle-icon" class="fa fa-arrows-spin dropdown-icon" aria-hidden="false"></span>Board Highlights</label>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="form-group row">
+                            <label for="themes-btn-group" class="col-form-label">Themes</label>
+                            <div class="btn-group" role="group" aria-label="Themes">
+                              <button type="button" class="btn btn-outline-dark col" style="background-color: #82B1CD" id="colortheme-default">Arctic Blue</button>
+                              <button type="button" class="btn btn-outline-dark col" style="background-color: #7AAB80" id="colortheme-green">Green Bean</button>
+                              <button type="button" class="btn btn-outline-dark col" style="background-color: #C6AB8E" id="colortheme-yellow">Coffee & Cream</button>
+                              <button type="button" class="btn btn-outline-dark col" style="background-color: #9298a5" id="colortheme-gray">Space Gray</button>
+                            </div>
+                          </div>
+                          <div class="form-group row">
+                            <label for="pieces-btn-group" class="col-form-label">Pieces</label>
+                            <div class="btn-group" id="pieces-btn-group" role="group" aria-label="Pieces">
+                              <button type="button" class="btn btn-outline-secondary" id="pieces-merida"><img src="assets/css/images/pieces/merida/wN.svg" width="36"/></button>
+                              <button type="button" class="btn btn-outline-secondary" id="pieces-cburnett"><img src="assets/css/images/pieces/cburnett/wN.svg" width="36"/></button>
+                            </div>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div id="settings-dropdown" class="dropdown" data-bs-toggle="tooltip" data-bs-placement="left" title="Settings">
                   <button class="btn btn-outline-secondary btn-md dropdown-toggle hide-caret" type="button" id="settingsButton" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Settings">
                     <span class="fa fa-gear" aria-hidden="false"></span>
@@ -375,23 +441,7 @@
                   <div class="dropdown-menu dropdown-menu-right" aria-labelledby="settingsButton">
                     <div class="dropdown-item noselect" id="flip-toggle"><span id="flip-toggle-icon" class="fa fa-refresh dropdown-icon" aria-hidden="false"></span>Flip Board</div>
                     <div class="dropdown-item noselect" id="sound-toggle"><span id="sound-toggle-icon" class="fa fa-volume-up dropdown-icon" aria-hidden="false"></span>Sounds ON</div>
-                    <div class="dropdown-item noselect" id="notifications-toggle"><span id="notifications-toggle-icon" class="fa fa-bell dropdown-icon" aria-hidden="false"></span>Notifications ON</div>
-                    <div class="dropdown-item noselect" id="timestamp-toggle"><span id="timestamp-toggle-icon" class="fa fa-clock-o dropdown-icon" aria-hidden="false"></span>Timestamp ON</div>
-                    <div class="dropdown-item noselect" id="autopromote-toggle"><span id="autopromote-toggle-icon" class="fa-solid fa-chess-queen dropdown-icon" aria-hidden="false"></span>Promote to Queen OFF</div>
-                    <span class="dropdown-item-text noselect" id="textsize-control">
-                      <label for="textsize-range">Text Size</label><input type="range" class="custom-range ms-2 align-middle" value="1" min="0.8" max="1.4" step="0.2" id="textsize-range">
-                    </span>
-                    <div class="dropdown-divider"></div>
-                    <div class="dropdown-header">Themes</div>
-                    <div class="dropdown-item noselect" style="color: #5789a9;" id="colortheme-default" onmouseover="this.style.background='#E4F4FF'; this.style.color='black'" onmouseout="this.style.background=''; this.style.color='';"><div class="color-box" style="background-color: #82B1CD"></div>Arctic Blue</div>
-                    <div class="dropdown-item noselect" id="colortheme-green" onmouseover="this.style.background='#EAFFEA'; this.style.color='black'" onmouseout="this.style.background=''; this.style.color='';"><div class="color-box" style="background-color: #7AAB80"></div>Green Bean</div>
-                    <div class="dropdown-item noselect" id="colortheme-yellow" onmouseover="this.style.background='#F4EDE1'; this.style.color='black'" onmouseout="this.style.background=''; this.style.color='';"><div class="color-box" style="background-color: #C6AB8E"></div>Coffee & Cream</div>
-                    <div class="dropdown-item noselect" id="colortheme-gray" onmouseover="this.style.background='#c9cbd1'; this.style.color='black'" onmouseout="this.style.background=''; this.style.color='';"><div class="color-box" style="background-color: #9298a5"></div>Space Gray</div>
-                    <div class="dropdown-header">Pieces</div>
-                    <div class="dropdown-item noselect btn-group" role="group" aria-label="Pieces">
-                      <button type="button" class="btn btn-outline-secondary" id="pieces-merida"><img src="assets/css/images/pieces/merida/wN.svg" width="36"/></button>
-                      <button type="button" class="btn btn-outline-secondary" id="pieces-cburnett"><img src="assets/css/images/pieces/cburnett/wN.svg" width="36"/></button>
-                    </div>
+                    <div class="dropdown-item noselect" id="advanced-settings" data-bs-toggle="modal" data-bs-target="#settings-modal"><span id="advanced-settings-icon" class="fa-solid fa-gears dropdown-icon" aria-hidden="false"></span>Advanced</div>
                     <div class="dropdown-divider"></div>
                     <div class="dropdown-item disabled noselect" id="version"></div>
                   </div>
