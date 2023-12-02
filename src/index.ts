@@ -36,8 +36,9 @@ let lobbyShowComputersToggle: boolean = (Cookies.get('lobbyshowcomputers') === '
 // toggle for automatically showing new slide-down notifications or notifications in chat channels
 export let notificationsToggle: boolean = (Cookies.get('notifications') !== 'false');
 // toggle for showing highlights/graphics on the board
-let highlightsToggle: boolean = (Cookies.get('highlights') === 'true');
-
+let highlightsToggle: boolean = (Cookies.get('highlights') !== 'false');
+// toggle for showing highlights/graphics on the board
+let wakelockToggle: boolean = (Cookies.get('wakelock') !== 'false');
 
 let historyRequested = 0;
 let obsRequested = 0;
@@ -2983,7 +2984,9 @@ $(document).ready(() => {
 
 // Prevent screen dimming, must be enabled in a user input event handler
 $(document).one('click', (event) => {
-  noSleep.enable();
+  if (wakelockToggle) {
+    noSleep.enable();
+  }
 });
 
 $(window).on('load', function() {
@@ -3310,6 +3313,16 @@ $('#highlights-toggle').on('click', (event) => {
   Cookies.set('highlights', String(highlightsToggle), { expires: 365 })
 });
 
+$('#wakelock-toggle').prop('checked', wakelockToggle);
+$('#wakelock-toggle').on('click', (event) => {
+  wakelockToggle = !wakelockToggle;
+  if (wakelockToggle) {
+    noSleep.enable();
+  } else {
+    noSleep.disable();
+  }
+  Cookies.set('wakelock', String(wakelockToggle), { expires: 365 })
+});
 
 $('#disconnect').on('click', (event) => {
   if (session) {
