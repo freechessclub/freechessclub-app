@@ -39,6 +39,8 @@ export let notificationsToggle: boolean = (Cookies.get('notifications') !== 'fal
 let highlightsToggle: boolean = (Cookies.get('highlights') !== 'false');
 // toggle for showing highlights/graphics on the board
 let wakelockToggle: boolean = (Cookies.get('wakelock') !== 'false');
+// toggle for creating a window for chat
+export let chattabsToggle: boolean = (Cookies.get('chattabs') !== 'false');
 
 let historyRequested = 0;
 let obsRequested = 0;
@@ -3322,6 +3324,12 @@ $('#wakelock-toggle').on('click', (event) => {
     noSleep.disable();
   }
   Cookies.set('wakelock', String(wakelockToggle), { expires: 365 })
+});
+
+$('#chattabs-toggle').prop('checked', chattabsToggle);
+$('#chattabs-toggle').on('click', (event) => {
+  chattabsToggle = !chattabsToggle;
+  Cookies.set('chattabs', String(chattabsToggle), { expires: 365 })
 });
 
 $('#disconnect').on('click', (event) => {

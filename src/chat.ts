@@ -5,7 +5,7 @@
 import Cookies from 'js-cookie';
 import { autoLink } from 'autolink-js';
 import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
-import { notificationsToggle, scrollToBoard, isSmallWindow } from './index';
+import { notificationsToggle, scrollToBoard, isSmallWindow, chattabsToggle } from './index';
 
 // list of channels
 const channels = {
@@ -152,7 +152,7 @@ export class Chat {
   private updateViewedState(tab: any, closingTab: boolean = false) {
     if(!tab.hasClass('tab-unviewed') && !closingTab && (!tab.hasClass('active') || !$('#collapse-chat').hasClass('show')) && tab.attr('id') !== 'tab-console') {
       // Add unread number to chat-toggle-icon
-      if(!this.ignoreUnread(tab.attr('id').split(/-(.*)/)[1])) { // only add if a private message
+      if(tab.attr('id') !== undefined && !this.ignoreUnread(tab.attr('id').split(/-(.*)/)[1])) { // only add if a private message
         if(this.unreadNum === 0)
           $('#chat-unread-bubble').show();
         this.unreadNum++;
@@ -269,20 +269,28 @@ export class Chat {
         '">' + chName + '</a>');
       $('#ch-' + ch).on('click', (event) => {
         event.preventDefault();
+        if (!chattabsToggle) {
+          ch = 'console';
+        }
         this.createTab(ch, true);
       });
     });
   }
 
   public newMessage(from: string, data: any) {
-    const tab = this.createTab(from);
+    let tabName = chattabsToggle ? from : 'console';
+    const tab = this.createTab(tabName);
     let who = '';
     if (data.user !== undefined) {
       let textclass = '';
       if (this.user === data.user) {
         textclass = ' class="mine"';
       }
-      who = '<strong' + textclass + '>' + $('<span/>').text(data.user).html() + '</strong>: ';
+      let prompt = data.user;
+      if (!chattabsToggle && data.channel !== undefined) {
+        prompt += '(' + data.channel + ')';
+      }
+      who = '<strong' + textclass + '>' + $('<span/>').text(prompt).html() + '</strong>: ';
     }
 
     let text = data.message;
