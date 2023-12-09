@@ -61,3 +61,8 @@ $('#pieces-cburnett').on('click', (event) => {
   $('#piece').attr('href', 'assets/css/pieces/cburnett.css');
   Cookies.set('piece', 'cburnett', { expires: 365 });
 });
+
+$('#pieces-alpha').on('click', (event) => {
+  $('#piece').attr('href', 'assets/css/pieces/alpha.css');
+  Cookies.set('piece', 'alpha', { expires: 365 });
+});
