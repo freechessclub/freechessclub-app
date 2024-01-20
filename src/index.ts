@@ -75,6 +75,7 @@ let scrollBarWidth; // Used for sizing the layout
 let noSleep = new NoSleep(); // Prevent screen dimming
 let openings;
 let fetchOpeningsPromise = null;
+let isRegistered = false;
 
 function cleanupGame() {
   hideButton($('#stop-observing'));
@@ -1404,7 +1405,7 @@ function messageHandler(data) {
       if (!session.isConnected() && data.command === 1) {
         cleanup();
         disableOnlineInputs(false);
-        session.setUser(data.control);
+        session.setUser(data.control); 
         if (!chat) {
           chat = new Chat(data.control);
         }
@@ -1425,9 +1426,12 @@ function messageHandler(data) {
           initObservePane();
         else if($('#pills-examine').hasClass('active'))
           initExaminePane();
-        else if($('#pills-play').hasClass('active') && $('#pills-lobby').hasClass('active'))
-          initLobbyPane();
-
+        else if($('#pills-play').hasClass('active')) {
+          if($('#pills-lobby').hasClass('active'))
+            initLobbyPane();
+          else if($('#pills-pairing').hasClass('active'))
+            initPairingPane();
+        }         
       } else if (data.command === 2) {
         session.disconnect();
         $('#chat-status').popover({
@@ -2718,6 +2722,25 @@ function getValue(elt: string): string {
     $('#opponent-player-name').attr('placeholder', 'Anyone');
 };
 
+(window as any).setNewGameRated = (option: string) => {
+  if(!session.isRegistered() && option === 'Rated') {
+    $('#rated-unrated-menu').popover({
+      animation: true,
+      content: 'You must be registered to play rated games. <a href="https://www.freechess.org/cgi-bin/Register/FICS_register.cgi?Language=English" target="_blank">Register now</a>.',
+      html: true,
+      placement: 'top',
+    });
+    $('#rated-unrated-menu').popover('show');
+    return;
+  }
+
+  $('#rated-unrated-button').text(option);
+};
+
+(window as any).setNewGameColor = (option: string) => {
+  $('#player-color-button').text(option);
+};
+
 $('#input-form').on('submit', (event) => {
   event.preventDefault();
   let text;
@@ -2993,7 +3016,7 @@ function setPanelSizes() {
     const leftPanelBorder = $('#left-panel').outerHeight() - $('#left-panel').height();
 
     if(isSmallWindow()) 
-      $('#left-panel').height(430);
+      $('#left-panel').css('height', ''); // Reset back to CSS defined height
     else {
       var leftPanelHeight = boardHeight - leftPanelBorder - siblingsHeight;
       $('#left-panel').height(Math.max(leftPanelHeight, 0));
@@ -3205,13 +3228,21 @@ function getGame(min: number, sec: number) {
   let opponent = getValue('#opponent-player-name')
   opponent = opponent.trim().split(/\s+/)[0];
   $('#opponent-player-name').val(opponent);
-  
+
+  var ratedUnrated = ($('#rated-unrated-button').text() === 'Rated' ? 'r' : 'u');
+  var colorName = $('#player-color-button').text();
+  var color = '';
+  if(colorName === 'White')
+    color = 'W ';
+  else if(colorName === 'Black')
+    color = 'B ';
+
   matchRequested++;
 
   const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek'; 
   if(game.isExamining())
     session.send('unex'); 
-  session.send(cmd + ' ' + min + ' ' + sec + ' ' + newGameVariant);
+  session.send(cmd + ' ' + min + ' ' + sec + ' ' + ratedUnrated + ' ' + color + newGameVariant);
 }
 (window as any).getGame = getGame;
 
@@ -3533,6 +3564,14 @@ export function isLargeWindow(size?: number) {
   return size >= 992;
 }
 
+// Hide popover if user clicks anywhere outside
+$('body').on('click', function (e) {
+  if(!$('#rated-unrated-menu').is(e.target) 
+      && $('#rated-unrated-menu').has(e.target).length === 0
+      && $('.popover').has(e.target).length === 0)
+    $('#rated-unrated-menu').popover('dispose');
+});
+
 $(window).on('resize', () => {
   if(!$('#mid-col').is(':visible'))
     layout = Layout.ChatMaximized;
@@ -3735,10 +3774,16 @@ $('#left-bottom-tabs .closeTab').on('click', (event) => {
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-play"]', (e) => {
   if($('#pills-lobby').hasClass('active'))
     initLobbyPane();
+  else if($('#pills-pairing').hasClass('active'))
+    initPairingPane();
 });
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => {
   initLobbyPane();
+});
+
+$(document).on('shown.bs.tab', 'button[data-bs-target="#pills-pairing"]', (e) => {
+  initPairingPane();
 });
 
 function initLobbyPane() {
@@ -3762,6 +3807,15 @@ function initLobbyPane() {
     lobbyEntries.clear();
     session.send('iset seekremove 1');
     session.send('iset seekinfo 1');
+  }
+}
+
+function initPairingPane() {
+  // If user has changed from unregistered to registered or vice versa, set Rated/Unrated option
+  // in pairing panel appopriately. 
+  if(session && isRegistered !== session.isRegistered()) {  
+    isRegistered = session.isRegistered();      
+    $('#rated-unrated-button').text((isRegistered ? 'Rated' : 'Unrated'));
   }
 }
 

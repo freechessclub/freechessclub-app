@@ -53,6 +53,10 @@ html, body {
   text-align: center;
 }
 
+#left-panel {
+  height: 460px;
+}
+
 #left-panel-bottom {
   height: 192px;
   width: 100%;
