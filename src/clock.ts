@@ -54,7 +54,7 @@ export class Clock {
   }
 
   public setClock(color: string, time?: number) {
-    if(time === undefined || time === null)
+    if(time === undefined)
       time = (color === 'w' ? this.game.wtime : this.game.btime);
 
     if(this.getRunningClock() === color)
@@ -69,9 +69,11 @@ export class Clock {
   }
 
   private updateClockElement(color: string, time: number) {
+    if(time === null)
+      time = 0;
+    
     const clockElement = this.game.color === color ? $('#player-time') : $('#opponent-time');
-    //var sec = Math.abs(time < 0 ? Math.ceil(time / 1000) : Math.floor(time / 1000));
-    //clockElement.text((time < 0 ? '-' : '') + Clock.SToHHMMSS(sec)); // Add the - sign on separately to allow for -00:00
+    
     clockElement.text(Clock.MSToHHMMSS(time));
 
     if(time >= 20000)
@@ -88,7 +90,11 @@ export class Clock {
 
   public startClock(color: string) {
     this.stopClocks();
+        
     var initialTime = (color === 'w' ? this.wtime : this.btime);
+    if(initialTime === null) // player is untimed
+      return;
+
     this.runningClock = color;
 
     // The timer waits a fractional amount until the next second ticks over
@@ -136,15 +142,19 @@ export class Clock {
   }
 
   public getWhiteTime(): number {
-    if(this.getRunningClock() === 'w')
+    if(this.getRunningClock() === 'w') {
+      console.log('HERE WHITE');
       return this.wtime - (performance.now() - this.timestamp);
+    }
     else
       return this.wtime;
   }
 
   public getBlackTime(): number {
-    if(this.getRunningClock() === 'b')
+    if(this.getRunningClock() === 'b') {
+      console.log('HERE BLACK');
       return this.btime - (performance.now() - this.timestamp);
+    }
     else
       return this.btime;
   }

@@ -4,7 +4,7 @@
 
 import Session from './session';
 
-enum Reason {
+export enum Reason {
   Unknown = 0,
   Resign,
   Disconnect,

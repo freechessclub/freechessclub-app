@@ -9,7 +9,8 @@ export const Role = {
   OPPONENTS_MOVE: -1,       // I am playing, it is my opponent's move
   MY_MOVE: 1,               // I am playing and it is my move
   OBSERVING: 0,             // I am observing a game being played
-  NONE: -999                // I am not in any game state
+  NONE: -999,               // I am not in any game state
+  PLAYING_COMPUTER: -998    // I am playing the Computer locally
 };
 
 class GameData {
@@ -38,12 +39,14 @@ class GameData {
     milliseconds: number,
   };
   move: string;                         // pretty notation for the previous move ("none" if there is none)
-  flip: boolean;                        // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.
+  flip: boolean = false;                // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.
   wrating: string                       // white's rating
   brating: string                       // black's rating
   category: string                      // category or variant
+  color: string = 'w';
+  difficulty: number;  // computer difficulty level
 
-  public isPlaying() { return this.role === Role.MY_MOVE || this.role === Role.OPPONENTS_MOVE; }
+  public isPlaying() { return this.role === Role.MY_MOVE || this.role === Role.OPPONENTS_MOVE || this.role === Role.PLAYING_COMPUTER; }
   public isExamining() { return this.role === Role.EXAMINING; }
   public isObserving() { return this.role === Role.OBSERVING || this.role === Role.OBS_EXAMINED; }
 }
@@ -53,7 +56,6 @@ class Game extends GameData {
   playerCaptured: any = {};
   oppCaptured: any = {};
   chess: any = null;
-  color = 'w';
   history: any = null;
   watchers: any = null;
 }

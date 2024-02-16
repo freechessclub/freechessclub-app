@@ -14,6 +14,7 @@ import { game, Role } from './game';
 import History from './history';
 import { GetMessageType, MessageType, Session } from './session';
 import * as Sounds from './sounds';
+import { Reason } from './parser';
 import './ui';
 import packageInfo from '../package.json';
 
@@ -27,6 +28,7 @@ let session: Session;
 let chat: Chat;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
+let playEngine: Engine | null;
 let clock: Clock | null;
 
 // toggle game sounds
@@ -78,12 +80,26 @@ let noSleep = new NoSleep(); // Prevent screen dimming
 let openings;
 let fetchOpeningsPromise = null;
 let isRegistered = false;
+let lastComputerGame = null; // Attributes of the last game played against the Computer. Used for Rematch and alternating colors each game.
+let lastComputerMoveEval = null; // Keeps track of the current eval for a game against the Computer. Used for draw offers
 
 function cleanupGame() {
+  if(game.role === Role.PLAYING_COMPUTER)
+    return;
+
+  game.role = Role.NONE;
+
+  if(playEngine) {
+    playEngine.terminate();
+    playEngine = null;
+  }
+
   hideButton($('#stop-observing'));
   hideButton($('#stop-examining'));
   hideCloseGamePanel();
   hidePromotionPanel();
+  $('#takeback').prop('disabled', false);
+  $('#play-computer').prop('disabled', false);  
   $('#playing-game-buttons').hide();
   $('#viewing-game-buttons').show();
   $('#lobby-pane-status').hide();
@@ -98,7 +114,6 @@ function cleanupGame() {
   game.id = 0;
   delete game.chess;
   game.chess = null;
-  game.role = Role.NONE;
   board.cancelMove();
   updateBoard();
   if($('#left-panel-bottom').is(':visible'))
@@ -127,7 +142,9 @@ export function cleanup() {
 }
 
 export function disableOnlineInputs(disable: boolean) {
-  $('#pills-play *').prop('disabled', disable);
+  $('#pills-pairing *').prop('disabled', disable);
+  $('#pills-lobby *').prop('disabled', disable);
+  $('#quick-game').prop('disabled', disable);
   $('#pills-examine *').prop('disabled', disable);
   $('#pills-observe *').prop('disabled', disable);
   $('#chan-dropdown *').prop('disabled', disable);
@@ -137,8 +154,16 @@ export function disableOnlineInputs(disable: boolean) {
 function initCategory() {
   // Check if game category (variant) is supported by Engine
   if(Engine.categorySupported(game.category)) {
-    if(!evalEngine)
-      evalEngine = new EvalEngine(game.history, {UCI_Chess960: game.category === 'wild/fr'});
+    if(!evalEngine) {
+      // Configure for variants
+      var options = {};
+      if(game.category === 'wild/fr')
+        options['UCI_Chess960'] = true;
+      else if(game.category === 'crazyhouse')
+        options['UCI_Variant'] = game.category;
+      
+      evalEngine = new EvalEngine(game.history, options);
+    }
     showAnalyzeButton();
   }
   else 
@@ -457,6 +482,8 @@ function movePieceAfter(move: any, fen?: string) {
 
   board.playPremove();
   board.playPredrop(() => true);
+
+  checkGameEnd(); // Check whether game is over when playing against computer (offline mode)
 }
 
 export function movePiece(source: any, target: any, metadata: any) {
@@ -495,7 +522,7 @@ export function movePiece(source: any, target: any, metadata: any) {
 
     chess.load(fen);
 
-    if (game.isPlaying() && game.chess.turn() !== game.color)
+    if (game.isPlaying() && game.chess.turn() !== game.color && game.role !== Role.PLAYING_COMPUTER)
       sendMove(move);
    
     if(game.isExamining()) {
@@ -509,9 +536,15 @@ export function movePiece(source: any, target: any, metadata: any) {
     hitClock(false);
   }
 
+  game.wtime = clock.getWhiteTime();
+  game.btime = clock.getBlackTime();
+
   promotePiece = null;  
   if (move !== null)
     movePieceAfter(move, fen);
+
+  if(game.role === Role.PLAYING_COMPUTER) // Send move to engine in Play Computer mode
+    playEngine.move(game.history.last());
 
   showTab($('#pills-game-tab'));
   // Show 'Analyze' button once any moves have been made on the board
@@ -958,7 +991,7 @@ function joinFEN(obj: any) {
 
 export function parseMove(fen: string, move: any, category: string) {
   // Parse variant move
-  if(category.includes('wild') || category.includes('house'))
+  if(category.includes('wild') || category.includes('house')) 
     return parseVariantMove(fen, move, category);
 
   // Parse standard move
@@ -1225,9 +1258,10 @@ function parseVariantMove(fen: string, move: any, category: string) {
   // Post-processing on FEN after calling chess.move() 
   var beforePost = splitFEN(outFen); // Stores FEN components before post-processing starts
   var afterPost = Object.assign({}, beforePost); // Stores FEN components after post-processing is completed
-
+  
   if(category === 'crazyhouse' || category === 'bughouse') {
-    outFen = outFen.replace(/\s+\d+\s+(\d+)/, ' 0 $1'); // FICS doesn't use the 'irreversable moves count' for crazyhouse/bughouse, so set it to 0
+    afterPost.plyClock = '0'; // FICS doesn't use the 'irreversable moves count' for crazyhouse/bughouse, so set it to 0
+    
     // Check if it's really mate, i.e. player can't block with a held piece
     // (Yes this is a lot of code for something so simple)
     if(chess.in_checkmate()) {
@@ -1458,16 +1492,32 @@ function messageHandler(data) {
           session.send('unex');
         else if(game.isObserving()) 
           session.send('unobs ' + game.id);
-        gameChangePending = true;
-        break;
+                
+        if(data.role === Role.PLAYING_COMPUTER)
+          cleanupGame();  
+        else {
+          gameChangePending = true;
+          break;
+        }
+      }
+      else if(game.role === Role.PLAYING_COMPUTER && data.role !== Role.PLAYING_COMPUTER) {
+        game.role = Role.NONE;
+        cleanupGame(); // Allow player to imemediately play/examine/observe a game at any time while playing the Computer. The Computer game will simply be aborted.
       }
 
       Object.assign(game, data);
-      const amIblack = game.bname === session.getUser();
-      const amIwhite = game.wname === session.getUser();
+
+      var amIblack = game.bname === session.getUser();
+      var amIwhite = game.wname === session.getUser();
+      if(Role.PLAYING_COMPUTER && game.color === 'b')
+        amIblack = true;  
 
       if (game.chess === null) {
-        game.chess = new Chess();
+        if(getPlyFromFEN(game.fen) === 1)
+          game.chess = new Chess(game.fen);
+        else
+          game.chess = new Chess();
+
         hidePromotionPanel();
         board.cancelMove();
 
@@ -1506,19 +1556,22 @@ function messageHandler(data) {
 
         if(game.isPlaying() || game.isExamining()) {
           clearMatchRequests();
-          session.send('allobs ' + game.id);
-          if(game.isPlaying()) {
-            game.watchers = setInterval(() => {
-              const time = game.color === 'b' ? game.btime : game.wtime;
-              if (time > 60000) {
+ 
+          if(game.role !== Role.PLAYING_COMPUTER) {
+            session.send('allobs ' + game.id);
+            if(game.isPlaying()) {
+              game.watchers = setInterval(() => {
+                const time = game.color === 'b' ? game.btime : game.wtime;
+                if (time > 60000) {
+                  session.send('allobs ' + game.id);
+                }
+              }, 90000); // 90000 seems a bit slow
+            }
+            else {
+              game.watchers = setInterval(() => {
                 session.send('allobs ' + game.id);
-              }
-            }, 90000); // 90000 seems a bit slow
-          }
-          else {
-            game.watchers = setInterval(() => {
-              session.send('allobs ' + game.id);
-            }, 5000);
+              }, 5000);
+            }
           }
         }
 
@@ -1532,8 +1585,34 @@ function messageHandler(data) {
 
         // Adjust settings for game category (variant)
         // When examining we do this after requesting the movelist (since the category is told to us by the 'moves' command)
-        if(game.isPlaying() || game.isObserving())
+        if(game.isPlaying() || game.isObserving()) {
           initCategory();
+
+          if(game.isPlaying()) {
+            $('#viewing-game-buttons').hide();
+            $('#playing-game').hide();
+            $('#playing-game-buttons').show();
+
+            if (soundToggle) {
+              Sounds.startSound.play();
+            }
+
+            if(game.role === Role.PLAYING_COMPUTER) { // Play Computer mode
+              $('#takeback').prop('disabled', true);
+
+              playEngine = new Engine(game.history, playComputerBestMove, null, getPlayComputerEngineOptions(), getPlayComputerMoveParams());
+              if(amIblack) 
+                playEngine.move(0); 
+            } 
+            else {            
+              $('#play-computer').prop('disabled', true);              
+              if (game.wname === session.getUser()) 
+                chat.createTab(game.bname);
+              else 
+                chat.createTab(game.wname);
+            }
+          }
+        }
 
         if (game.role === Role.NONE || game.isObserving() || game.isExamining()) {
           if(game.isExamining() || game.isObserving()) {      
@@ -1570,17 +1649,17 @@ function messageHandler(data) {
         scrollToBoard();
       }
 
-      if (data.role === Role.NONE || data.role >= -2) {
+      if(game.role === Role.NONE || game.role >= -2 || game.role === Role.PLAYING_COMPUTER) {
         const lastPly = getPlyFromFEN(game.chess.fen());
-        const thisPly = getPlyFromFEN(data.fen);
+        const thisPly = getPlyFromFEN(game.fen);
  
-        if (data.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
-          var parsedMove = parseMove(game.chess.fen(), data.move, game.category);
-          game.chess.load(data.fen);
-          movePieceAfter((parsedMove ? parsedMove.move : {san: data.move}));
+        if (game.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
+          var parsedMove = parseMove(game.chess.fen(), game.move, game.category);
+          game.chess.load(game.fen);
+          movePieceAfter((parsedMove ? parsedMove.move : {san: game.move}));
         }
         else {
-          game.chess.load(data.fen);
+          game.chess.load(game.fen);
           updateHistory();
         }
 
@@ -1588,20 +1667,10 @@ function messageHandler(data) {
       }
       break;
     case MessageType.GameStart:
-      $('#viewing-game-buttons').hide();
-      $('#playing-game').hide();
-      $('#playing-game-buttons').show();
-      if (data.player_one === session.getUser()) {
-        chat.createTab(data.player_two);
-      } else {
-        chat.createTab(data.player_one);
-      }
-      if (soundToggle) {
-        Sounds.startSound.play();
-      }
       break;
     case MessageType.GameEnd:
-      game.history.setClockTimes(game.history.last(), game.wtime, game.btime);
+      // Set clock time to the time that the player resigns/aborts etc.
+      game.history.setClockTimes(game.history.last(), clock.getWhiteTime(), clock.getBlackTime());
 
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
         // player won
@@ -1625,11 +1694,18 @@ function messageHandler(data) {
 
       showStatusMsg(data.message);
       let rematch = [];
-      if ($('#player-name').text() === session.getUser()
-        && data.reason !== 2 && data.reason !== 7) {
-        rematch = ['rematch', 'Rematch']
+      var useSessionSend = true;   
+      if(data.reason !== 2 && data.reason !== 7) {
+        if(game.role === Role.PLAYING_COMPUTER) {
+          rematch = ['rematchComputer();', 'Rematch']
+          useSessionSend = false;
+        }
+        else if($('#player-name').text() === session.getUser()) 
+          rematch = ['rematch', 'Rematch']
       }
-      showBoardModal('Match Result', '', data.message, rematch, []);
+
+      showBoardModal('Match Result', '', data.message, rematch, [], false, useSessionSend);
+      game.role = Role.NONE;
       cleanupGame();
       break;
     case MessageType.GameHoldings:
@@ -2034,7 +2110,6 @@ function messageHandler(data) {
       if (match != null && match.length > 1) {
         if(gameChangePending)
           session.send('refresh');
-
         stopEngine();
         cleanupGame();
         return;
@@ -2455,18 +2530,32 @@ function setClocksFromHistory() {
 // Start clock after a move, switch from white to black's clock etc
 function hitClock(setClocks: boolean = false) {
   if(game.isPlaying() || game.role === Role.OBSERVING) {
+    const thisPly = History.getPlyFromFEN(game.chess.fen());  
+    
     // If a move was received from the server, set the clocks to the updated times
     // Note: When in examine mode this is handled by updateClocksByHistory() instead
-    if(setClocks) {
-      clock.setWhiteClock(); 
-      clock.setBlackClock();
+    if(setClocks) { // Get remaining time from server message
+      if(game.category === 'untimed') {
+        clock.setWhiteClock(null); 
+        clock.setBlackClock(null);
+      }
+      else {
+        clock.setWhiteClock(); 
+        clock.setBlackClock();
+      }
+    }
+    else if(game.inc !== 0) { // Manually add time increment
+      if(game.chess.turn() === 'w' && thisPly >= 5) 
+        clock.setBlackClock(clock.getBlackTime() + game.inc * 1000);
+      else if(game.chess.turn() === 'b' && thisPly >= 4)
+        clock.setWhiteClock(clock.getWhiteTime() + game.inc * 1000);
     }
 
-    const thisPly = History.getPlyFromFEN(game.chess.fen());   
-    if(thisPly >= 3 && game.chess.turn() === 'w' && game.wtime !== 0) 
+    if(thisPly >= 3 && game.chess.turn() === 'w') 
       clock.startWhiteClock();
-    else if(thisPly >= 4 && game.chess.turn() === 'b' && game.btime !== 0) 
+    else if(thisPly >= 4 && game.chess.turn() === 'b') {
       clock.startBlackClock();
+    }
   }
 }
 
@@ -2573,7 +2662,17 @@ function startEngine() {
     for(let i = 0; i < numPVs; i++)
       $('#engine-pvs').append('<li>&nbsp;</li>');
 
-    engine = new Engine(game.history, null, displayEnginePV, {UCI_Chess960: game.category === 'wild/fr', MultiPV: numPVs});
+    var options = {};
+    if(numPVs > 1)
+      options['MultiPV'] = numPVs;
+    
+    // Configure for variants
+    if(game.category === 'wild/fr')
+      options['UCI_Chess960'] = true;
+    else if(game.category === 'crazyhouse')
+      options['UCI_Variant'] = game.category;
+    
+    engine = new Engine(game.history, null, displayEnginePV, options);
     if(!movelistRequested)
       engine.move(game.history.index());
   }
@@ -2587,10 +2686,263 @@ function displayEnginePV(pvNum: number, pvEval: string, pvMoves: string) {
     var san = words[0].split(/\.+/)[1];
     var parsed = parseMove(game.history.get().fen, san, game.category);
     board.setAutoShapes([{
-      orig: parsed.move.from,
+      orig: parsed.move.from || parsed.move.to, // For crazyhouse, just draw a circle on dest square
       dest: parsed.move.to,
       brush: 'yellow',
     }]);
+  }
+}
+
+function getPlayComputerEngineOptions(): object {
+  var skillLevels = [0, 1, 2, 3, 5, 7, 9, 11, 13, 15]; // Skill Level for each difficulty level
+  
+  var engineOptions = {}
+  if(game.category === 'wild/fr')
+    engineOptions['UCI_Chess960'] = true;
+  else if(game.category === 'crazyhouse')
+    engineOptions['UCI_Variant'] = game.category;
+
+  engineOptions['Skill Level'] = skillLevels[game.difficulty - 1];
+
+  return engineOptions;
+}
+
+function getPlayComputerMoveParams(): string {
+  var moveTimes = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]; // Move times (ms) for each difficulty level
+  // var maxDepths = [5, 5, 5, 5, 5, 8, 13, 22]; // Max search depths for each difficulty level 
+  
+  var moveParams = 'movetime ' + moveTimes[game.difficulty - 1];
+
+  return moveParams;
+}
+
+function playComputer(params: any) {
+  if(game.role === Role.PLAYING_COMPUTER) {
+    game.role = Role.NONE;
+    cleanupGame();
+  }
+
+  var playerName = (session.isConnected() ? session.getUser() : 'Player');
+  var playerTimeRemaining = params.playerTime * 60000;
+  if(params.playerTime === 0) {
+    if(params.playerInc === 0) 
+      playerTimeRemaining = null; // untimed game
+    else
+      playerTimeRemaining = 10000; // if initial player time is 0, player gets 10 seconds
+  }
+
+  var wname = (params.playerColor === 'White' ? playerName : 'Computer');
+  var bname = (params.playerColor === 'Black' ? playerName : 'Computer');
+  
+  var category = params.gameType.toLowerCase();
+  if(params.gameType === 'Chess960')
+    category = 'wild/fr';
+
+  var data = {
+    fen: params.fen,                        // game state
+    turn: 'W',                              // color whose turn it is to move ("B" or "W")
+    id: -1,                                 // The game number
+    wname: wname, // White's name
+    bname: bname, // Black's name
+    role: Role.PLAYING_COMPUTER,            // my relation to this game
+    time: params.playerTime,                // initial time in seconds         
+    inc: params.playerInc,                  // increment per move in seconds
+    wtime: (params.playerColor === 'White' ? playerTimeRemaining : null), // White's remaining time
+    btime: (params.playerColor === 'Black' ? playerTimeRemaining : null), // Black's remaining time
+    moveNo: 1,                              // the number of the move about to be made
+    move: 'none',                           // pretty notation for the previous move ("none" if there is none)
+    flip: (params.playerColor === 'White' ? false : true), // whether game starts with board flipped
+    category: category,                     // game variant or type
+    color: params.playerColor === 'White' ? 'w' : 'b',
+    difficulty: params.difficulty           // Computer difficulty level
+  }
+
+  // Show game status mmessage
+  var computerName = 'Computer (Lvl ' + params.difficulty + ')'; 
+  if(params.playerColor === 'White')
+    bname = computerName;
+  else
+    wname = computerName;
+  let time = ' ' + params.playerTime + ' ' + params.playerInc;
+  if(params.playerTime === 0 && params.playerInc === 0)
+    time = '';
+  let gameType = '';
+  if(params.gameType !== 'Standard')
+    gameType = ' ' + params.gameType;
+  const statusMsg = wname + ' vs. ' + bname + gameType + time;
+  showStatusMsg(statusMsg);
+
+  messageHandler(data); 
+}
+
+(window as any).rematchComputer = () => {
+  if(lastComputerGame.playerColorOption === 'Any') 
+    lastComputerGame.playerColor = (lastComputerGame.playerColor === 'White' ? 'Black' : 'White');
+  playComputer(lastComputerGame);
+};
+
+function playComputerBestMove(bestMove: string, score: string) {
+  var move;
+  if(bestMove[1] === '@') // Crazyhouse/bughouse
+    move = bestMove;
+  else
+    move = { 
+      from: bestMove.slice(0,2),
+      to: bestMove.slice(2,4),
+      promotion: (bestMove.length === 5 ? bestMove[4] : undefined)
+    }
+
+  lastComputerMoveEval = score;
+
+  var parsedMove = parseMove(game.chess.fen(), move, game.category);
+
+  var moveData = {
+    role: Role.PLAYING_COMPUTER,                      // game mode
+    id: -1,                                           // game id, always -1 for playing computer
+    fen: parsedMove.fen,                              // board/game state
+    turn: History.getTurnColorFromFEN(parsedMove.fen), // color whose turn it is to move ("B" or "W")
+    wtime: clock.getWhiteTime(),                      // White's remaining time
+    btime: clock.getBlackTime(),                      // Black's remaining time
+    moveNo: History.getMoveNoFromFEN(parsedMove.fen), // the number of the move about to be made
+    moveVerbose: parsedMove,                          // verbose coordinate notation for the previous move ("none" if there werenone) [note this used to be broken for examined games]
+    move: parsedMove.move.san,                        // pretty notation for the previous move ("none" if there is none)
+  }
+  messageHandler(moveData);  
+}
+
+function generateChess960FEN(): string {
+  // Generate random Chess960 starting position using Scharnagl's method. 
+
+  const kingsTable = {
+    0: 'QNNRKR',   192: 'QNRKNR',   384: 'QRNNKR',   576: 'QRNKRN',   768: 'QRKNRN',   
+    16: 'NQNRKR',   208: 'NQRKNR',   400: 'RQNNKR',   592: 'RQNKRN',   784: 'RQKNRN',   
+    32: 'NNQRKR',   224: 'NRQKNR',   416: 'RNQNKR',   608: 'RNQKRN',   800: 'RKQNRN',   
+    48: 'NNRQKR',   240: 'NRKQNR',   432: 'RNNQKR',   624: 'RNKQRN',   816: 'RKNQRN',   
+    64: 'NNRKQR',   256: 'NRKNQR',   448: 'RNNKQR',   640: 'RNKRQN',   832: 'RKNRQN',   
+    80: 'NNRKRQ',   272: 'NRKNRQ',   464: 'RNNKRQ',   656: 'RNKRNQ',   848: 'RKNRNQ',   
+    96: 'QNRNKR',   288: 'QNRKRN',   480: 'QRNKNR',   672: 'QRKNNR',   864: 'QRKRNN',   
+    112: 'NQRNKR',  304: 'NQRKRN',  496: 'RQNKNR',   688: 'RQKNNR',   880: 'RQKRNN',   
+    128: 'NRQNKR',  320: 'NRQKRN',  512: 'RNQKNR',   704: 'RKQNNR',   896: 'RKQRNN',   
+    144: 'NRNQKR',  336: 'NRKQRN',  528: 'RNKQNR',   720: 'RKNQNR',   912: 'RKRQNN',   
+    160: 'NRNKQR',  352: 'NRKRQN',  544: 'RNKNQR',   736: 'RKNNQR',   928: 'RKRNQN',   
+    176: 'NRNKRQ',  368: 'NRKRNQ',  560: 'RNKNRQ',   752: 'RKNNRQ',   944: 'RKRNNQ'
+  };
+
+  const bishopsTable = [
+    ['B', 'B', '-', '-', '-', '-', '-', '-'],
+    ['B', '-', '-', 'B', '-', '-', '-', '-'],
+    ['B', '-', '-', '-', '-', 'B', '-', '-'],
+    ['B', '-', '-', '-', '-', '-', '-', 'B'],
+    ['-', 'B', 'B', '-', '-', '-', '-', '-'],
+    ['-', '-', 'B', 'B', '-', '-', '-', '-'],
+    ['-', '-', 'B', '-', '-', 'B', '-', '-'],
+    ['-', '-', 'B', '-', '-', '-', '-', 'B'],
+    ['-', 'B', '-', '-', 'B', '-', '-', '-'],
+    ['-', '-', '-', 'B', 'B', '-', '-', '-'],
+    ['-', '-', '-', '-', 'B', 'B', '-', '-'],
+    ['-', '-', '-', '-', 'B', '-', '-', 'B'],
+    ['-', 'B', '-', '-', '-', '-', 'B', '-'],
+    ['-', '-', '-', 'B', '-', '-', 'B', '-'],
+    ['-', '-', '-', '-', '-', 'B', 'B', '-'],
+    ['-', '-', '-', '-', '-', '-', 'B', 'B']
+  ];
+
+  var idn = Math.floor(Math.random() * 960); // Get random Chess960 starting position identification number 
+  var kIndex = idn - idn % 16; // Index into King's Table
+  var bIndex = idn - kIndex; // Index into Bishop's Table
+  var kEntry = kingsTable[kIndex];
+
+  // Fill in empty spots in the row from Bishop's Table with pieces from the row in King's Table
+  var backRow = [...bishopsTable[bIndex]]; // Copy row from array
+  var p = 0;
+  for(let sq = 0; sq < 8; sq++) {
+    if(backRow[sq] === '-') {
+      backRow[sq] = kEntry[p];
+      p++;
+    }
+  }
+
+  var whiteBackRow = backRow.join('');
+  var blackBackRow = whiteBackRow.toLowerCase();
+  var fen = blackBackRow + '/pppppppp/8/8/8/8/PPPPPPPP/' + whiteBackRow + ' w KQkq - 0 1';
+
+  return fen;
+}
+
+function checkGameEnd() {  
+  if(game.role !== Role.PLAYING_COMPUTER)
+    return;
+
+  var chess = game.chess;
+  var gameEnd = false;
+  var isThreefold = game.history.isThreefoldRepetition();
+  var winner = '', loser = '';
+  var turnColor = History.getTurnColorFromFEN(chess.fen());
+  var gameStr = '(' + game.wname + ' vs. ' + game.bname + ')';
+
+  // Check white or black is out of time
+  if(clock.getWhiteTime() < 0 || clock.getBlackTime() < 0) {
+    var wtime = clock.getWhiteTime();
+    var btime = clock.getBlackTime();
+
+    // Check if the side that is not out of time has sufficient material to mate, otherwise its a draw
+    var insufficientMaterial = false;
+    if(wtime < 0) 
+      var fen = chess.fen().replace(' ' + 'w' + ' ', ' ' + 'b' + ' '); // Set turn color to the side not out of time in order to check their material
+    else if(btime < 0) 
+      var fen = chess.fen().replace(' ' + 'b' + ' ', ' ' + 'w' + ' ');
+
+    chess.load(fen);
+    insufficientMaterial = chess.insufficient_material();
+
+    if(insufficientMaterial) {
+      var reason = Reason.Draw;
+      var reasonStr = (wtime < 0 ? game.wname : game.bname) + ' ran out of time and ' + (wtime >= 0 ? game.wname : game.bname) + ' has no material to mate';
+      var scoreStr = '1/2-1/2';
+    }
+    else {
+      winner = (wtime >= 0 ? game.wname : game.bname);
+      loser = (wtime < 0 ? game.wname : game.bname);
+      var reason = Reason.TimeForfeit;
+      var reasonStr = loser + ' forfeits on time';
+      var scoreStr = (winner === game.wname ? '1-0' : '0-1');
+    }
+    gameEnd = true;
+  } 
+  else if(chess.in_checkmate()) {
+    winner = (turnColor === 'w' ? game.bname : game.wname);
+    loser = (turnColor === 'w' ? game.wname : game.bname);
+    var reason = Reason.Checkmate;
+    var reasonStr = loser + ' checkmated';
+    var scoreStr = (winner === game.wname ? '1-0' : '0-1');
+
+    gameEnd = true;
+  }
+  else if(chess.in_draw() || isThreefold) {
+    var reason = Reason.Draw;
+    var scoreStr = '1/2-1/2';
+
+    if(isThreefold) 
+      var reasonStr = 'Game drawn by repetition';
+    else if(chess.insufficient_material()) 
+      var reasonStr = 'Neither player has mating material';
+    else if(chess.in_stalemate()) 
+      var reasonStr = 'Game drawn by stalemate';
+    else 
+      var reasonStr = 'Game drawn by the 50 move rule';
+
+    gameEnd = true;
+  }
+
+  if(gameEnd) { 
+    var gameEndData = {
+      game_id: -1,
+      winner,
+      loser,
+      reason,
+      message: gameStr + ' ' + reasonStr + ' ' + scoreStr
+    };
+    messageHandler(gameEndData);  
   }
 }
 
@@ -2815,7 +3167,7 @@ function onDeviceReady() {
 
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
-  clock = new Clock(game);
+  clock = new Clock(game, checkGameEnd);
   
   if(isSmallWindow()) {
     $('#collapse-chat').collapse('hide');
@@ -2829,12 +3181,10 @@ function onDeviceReady() {
     $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
   }
 
-  selectOnFocus($('#opponent-player-name'));
-  selectOnFocus($('#custom-control-min'));
-  selectOnFocus($('#custom-control-sec'));
-  selectOnFocus($('#observe-username'));
-  selectOnFocus($('#examine-username'));
-
+  $('input').each(function() {
+    selectOnFocus($(this));
+  });
+  
   prevWindowWidth = NaN;
   // Here we create a temporary hidden element in order to measure its scrollbar width.
   $('body').append(`<div id="scrollbar-measure" style="position: absolute; top: -9999px; overflow: scroll"></div>`);
@@ -2896,10 +3246,9 @@ function createTooltips() {
 }
 
 function selectOnFocus(input: any) {
-  $(input).on('focus', function (e) {
-    $(this).one('mouseup', function () {
-      $(this).trigger('select');
-      return false;
+  $(input).on('focus', function (e) {  
+    $(this).one('mouseup', function (e) {
+      setTimeout(() => { $(this).trigger('select'); }, 0);
     })
       .trigger('select');
   });
@@ -3180,19 +3529,50 @@ $('#notifications-btn').on('click', function(event) {
 });
 
 $('#resign').on('click', (event) => {
-  if (game.chess !== null) {
-    session.send('resign');
-  } else {
+  if(!game.isPlaying()) {
     showStatusMsg('You are not playing a game.');
+    return;
   }
+
+  if(game.role === Role.PLAYING_COMPUTER) {
+    var winner = (game.color === 'w' ? game.bname : game.wname);
+    var loser = (game.color === 'w' ? game.wname : game.bname);
+    var gameStr = '(' + game.wname + ' vs. ' + game.bname + ')';
+    var reasonStr = loser + ' resigns';
+    var scoreStr = (winner === game.wname ? '1-0' : '0-1');
+    var gameEndData = {
+      game_id: -1,
+      winner,
+      loser,
+      reason: Reason.Resign,
+      message: gameStr + ' ' + reasonStr + ' ' + scoreStr
+    };
+    messageHandler(gameEndData);  
+  }
+  else 
+    session.send('resign');
 });
 
 $('#abort').on('click', (event) => {
-  if (game.chess !== null) {
-    session.send('abort');
-  } else {
+  if(!game.isPlaying()) {
     showStatusMsg('You are not playing a game.');
+    return;
   }
+
+  if(game.role === Role.PLAYING_COMPUTER) {
+    var gameStr = '(' + game.wname + ' vs. ' + game.bname + ')';
+    var reasonStr = 'Game aborted';
+    var gameEndData = {
+      game_id: -1,
+      winner: '',
+      loser: '',
+      reason: Reason.Abort,
+      message: gameStr + ' ' + reasonStr
+    };
+    messageHandler(gameEndData);  
+  }
+  else 
+    session.send('abort');
 });
 
 $('#takeback').on('click', (event) => {
@@ -3207,8 +3587,31 @@ $('#takeback').on('click', (event) => {
 });
 
 $('#draw').on('click', (event) => {
-  if (game.chess !== null) {
-    session.send('draw');
+  if(game.chess !== null) {
+    if(game.role === Role.PLAYING_COMPUTER) {
+      // Computer accepts a draw if they're behind or it's dead equal and the game is on move 30 or beyond
+      var gameEval = lastComputerMoveEval;
+      if(gameEval === null)
+        gameEval = '';
+      gameEval = gameEval.replace(/[#+=]/, '');
+      if(gameEval !== '' && game.history.length() >= 60 && (game.color === 'w' ? +gameEval >= 0 : +gameEval <= 0)) {
+        var gameStr = '(' + game.wname + ' vs. ' + game.bname + ')';
+        var reasonStr = 'Game drawn by mutual agreement';
+        var scoreStr = '1/2-1/2';
+        var gameEndData = {
+          game_id: -1,
+          winner: '',
+          loser: '',
+          reason: Reason.Draw,
+          message: gameStr + ' ' + reasonStr + ' ' + scoreStr
+        };
+        messageHandler(gameEndData);  
+      }
+      else 
+        showBoardModal('Draw Offer Declined', '', 'Computer declines the draw offer', [], [], false, false);
+    }
+    else
+      session.send('draw');
   } else {
     showStatusMsg('You are not playing a game.');
   }
@@ -3287,7 +3690,7 @@ $('#input-text').on('focus', () => {
   }, {once: true, passive: true}); // Got sick of Google Chrome complaining about passive event listeners
 });
 
-$('#new-game').on('click', (event) => {
+$('#quick-game').on('click', (event) => {
   if (game.chess === null)
     session.send('getga');
 });
@@ -3305,7 +3708,7 @@ $('#custom-control').on('submit', (event) => {
 
   $('#custom-control-go').trigger('focus');
   const min: string = getValue('#custom-control-min');
-  const sec: string = getValue('#custom-control-sec');
+  const sec: string = getValue('#custom-control-inc');
   getGame(+min, +sec);
 
   return false;
@@ -3502,10 +3905,38 @@ $('#chattabs-toggle').on('click', (event) => {
 });
 
 $('#disconnect').on('click', (event) => {
-  if (session) {
+  if (session) 
     session.disconnect();
-    session = null;
+});
+
+$('#play-computer-form').on('submit', (event) => {
+  $('#play-computer-modal').modal('hide');
+  event.preventDefault();
+
+  const params = {
+    playerColorOption: $('[name="play-computer-color"]:checked').next().text(),
+    playerColor: '',
+    playerTime: +$('#play-computer-min').val(),
+    playerInc: +$('#play-computer-inc').val(),
+    gameType: $('[name="play-computer-type"]:checked').next().text(),
+    difficulty: $('[name="play-computer-level"]:checked').next().text(),
+    fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+  };
+
+  if(params.playerColorOption === 'Any') {
+    if(!lastComputerGame) 
+      params.playerColor = (Math.random() < 0.5 ? 'White' : 'Black');
+    else
+      params.playerColor = (lastComputerGame.playerColor === 'White' ? 'Black' : 'White');
   }
+  else
+    params.playerColor = params.playerColorOption;
+
+  if(params.gameType === 'Chess960')
+    params.fen = generateChess960FEN();
+
+  lastComputerGame = params;
+  playComputer(params);
 });
 
 $('#login-user').on('change', () => $('#login-user').removeClass('is-invalid'));
@@ -3719,7 +4150,7 @@ $('#observe-user').on('submit', (event) => {
 });
 
 function observe(id?: string) {
-  if(game.isPlaying()) {
+  if(game.isPlaying() && game.role !== Role.PLAYING_COMPUTER) {
     $('#observe-pane-status').text("You're already playing a game.");
     $('#observe-pane-status').show();
     return false;
@@ -3815,10 +4246,14 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-pairing"]', (e) =>
   initPairingPane();
 });
 
+$(document).on('hidden.bs.tab', 'button[data-bs-target="#pills-play"]', (e) => {
+  $('#play-computer-modal').modal('hide');
+});
+
 function initLobbyPane() {
   if(!session || !session.isConnected())
     $('#lobby').hide();
-  else if(game.isExamining() || game.isPlaying()) {
+  else if(game.isExamining() || (game.isPlaying() && game.role !== Role.PLAYING_COMPUTER)) {
     if(game.isExamining())
       $('#lobby-pane-status').text('Can\'t enter lobby while examining a game.');
     else
