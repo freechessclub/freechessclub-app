@@ -487,3 +487,7 @@ html, body {
   padding-bottom: 1px;
   background-color: rgba(0, 0, 0, 0.05);
 }
+
+.modal {
+  --bs-modal-color: var(--fg-color);
+}

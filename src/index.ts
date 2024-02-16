@@ -2171,21 +2171,15 @@ function showCapturedMaterial(fen: string) {
           piece + `.svg"/><small>` + num + `</small></span>`);
 
       if(game.category === 'crazyhouse' || game.category === 'bughouse') {
-        $('#' + piece)[0].addEventListener('touchstart', dragPiece, {passive: false});
-        $('#' + piece)[0].addEventListener('mousedown', dragPiece);
+        $('#' + piece)[0].addEventListener('touchstart', dragCapturedPiece, {passive: false});
+        $('#' + piece)[0].addEventListener('mousedown', dragCapturedPiece);
       }
     }
   }
 }
 
-function dragPiece(event: any) {  
-  // Stop scrollbar appearing when piece is dragged below the bottom of the window
-  $('body').css('overflow-y', 'hidden');
-  $('html').css('overflow-y', 'hidden');
-  $(document).one('mouseup touchend touchcancel', (e) => {
-    $('body').css('overflow-y', '');
-    $('html').css('overflow-y', '');
-  });
+function dragCapturedPiece(event: any) {  
+  lockOverflow();
 
   var id = $(event.currentTarget).attr('id');
   var color = id.charAt(0);
@@ -2407,6 +2401,10 @@ export function updateBoard(playSound = false) {
   board.set({
     turnColor,
     movable,
+    highlight: {
+      lastMove: highlightsToggle,
+      check: highlightsToggle
+    },
     predroppable: { enabled: game.category === 'crazyhouse' || game.category === 'bughouse' },
     check: localChess.in_check() ? toColor(localChess) : false,
     blockTouchScroll: (game.isPlaying() ? true : false),
@@ -2570,7 +2568,7 @@ $('#collapse-history').on('show.bs.collapse', (event) => {
 
 $('#lobby-table-container').on('scroll', (e) => {
   var container = $('#lobby-table-container')[0];
-  lobbyScrolledToBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 1;
+  lobbyScrolledToBottom = container.scrollHeight - container.clientHeight < container.scrollTop + 1.5;
 });
 
 $('#pills-tab button').on('click', function(event) {
@@ -2984,6 +2982,19 @@ $(document).ready(() => {
   }
 });
 
+function lockOverflow() {
+  // Stop scrollbar appearing when an element (like a captured piece) is dragged below the bottom of the window,
+  // unless the scrollbar is already visible
+  if($('body')[0].scrollHeight <= $('body')[0].clientHeight) {
+    $('body').css('overflow-y', 'hidden');
+    $('html').css('overflow-y', 'hidden');
+    $(document).one('mouseup touchend touchcancel', (e) => {
+      $('body').css('overflow-y', '');
+      $('html').css('overflow-y', '');
+    });
+  }
+}
+
 // Prevent screen dimming, must be enabled in a user input event handler
 $(document).one('click', (event) => {
   if (wakelockToggle) {
@@ -3308,10 +3319,7 @@ $('#autopromote-toggle').on('click', (event) => {
 $('#highlights-toggle').prop('checked', highlightsToggle);
 $('#highlights-toggle').on('click', (event) => {
   highlightsToggle = !highlightsToggle;
-  board.set({ highlight: {
-    lastMove: highlightsToggle,
-    check: highlightsToggle
-  } });
+  updateBoard();
   Cookies.set('highlights', String(highlightsToggle), { expires: 365 })
 });
 

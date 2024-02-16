@@ -22,9 +22,7 @@ export function updateWhiteClock(game, wtime?: number) {
   const clock = game.color === 'w' ? $('#player-time') : $('#opponent-time');
   clock.text(SToHHMMSS(wtime));
 
-  if(game.wtime < 20) 
-    clock.addClass('low-time');
-  else
+  if(game.wtime >= 20) 
     clock.removeClass('low-time');
 }
 
@@ -35,9 +33,7 @@ export function updateBlackClock(game, btime?: number) {
   const clock = game.color === 'b' ? $('#player-time') : $('#opponent-time');
   clock.text(SToHHMMSS(btime));
 
-  if(game.btime < 20) 
-    clock.addClass('low-time');
-  else
+  if(game.btime >= 20) 
     clock.removeClass('low-time');
 }
 

@@ -188,7 +188,8 @@ cg-board {
   --bs-toast-header-bg: #333333;
   --bs-toast-header-color: #B4C9D2;
 }
-.toast .btn-close {
+
+.btn-close {
   filter: invert(1) grayscale(100%) brightness(200%);
 }
 
