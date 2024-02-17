@@ -137,7 +137,7 @@ function initCategory() {
   // Check if game category (variant) is supported by Engine
   if(Engine.categorySupported(game.category)) {
     if(!evalEngine)
-      evalEngine = new EvalEngine(game.history, game.category);
+      evalEngine = new EvalEngine(game.history, {UCI_Chess960: game.category === 'wild/fr'});
     showAnalyzeButton();
   }
   else 
@@ -1297,9 +1297,9 @@ function parseVariantMove(fen: string, move: any, category: string) {
             var rightRook = square;
         }
       }
-      if(outMove.from === leftRook)
+      if(outMove.from === leftRook) 
         var leftRookMoved = true;
-      if(outMove.from === rightRook)
+      if(outMove.from === rightRook) 
         var rightRookMoved = true;
 
       if(leftRookMoved || rightRookMoved) {
@@ -2572,11 +2572,24 @@ function startEngine() {
     for(let i = 0; i < numPVs; i++)
       $('#engine-pvs').append('<li>&nbsp;</li>');
 
-    engine = new Engine(board, game.category, numPVs);
+    engine = new Engine(game.history, null, displayEnginePV, {UCI_Chess960: game.category === 'wild/fr', MultiPV: numPVs});
     if(!movelistRequested)
-      engine.move(game.history.get().fen);
-    else
-      engine.move(game.fen);
+      engine.move(game.history.index());
+  }
+}
+
+function displayEnginePV(pvNum: number, pvEval: string, pvMoves: string) {
+  $('#engine-pvs li').eq(pvNum - 1).html('<b>(' + pvEval + ')</b> ' + pvMoves + '<b/>');
+
+  if(pvNum === 1 && pvMoves) {
+    var words = pvMoves.split(/\s+/);
+    var san = words[0].split(/\.+/)[1];
+    var parsed = parseMove(game.history.get().fen, san, game.category);
+    board.setAutoShapes([{
+      orig: parsed.move.from,
+      dest: parsed.move.to,
+      brush: 'yellow',
+    }]);
   }
 }
 
