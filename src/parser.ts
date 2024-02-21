@@ -224,8 +224,8 @@ export class Parser {
     let match = null;
 
     // game move
-    match = msg.match(/<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(\-?[0-7])\s([01])\s([01])\s([01])\s([01])\s([0-9]+)\s([0-9]+)\s([a-zA-Z]+)\s([a-zA-Z]+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(\S+)\s\(([0-9]+)\:([0-9]+)\)\s(\S+)\s([01])\s([0-9]+)\s([0-9]+)\s*/);
-    if (match != null && match.length >= 33) {
+    match = msg.match(/<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(\-?[0-7])\s([01])\s([01])\s([01])\s([01])\s([0-9]+)\s([0-9]+)\s([a-zA-Z]+)\s([a-zA-Z]+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(\S+)\s\(([0-9]+)\:([0-9]+)\.([0-9]+)\)\s(\S+)\s([01])\s([0-9]+)\s([0-9]+)\s*/);
+    if (match != null && match.length >= 34) {
       var msgs = this.splitMessage(msg);
       if(msgs)
         return msgs;
@@ -262,15 +262,15 @@ export class Parser {
           from: moveMatches[1],
           to: moveMatches[2],
           promotion: moveMatches[3],
-          san: match[30]
+          san: match[31]
         };
       }
-      else if(match[30] === 'O-O' || match[30] === 'O-O-O') {
+      else if(match[31] === 'O-O' || match[31] === 'O-O-O') {
         moveVerbose = {
           from: 'e' + (match[9] === 'W' ? '8' : '1'),
-          to: (match[30] === 'O-O' ? 'g' : 'c') + (match[9] === 'W' ? '8' : '1'),
+          to: (match[31] === 'O-O' ? 'g' : 'c') + (match[9] === 'W' ? '8' : '1'),
           promotion: undefined,
-          san: match[30]
+          san: match[31]
         }
       }
 
@@ -285,13 +285,13 @@ export class Parser {
         inc: +match[21],                      // increment In seconds) of the match
         wstrength: +match[22],                // White material strength
         bstrength: +match[23],                // Black material strength
-        wtime: +match[24],                    // White's remaining time
-        btime: +match[25],                    // Black's remaining time
+        wtime: +match[24],                    // White's remaining time in milliseconds
+        btime: +match[25],                    // Black's remaining time in milliseconds
         moveNo: +match[26],                   // the number of the move about to be made
         moveVerbose,                          // verbose coordinate notation for the previous move ("none" if there werenone) [note this used to be broken for examined games]
-        prevMoveTime: {minutes: match[28], seconds: match[29]}, // time taken to make previous move "(min:sec)".
-        move: match[30],                      // pretty notation for the previous move ("none" if there is none)
-        flip: match[31] === '1'               // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.
+        prevMoveTime: {minutes: match[28], seconds: match[29], milliseconds: match[30]}, // time taken to make previous move "(min:sec)".
+        move: match[31],                      // pretty notation for the previous move ("none" if there is none)
+        flip: match[32] === '1'               // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.
       };
     }
 

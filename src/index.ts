@@ -8,7 +8,7 @@ import { Chessground } from 'chessground';
 import { Color, Key } from 'chessground/types';
 import NoSleep from '@uriopass/nosleep.js'; // Prevent screen dimming
 import Chat from './chat';
-import * as clock from './clock';
+import { Clock } from './clock';
 import { Engine, EvalEngine } from './engine';
 import { game, Role } from './game';
 import History from './history';
@@ -26,6 +26,7 @@ let session: Session;
 let chat: Chat;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
+let clock: Clock | null;
 
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
@@ -86,10 +87,8 @@ function cleanupGame() {
   $('#viewing-game-buttons').show();
   $('#lobby-pane-status').hide();
 
-  if(game.wclock)
-    clearInterval(game.wclock);
-  if(game.bclock)
-    clearInterval(game.bclock);
+  clock.stopClocks();
+
   if(game.watchers)
     clearInterval(game.watchers);
   game.watchers = null;
@@ -505,6 +504,8 @@ export function movePiece(source: any, target: any, metadata: any) {
       else
         sendMove(move);
     }
+
+    hitClock(false);
   }
 
   promotePiece = null;  
@@ -1342,8 +1343,8 @@ export function parseMovelist(movelist: string) {
   const moves = [];
   let found : string[] & { index?: number } = [''];
   let n = 1;
-  var wtime = game.time * 60;
-  var btime = game.time * 60;
+  var wtime = game.time * 60000;
+  var btime = game.time * 60000;
 
   // We've set 'iset startpos 1' so that the 'moves' command also returns the start position in style12 in cases 
   // where the start position is non-standard, e.g. fischer random. 
@@ -1361,11 +1362,11 @@ export function parseMovelist(movelist: string) {
 
   game.history.reset(chess.fen(), wtime, btime);
   while (found !== null) {
-    found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*\\((\\d+):(\\d+)\\)\\s*(?:(\\S*)\\s*\\((\\d+):(\\d+)\\))?.*', 'm'));
-    if (found !== null && found.length > 3) {
+    found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*\\((\\d+):(\\d+)\.(\\d+)\\)\\s*(?:(\\S*)\\s*\\((\\d+):(\\d+)\.(\\d+)\\))?.*', 'm'));
+    if (found !== null && found.length > 4) {
       const m1 = found[1].trim();
       if(m1 !== '...') {
-        wtime += (n === 1 ? 0 : game.inc) - (+found[2] * 60 + +found[3]);
+        wtime += (n === 1 ? 0 : game.inc * 1000) - (+found[2] * 60000 + +found[3] * 1000 + +found[4]);
         var parsedMove = parseMove(chess.fen(), m1, game.category);
         if(!parsedMove)
           break;
@@ -1374,9 +1375,9 @@ export function parseMovelist(movelist: string) {
         getOpening();
         updateVariantMoveData();
       }
-      if (found.length > 4 && found[4]) {
-        const m2 = found[4].trim();
-        btime += (n === 1 ? 0 : game.inc) - (+found[5] * 60 + +found[6]);
+      if (found.length > 5 && found[5]) {
+        const m2 = found[5].trim();
+        btime += (n === 1 ? 0 : game.inc * 1000) - (+found[6] * 60000 + +found[7] * 1000 + +found[8]);
         parsedMove = parseMove(chess.fen(), m2, game.category);
         if(!parsedMove)
           break;
@@ -1417,6 +1418,7 @@ function messageHandler(data) {
         session.send('iset defprompt 1'); // Force default prompt. Used for splitting up messages
         session.send('iset nowrap 1'); // Stop chat messages wrapping which was causing spaces to get removed erroneously
         session.send('iset pendinfo 1'); // Receive detailed match request info (both that we send and receive)
+        session.send('iset ms 1'); // Style12 receives clock times with millisecond precision
         session.send('=ch');
         channelListRequested = true;
         session.send('=computer'); // get Computers list, to augment names in Observe panel
@@ -1465,7 +1467,6 @@ function messageHandler(data) {
 
       if (game.chess === null) {
         game.chess = new Chess();
-        game.wclock = game.bclock = null;
         hidePromotionPanel();
         board.cancelMove();
 
@@ -1508,7 +1509,7 @@ function messageHandler(data) {
           if(game.isPlaying()) {
             game.watchers = setInterval(() => {
               const time = game.color === 'b' ? game.btime : game.wtime;
-              if (time > 60) {
+              if (time > 60000) {
                 session.send('allobs ' + game.id);
               }
             }, 90000); // 90000 seems a bit slow
@@ -1582,12 +1583,7 @@ function messageHandler(data) {
           updateHistory();
         }
 
-        if (game.isPlaying() || data.role === Role.OBSERVING) {
-          if(thisPly >= 2 && !game.wclock)
-            game.wclock = clock.startWhiteClock(game);
-          if(thisPly >= 3 && !game.bclock) 
-            game.bclock = clock.startBlackClock(game);
-        }
+        hitClock(true);
       }
       break;
     case MessageType.GameStart:
@@ -1604,6 +1600,8 @@ function messageHandler(data) {
       }
       break;
     case MessageType.GameEnd:
+      game.history.setClockTimes(game.history.last(), game.wtime, game.btime);
+
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
         // player won
         $('#player-status').css('background-color', 'var(--game-win-color)');
@@ -2101,6 +2099,7 @@ function messageHandler(data) {
         msg === 'startpos set.' || msg === 'startpos unset.' ||
         msg === 'showownseek set.' || msg === 'showownseek unset.' ||
         msg === 'pendinfo set.' || 
+        msg === 'ms set.' ||
         msg.startsWith('No one is observing game ') 
       ) {
         return;
@@ -2353,7 +2352,7 @@ function updateHistory(move?: any, fen?: string) {
 
     // move is already displayed
     if(index === game.history.index()) {
-      updateClocks();
+      setClocksFromHistory();
       return;
     }
 
@@ -2445,13 +2444,28 @@ function updatePromotedList(move: any, promoted: any) {
   return promoted;
 }
 
-function updateClocks() {
-  if(game.role === Role.NONE || game.role >= -2) {
-    if((!game.isPlaying() && game.role !== Role.OBSERVING) ||
-          game.history.index() === game.history.length()) {
-      clock.updateWhiteClock(game, game.history.get().wtime);
-      clock.updateBlackClock(game, game.history.get().btime);
+function setClocksFromHistory() {
+  if(!game.isPlaying() && game.role !== Role.OBSERVING) {
+    clock.setWhiteClock(game.history.get().wtime);
+    clock.setBlackClock(game.history.get().btime);
+  }
+}
+
+// Start clock after a move, switch from white to black's clock etc
+function hitClock(setClocks: boolean = false) {
+  if(game.isPlaying() || game.role === Role.OBSERVING) {
+    // If a move was received from the server, set the clocks to the updated times
+    // Note: When in examine mode this is handled by updateClocksByHistory() instead
+    if(setClocks) {
+      clock.setWhiteClock(); 
+      clock.setBlackClock();
     }
+
+    const thisPly = History.getPlyFromFEN(game.chess.fen());   
+    if(thisPly >= 3 && game.chess.turn() === 'w' && game.wtime !== 0) 
+      clock.startWhiteClock();
+    else if(thisPly >= 4 && game.chess.turn() === 'b' && game.btime !== 0) 
+      clock.startBlackClock();
   }
 }
 
@@ -2459,7 +2473,7 @@ export function updateBoard(playSound = false) {
   const move = game.history.get().move;
   const fen = game.history.get().fen;
 
-  updateClocks();
+  setClocksFromHistory();
 
   board.set({ fen });
 
@@ -2787,6 +2801,7 @@ function onDeviceReady() {
 
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
+  clock = new Clock(game);
   
   if(isSmallWindow()) {
     $('#collapse-chat').collapse('hide');
