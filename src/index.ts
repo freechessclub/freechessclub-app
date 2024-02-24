@@ -336,6 +336,20 @@ const board: any = Chessground(document.getElementById('board'), {
 });
 
 function toDests(chess: any): Map<Key, Key[]> {
+  if(game.category === 'losers' || game.category.startsWith('wild'))
+    return variantToDests(chess);
+
+  var dests = new Map();
+  chess.SQUARES.forEach(s => {
+    var ms = chess.moves({square: s, verbose: true});
+    if(ms.length)    
+      dests.set(s, ms.map(m => m.to));
+  });
+
+  return dests;
+}
+
+function variantToDests(chess: any): Map<Key, Key[]> {
   // In 'losers' variant, if a capture is possible then include only captures in dests
   if(game.category === 'losers') {
     var dests = new Map();
@@ -923,7 +937,35 @@ function getAdjacentSquares(square: string) : string[] {
   return adjacent;
 }
 
+function splitFEN(fen: string) {
+  var words = fen.split(/\s+/);
+  return {
+    board: words[0],
+    color: words[1],
+    castlingRights: words[2],
+    enPassant: words[3],
+    plyClock: words[4],
+    moveNo: words[5]
+  };
+}
+
+function joinFEN(obj: any) {
+  return Object.keys(obj).map(key => obj[key]).join(' ');
+}
+
 export function parseMove(fen: string, move: any, category: string) {
+  // Parse variant move
+  if(category.includes('wild') || category.includes('house'))
+    return parseVariantMove(fen, move, category);
+
+  // Parse standard move
+  var chess = new Chess(fen);
+  var outMove = chess.move(move);
+  var outFen = chess.fen();
+  return { fen: outFen, move: outMove };
+}
+
+function parseVariantMove(fen: string, move: any, category: string) {
   var chess = new Chess(fen);
   var san = '';
 
@@ -956,25 +998,46 @@ export function parseMove(fen: string, move: any, category: string) {
   else
     san = move;
 
-  // Make standard move
+  // Pre-processing of FEN before calling chess.move()
+  var beforePre = splitFEN(fen); // Stores FEN components from before pre-processing of FEN starts
+  var afterPre = Object.assign({}, beforePre); // Stores FEN components for after pre-procesisng is finished
+
+  if(category.startsWith('wild')) {
+    // Remove opponent's castling rights since it confuses chess.js
+    if(beforePre.color === 'w') {
+      var opponentRights = beforePre.castlingRights.replace(/[KQ-]/g,'');
+      var castlingRights = beforePre.castlingRights.replace(/[kq]/g,'');
+    }
+    else {
+      var opponentRights = beforePre.castlingRights.replace(/[kq-]/g,'');
+      var castlingRights = beforePre.castlingRights.replace(/[KQ]/g,'');
+    }
+    if(castlingRights === '')
+      castlingRights = '-';
+  
+    afterPre.castlingRights = castlingRights;
+    fen = joinFEN(afterPre);
+    chess.load(fen);
+  }
+
+  /*** Try to make standard move ***/
   var outMove = chess.move(move);
   var outFen = chess.fen();
 
-  // Manually update FEN for non-standard moves
+  /*** Manually update FEN for non-standard moves ***/
   if(!outMove 
       || (category.startsWith('wild') && san.toUpperCase().startsWith('O-O'))) {
     san = san.replace(/[+#]/, ''); // remove check and checkmate, we'll add it back at the end
     chess = new Chess(fen);
     outMove = {color: color, san: san};
+   
+    var board = afterPre.board;
+    var color = afterPre.color;
+    var castlingRights = afterPre.castlingRights;
+    var enPassant = afterPre.enPassant;
+    var plyClock = afterPre.plyClock;
+    var moveNo = afterPre.moveNo;
 
-    var splitFen = fen.split(/\s+/);
-    var board = splitFen[0];
-    var color = splitFen[1];
-    var castlingRights = splitFen[2];
-    var enPassant = splitFen[3];
-    var plyClock = splitFen[4];
-    var moveNo = splitFen[5];
-    
     var boardAfter = board;
     var colorAfter = (color === 'w' ? 'b' : 'w');
     var castlingRightsAfter = castlingRights;
@@ -1067,13 +1130,15 @@ export function parseMove(fen: string, move: any, category: string) {
 
       if(rookFrom === leftRook) {
         // Do we have castling rights?     
-        if(!castlingRights.includes(color === 'w' ? 'Q' : 'q'))
+        if(!castlingRights.includes(color === 'w' ? 'Q' : 'q')) 
           return null;
+
         outMove.flags = 'q';
       }
       else {
-        if(!castlingRights.includes(color === 'w' ? 'K' : 'k'))
+        if(!castlingRights.includes(color === 'w' ? 'K' : 'k')) 
           return null;
+
         outMove.flags = 'k';
       }
 
@@ -1116,20 +1181,35 @@ export function parseMove(fen: string, move: any, category: string) {
       chess.remove(rookFrom);
       chess.put({type: 'k', color: color}, kingTo);
       chess.put({type: 'r', color: color}, rookTo);
-    
-      if(color === 'w')
-        castlingRightsAfter = castlingRights.replace(/[KQ]/g, '');
-      else
-        castlingRightsAfter = castlingRights.replace(/[kq]/g, '');
+
+      var castlingRightsAfter = castlingRights;
+      if(rookFrom === leftRook) 
+        castlingRightsAfter = castlingRightsAfter.replace((color === 'w' ? 'Q' : 'q'), '');
+      else 
+        castlingRightsAfter = castlingRightsAfter.replace((color === 'w' ? 'K' : 'k'), '');
+
+      // On FICS there is a weird bug (feature?) where as long as the king hasn't moved after castling, 
+      // you can castle again! 
+      if(kingFrom !== kingTo) {
+        if(rookFrom === leftRook) 
+          castlingRightsAfter = castlingRightsAfter.replace((color === 'w' ? 'K' : 'k'), '');
+        else
+          castlingRightsAfter = castlingRightsAfter.replace((color === 'w' ? 'Q' : 'q'), '');
+      }
+
       if(castlingRightsAfter === '')
         castlingRightsAfter = '-';
 
       outMove.piece = 'k';
       outMove.from = kingFrom;
-      outMove.to = kingTo;
+
+      if(category === 'wild/fr')
+        outMove.to = rookFrom; // Fischer random specifies castling to/from coorindates using 'rook castling'
+      else
+        outMove.to = kingTo;
     }
 
-    boardAfter = chess.fen().split(/\s+/)[0];
+    var boardAfter = chess.fen().split(/\s+/)[0];
     outFen = boardAfter + ' ' + colorAfter + ' ' + castlingRightsAfter + ' ' + enPassantAfter + ' ' + plyClockAfter + ' ' + moveNoAfter;
   
     chess.load(outFen);
@@ -1139,9 +1219,12 @@ export function parseMove(fen: string, move: any, category: string) {
       outMove.san += '+';
   }
 
-  // Post-processing on FEN after chess.move() for variants 
+  // Post-processing on FEN after calling chess.move() 
+  var beforePost = splitFEN(outFen); // Stores FEN components before post-processing starts
+  var afterPost = Object.assign({}, beforePost); // Stores FEN components after post-processing is completed
+
   if(category === 'crazyhouse' || category === 'bughouse') {
-    outFen = outFen.replace(/ \d+ /, ' 0 '); // FICS doesn't use the 'irreversable moves count' for crazyhouse/bughouse, so set it to 0
+    outFen = outFen.replace(/\s+\d+\s+(\d+)/, ' 0 $1'); // FICS doesn't use the 'irreversable moves count' for crazyhouse/bughouse, so set it to 0
     // Check if it's really mate, i.e. player can't block with a held piece
     // (Yes this is a lot of code for something so simple)
     if(chess.in_checkmate()) {
@@ -1194,17 +1277,18 @@ export function parseMove(fen: string, move: any, category: string) {
   }
   if(category.startsWith('wild')) {
     // Adjust castling rights after rook move
-    var color = fen.split(/\s+/)[1];
     if(outMove.piece === 'r') {
       // Check if rook moved from starting position
       var startChess = new Chess(game.history.get(0).fen);
       var files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-      var rank = (color === 'w' ? '1' : '8');
+      var rank = (afterPre.color === 'w' ? '1' : '8');
+      var leftRook = '';
+      var rightRook = '';
       for(const file of files) {
         // Get starting location of rooks
         let square = file + rank;
         let piece = startChess.get(square);
-        if(piece && piece.type === 'r' && piece.color === color) {
+        if(piece && piece.type === 'r' && piece.color === afterPre.color) {
           if(!leftRook) 
             var leftRook = square;
           else 
@@ -1215,23 +1299,40 @@ export function parseMove(fen: string, move: any, category: string) {
         var leftRookMoved = true;
       if(outMove.from === rightRook)
         var rightRookMoved = true;
-      
+
       if(leftRookMoved || rightRookMoved) {
-        var castlingRights = fen.split(/\s+/)[2];
-
+        var castlingRights = afterPre.castlingRights;
         if(leftRookMoved)
-          var castlingRightsAfter = castlingRights.replace((color === 'w' ? 'Q' : 'q'), '');
+          var castlingRights = castlingRights.replace((afterPre.color === 'w' ? 'Q' : 'q'), '');
         else
-          var castlingRightsAfter = castlingRights.replace((color === 'w' ? 'K' : 'k'), '');
+          var castlingRights = castlingRights.replace((afterPre.color === 'w' ? 'K' : 'k'), '');
 
-        if(!castlingRightsAfter)
-          castlingRightsAfter = '-';
+        if(!castlingRights)
+          castlingRights = '-';
 
-        var castlingRightsBefore = outFen.split(/\s+/)[2];
-        outFen = outFen.replace(' ' + castlingRightsBefore + ' ', ' ' + castlingRightsAfter + ' ');
+        afterPost.castlingRights = castlingRights;
       }
     }
+
+    // Don't let chess.js change the castling rights erroneously
+    if(outMove.piece !== 'k' && outMove.piece !== 'r') 
+      afterPost.castlingRights = beforePre.castlingRights;
+    else if(opponentRights) {
+      // Restore opponent's castling rights (which were removed at the start so as not to confuse chess.js)
+      var castlingRights = afterPost.castlingRights;
+      if(castlingRights === '-')
+        castlingRights = '';
+      if(afterPost.color === 'w')
+        afterPost.castlingRights = opponentRights + castlingRights;
+      else
+        afterPost.castlingRights = castlingRights + opponentRights;
+    }
   }
+  outFen = joinFEN(afterPost);
+
+  // Move was not made, something went wrong
+  if(afterPost.board === beforePre.board)
+    return null;
 
   return {fen: outFen, move: outMove};
 }

@@ -199,25 +199,25 @@ export class History {
     // Search forward and back through the current line we're in (mainline or subvariation)
     let i = this.id;
     do {
-      if(History.compareFENs(this.moves[i].fen, fen))
+      if(this.moves[i].fen === fen)
         return i;
       i = this.next(i);
     } while(i !== undefined);
 
     i = this.id;
     do {
-      if(History.compareFENs(this.moves[i].fen, fen))
+      if(this.moves[i].fen === fen)
         return i;
       i = this.prev(i);
     } while(i !== undefined);
 
     // Check whether the move is in a subvariation directly following the current mainline move
     if(this.id < this.length()) {
-      if(History.compareFENs(this.moves[this.id + 1].fen, fen))
+      if(this.moves[this.id + 1].fen === fen)
         return this.id + 1;
 
       if(this.id + 1 < this.length()) {
-        if(History.compareFENs(this.moves[this.id + 2].fen, fen))
+        if(this.moves[this.id + 2].fen === fen)
           return this.id + 2;
       }
     }
@@ -255,20 +255,6 @@ export class History {
     const ply = moveNo * 2 - (turnColor === 'w' ? 1 : 0);
 
     return ply;
-  }
-
-
-  // Tests equality for everything in the FENs except for halfmove clock
-  // This is necessary due to a bug in FICS where halfmove clock is not always set properly
-  public static compareFENs(fen1: string, fen2: string) : boolean {
-    var splitFen1 = fen1.split(/\s+/);
-    splitFen1[4] = '';
-    var fen1 = splitFen1.join();
-    var splitFen2 = fen2.split(/\s+/);
-    splitFen2[4] = '';
-    var fen2 = splitFen2.join();
-
-    return fen1 === fen2;
   }
 
   public static getMoveNoFromFEN(fen: string): number {
