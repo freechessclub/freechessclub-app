@@ -44,4 +44,19 @@ module.exports = {
     experiments: {
         asyncWebAssembly: true,
     },
+    devServer: {
+        client: {
+            progress: true,
+        },
+        static: {
+          directory: __dirname,
+        },
+        historyApiFallback: {
+            rewrites: [
+              { from: /^\/play/, to: 'play.html' },
+            ],
+          },
+        compress: true,
+        port: 8080,
+    },
 }
