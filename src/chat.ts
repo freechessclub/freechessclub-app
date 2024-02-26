@@ -221,7 +221,7 @@ export class Chat {
       $('#content-' + from).on('scroll', (e) => {
         var tab = e.target;
         if($(tab).hasClass('active')) {
-          var atBottom = tab.scrollHeight - tab.clientHeight <= tab.scrollTop + 1;      
+          var atBottom = tab.scrollHeight - tab.clientHeight < tab.scrollTop + 1.5;      
           if(atBottom) {
             $('#chat-scroll-button').hide();
             this.scrolledToBottom[$(tab).attr('id')] = true; 

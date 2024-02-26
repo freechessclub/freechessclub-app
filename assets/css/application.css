@@ -53,6 +53,10 @@ html, body {
   text-align: center;
 }
 
+#left-panel {
+  height: 460px;
+}
+
 #left-panel-bottom {
   height: 192px;
   width: 100%;
@@ -486,4 +490,8 @@ html, body {
   padding-top: 1px;
   padding-bottom: 1px;
   background-color: rgba(0, 0, 0, 0.05);
+}
+
+.modal {
+  --bs-modal-color: var(--fg-color);
 }

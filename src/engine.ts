@@ -9,19 +9,28 @@ import * as d3 from 'd3';
 
 var SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'wild/fr'];
 
-export class EvalEngine {
-  private stockfish: any;
-  private history: any;
-  private currMove: any;
-  private currEval: string;
-  private _redraw: boolean;
-  private numGraphMoves: number;
+export class Engine {
+  protected stockfish: any;
+  protected numPVs: number;
+  protected currMove: any;
+  protected currEval: string;
+  protected history: any;
+  protected category: string;
+  protected bestMoveCallback: (move: string, score: string) => void;
+  protected pvCallback: (pvNum: number, pvEval: string, pvMoves: string) => void;
+  protected moveParams: string;
 
-  constructor(history: any, category: string = 'untimed') {
-    this.history = history;
+  constructor(history: any, bestMoveCallback: (move: string, score: string) => void, pvCallback: (pvNum: number, pvEval: string, pvMoves: string) => void, options?: object, moveParams?: string) {
+    this.numPVs = 1;
+    this.moveParams = moveParams;
+    this.category = 'standard';
     this.currMove = undefined;
-    this._redraw = true;
-    this.numGraphMoves = 0;
+    this.history = history;
+    this.bestMoveCallback = bestMoveCallback;
+    this.pvCallback = pvCallback;
+
+    if(!this.moveParams)
+      this.moveParams = 'infinite';
 
     const wasmSupported = typeof WebAssembly === 'object' && WebAssembly.validate(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
     if(wasmSupported) {
@@ -31,52 +40,34 @@ export class EvalEngine {
     else
       this.stockfish = new Worker(new URL('stockfish.js/stockfish.js', import.meta.url));
 
-    this.uci('uci');
-
-    if(category === 'wild/fr')  
-      this.uci('setoption name UCI_Chess960 value true');
-
-    this.uci('ucinewgame');
-    this.uci('isready');
-
-    const that = this;
-    this.stockfish.onmessage = function(response: any) { that.evaluate(response); }
-  }
-
-  public static categorySupported(category: string) {
-    return SupportedCategories.indexOf(category) > -1;
-  }
-
-  private uci(cmd: string, ports?: any) {
-    return this.stockfish.postMessage(cmd, ports)
-  }
-
-  public terminate() {
-    this.stockfish.terminate();
-  }
-
-  public evaluate(response?: any) {
-    let done = false;
-
-    if(this.currMove) {
-      if(!response)
-        return;
+    this.stockfish.onmessage = (response) => {
+      let depth0 = false;
 
       if (response.data.startsWith('info')) {
+        var fen = this.currMove.fen;
         const info = response.data.substring(5, response.data.length);
+
         const infoArr: string[] = info.trim().split(/\s+/);
 
-        let scoreStr = '';
+        let bPV = false;
+        const pvArr = [];
+        let scoreStr;
+        let pvNum = 1;
         for(let i = 0; i < infoArr.length; i++) {
           if(infoArr[i] === 'lowerbound' || infoArr[i] === 'upperbound')
             return;
 
           if(infoArr[i] === 'depth' && infoArr[i + 1] === '0')
-            done = true;
+            depth0 = true;
 
+          if(infoArr[i] === 'multipv') {
+            pvNum = +infoArr[i + 1];
+            if(pvNum > this.numPVs)
+              return;
+          }
           if(infoArr[i] === 'score') {
             let score = +infoArr[i + 2];
-            const turn = this.currMove.fen.split(/\s+/)[1];
+            const turn = fen.split(/\s+/)[1];
 
             if(score > 0 && turn === 'w' || score < 0 && turn === 'b') {
               var prefix = '+';
@@ -101,31 +92,137 @@ export class EvalEngine {
             else
               scoreStr = prefix + (score / 100).toFixed(2);
           }
+          else if(infoArr[i] === 'pv') {
+            bPV = true;
+          }
+          else if(bPV) {
+            pvArr.push(infoArr[i]);
+          }
+        }
+
+        if(pvArr.length) {
+          var pv = '';
+          var currFen = fen;
+          for(const move of pvArr) {
+            var parsedMove = parseMove(currFen, { from: move.slice(0, 2), to: move.slice(2, 4), promotion: (move.length === 5 ? move.charAt(4) : undefined)}, this.category);    
+            if(!parsedMove) {
+              // Non-standard or unsupported moves were passed to Engine.
+              this.terminate();
+              return;
+            }
+            
+            var turnColor = History.getTurnColorFromFEN(currFen);
+            var moveNumber = History.getMoveNoFromFEN(currFen);
+            var moveNumStr = '';
+            if(turnColor === 'w')
+              moveNumStr = moveNumber + '.';
+            else if(fen === currFen && turnColor === 'b')
+              moveNumStr = moveNumber + '...';
+            pv += moveNumStr + parsedMove.move.san + ' ';
+            currFen = parsedMove.fen;
+          }
+
+          if(this.pvCallback)
+            this.pvCallback(pvNum, scoreStr, pv);
+        }
+        // mate in 0
+        else if(scoreStr === '#0' || scoreStr === '-#0') {
+          if(this.pvCallback)
+            this.pvCallback(1, scoreStr, '');
         }
         this.currEval = scoreStr;
-      }
-      else if(response.data.startsWith('bestmove'))
-        done = true;
 
-      if(done) {
-        this.currMove.eval = this.currEval;
-        this.currMove = undefined;
-        this._redraw = true;
+        if(depth0 && this.bestMoveCallback) 
+          this.bestMoveCallback('', this.currEval);
       }
+      else if(response.data.startsWith('bestmove') && this.bestMoveCallback) {
+        var bestMove = response.data.trim().split(/\s+/)[1];
+        this.bestMoveCallback(bestMove, this.currEval);
+      }
+    };
+
+    this.uci('uci');
+
+    // Parse options
+    for(const opt in options) {
+      if(opt === 'MultiPV')
+        this.numPVs = options[opt];
+      else if(opt === 'UCI_Chess960' && options[opt] === true)
+        this.category = 'wild/fr';
+      
+      this.uci('setoption name ' + opt + ' value ' + options[opt]);
     }
 
+    this.uci('ucinewgame');
+    this.uci('isready');
+  }
+
+  public static categorySupported(category: string) {
+    return SupportedCategories.indexOf(category) > -1;
+  }
+
+  public terminate() {
+    this.stockfish.terminate();
+  }
+
+  public move(index: number) {
+    this.currMove = this.history.get(index);
+    
+    var movelist = [];
+    while(index > 0) {
+      var hEntry = this.history.get(index);
+      movelist.push(hEntry.move.from + hEntry.move.to + (hEntry.move.promotion ? hEntry.move.promotion : ''));
+      index = this.history.prev(index);
+    }
+    var movesStr = movelist.reverse().join(' ');
+
+    this.uci('position fen ' + this.history.get(0).fen + ' moves ' + movesStr);
+    this.uci('go ' + this.moveParams);
+  }
+
+  public setNumPVs(num : any = 1) {
+    this.numPVs = num;
+    this.uci('setoption name MultiPV value ' + this.numPVs);
+  }
+
+  private uci(cmd: string, ports?: any) {
+    return this.stockfish.postMessage(cmd, ports)
+  }
+}
+
+export class EvalEngine extends Engine {
+  private _redraw: boolean = true;
+  private numGraphMoves: number = 0;
+
+  constructor(history: any, options?: any, moveParams?: string) {
+    if(!moveParams)
+      moveParams = 'movetime 100';
+    
+    super(history, null, null, options, moveParams);   
+    this.bestMoveCallback = this.bestMove;
+  }
+
+  public bestMove(move: string, score: string) {
+    this.currMove.eval = score;
+    this.currMove = undefined;
+    this._redraw = true;
+    this.evaluate();
+  }
+
+  public evaluate() {
     if(this._redraw)
       $('#eval-graph-container').html('');
 
     if(this.history.length() === 0 || !$('#eval-graph-panel').is(':visible'))
       return;
 
-    if(!this.currMove) {
+    if(this.currMove === undefined) {
       let hIndex = 0; let total = 0; let completed = 0;
       while(hIndex !== undefined) {
         const move = this.history.get(hIndex);
-        if(!this.currMove && move.eval === undefined) {
+        if(this.currMove === undefined && move.eval === undefined) {
           this.currMove = move;
+          var currIndex = hIndex;
           completed = total;
         }
         hIndex = this.history.next(hIndex);
@@ -137,10 +234,8 @@ export class EvalEngine {
         $('#eval-graph-container').html('');
       }
 
-      if(this.currMove) {
-        this.uci('position fen ' + this.currMove.fen);
-        const moveTime = 100;
-        this.uci('go movetime ' + moveTime);
+      if(this.currMove !== undefined) {
+        this.move(currIndex);
 
         const progress = Math.round(100 * completed / total);
         // update progress bar
@@ -383,148 +478,6 @@ export class EvalEngine {
         currMoveCircle
           .css('opacity', 0);
     }
-  }
-}
-
-export class Engine {
-  private board: any;
-  private stockfish: any;
-  private numPVs: number;
-  private fen: string;
-
-  constructor(board: any, category: string = 'untimed', numPVs = 1) {
-    this.numPVs = numPVs;
-    this.board = board;
-    this.fen = '';
-    const wasmSupported = typeof WebAssembly === 'object' && WebAssembly.validate(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
-    if(wasmSupported) {
-      new URL('stockfish.js/stockfish.wasm', import.meta.url); // Get webpack to copy the file from node_modules
-      this.stockfish = new Worker(new URL('stockfish.js/stockfish.wasm.js', import.meta.url));
-    }
-    else
-      this.stockfish = new Worker(new URL('stockfish.js/stockfish.js', import.meta.url));
-
-    this.stockfish.onmessage = (response) => {
-      if (response.data.startsWith('info')) {
-        const info = response.data.substring(5, response.data.length);
-
-        const infoArr: string[] = info.trim().split(/\s+/);
-
-        let bPV = false;
-        const pvArr = [];
-        let scoreStr;
-        let bestMove = false;
-        let pvNum = 1;
-        for(let i = 0; i < infoArr.length; i++) {
-          if(infoArr[i] === 'lowerbound' || infoArr[i] === 'upperbound')
-            return;
-          if(infoArr[i] === 'multipv') {
-            pvNum = +infoArr[i + 1];
-            if(pvNum === 1)
-              bestMove = true;
-            else if(pvNum > this.numPVs)
-              return;
-          }
-          if(infoArr[i] === 'score') {
-            let score = +infoArr[i + 2];
-            const turn = this.fen.split(/\s+/)[1];
-
-            if(score > 0 && turn === 'w' || score < 0 && turn === 'b') {
-              var prefix = '+';
-            }
-            else if(score == 0)
-              var prefix = '=';
-            else
-              var prefix = '-';
-            score = (score < 0 ? -score : score);
-
-            if(infoArr[i+1] === 'mate') {
-              if(prefix === '+')
-                prefix = '';
-              else if(prefix === '=') {
-                if(turn === 'w')
-                  prefix = '-';
-                else prefix = '';
-              }
-
-              scoreStr = prefix + '#' + score;
-            }
-            else
-              scoreStr = prefix + (score / 100).toFixed(2);
-          }
-          else if(infoArr[i] === 'pv') {
-            bPV = true;
-          }
-          else if(bPV) {
-            pvArr.push(infoArr[i]);
-          }
-        }
-
-        if(pvArr.length) {
-          var pv = '';
-          var currFen = this.fen;
-          for(const move of pvArr) {
-            var parsedMove = parseMove(currFen, { from: move.slice(0, 2), to: move.slice(2, 4), promotion: (move.length == 5 ? move.charAt(4) : undefined)}, category);
-            var turnColor = History.getTurnColorFromFEN(currFen);
-            var moveNumber = History.getMoveNoFromFEN(currFen);
-            var moveNumStr = '';
-            if(turnColor === 'w')
-              moveNumStr = moveNumber + '.';
-            else if(this.fen === currFen && turnColor === 'b')
-              moveNumStr = moveNumber + '...';
-            pv += moveNumStr + parsedMove.move.san + ' ';
-            currFen = parsedMove.fen;
-          }
-
-          var pvStr = '<b>(' + scoreStr + ')</b> ' + pv + '<b/>';
-          $('#engine-pvs li').eq(pvNum - 1).html(pvStr);
-
-          if(bestMove) {
-            this.board.setAutoShapes([{
-              orig: pvArr[0].slice(0, 2),
-              dest: pvArr[0].slice(2, 4),
-              brush: 'yellow',
-            }]);
-          }
-        }
-        // mate in 0
-        else if(scoreStr === '#0' || scoreStr === '-#0') {
-          var pvStr = '<b>(' + scoreStr + ')</b>';
-          $('#engine-pvs li').eq(0).html(pvStr);
-        }
-      }
-    };
-    this.uci('uci');
-    this.uci('setoption name MultiPV value ' + this.numPVs);
-
-    if(category === 'wild/fr')  
-      this.uci('setoption name UCI_Chess960 value true');
-
-    this.uci('ucinewgame');
-    this.uci('isready');
-  }
-
-  public static categorySupported(category: string) {
-    return SupportedCategories.indexOf(category) > -1;
-  }
-
-  public terminate() {
-    this.stockfish.terminate();
-  }
-
-  public move(fen: string) {
-    this.fen = fen;
-    this.uci('position fen ' + fen);
-    this.uci('go infinite');
-  }
-
-  public setNumPVs(num : any = 1) {
-    this.numPVs = num;
-    this.uci('setoption name MultiPV value ' + this.numPVs);
-  }
-
-  private uci(cmd: string, ports?: any) {
-    return this.stockfish.postMessage(cmd, ports)
   }
 }
 

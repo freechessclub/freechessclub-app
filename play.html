@@ -140,7 +140,7 @@
                                   <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(20,0);">20 min</button>
                                 </div>
                                 <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true"><span class="me-2 fa fa-clock-o" aria-hidden="false"></span>Custom</a>
-                                <form id="custom-control">
+                                <form id="custom-control" class="w-100">
                                   <div class="input-group">
                                     <input type="text" class="form-control text-center" id="custom-control-min" value="0" maxlength="3">
                                     <span class="input-group-text"> min </span>
@@ -151,36 +151,49 @@
                                     </span>
                                   </div>
                                 </form>
-                                <div class="btn-group dropdown position-static" role="group" aria-label="Study">
-                                  <button class="btn btn-outline-secondary dropdown-toggle" id="variants-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">Variants</button>
-                                  <ul class="dropdown-menu" id="variants-menu">
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Standard', '');">Standard</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Chess960', 'wild fr');">Chess960</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Bughouse', 'bughouse');">Bughouse (4 player)</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Crazyhouse', 'crazyhouse');">Crazyhouse</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Losers', 'losers');">Losers</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 0', 'wild 0');">Wild 0</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 1', 'wild 1');">Wild 1</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 2', 'wild 2');">Wild 2</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 3', 'wild 3');">Wild 3</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 4', 'wild 4');">Wild 4</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 5', 'wild 5');">Wild 5</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 8', 'wild 8');">Wild 8</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 8a', 'wild 8a');">Wild 8a</a></li>
+                                <div class="btn-group dropdown position-static" role="group" aria-label="Custom-2">  
+                                  <button class="btn btn-outline-secondary dropdown-toggle w-100" id="player-color-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">Any color</button>
+                                  <ul class="dropdown-menu" id="player-color-menu">
+                                    <li><a class="dropdown-item" onclick="setNewGameColor('Any color');">Any color</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameColor('White');">White</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameColor('Black');">Black</a></li>
                                   </ul>
+                                  <button class="btn btn-outline-secondary dropdown-toggle w-100" id="rated-unrated-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">Unrated</button>
+                                  <ul class="dropdown-menu" id="rated-unrated-menu">
+                                    <li><a class="dropdown-item" onclick="setNewGameRated('Rated');">Rated</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameRated('Unrated');">Unrated</a></li>
+                                  </ul>
+                                  <button class="btn btn-outline-secondary dropdown-toggle w-100" id="variants-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">Variants</button>
+                                  <ul class="dropdown-menu" id="variants-menu">
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Standard', '');">Standard</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Chess960', 'wild fr');">Chess960</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Bughouse', 'bughouse');">Bughouse (4 player)</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Crazyhouse', 'crazyhouse');">Crazyhouse</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Losers', 'losers');">Losers</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 0', 'wild 0');">Wild 0</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 1', 'wild 1');">Wild 1</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 2', 'wild 2');">Wild 2</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 3', 'wild 3');">Wild 3</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 4', 'wild 4');">Wild 4</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 5', 'wild 5');">Wild 5</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 8', 'wild 8');">Wild 8</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 8a', 'wild 8a');">Wild 8a</a></li>
+                                  </ul>
+                                </div>
+                                <div class="btn-group dropdown position-static" role="group" aria-label="Study">
                                   <button type="button" class="btn btn-outline-secondary btn-md" id="puzzlebot">Puzzle</button>
                                   <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Endgames</button>
                                   <ul class="dropdown-menu dropdown-menu-end" id="endgamebot">
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kpk'); showGameTab();">kpk</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kbnk'); showGameTab();">kbnk</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kbbk'); showGameTab();">kbbk</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqk'); showGameTab();">kqk</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play krpkr'); showGameTab();">krpkr</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play krk'); showGameTab();">krk</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqkr'); showGameTab();">kqkr</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kpkp'); showGameTab();">kpkp</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqpkq'); showGameTab();">kqpkq</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play knnkp'); showGameTab();">knnkp</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kpk'); showGameTab();">kpk</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kbnk'); showGameTab();">kbnk</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kbbk'); showGameTab();">kbbk</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kqk'); showGameTab();">kqk</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play krpkr'); showGameTab();">krpkr</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play krk'); showGameTab();">krk</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kqkr'); showGameTab();">kqkr</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kpkp'); showGameTab();">kpkp</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kqpkq'); showGameTab();">kqpkq</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play knnkp'); showGameTab();">knnkp</a></li>
                                   </ul>
                                 </div>
                               </div>
@@ -265,7 +278,7 @@
                   <div class="tab-content flex-grow-1" style="min-height: 0">
                     <div class="tab-pane fade show active p-1 h-100" id="status-panel" role="tabpanel" aria-labelledby="status-panel">
                       <div class="d-flex flex-column overflow-auto center h-100">
-                        <div class="px-2 w-100">
+                        <div class="px-2 w-100 h-100">
                           <div id="game-status" class="center py-1"></div>
                           <div id="opening-name" class="center py-1 border-top" style="display: none"></div>
                           <div id="game-watchers" class="center pt-2 pb-1 border-top"></div>

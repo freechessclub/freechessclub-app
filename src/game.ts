@@ -23,8 +23,8 @@ class GameData {
   inc: number;                          // increment In seconds) of the match
   wstrength: number;                    // White material strength
   bstrength: number;                    // Black material strength
-  wtime: number;                        // White's remaining time
-  btime: number;                        // Black's remaining time
+  wtime: number;                        // White's remaining time in milliseconds
+  btime: number;                        // Black's remaining time in milliseconds
   moveNo: number;                       // the number of the move about to be made
   moveVerbose: {                        // verbose coordinate notation for the previous move
     from: string,                       // from square
@@ -35,6 +35,7 @@ class GameData {
   prevMoveTime: {                       // time taken to make previous move
     minutes: number,
     seconds: number,
+    milliseconds: number,
   };
   move: string;                         // pretty notation for the previous move ("none" if there is none)
   flip: boolean;                        // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.
@@ -54,8 +55,6 @@ class Game extends GameData {
   chess: any = null;
   color = 'w';
   history: any = null;
-  bclock: any = null;
-  wclock: any = null;
   watchers: any = null;
 }
 

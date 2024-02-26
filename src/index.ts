@@ -8,7 +8,7 @@ import { Chessground } from 'chessground';
 import { Color, Key } from 'chessground/types';
 import NoSleep from '@uriopass/nosleep.js'; // Prevent screen dimming
 import Chat from './chat';
-import * as clock from './clock';
+import { Clock } from './clock';
 import { Engine, EvalEngine } from './engine';
 import { game, Role } from './game';
 import History from './history';
@@ -26,6 +26,7 @@ let session: Session;
 let chat: Chat;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
+let clock: Clock | null;
 
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
@@ -75,6 +76,7 @@ let scrollBarWidth; // Used for sizing the layout
 let noSleep = new NoSleep(); // Prevent screen dimming
 let openings;
 let fetchOpeningsPromise = null;
+let isRegistered = false;
 
 function cleanupGame() {
   hideButton($('#stop-observing'));
@@ -85,10 +87,8 @@ function cleanupGame() {
   $('#viewing-game-buttons').show();
   $('#lobby-pane-status').hide();
 
-  if(game.wclock)
-    clearInterval(game.wclock);
-  if(game.bclock)
-    clearInterval(game.bclock);
+  clock.stopClocks();
+
   if(game.watchers)
     clearInterval(game.watchers);
   game.watchers = null;
@@ -137,7 +137,7 @@ function initCategory() {
   // Check if game category (variant) is supported by Engine
   if(Engine.categorySupported(game.category)) {
     if(!evalEngine)
-      evalEngine = new EvalEngine(game.history, game.category);
+      evalEngine = new EvalEngine(game.history, {UCI_Chess960: game.category === 'wild/fr'});
     showAnalyzeButton();
   }
   else 
@@ -336,6 +336,20 @@ const board: any = Chessground(document.getElementById('board'), {
 });
 
 function toDests(chess: any): Map<Key, Key[]> {
+  if(game.category === 'losers' || game.category.startsWith('wild'))
+    return variantToDests(chess);
+
+  var dests = new Map();
+  chess.SQUARES.forEach(s => {
+    var ms = chess.moves({square: s, verbose: true});
+    if(ms.length)    
+      dests.set(s, ms.map(m => m.to));
+  });
+
+  return dests;
+}
+
+function variantToDests(chess: any): Map<Key, Key[]> {
   // In 'losers' variant, if a capture is possible then include only captures in dests
   if(game.category === 'losers') {
     var dests = new Map();
@@ -490,6 +504,8 @@ export function movePiece(source: any, target: any, metadata: any) {
       else
         sendMove(move);
     }
+
+    hitClock(false);
   }
 
   promotePiece = null;  
@@ -923,7 +939,35 @@ function getAdjacentSquares(square: string) : string[] {
   return adjacent;
 }
 
+function splitFEN(fen: string) {
+  var words = fen.split(/\s+/);
+  return {
+    board: words[0],
+    color: words[1],
+    castlingRights: words[2],
+    enPassant: words[3],
+    plyClock: words[4],
+    moveNo: words[5]
+  };
+}
+
+function joinFEN(obj: any) {
+  return Object.keys(obj).map(key => obj[key]).join(' ');
+}
+
 export function parseMove(fen: string, move: any, category: string) {
+  // Parse variant move
+  if(category.includes('wild') || category.includes('house'))
+    return parseVariantMove(fen, move, category);
+
+  // Parse standard move
+  var chess = new Chess(fen);
+  var outMove = chess.move(move);
+  var outFen = chess.fen();
+  return { fen: outFen, move: outMove };
+}
+
+function parseVariantMove(fen: string, move: any, category: string) {
   var chess = new Chess(fen);
   var san = '';
 
@@ -956,25 +1000,46 @@ export function parseMove(fen: string, move: any, category: string) {
   else
     san = move;
 
-  // Make standard move
+  // Pre-processing of FEN before calling chess.move()
+  var beforePre = splitFEN(fen); // Stores FEN components from before pre-processing of FEN starts
+  var afterPre = Object.assign({}, beforePre); // Stores FEN components for after pre-procesisng is finished
+
+  if(category.startsWith('wild')) {
+    // Remove opponent's castling rights since it confuses chess.js
+    if(beforePre.color === 'w') {
+      var opponentRights = beforePre.castlingRights.replace(/[KQ-]/g,'');
+      var castlingRights = beforePre.castlingRights.replace(/[kq]/g,'');
+    }
+    else {
+      var opponentRights = beforePre.castlingRights.replace(/[kq-]/g,'');
+      var castlingRights = beforePre.castlingRights.replace(/[KQ]/g,'');
+    }
+    if(castlingRights === '')
+      castlingRights = '-';
+  
+    afterPre.castlingRights = castlingRights;
+    fen = joinFEN(afterPre);
+    chess.load(fen);
+  }
+
+  /*** Try to make standard move ***/
   var outMove = chess.move(move);
   var outFen = chess.fen();
 
-  // Manually update FEN for non-standard moves
+  /*** Manually update FEN for non-standard moves ***/
   if(!outMove 
       || (category.startsWith('wild') && san.toUpperCase().startsWith('O-O'))) {
     san = san.replace(/[+#]/, ''); // remove check and checkmate, we'll add it back at the end
     chess = new Chess(fen);
     outMove = {color: color, san: san};
+   
+    var board = afterPre.board;
+    var color = afterPre.color;
+    var castlingRights = afterPre.castlingRights;
+    var enPassant = afterPre.enPassant;
+    var plyClock = afterPre.plyClock;
+    var moveNo = afterPre.moveNo;
 
-    var splitFen = fen.split(/\s+/);
-    var board = splitFen[0];
-    var color = splitFen[1];
-    var castlingRights = splitFen[2];
-    var enPassant = splitFen[3];
-    var plyClock = splitFen[4];
-    var moveNo = splitFen[5];
-    
     var boardAfter = board;
     var colorAfter = (color === 'w' ? 'b' : 'w');
     var castlingRightsAfter = castlingRights;
@@ -1067,13 +1132,15 @@ export function parseMove(fen: string, move: any, category: string) {
 
       if(rookFrom === leftRook) {
         // Do we have castling rights?     
-        if(!castlingRights.includes(color === 'w' ? 'Q' : 'q'))
+        if(!castlingRights.includes(color === 'w' ? 'Q' : 'q')) 
           return null;
+
         outMove.flags = 'q';
       }
       else {
-        if(!castlingRights.includes(color === 'w' ? 'K' : 'k'))
+        if(!castlingRights.includes(color === 'w' ? 'K' : 'k')) 
           return null;
+
         outMove.flags = 'k';
       }
 
@@ -1116,20 +1183,35 @@ export function parseMove(fen: string, move: any, category: string) {
       chess.remove(rookFrom);
       chess.put({type: 'k', color: color}, kingTo);
       chess.put({type: 'r', color: color}, rookTo);
-    
-      if(color === 'w')
-        castlingRightsAfter = castlingRights.replace(/[KQ]/g, '');
-      else
-        castlingRightsAfter = castlingRights.replace(/[kq]/g, '');
+
+      var castlingRightsAfter = castlingRights;
+      if(rookFrom === leftRook) 
+        castlingRightsAfter = castlingRightsAfter.replace((color === 'w' ? 'Q' : 'q'), '');
+      else 
+        castlingRightsAfter = castlingRightsAfter.replace((color === 'w' ? 'K' : 'k'), '');
+
+      // On FICS there is a weird bug (feature?) where as long as the king hasn't moved after castling, 
+      // you can castle again! 
+      if(kingFrom !== kingTo) {
+        if(rookFrom === leftRook) 
+          castlingRightsAfter = castlingRightsAfter.replace((color === 'w' ? 'K' : 'k'), '');
+        else
+          castlingRightsAfter = castlingRightsAfter.replace((color === 'w' ? 'Q' : 'q'), '');
+      }
+
       if(castlingRightsAfter === '')
         castlingRightsAfter = '-';
 
       outMove.piece = 'k';
       outMove.from = kingFrom;
-      outMove.to = kingTo;
+
+      if(category === 'wild/fr')
+        outMove.to = rookFrom; // Fischer random specifies castling to/from coorindates using 'rook castling'
+      else
+        outMove.to = kingTo;
     }
 
-    boardAfter = chess.fen().split(/\s+/)[0];
+    var boardAfter = chess.fen().split(/\s+/)[0];
     outFen = boardAfter + ' ' + colorAfter + ' ' + castlingRightsAfter + ' ' + enPassantAfter + ' ' + plyClockAfter + ' ' + moveNoAfter;
   
     chess.load(outFen);
@@ -1139,9 +1221,12 @@ export function parseMove(fen: string, move: any, category: string) {
       outMove.san += '+';
   }
 
-  // Post-processing on FEN after chess.move() for variants 
+  // Post-processing on FEN after calling chess.move() 
+  var beforePost = splitFEN(outFen); // Stores FEN components before post-processing starts
+  var afterPost = Object.assign({}, beforePost); // Stores FEN components after post-processing is completed
+
   if(category === 'crazyhouse' || category === 'bughouse') {
-    outFen = outFen.replace(/ \d+ /, ' 0 '); // FICS doesn't use the 'irreversable moves count' for crazyhouse/bughouse, so set it to 0
+    outFen = outFen.replace(/\s+\d+\s+(\d+)/, ' 0 $1'); // FICS doesn't use the 'irreversable moves count' for crazyhouse/bughouse, so set it to 0
     // Check if it's really mate, i.e. player can't block with a held piece
     // (Yes this is a lot of code for something so simple)
     if(chess.in_checkmate()) {
@@ -1194,44 +1279,62 @@ export function parseMove(fen: string, move: any, category: string) {
   }
   if(category.startsWith('wild')) {
     // Adjust castling rights after rook move
-    var color = fen.split(/\s+/)[1];
     if(outMove.piece === 'r') {
       // Check if rook moved from starting position
       var startChess = new Chess(game.history.get(0).fen);
       var files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-      var rank = (color === 'w' ? '1' : '8');
+      var rank = (afterPre.color === 'w' ? '1' : '8');
+      var leftRook = '';
+      var rightRook = '';
       for(const file of files) {
         // Get starting location of rooks
         let square = file + rank;
         let piece = startChess.get(square);
-        if(piece && piece.type === 'r' && piece.color === color) {
+        if(piece && piece.type === 'r' && piece.color === afterPre.color) {
           if(!leftRook) 
             var leftRook = square;
           else 
             var rightRook = square;
         }
       }
-      if(outMove.from === leftRook)
+      if(outMove.from === leftRook) 
         var leftRookMoved = true;
-      if(outMove.from === rightRook)
+      if(outMove.from === rightRook) 
         var rightRookMoved = true;
-      
+
       if(leftRookMoved || rightRookMoved) {
-        var castlingRights = fen.split(/\s+/)[2];
-
+        var castlingRights = afterPre.castlingRights;
         if(leftRookMoved)
-          var castlingRightsAfter = castlingRights.replace((color === 'w' ? 'Q' : 'q'), '');
+          var castlingRights = castlingRights.replace((afterPre.color === 'w' ? 'Q' : 'q'), '');
         else
-          var castlingRightsAfter = castlingRights.replace((color === 'w' ? 'K' : 'k'), '');
+          var castlingRights = castlingRights.replace((afterPre.color === 'w' ? 'K' : 'k'), '');
 
-        if(!castlingRightsAfter)
-          castlingRightsAfter = '-';
+        if(!castlingRights)
+          castlingRights = '-';
 
-        var castlingRightsBefore = outFen.split(/\s+/)[2];
-        outFen = outFen.replace(' ' + castlingRightsBefore + ' ', ' ' + castlingRightsAfter + ' ');
+        afterPost.castlingRights = castlingRights;
       }
     }
+
+    // Don't let chess.js change the castling rights erroneously
+    if(outMove.piece !== 'k' && outMove.piece !== 'r') 
+      afterPost.castlingRights = beforePre.castlingRights;
+    else if(opponentRights) {
+      // Restore opponent's castling rights (which were removed at the start so as not to confuse chess.js)
+      var castlingRights = afterPost.castlingRights;
+      if(castlingRights === '-')
+        castlingRights = '';
+      if(afterPost.color === 'w')
+        afterPost.castlingRights = opponentRights + castlingRights;
+      else
+        afterPost.castlingRights = castlingRights + opponentRights;
+    }
   }
+  outFen = joinFEN(afterPost);
+
+  // Move was not made, something went wrong
+  if(afterPost.board === beforePre.board)
+    return null;
 
   return {fen: outFen, move: outMove};
 }
@@ -1240,8 +1343,8 @@ export function parseMovelist(movelist: string) {
   const moves = [];
   let found : string[] & { index?: number } = [''];
   let n = 1;
-  var wtime = game.time * 60;
-  var btime = game.time * 60;
+  var wtime = game.time * 60000;
+  var btime = game.time * 60000;
 
   // We've set 'iset startpos 1' so that the 'moves' command also returns the start position in style12 in cases 
   // where the start position is non-standard, e.g. fischer random. 
@@ -1259,11 +1362,11 @@ export function parseMovelist(movelist: string) {
 
   game.history.reset(chess.fen(), wtime, btime);
   while (found !== null) {
-    found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*\\((\\d+):(\\d+)\\)\\s*(?:(\\S*)\\s*\\((\\d+):(\\d+)\\))?.*', 'm'));
-    if (found !== null && found.length > 3) {
+    found = movelist.match(new RegExp(n + '\\.\\s*(\\S*)\\s*\\((\\d+):(\\d+)\.(\\d+)\\)\\s*(?:(\\S*)\\s*\\((\\d+):(\\d+)\.(\\d+)\\))?.*', 'm'));
+    if (found !== null && found.length > 4) {
       const m1 = found[1].trim();
       if(m1 !== '...') {
-        wtime += (n === 1 ? 0 : game.inc) - (+found[2] * 60 + +found[3]);
+        wtime += (n === 1 ? 0 : game.inc * 1000) - (+found[2] * 60000 + +found[3] * 1000 + +found[4]);
         var parsedMove = parseMove(chess.fen(), m1, game.category);
         if(!parsedMove)
           break;
@@ -1272,9 +1375,9 @@ export function parseMovelist(movelist: string) {
         getOpening();
         updateVariantMoveData();
       }
-      if (found.length > 4 && found[4]) {
-        const m2 = found[4].trim();
-        btime += (n === 1 ? 0 : game.inc) - (+found[5] * 60 + +found[6]);
+      if (found.length > 5 && found[5]) {
+        const m2 = found[5].trim();
+        btime += (n === 1 ? 0 : game.inc * 1000) - (+found[6] * 60000 + +found[7] * 1000 + +found[8]);
         parsedMove = parseMove(chess.fen(), m2, game.category);
         if(!parsedMove)
           break;
@@ -1303,7 +1406,7 @@ function messageHandler(data) {
       if (!session.isConnected() && data.command === 1) {
         cleanup();
         disableOnlineInputs(false);
-        session.setUser(data.control);
+        session.setUser(data.control); 
         if (!chat) {
           chat = new Chat(data.control);
         }
@@ -1315,6 +1418,7 @@ function messageHandler(data) {
         session.send('iset defprompt 1'); // Force default prompt. Used for splitting up messages
         session.send('iset nowrap 1'); // Stop chat messages wrapping which was causing spaces to get removed erroneously
         session.send('iset pendinfo 1'); // Receive detailed match request info (both that we send and receive)
+        session.send('iset ms 1'); // Style12 receives clock times with millisecond precision
         session.send('=ch');
         channelListRequested = true;
         session.send('=computer'); // get Computers list, to augment names in Observe panel
@@ -1324,9 +1428,12 @@ function messageHandler(data) {
           initObservePane();
         else if($('#pills-examine').hasClass('active'))
           initExaminePane();
-        else if($('#pills-play').hasClass('active') && $('#pills-lobby').hasClass('active'))
-          initLobbyPane();
-
+        else if($('#pills-play').hasClass('active')) {
+          if($('#pills-lobby').hasClass('active'))
+            initLobbyPane();
+          else if($('#pills-pairing').hasClass('active'))
+            initPairingPane();
+        }         
       } else if (data.command === 2) {
         session.disconnect();
         $('#chat-status').popover({
@@ -1360,7 +1467,6 @@ function messageHandler(data) {
 
       if (game.chess === null) {
         game.chess = new Chess();
-        game.wclock = game.bclock = null;
         hidePromotionPanel();
         board.cancelMove();
 
@@ -1403,7 +1509,7 @@ function messageHandler(data) {
           if(game.isPlaying()) {
             game.watchers = setInterval(() => {
               const time = game.color === 'b' ? game.btime : game.wtime;
-              if (time > 60) {
+              if (time > 60000) {
                 session.send('allobs ' + game.id);
               }
             }, 90000); // 90000 seems a bit slow
@@ -1477,12 +1583,7 @@ function messageHandler(data) {
           updateHistory();
         }
 
-        if (game.isPlaying() || data.role === Role.OBSERVING) {
-          if(thisPly >= 2 && !game.wclock)
-            game.wclock = clock.startWhiteClock(game);
-          if(thisPly >= 3 && !game.bclock) 
-            game.bclock = clock.startBlackClock(game);
-        }
+        hitClock(true);
       }
       break;
     case MessageType.GameStart:
@@ -1499,6 +1600,8 @@ function messageHandler(data) {
       }
       break;
     case MessageType.GameEnd:
+      game.history.setClockTimes(game.history.last(), game.wtime, game.btime);
+
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
         // player won
         $('#player-status').css('background-color', 'var(--game-win-color)');
@@ -1996,6 +2099,7 @@ function messageHandler(data) {
         msg === 'startpos set.' || msg === 'startpos unset.' ||
         msg === 'showownseek set.' || msg === 'showownseek unset.' ||
         msg === 'pendinfo set.' || 
+        msg === 'ms set.' ||
         msg.startsWith('No one is observing game ') 
       ) {
         return;
@@ -2171,21 +2275,15 @@ function showCapturedMaterial(fen: string) {
           piece + `.svg"/><small>` + num + `</small></span>`);
 
       if(game.category === 'crazyhouse' || game.category === 'bughouse') {
-        $('#' + piece)[0].addEventListener('touchstart', dragPiece, {passive: false});
-        $('#' + piece)[0].addEventListener('mousedown', dragPiece);
+        $('#' + piece)[0].addEventListener('touchstart', dragCapturedPiece, {passive: false});
+        $('#' + piece)[0].addEventListener('mousedown', dragCapturedPiece);
       }
     }
   }
 }
 
-function dragPiece(event: any) {  
-  // Stop scrollbar appearing when piece is dragged below the bottom of the window
-  $('body').css('overflow-y', 'hidden');
-  $('html').css('overflow-y', 'hidden');
-  $(document).one('mouseup touchend touchcancel', (e) => {
-    $('body').css('overflow-y', '');
-    $('html').css('overflow-y', '');
-  });
+function dragCapturedPiece(event: any) {  
+  lockOverflow();
 
   var id = $(event.currentTarget).attr('id');
   var color = id.charAt(0);
@@ -2254,7 +2352,7 @@ function updateHistory(move?: any, fen?: string) {
 
     // move is already displayed
     if(index === game.history.index()) {
-      updateClocks();
+      setClocksFromHistory();
       return;
     }
 
@@ -2346,13 +2444,28 @@ function updatePromotedList(move: any, promoted: any) {
   return promoted;
 }
 
-function updateClocks() {
-  if(game.role === Role.NONE || game.role >= -2) {
-    if((!game.isPlaying() && game.role !== Role.OBSERVING) ||
-          game.history.index() === game.history.length()) {
-      clock.updateWhiteClock(game, game.history.get().wtime);
-      clock.updateBlackClock(game, game.history.get().btime);
+function setClocksFromHistory() {
+  if(!game.isPlaying() && game.role !== Role.OBSERVING) {
+    clock.setWhiteClock(game.history.get().wtime);
+    clock.setBlackClock(game.history.get().btime);
+  }
+}
+
+// Start clock after a move, switch from white to black's clock etc
+function hitClock(setClocks: boolean = false) {
+  if(game.isPlaying() || game.role === Role.OBSERVING) {
+    // If a move was received from the server, set the clocks to the updated times
+    // Note: When in examine mode this is handled by updateClocksByHistory() instead
+    if(setClocks) {
+      clock.setWhiteClock(); 
+      clock.setBlackClock();
     }
+
+    const thisPly = History.getPlyFromFEN(game.chess.fen());   
+    if(thisPly >= 3 && game.chess.turn() === 'w' && game.wtime !== 0) 
+      clock.startWhiteClock();
+    else if(thisPly >= 4 && game.chess.turn() === 'b' && game.btime !== 0) 
+      clock.startBlackClock();
   }
 }
 
@@ -2360,7 +2473,7 @@ export function updateBoard(playSound = false) {
   const move = game.history.get().move;
   const fen = game.history.get().fen;
 
-  updateClocks();
+  setClocksFromHistory();
 
   board.set({ fen });
 
@@ -2407,6 +2520,10 @@ export function updateBoard(playSound = false) {
   board.set({
     turnColor,
     movable,
+    highlight: {
+      lastMove: highlightsToggle,
+      check: highlightsToggle
+    },
     predroppable: { enabled: game.category === 'crazyhouse' || game.category === 'bughouse' },
     check: localChess.in_check() ? toColor(localChess) : false,
     blockTouchScroll: (game.isPlaying() ? true : false),
@@ -2455,11 +2572,24 @@ function startEngine() {
     for(let i = 0; i < numPVs; i++)
       $('#engine-pvs').append('<li>&nbsp;</li>');
 
-    engine = new Engine(board, game.category, numPVs);
+    engine = new Engine(game.history, null, displayEnginePV, {UCI_Chess960: game.category === 'wild/fr', MultiPV: numPVs});
     if(!movelistRequested)
-      engine.move(game.history.get().fen);
-    else
-      engine.move(game.fen);
+      engine.move(game.history.index());
+  }
+}
+
+function displayEnginePV(pvNum: number, pvEval: string, pvMoves: string) {
+  $('#engine-pvs li').eq(pvNum - 1).html('<b>(' + pvEval + ')</b> ' + pvMoves + '<b/>');
+
+  if(pvNum === 1 && pvMoves) {
+    var words = pvMoves.split(/\s+/);
+    var san = words[0].split(/\.+/)[1];
+    var parsed = parseMove(game.history.get().fen, san, game.category);
+    board.setAutoShapes([{
+      orig: parsed.move.from,
+      dest: parsed.move.to,
+      brush: 'yellow',
+    }]);
   }
 }
 
@@ -2570,7 +2700,7 @@ $('#collapse-history').on('show.bs.collapse', (event) => {
 
 $('#lobby-table-container').on('scroll', (e) => {
   var container = $('#lobby-table-container')[0];
-  lobbyScrolledToBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 1;
+  lobbyScrolledToBottom = container.scrollHeight - container.clientHeight < container.scrollTop + 1.5;
 });
 
 $('#pills-tab button').on('click', function(event) {
@@ -2619,6 +2749,25 @@ function getValue(elt: string): string {
     $('#opponent-player-name').attr('placeholder', 'Anyone');
 };
 
+(window as any).setNewGameRated = (option: string) => {
+  if(!session.isRegistered() && option === 'Rated') {
+    $('#rated-unrated-menu').popover({
+      animation: true,
+      content: 'You must be registered to play rated games. <a href="https://www.freechess.org/cgi-bin/Register/FICS_register.cgi?Language=English" target="_blank">Register now</a>.',
+      html: true,
+      placement: 'top',
+    });
+    $('#rated-unrated-menu').popover('show');
+    return;
+  }
+
+  $('#rated-unrated-button').text(option);
+};
+
+(window as any).setNewGameColor = (option: string) => {
+  $('#player-color-button').text(option);
+};
+
 $('#input-form').on('submit', (event) => {
   event.preventDefault();
   let text;
@@ -2665,6 +2814,7 @@ function onDeviceReady() {
 
   $('#opponent-time').text('00:00');
   $('#player-time').text('00:00');
+  clock = new Clock(game);
   
   if(isSmallWindow()) {
     $('#collapse-chat').collapse('hide');
@@ -2894,7 +3044,7 @@ function setPanelSizes() {
     const leftPanelBorder = $('#left-panel').outerHeight() - $('#left-panel').height();
 
     if(isSmallWindow()) 
-      $('#left-panel').height(430);
+      $('#left-panel').css('height', ''); // Reset back to CSS defined height
     else {
       var leftPanelHeight = boardHeight - leftPanelBorder - siblingsHeight;
       $('#left-panel').height(Math.max(leftPanelHeight, 0));
@@ -2983,6 +3133,19 @@ $(document).ready(() => {
     onDeviceReady();
   }
 });
+
+function lockOverflow() {
+  // Stop scrollbar appearing when an element (like a captured piece) is dragged below the bottom of the window,
+  // unless the scrollbar is already visible
+  if($('body')[0].scrollHeight <= $('body')[0].clientHeight) {
+    $('body').css('overflow-y', 'hidden');
+    $('html').css('overflow-y', 'hidden');
+    $(document).one('mouseup touchend touchcancel', (e) => {
+      $('body').css('overflow-y', '');
+      $('html').css('overflow-y', '');
+    });
+  }
+}
 
 // Prevent screen dimming, must be enabled in a user input event handler
 $(document).one('click', (event) => {
@@ -3093,13 +3256,21 @@ function getGame(min: number, sec: number) {
   let opponent = getValue('#opponent-player-name')
   opponent = opponent.trim().split(/\s+/)[0];
   $('#opponent-player-name').val(opponent);
-  
+
+  var ratedUnrated = ($('#rated-unrated-button').text() === 'Rated' ? 'r' : 'u');
+  var colorName = $('#player-color-button').text();
+  var color = '';
+  if(colorName === 'White')
+    color = 'W ';
+  else if(colorName === 'Black')
+    color = 'B ';
+
   matchRequested++;
 
   const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek'; 
   if(game.isExamining())
     session.send('unex'); 
-  session.send(cmd + ' ' + min + ' ' + sec + ' ' + newGameVariant);
+  session.send(cmd + ' ' + min + ' ' + sec + ' ' + ratedUnrated + ' ' + color + newGameVariant);
 }
 (window as any).getGame = getGame;
 
@@ -3308,10 +3479,7 @@ $('#autopromote-toggle').on('click', (event) => {
 $('#highlights-toggle').prop('checked', highlightsToggle);
 $('#highlights-toggle').on('click', (event) => {
   highlightsToggle = !highlightsToggle;
-  board.set({ highlight: {
-    lastMove: highlightsToggle,
-    check: highlightsToggle
-  } });
+  updateBoard();
   Cookies.set('highlights', String(highlightsToggle), { expires: 365 })
 });
 
@@ -3423,6 +3591,14 @@ export function isLargeWindow(size?: number) {
     size = window.innerWidth;
   return size >= 992;
 }
+
+// Hide popover if user clicks anywhere outside
+$('body').on('click', function (e) {
+  if(!$('#rated-unrated-menu').is(e.target) 
+      && $('#rated-unrated-menu').has(e.target).length === 0
+      && $('.popover').has(e.target).length === 0)
+    $('#rated-unrated-menu').popover('dispose');
+});
 
 $(window).on('resize', () => {
   if(!$('#mid-col').is(':visible'))
@@ -3626,10 +3802,16 @@ $('#left-bottom-tabs .closeTab').on('click', (event) => {
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-play"]', (e) => {
   if($('#pills-lobby').hasClass('active'))
     initLobbyPane();
+  else if($('#pills-pairing').hasClass('active'))
+    initPairingPane();
 });
 
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-lobby"]', (e) => {
   initLobbyPane();
+});
+
+$(document).on('shown.bs.tab', 'button[data-bs-target="#pills-pairing"]', (e) => {
+  initPairingPane();
 });
 
 function initLobbyPane() {
@@ -3653,6 +3835,15 @@ function initLobbyPane() {
     lobbyEntries.clear();
     session.send('iset seekremove 1');
     session.send('iset seekinfo 1');
+  }
+}
+
+function initPairingPane() {
+  // If user has changed from unregistered to registered or vice versa, set Rated/Unrated option
+  // in pairing panel appopriately. 
+  if(session && isRegistered !== session.isRegistered()) {  
+    isRegistered = session.isRegistered();      
+    $('#rated-unrated-button').text((isRegistered ? 'Rated' : 'Unrated'));
   }
 }
 

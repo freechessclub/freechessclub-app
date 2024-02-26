@@ -48,6 +48,8 @@ export class Session {
   private tsKey = 'Timestamp (FICS) v1.0 - programmed by Henrik Gram.';
   private parser: Parser;
   private registered: boolean;
+  private chatStatusPopoverTimer; // Hide chat status popover after duration
+  private bodyClickHandler; // Used to detect when user clicks outside of chat status popover
 
   constructor(onRecv: (msg: any) => void, user?: string, pass?: string) {
     this.connected = false;
@@ -55,6 +57,20 @@ export class Session {
     this.onRecv = onRecv;
     this.connect(user, pass);
     this.registered = false;
+
+    // Hide popover if user clicks anywhere outside
+    this.bodyClickHandler = (e) => {
+      if(!$('#chat-status').is(e.target) 
+          && $('#chat-status').has(e.target).length === 0
+          && $('.popover').has(e.target).length === 0)
+        $('#chat-status').popover('dispose');
+        clearTimeout(this.chatStatusPopoverTimer);
+    };
+    $('body').on('click', this.bodyClickHandler);
+  }
+
+  destroy() {
+    $('body').off('click', this.bodyClickHandler());
   }
 
   public isRegistered(): boolean {
@@ -75,14 +91,14 @@ export class Session {
 
   public setUser(user: string): void {
     $('#chat-status').html('<span style="overflow: hidden; text-overflow: ellipsis"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;<span class="h6">' + user + '</span></span>');
-    if(!this.user) { // Only display popover if this is a new user
+    if(!this.user) { // Only display popover if this is a new user or guest
       $('#chat-status').popover({
         animation: true,
         content: 'Connected as ' + user + '. Click here to connect as a different user!',
         placement: 'top',
       });
       $('#chat-status').popover('show');
-      setInterval(() => $('#chat-status').popover('dispose'), 3600);
+      this.chatStatusPopoverTimer = setTimeout(() => $('#chat-status').popover('dispose'), 3600);
     }
     this.connected = true;
     this.user = user;
@@ -190,13 +206,5 @@ export class Session {
     return ss;
   }
 }
-
-// Hide popover if user clicks anywhere outside
-$('body').on('click', function (e) {
-  if(!$('#chat-status').is(e.target) 
-      && $('#chat-status').has(e.target).length === 0
-      && $('.popover').has(e.target).length === 0)
-    $('#chat-status').popover('dispose');
-});
 
 export default Session;
