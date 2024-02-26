@@ -15,6 +15,7 @@ import History from './history';
 import { GetMessageType, MessageType, Session } from './session';
 import * as Sounds from './sounds';
 import './ui';
+import packageInfo from '../package.json';
 
 export const enum Layout {
   Desktop = 0,
@@ -1414,7 +1415,7 @@ function messageHandler(data) {
         session.send('set seek 0');
         session.send('set echo 1');
         session.send('set style 12');
-        session.send('set interface www.freechess.club');
+        session.send('set interface Free Chess Club (' + packageInfo.version + ')');
         session.send('iset defprompt 1'); // Force default prompt. Used for splitting up messages
         session.send('iset nowrap 1'); // Stop chat messages wrapping which was causing spaces to get removed erroneously
         session.send('iset pendinfo 1'); // Receive detailed match request info (both that we send and receive)
