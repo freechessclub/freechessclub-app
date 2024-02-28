@@ -2,7 +2,8 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import { updateBoard } from './index';
+import { gotoMove, updateBoard } from './index';
+import * as d3 from 'd3';
 
 export class History {
   private board: any;
@@ -468,7 +469,235 @@ export class History {
     }
 
     return false;
-  }  
+  }
+
+  public showMoveTimes() {
+    if(this.length() === 0 || !$('#move-times-panel').is(':visible'))
+      return;
+
+    $('#move-times-container').html('');
+    this.drawGraph();
+  }
+
+  private drawGraph() {
+    const dataset = [];
+    let currIndex;
+    const that = this;
+
+    for(let i = 0, hIndex = 0; hIndex !== undefined; i++) {
+      if(hIndex === this.index())
+        currIndex = i;
+
+      const move = this.get(hIndex);
+      dataset.push({y1: move.wtime/1000, y2: -move.btime/1000});
+      hIndex = this.next(hIndex);
+    }
+
+    const container = $('#move-times-container');
+    container.show();
+
+    const margin = {top: 6, right: 6, bottom: 6, left: 24}
+      ; const width = container.width() - margin.left - margin.right // Use the window's width
+      ; const height = container.height() - margin.top - margin.bottom; // Use the window's height
+
+    // Prepare data set
+    const n = dataset.length;
+
+    // Define x and y scales
+    const xScale = d3.scaleLinear()
+      .domain([0, n-1]) // input
+      .range([0, width]); // output
+
+    const yScale = d3.scaleLinear()
+      .domain([d3.min(dataset, d => Math.min(d.y1, d.y2)), d3.max(dataset, d => Math.max(d.y1, d.y2))]) // input
+      .range([height, 0]); // output
+
+    // Line generator
+    const line1 = d3.line()
+    .x(function(d, i) { return xScale(i); })
+    .y(function(d) { return yScale(d.y1); });
+
+    const line2 = d3.line()
+    .x(function(d, i) { return xScale(i); })
+    .y(function(d) { return yScale(d.y2); });
+
+    // Add SVG to panel
+    const svg = d3.select(container[0]).append('svg')
+      .attr('width', '100%')
+      .attr('height', '100%')
+      .style('cursor', 'pointer')
+      .on('mousemove', function() {
+        const mousePosition = d3.pointer(event);
+        const xPos = mousePosition[0] - margin.left;
+        const yPos = mousePosition[1] - margin.top;
+        const getDistanceFromPos = (d) => Math.abs(d - xScale.invert(xPos));
+        const closestIndex = d3.scan(
+          d3.range(n),
+          (a, b) => getDistanceFromPos(a) - getDistanceFromPos(b)
+        );
+
+        hoverLine
+          .attr('x', xScale(closestIndex))
+          .style('opacity', 1);
+
+        const oldIndex1 = Math.round(xScale.invert($('#hover-circle1').attr('cx')));
+        const oldIndex2 = Math.round(xScale.invert($('#hover-circle2').attr('cx')));
+
+        hoverCircle1
+          .attr('cx', xScale(closestIndex))
+          .attr('cy', yScale(dataset[closestIndex].y1))
+          .attr('title', dataset[closestIndex].y1)
+          .attr('data-bs-original-title', dataset[closestIndex].y1)
+          .style('opacity', 1);
+
+        hoverCircle2
+          .attr('cx', xScale(closestIndex))
+          .attr('cy', yScale(dataset[closestIndex].y2))
+          .attr('title', dataset[closestIndex].y2)
+          .attr('data-bs-original-title', dataset[closestIndex].y2)
+          .style('opacity', 1);
+
+        if(oldIndex1 !== closestIndex) {
+          $('#hover-circle1')
+            .tooltip('dispose')
+            .tooltip({
+              container: '#move-times-container',
+              placement: 'auto',
+              trigger: 'manual'
+            });
+          $('#hover-circle1').tooltip('show');
+          $('.tooltip').css('pointer-events', 'none');
+        }
+
+        if(oldIndex2 !== closestIndex) {
+          $('#hover-circle2')
+            .tooltip('dispose')
+            .tooltip({
+              container: '#move-times-container',
+              placement: 'auto',
+              trigger: 'manual'
+            });
+          $('#hover-circle2').tooltip('show');
+          $('.tooltip').css('pointer-events', 'none');
+        }
+      })
+      .on('mouseleave', function() {
+        hoverLine.style('opacity', 0);
+        hoverCircle1.style('opacity', 0)
+          .attr('cx', -1);
+        hoverCircle2.style('opacity', 0)
+          .attr('cx', -1);
+        $('#hover-circle1').tooltip('dispose');
+        $('#hover-circle2').tooltip('dispose');
+      })
+      .on('click', function(event) {
+        const mousePosition = d3.pointer(event);
+        const xPos = mousePosition[0] - margin.left;
+        const getDistanceFromPos = (d) => Math.abs(d - xScale.invert(xPos));
+        const closestIndex = d3.scan(
+          d3.range(n),
+          (a, b) => getDistanceFromPos(a) - getDistanceFromPos(b)
+        );
+
+        let historyIndex = 0;
+        for(let i = 0; i < closestIndex; i++)
+          historyIndex = that.next(historyIndex);
+        gotoMove(historyIndex);
+
+        if(historyIndex) {
+          selectCircle1
+            .attr('cx', xScale(closestIndex))
+            .attr('cy', yScale(dataset[closestIndex].y1))
+            .style('opacity', 1);
+          selectCircle2
+            .attr('cx', xScale(closestIndex))
+            .attr('cy', yScale(dataset[closestIndex].y2))
+            .style('opacity', 1);
+        }
+        else {
+          selectCircle1.style('opacity', 0);
+          selectCircle2.style('opacity', 0);
+        }
+      })
+      .append('g')
+      .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+    // Render y-axis
+    const yAxis = svg.append('g')
+      .attr('class', 'eval-axis y-axis noselect')
+      .call(d3.axisLeft(yScale).tickSize(-width, 0, 0)); // Create an axis component with d3.axisLeft
+    yAxis.select('.domain').remove();
+
+    svg.append('path')
+      .datum(dataset)
+      .attr('class', 'eval-line-above')
+      .attr('d', line1);
+
+    svg.append('path')
+      .datum(dataset)
+      .attr('class', 'eval-line-below')
+      .attr('d', line2);
+
+    const hoverLine = svg.append('g')
+      .append('rect')
+      .attr('class', 'eval-hover-line')
+      .attr('stroke-width', '1px')
+      .attr('width', '.5px')
+      .attr('height', height)
+      .style('opacity', 0);
+
+    const hoverCircle1 = svg.append('g')
+      .append('circle')
+      .attr('id', 'hover-circle1')
+      .attr('class', 'eval-circle')
+      .attr('r', 3)
+      .style('opacity', 0);
+
+    const hoverCircle2 = svg.append('g')
+      .append('circle')
+      .attr('id', 'hover-circle2')
+      .attr('class', 'eval-circle')
+      .attr('r', 3)
+      .style('opacity', 0);
+
+    const selectCircle1 = svg.append('g')
+      .append('circle')
+      .attr('class', 'eval-circle')
+      .attr('id', 'select-circle1')
+      .attr('r', 4)
+      .style('opacity', 0);
+
+    const selectCircle2 = svg.append('g')
+      .append('circle')
+      .attr('class', 'eval-circle')
+      .attr('id', 'select-circle2')
+      .attr('r', 4)
+      .style('opacity', 0);
+
+    const currMoveCircle1 = $('#select-circle1');
+    if(currMoveCircle1) {
+      if(currIndex)
+        currMoveCircle1
+          .attr('cx', xScale(currIndex))
+          .attr('cy', yScale(dataset[currIndex].y1))
+          .css('opacity', 1);
+      else
+        currMoveCircle1
+          .css('opacity', 0);
+    }
+    const currMoveCircle2 = $('#select-circle2');
+    if(currMoveCircle2) {
+      if(currIndex)
+        currMoveCircle2
+          .attr('cx', xScale(currIndex))
+          .attr('cy', yScale(dataset[currIndex].y2))
+          .css('opacity', 1);
+      else
+        currMoveCircle2
+          .css('opacity', 0);
+    }
+  }
+
 }
 
 export default History;

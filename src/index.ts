@@ -3001,6 +3001,7 @@ function hideAnalysis() {
   stopEngine();
   closeLeftBottomTab($('#engine-tab'));
   closeLeftBottomTab($('#eval-graph-tab'));
+  closeLeftBottomTab($('#move-times-tab'));
   showAnalyzeButton();
 }
 
@@ -3019,6 +3020,7 @@ function showAnalyzeButton() {
 function showAnalysis() {
   openLeftBottomTab($('#engine-tab'));
   openLeftBottomTab($('#eval-graph-tab'));
+  openLeftBottomTab($('#move-times-tab'));
   $('#engine-pvs').empty();
   for(let i = 0; i < numPVs; i++)
     $('#engine-pvs').append('<li>&nbsp;</li>');
@@ -3038,20 +3040,6 @@ function openLeftBottomTab(tab: any) {
   tab.parent().show();
   $('#left-bottom-tabs').css('visibility', 'visible');
   tab.tab('show');
-}
-
-function getMoves() {
-  let moves = '';
-  const history = game.chess.history({verbose: true});
-  for (let i = 0; i < history.length; ++i) {
-    const move = history[i];
-    moves += ' ' + move.from + move.to + (move.promotion ? move.promotion : '');
-  }
-  return moves;
-}
-
-function getMoveNoFromFEN(fen: string) {
-  return +fen.split(/\s+/).pop();
 }
 
 $('#collapse-history').on('hidden.bs.collapse', (event) => {
@@ -4288,9 +4276,14 @@ $(document).on('shown.bs.tab', 'button[href="#eval-graph-panel"]', (e) => {
     evalEngine.redraw();
 });
 
+$(document).on('shown.bs.tab', 'button[href="#move-times-panel"]', (e) => {
+  if(game.history)
+    game.history.showMoveTimes();
+});
+
 $('#left-bottom-tabs .closeTab').on('click', (event) => {
   var id = $(event.target).parent().siblings('.nav-link').attr('id');
-  if(id === 'engine-tab' || id === 'eval-graph-tab')
+  if(id === 'engine-tab' || id === 'eval-graph-tab' || id === 'move-times-tab')
     hideAnalysis();
 });
 

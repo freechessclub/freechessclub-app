@@ -378,7 +378,13 @@
                       </container>
                     </li>
                     <li class="nav-item" role="presentation" style="position: relative; display: none">
-                      <button class="nav-link" id="eval-graph-tab" style="padding-right: 30px" data-bs-toggle="tab" href="#eval-graph-panel" role="tab" aria-controls="eval-graph-panel" aria-selected="false">Eval Graph</button>
+                      <button class="nav-link" id="eval-graph-tab" style="padding-right: 30px" data-bs-toggle="tab" href="#eval-graph-panel" role="tab" aria-controls="eval-graph-panel" aria-selected="false">Eval</button>
+                      <container class="h-100 d-flex" style="position: absolute; top: 0; right: 12px; z-index: 10">
+                        <span class="closeTab align-self-center btn btn-default btn-sm">×</span>
+                      </container>
+                    </li>
+                    <li class="nav-item" role="presentation" style="position: relative; display: none">
+                      <button class="nav-link" id="move-times-tab" style="padding-right: 30px" data-bs-toggle="tab" href="#move-times-panel" role="tab" aria-controls="move-times-panel" aria-selected="false">Moves</button>
                       <container class="h-100 d-flex" style="position: absolute; top: 0; right: 12px; z-index: 10">
                         <span class="closeTab align-self-center btn btn-default btn-sm">×</span>
                       </container>
@@ -414,6 +420,15 @@
                       <div id="eval-progress" class="center h-100 w-100" style="display: none">
                         <div class="progress h-100 w-100">
                           <div class="progress-bar" role="progressbar" aria-label="Loading Eval Graph" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">100%</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="tab-pane fade h-100 w-100" id="move-times-panel" role="tabpanel" aria-labelledby="move-times-panel">
+                      <div id="move-times-container" class="h-100 w-100" style="display: none">
+                      </div>
+                      <div id="move-times" class="center h-100 w-100" style="display: none">
+                        <div class="progress h-100 w-100">
+                          <div class="progress-bar" role="progressbar" aria-label="Loading Move Times" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">100%</div>
                         </div>
                       </div>
                     </div>
