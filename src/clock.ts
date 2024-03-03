@@ -10,6 +10,8 @@ export class Clock {
   private timestamp: number;
   private runningClock: string; // 'w' if white clock running, 'b' for black, or '' if no clock running
   private flagFallCallback: () => void;
+  private interval: number; // milliseconds between clock updates
+  private lowTimeThreshold: number // mark clock as low-time when it goes below this value
 
   constructor(game: any, flagFallCallback?: () => void) {
     this.game = game;    
@@ -17,6 +19,11 @@ export class Clock {
     this.wtime = 0; 
     this.btime = 0;
     this.flagFallCallback = flagFallCallback;
+    this.interval = 1000; // update clock once a second
+    this.lowTimeThreshold = 20000;
+
+    this.setWhiteClock(0);
+    this.setBlackClock(0);
   }
 
   /**
@@ -37,12 +44,12 @@ export class Clock {
     decrementing the clock the first time. 
     e.g. Let's say wtime is 60533 (00:60.533), so wait 534 milliseconds until wtime is 59999 (00:59.999)
     then set the clock to 00:59 and decrement it every 1000ms after that */
-  private static msTilNextInterval(time: number): number {
-    const millisecondPart = Math.abs(time) - (Math.floor(Math.abs(time) / 1000) * 1000);
+  private msTilNextInterval(time: number): number {
+    const millisecondPart = Math.abs(time) - (Math.floor(Math.abs(time) / this.interval) * this.interval);
     if(time >= 0) 
       return millisecondPart + 1;
     else
-      return 1000 - millisecondPart + 1;
+      return this.interval - millisecondPart + 1;
   }
 
   public setWhiteClock(time?: number) {
@@ -72,12 +79,24 @@ export class Clock {
     if(time === null)
       time = 0;
     
-    const clockElement = this.game.color === color ? $('#player-time') : $('#opponent-time');
-    
-    clockElement.text(Clock.MSToHHMMSS(time));
+    const clockElement = this.game.color === color ? $('#player-clock') : $('#opponent-clock');  
+    const clockTimeElement = clockElement.find('.clock-time'); 
+    const fractionalTimeElement = clockElement.find('.fractional-clock-time');    
 
-    if(time >= 20000)
+    clockTimeElement.text(Clock.MSToHHMMSS(time));
+
+    if(time >= this.lowTimeThreshold)
       clockElement.removeClass('low-time');
+    else if(this.getRunningClock()) 
+      clockElement.addClass('low-time');
+
+    if(time >= this.lowTimeThreshold || time === 0) 
+      fractionalTimeElement.hide();
+    else {
+      var msPart = Math.abs(time) - (Math.floor(Math.abs(time) / 1000) * 1000); // Get fractional part of time remaining
+      fractionalTimeElement.text('.' + (Math.floor(msPart / 100))); // Get 10ths of a second digit
+      fractionalTimeElement.show();
+    }
   }
 
   public startBlackClock() {
@@ -95,12 +114,17 @@ export class Clock {
     if(initialTime === null) // player is untimed
       return;
 
+    if(initialTime < this.lowTimeThreshold)
+      this.interval = 100;
+    else
+      this.interval = 1000;
+
     this.runningClock = color;
 
     // The timer waits a fractional amount until the next second ticks over
     // e.g. if btime is 60.533 it waits until 59.999 
     // After that the clock will be updated once a second.
-    var waitTime = Clock.msTilNextInterval(initialTime);
+    var waitTime = this.msTilNextInterval(initialTime);
     this.timestamp = performance.now();
     var expectedTimeDiff = 0;
 
@@ -114,14 +138,12 @@ export class Clock {
 
       var time = initialTime - timeDiff;
 
-      if(time < 20000) {
-        const clockElement = this.game.color === color ? $('#player-time') : $('#opponent-time');
-        clockElement.addClass('low-time');
-      }
+      if(time < this.lowTimeThreshold) 
+        this.interval = 100;    
 
       this.updateClockElement(color, time);
 
-      waitTime = 1000;
+      waitTime = this.interval;
       var adjustedWaitTime = Math.max(0, waitTime + timeAdjustment);
       this.timer = setTimeout(timerFunc, adjustedWaitTime);
 
@@ -139,22 +161,19 @@ export class Clock {
     
     clearTimeout(this.timer);
     this.runningClock = '';  
+    this.interval = 1000;
   }
 
   public getWhiteTime(): number {
-    if(this.getRunningClock() === 'w') {
-      console.log('HERE WHITE');
+    if(this.getRunningClock() === 'w') 
       return this.wtime - (performance.now() - this.timestamp);
-    }
     else
       return this.wtime;
   }
 
   public getBlackTime(): number {
-    if(this.getRunningClock() === 'b') {
-      console.log('HERE BLACK');
+    if(this.getRunningClock() === 'b') 
       return this.btime - (performance.now() - this.timestamp);
-    }
     else
       return this.btime;
   }

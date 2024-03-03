@@ -142,10 +142,16 @@ html, body {
   opacity: 0.6;
 }
 
-.clock {
-  display: inline-block;
+.clock.low-time {
+  color: red; 
+}
+
+.clock-time {
   font-size: 1.6rem;
-  line-height: 21px;
+}
+
+.fractional-clock-time {
+  font-size: 1.0rem;
 }
 
 .history {
@@ -478,10 +484,6 @@ html, body {
   --game-tie-color: #fcddae;
   --game-win-color: #d4f9d9;
   --game-lose-color: #f9d4d4;
-}
-
-.clock.low-time {
-  color: red; 
 }
 
 .close {

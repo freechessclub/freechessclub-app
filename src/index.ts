@@ -3165,8 +3165,6 @@ $('#input-form').on('submit', (event) => {
 function onDeviceReady() {
   disableOnlineInputs(true);
 
-  $('#opponent-time').text('00:00');
-  $('#player-time').text('00:00');
   clock = new Clock(game, checkGameEnd);
   
   if(isSmallWindow()) {
