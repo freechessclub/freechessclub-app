@@ -489,9 +489,15 @@ export class History {
         currIndex = i;
 
       const move = this.get(hIndex);
-      dataset.push({y1: move.wtime/1000, y2: -move.btime/1000});
+      let y1 = move.wtime/1000;
+      let y2 = -move.btime/1000;
+      if (i > 0)
+        dataset.push({y1: y1, y1diff: dataset[i-1].y1 - y1, y2: y2, y2diff: dataset[i-1].y2 - y2});
+      else
+        dataset.push({y1: y1, y1diff: 0, y2: y2, y2diff: 0});
       hIndex = this.next(hIndex);
     }
+    console.log(dataset);
 
     const container = $('#move-times-container');
     container.show();
@@ -511,6 +517,10 @@ export class History {
     const yScale = d3.scaleLinear()
       .domain([d3.min(dataset, d => Math.min(d.y1, d.y2)), d3.max(dataset, d => Math.max(d.y1, d.y2))]) // input
       .range([height, 0]); // output
+
+    const y2Scale = d3.scaleLinear()
+      .domain([d3.min(dataset, d => Math.min(d.y1diff, d.y2diff)), d3.max(dataset, d => Math.max(d.y1diff, d.y2diff))])
+      .range([height, 0]);
 
     // Line generator
     const line1 = d3.line()
@@ -622,10 +632,30 @@ export class History {
       .append('g')
       .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
+      // Append bars for y1Diff values
+      svg.selectAll(".bar1")
+          .data(dataset)
+          .enter().append("rect")
+          .attr("class", "move-times-white")
+          .attr("x", (d, i) => xScale(i))
+          .attr("y", d => d.y1diff > 0 ? y2Scale(d.y1diff) : y2Scale(0)) // Adjust for negative values
+          .attr("width", width / ((n-1)/2))
+          .attr("height", d => Math.abs(y2Scale(d.y1diff) - y2Scale(0)));
+
+      // Append bars for y2Diff values
+      svg.selectAll(".bar2")
+          .data(dataset)
+          .enter().append("rect")
+          .attr("class", "move-times-black")
+          .attr("x", (d, i) => xScale(i))
+          .attr("y", d => d.y2diff > 0 ? y2Scale(d.y2diff) : y2Scale(0)) // Adjust for negative values
+          .attr("width", width / ((n-1)/2))
+          .attr("height", d => Math.abs(y2Scale(d.y2diff) - y2Scale(0)));
+
     // Render y-axis
     const yAxis = svg.append('g')
-      .attr('class', 'eval-axis y-axis noselect')
-      .call(d3.axisLeft(yScale).tickSize(-width, 0, 0)); // Create an axis component with d3.axisLeft
+      .attr('class', 'noselect')
+      .call(d3.axisLeft(yScale)); // Create an axis component with d3.axisLeft
     yAxis.select('.domain').remove();
 
     svg.append('path')
@@ -640,7 +670,6 @@ export class History {
 
     const hoverLine = svg.append('g')
       .append('rect')
-      .attr('class', 'eval-hover-line')
       .attr('stroke-width', '1px')
       .attr('width', '.5px')
       .attr('height', height)
