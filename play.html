@@ -445,11 +445,15 @@
         <div id="mid-col" class="col-sm-12 col-md-auto position-relative align-self-center">
           <div class="card bg-transparent" id="mid-card">
             <div class="top-panel card-header p-0" id="mid-panel-header">
-              <div class="ps-2 pe-2 h-100 w-100 d-flex flex-wrap justify-content-between align-items-center status noselect" id="opponent-status">
-                <div class="p-2 name" id="opponent-name"></div>
-                <span class="badge bg-secondary" id="opponent-rating"></span>
-                <div class="ms-auto p-2"></div>
-                <div class="p-2 captured" id="opponent-captured"></div>
+              <div class="ps-2 pe-2 h-100 w-100 d-flex justify-content-between align-items-center status noselect" id="opponent-status">
+                <div class="d-flex flex-grow-1 overflow-hidden">
+                  <div id="opponent-name-rating" class="d-flex flex-grow-1 overflow-hidden align-items-center">
+                    <div class="p-2 name" id="opponent-name"></div>
+                    <span class="badge bg-secondary" id="opponent-rating"></span>
+                  </div>
+                  <div class="ms-auto p-2"></div>
+                  <div class="p-2 captured" id="opponent-captured"></div>
+                </div>
                 <div class="clock d-flex ps-2 pe-2" id="opponent-clock" style="align-items: baseline;">
                   <div class="clock-time" id="opponent-time"></div>
                   <div class="fractional-clock-time" id="opponent-fractional-time" style="display: none;"></div>
@@ -466,11 +470,15 @@
               </div>
             </div>
             <div class="bottom-panel card-footer p-0" id="mid-panel-footer">
-              <div class="ps-2 pe-2 h-100 w-100 d-flex flex-wrap justify-content-between align-items-center status noselect" id="player-status">
-                <div class="p-2 name" id="player-name"></div>
-                <span class="badge bg-secondary" id="player-rating"></span>
-                <div class="ms-auto p-2"></div>
-                <div class="p-2 captured" id="player-captured"></div>
+              <div class="ps-2 pe-2 h-100 w-100 d-flex justify-content-between align-items-center status noselect" id="player-status">
+                <div class="d-flex flex-grow-1 overflow-hidden">
+                  <div id="player-name-rating" class="d-flex flex-grow-1 overflow-hidden align-items-center">
+                    <div class="p-2 name" id="player-name"></div>
+                    <span class="badge bg-secondary" id="player-rating"></span>
+                  </div>
+                  <div class="ms-auto p-2"></div>
+                  <div class="p-2 captured" id="player-captured"></div>
+                </div>
                 <div class="clock d-flex ps-2 pe-2" id="player-clock" style="align-items: baseline;">
                   <div class="clock-time" id="player-time"></div>
                   <div class="fractional-clock-time" id="player-fractional-time" style="display: none;"></div>
@@ -482,7 +490,7 @@
         <div id="right-col" class="col-sm-12 col-md-12 col-lg position-relative align-self-center" style="min-width: 360px">
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header status" id="right-panel-header" style="visibility: hidden">
-              <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto" style="max-width: 50%">
+              <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto" style="max-width: 44%">
                 <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle hide-caret" type="button" id="connectButton" data-bs-toggle="dropdown" title="Connect/Disconnect" aria-expanded="false" title="User">
                   <div id="chat-status" class="w-100"></div>
                 </button>

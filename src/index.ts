@@ -1530,6 +1530,7 @@ function messageHandler(data) {
           $('#player-name').text(game.bname);
           $('#opponent-name').text(game.wname);
         }       
+        setFontSizes();
 
         var flipped = $('#opponent-status').parent().hasClass('bottom-panel');
         board.set({
@@ -1580,7 +1581,7 @@ function messageHandler(data) {
           evalEngine = null;
         }
 
-        game.history = new History(game.fen, board, game.time * 60, game.time * 60);
+        game.history = new History(game.fen, board, game.time * 60000, game.time * 60000);
         updateBoard();
 
         // Adjust settings for game category (variant)
@@ -2533,7 +2534,7 @@ function hitClock(setClocks: boolean = false) {
     const thisPly = History.getPlyFromFEN(game.chess.fen());  
     
     // If a move was received from the server, set the clocks to the updated times
-    // Note: When in examine mode this is handled by updateClocksByHistory() instead
+    // Note: When in examine mode this is handled by setClocksFromHistory() instead
     if(setClocks) { // Get remaining time from server message
       if(game.category === 'untimed') {
         clock.setWhiteClock(null); 
@@ -2621,6 +2622,7 @@ export function updateBoard(playSound = false) {
 
   showCapturedMaterial(fen);
   showOpeningName();
+  setFontSizes(); 
 
   if(playSound && soundToggle) {
     clearTimeout(soundTimer);
@@ -3433,6 +3435,33 @@ function setPanelSizes() {
     $('#notifications').width($(document).outerWidth(true) - $('#left-col').outerWidth(true) - $('#mid-col').outerWidth(true));
 }
 
+function calculateFontSize(container: any, containerMaxWidth: number, minWidth?: number, maxWidth?: number) {
+  if(minWidth === undefined)
+    var minWidth = +$('body').css('font-size').replace('px', '');
+  if(maxWidth === undefined)
+    var maxWidth = +container.css('font-size').replace('px', '');
+
+  var fontFamily = container.css('font-family');
+  var fontWeight = container.css('font-weight');
+
+  var canvas = document.createElement("canvas");
+  var context = canvas.getContext("2d");
+  
+  function getTextWidth(text, font) {
+    context.font = font;
+    var metrics = context.measureText(text);
+    return metrics.width;
+  }
+
+  var fontSize = maxWidth + 1; // Initial font size
+  var textWidth;
+  do {
+    fontSize--;
+    textWidth = getTextWidth(container.text(), fontWeight + ' ' + fontSize + 'px ' + fontFamily);
+  } while (textWidth > containerMaxWidth && fontSize > minWidth);
+  return fontSize;
+}
+
 async function getOpening() {
   var historyItem = game.history.get();
   
@@ -4042,12 +4071,28 @@ $(window).on('resize', () => {
     useDesktopLayout();
 
   setPanelSizes();
+  setFontSizes();
 
   prevWindowWidth = window.innerWidth;
 
   if(evalEngine)
     evalEngine.redraw();
 });
+
+function setFontSizes() {
+  // Resize fonts for player and opponent name to fit
+  $('#opponent-name').css('font-size', ''); 
+  var nameBorderWidth = $('#opponent-name').outerWidth() - $('#opponent-name').width();
+  var nameMaxWidth = $('#opponent-name-rating').width() - $('#opponent-rating').outerWidth() - nameBorderWidth;
+  var fontSize = calculateFontSize($('#opponent-name'), nameMaxWidth);
+  $('#opponent-name').css('font-size', fontSize + 'px');
+
+  $('#player-name').css('font-size', ''); 
+  var nameBorderWidth = $('#player-name').outerWidth() - $('#player-name').width();
+  var nameMaxWidth = $('#player-name-rating').width() - $('#player-rating').outerWidth() - nameBorderWidth;
+  var fontSize = calculateFontSize($('#player-name'), nameMaxWidth);
+  $('#player-name').css('font-size', fontSize + 'px');
+}
 
 // prompt before unloading page if in a game
 $(window).on('beforeunload', () => {

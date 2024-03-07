@@ -123,8 +123,13 @@ html, body {
 
 .name {
   display: inline-block;
+  white-space: nowrap;
   font-size: 1.6rem;
   line-height: 21px;
+}
+
+.captured {
+  white-space: nowrap;
 }
 
 .captured img {
