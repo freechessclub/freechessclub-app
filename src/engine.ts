@@ -7,7 +7,7 @@ import History from './history';
 import { gotoMove, parseMove } from './index';
 import * as d3 from 'd3';
 
-var SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'wild/fr'];
+var SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'wild/fr', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
 
 export class Engine {
   protected stockfish: any;
@@ -44,7 +44,9 @@ export class Engine {
       let depth0 = false;
 
       if (response.data.startsWith('info')) {
-        var fen = this.currMove.fen;
+        if(this.currMove)
+          var fen = this.currMove.fen;
+        
         const info = response.data.substring(5, response.data.length);
 
         const infoArr: string[] = info.trim().split(/\s+/);
@@ -104,7 +106,17 @@ export class Engine {
           var pv = '';
           var currFen = fen;
           for(const move of pvArr) {
-            var parsedMove = parseMove(currFen, { from: move.slice(0, 2), to: move.slice(2, 4), promotion: (move.length === 5 ? move.charAt(4) : undefined)}, this.category);    
+            var moveParam;
+            if(move[1] === '@') // Crazyhouse/bughouse
+              moveParam = move;
+            else
+              moveParam = { 
+                from: move.slice(0, 2), 
+                to: move.slice(2, 4),
+                promotion: (move.length === 5 ? move.charAt(4) : undefined)
+              };
+                     
+            var parsedMove = parseMove(currFen, moveParam, this.category);    
             if(!parsedMove) {
               // Non-standard or unsupported moves were passed to Engine.
               this.terminate();
@@ -149,7 +161,9 @@ export class Engine {
         this.numPVs = options[opt];
       else if(opt === 'UCI_Chess960' && options[opt] === true)
         this.category = 'wild/fr';
-      
+      else if(opt === 'UCI_Variant') 
+        this.category = options[opt];      
+
       this.uci('setoption name ' + opt + ' value ' + options[opt]);
     }
 
@@ -170,13 +184,20 @@ export class Engine {
     
     var movelist = [];
     while(index > 0) {
-      var hEntry = this.history.get(index);
-      movelist.push(hEntry.move.from + hEntry.move.to + (hEntry.move.promotion ? hEntry.move.promotion : ''));
+      var hEntry = this.history.get(index);    
+      var move = hEntry.move.from + hEntry.move.to + (hEntry.move.promotion ? hEntry.move.promotion : '');
+      if(!hEntry.move.from) // crazyhouse
+        move = hEntry.move.san.replace(/[+#]/, ''); // Stockfish crazyhouse implementation doesn't like + or # chars for piece placement
+      
+      movelist.push(move);
       index = this.history.prev(index);
     }
-    var movesStr = movelist.reverse().join(' ');
 
-    this.uci('position fen ' + this.history.get(0).fen + ' moves ' + movesStr);
+    var movesStr = '';
+    if(movelist.length)
+      var movesStr = ' moves ' + movelist.reverse().join(' ');
+
+    this.uci('position fen ' + this.history.get(0).fen + movesStr);
     this.uci('go ' + this.moveParams);
   }
 

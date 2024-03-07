@@ -440,6 +440,35 @@ export class History {
       }
     }
   }
+
+  public isThreefoldRepetition(id?: number): boolean {
+    if(id === undefined)
+      id = this.id;
+      
+    var currFen = this.get(id).fen;
+    var words = currFen.split(/\s+/);
+    words.splice(4,2);
+    currFen = words.join(' ');
+
+    var repeats = 1;
+
+    id = this.prev(id);
+    while(id) {
+      var fen = this.get(id).fen;
+      var words = fen.split(/\s+/);
+      words.splice(4,2);
+      fen = words.join(' ');
+      if(fen === currFen)
+        repeats++;
+
+      if(repeats === 3)
+        return true;
+
+      id = this.prev(id);
+    }
+
+    return false;
+  }  
 }
 
 export default History;

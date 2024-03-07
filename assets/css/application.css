@@ -142,10 +142,16 @@ html, body {
   opacity: 0.6;
 }
 
-.clock {
-  display: inline-block;
+.clock.low-time {
+  color: red; 
+}
+
+.clock-time {
   font-size: 1.6rem;
-  line-height: 21px;
+}
+
+.fractional-clock-time {
+  font-size: 1.0rem;
 }
 
 .history {
@@ -480,10 +486,6 @@ html, body {
   --game-lose-color: #f9d4d4;
 }
 
-.clock.low-time {
-  color: red; 
-}
-
 .close {
   padding-left: 6px;
   padding-right: 6px;
@@ -492,6 +494,14 @@ html, body {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
+#play-computer-modal .modal-dialog {
+  width: 380px;
+}
+
 .modal {
   --bs-modal-color: var(--fg-color);
+}
+
+.form-heading {
+  color: #638FA8;
 }
