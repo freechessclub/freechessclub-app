@@ -509,10 +509,6 @@ html, body {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-#play-computer-modal .modal-dialog {
-  width: 380px;
-}
-
 .modal {
   --bs-modal-color: var(--fg-color);
 }

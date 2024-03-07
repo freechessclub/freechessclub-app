@@ -2730,10 +2730,10 @@ function getPlayComputerEngineOptions(): object {
 }
 
 function getPlayComputerMoveParams(): string {
-  var moveTimes = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]; // Move times (ms) for each difficulty level
-  // var maxDepths = [5, 5, 5, 5, 5, 8, 13, 22]; // Max search depths for each difficulty level 
-  
-  var moveParams = 'movetime ' + moveTimes[game.difficulty - 1];
+  // Max nodes for each difficulty level. This is also used to limit the engine's thinking time
+  // but in a way that keeps the difficulty the same across devices
+  var maxNodes = [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000];
+  var moveParams = 'nodes ' + maxNodes[game.difficulty - 1];
 
   return moveParams;
 }
