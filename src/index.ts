@@ -1671,7 +1671,7 @@ function messageHandler(data) {
       break;
     case MessageType.GameEnd:
       // Set clock time to the time that the player resigns/aborts etc.
-      game.history.setClockTimes(game.history.last(), clock.getWhiteTime(), clock.getBlackTime());
+      game.history.updateClockTimes(game.history.last(), clock.getWhiteTime(), clock.getBlackTime());
 
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
         // player won
@@ -2425,11 +2425,11 @@ function updateHistory(move?: any, fen?: string) {
   }
   else {
     if(!movelistRequested && game.role !== Role.NONE) 
-      game.history.setClockTimes(index, game.wtime, game.btime);
+      game.history.updateClockTimes(index, game.wtime, game.btime);
 
     // move is already displayed
     if(index === game.history.index()) {
-      setClocksFromHistory();
+      setClocks();
       return;
     }
 
@@ -2521,10 +2521,30 @@ function updatePromotedList(move: any, promoted: any) {
   return promoted;
 }
 
-function setClocksFromHistory() {
+function setClocks() {
+  var hEntry = game.history.get();
+
   if(!game.isPlaying() && game.role !== Role.OBSERVING) {
-    clock.setWhiteClock(game.history.get().wtime);
-    clock.setBlackClock(game.history.get().btime);
+    clock.setWhiteClock(hEntry.wtime);
+    clock.setBlackClock(hEntry.btime);
+  }
+
+  // Add my-turn highlighting to clock
+  var whiteClock = (game.color === 'w' ? $('#player-clock') : $('#opponent-clock'));
+  var blackClock = (game.color === 'b' ? $('#player-clock') : $('#opponent-clock'));
+  var turnColor;
+  if(game.isPlaying() || game.role === Role.OBSERVING)
+    turnColor = game.chess.turn();
+  else
+    turnColor = History.getTurnColorFromFEN(hEntry.fen);
+
+  if(turnColor === 'b') {
+    whiteClock.removeClass('my-turn');
+    blackClock.addClass('my-turn');
+  }
+  else {
+    blackClock.removeClass('my-turn');
+    whiteClock.addClass('my-turn');
   }
 }
 
@@ -2534,7 +2554,7 @@ function hitClock(setClocks: boolean = false) {
     const thisPly = History.getPlyFromFEN(game.chess.fen());  
     
     // If a move was received from the server, set the clocks to the updated times
-    // Note: When in examine mode this is handled by setClocksFromHistory() instead
+    // Note: When in examine mode this is handled by setClocks() instead
     if(setClocks) { // Get remaining time from server message
       if(game.category === 'untimed') {
         clock.setWhiteClock(null); 
@@ -2564,7 +2584,7 @@ export function updateBoard(playSound = false) {
   const move = game.history.get().move;
   const fen = game.history.get().fen;
 
-  setClocksFromHistory();
+  setClocks();
 
   board.set({ fen });
 

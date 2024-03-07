@@ -147,6 +147,16 @@ html, body {
   opacity: 0.6;
 }
 
+.clock {
+  align-items: baseline;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.clock.my-turn {
+  background-color: rgba(0, 0, 0, 0.125);
+}
+
 .clock.low-time {
   color: red; 
 }
