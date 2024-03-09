@@ -44,10 +44,10 @@
     }
   },
   "dependencies": {
-    "@capacitor/android": "next",
-    "@capacitor/assets": "^2.0.4",
-    "@capacitor/core": "next",
-    "@capacitor/ios": "next",
+    "@capacitor/android": "^5.7.2",
+    "@capacitor/assets": "^3.0.4",
+    "@capacitor/core": "^5.7.2",
+    "@capacitor/ios": "^5.7.2",
     "@popperjs/core": "^2.11.6",
     "@uriopass/nosleep.js": "^0.12.2",
     "autolink-js": "freechessclub/autolink-js",
@@ -63,7 +63,7 @@
     "stockfish.js": "^10.0.2"
   },
   "devDependencies": {
-    "@capacitor/cli": "next",
+    "@capacitor/cli": "^5.7.2",
     "@types/bootstrap": "5.2.3",
     "@types/jquery": "^3.5.16",
     "@types/websocket": "^1.0.1",

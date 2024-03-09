@@ -24,7 +24,7 @@
   <link href="assets/css/pieces/default.css" rel="stylesheet" id="piece">
   <link href="assets/css/main.css" rel="stylesheet">
   <link href="assets/css/application.css" rel="stylesheet">
-  <link href="assets/css/themes/default.css" rel="stylesheet" id="colortheme">
+  <link href="assets/css/themes/default.css" rel="stylesheet" id="theme">
   <link rel="shortcut icon" href="assets/img/favicon.ico" type="image/x-icon">
 </head>
 <body>
@@ -102,8 +102,117 @@
                     <div class="tab-content mt-2 flex-grow-1" style="overflow: hidden; min-height: 0">
                       <div class="tab-pane fade show active h-100" id="pills-play" role="tabpanel" aria-labelledby="pills-play-tab">
                         <div class="d-flex flex-column h-100">
-                          <div class="mb-2 border-bottom border-top py-2 center">
-                            <button type="button" class="btn btn-outline-secondary btn-block btn-md" aria-expanded="false" id="new-game">Quick Game</button>
+                          <div class="modal fade" id="play-computer-modal" tabindex="-1" aria-labelledby="play-computer-modal-label" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                              <div class="modal-content">
+                                <form id="play-computer-form">
+                                  <div class="modal-header">
+                                    <h5 class="modal-title" id="play-computer-modal-label"><span class="fa-solid fa-desktop me-2" aria-hidden="false"></span>Play Computer</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                  </div>
+                                  <div class="modal-body">
+                                    <div class="mb-3">
+                                      <label class="form-heading">Difficulty Level:</label>
+                                      <div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level1" checked>
+                                          <label class="form-check-label" for="play-computer-level1">1</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level2">
+                                          <label class="form-check-label" for="play-computer-level2">2</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level3">
+                                          <label class="form-check-label" for="play-computer-level3">3</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level4">
+                                          <label class="form-check-label" for="play-computer-level4">4</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level5">
+                                          <label class="form-check-label" for="play-computer-level5">5</label>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level6">
+                                          <label class="form-check-label" for="play-computer-level6">6</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level7">
+                                          <label class="form-check-label" for="play-computer-level7">7</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level8">
+                                          <label class="form-check-label" for="play-computer-level8">8</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level9">
+                                          <label class="form-check-label" for="play-computer-level9">9</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level10">
+                                          <label class="form-check-label" for="play-computer-level10">10</label>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div class="mb-3">
+                                      <label class="form-heading">Player Time:</label>
+                                      <div class="input-group">
+                                        <input type="number" min="0" max="999" class="form-control text-center" id="play-computer-min" value="0">
+                                        <span class="input-group-text"> min </span>
+                                        <input type="number" min="0" max="999" class="form-control text-center" id="play-computer-inc" value="0">
+                                        <span class="input-group-text"> inc </span>
+                                      </div>
+                                    </div>
+                                    <div class="mb-3">                                    
+                                      <label class="form-heading">Player Color:</label>
+                                      <div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-color" id="play-computer-color-any" checked>
+                                          <label class="form-check-label" for="play-computer-color-any">Any</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-color" id="play-computer-color-white">
+                                          <label class="form-check-label" for="play-computer-color-white">White</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-color" id="play-computer-color-black">
+                                          <label class="form-check-label" for="play-computer-color-black">Black</label>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div class="mb-3">                                    
+                                      <label class="form-heading">Type:</label>
+                                      <div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-type" id="play-computer-type-standard" checked>
+                                          <label class="form-check-label" for="play-computer-type-standard">Standard</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-type" id="play-computer-type-chess960">
+                                          <label class="form-check-label" for="play-computer-type-chess960">Chess960</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-type" id="play-computer-type-crazyhouse">
+                                          <label class="form-check-label" for="play-computer-type-crazyhouse">Crazyhouse</label>
+                                        </div>                                      
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div class="modal-footer center">
+                                    <button type="submit" class="btn btn-primary me-4">Play</button>
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                  </div>
+                                </form>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="mb-2 border-bottom border-top py-2 btn-toolbar center w-100">
+                            <button type="button" class="btn btn-outline-secondary btn-block btn-md" aria-expanded="false" id="quick-game">Quick Game</button>
+                            <button type="button" class="btn btn-outline-secondary btn-block btn-md" data-bs-toggle="modal" data-bs-target="#play-computer-modal" aria-expanded="false" id="play-computer"><span class="me-2 fa-solid fa-desktop" aria-hidden="false"></span>Play Computer</button>
                           </div>
                           <ul class="nav nav-tabs nav-fill" id="pills-play-subtab" role="tablist">
                             <li class="nav-item" role="presentation">
@@ -122,65 +231,78 @@
                                   <span class="input-group-text" id="opponent-player-label">Play against</span>
                                   <input type="text" class="form-control" id="opponent-player-name" placeholder="Anyone" aria-describedby="opponent-player-label" spellcheck="false">
                                 </div>
-                                <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true"><span class="me-2 fa fa-bolt" aria-hidden="false"></span>Lightning</a>
+                                <label class="form-heading" style="margin-bottom: 2px;"><span class="me-2 fa fa-bolt" aria-hidden="false"></span>Lightning</label>
                                 <div class="btn-group" role="group" aria-label="Lightning">
                                   <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(1,0);">1 min</button>
                                   <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(2,0);">2 min</button>
                                 </div>
-                                <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true"><span class="me-2 fa fa-rocket" aria-hidden="false"></span>Blitz</a>
+                                <label class="form-heading" style="margin-bottom: 2px;"><span class="me-2 fa fa-rocket" aria-hidden="false"></span>Blitz</label>
                                 <div class="btn-group" role="group" aria-label="Blitz">
                                   <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(3,0);">3 min</button>
                                   <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(5,0);">5 min</button>
                                   <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(10,0);">10 min</button>
                                   <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(2,12);">2 + 12</button>
                                 </div>
-                                <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true"><span class="me-2 fa fa-gears" aria-hidden="false"></span>Standard</a>
+                                <label class="form-heading" style="margin-bottom: 2px;"><span class="me-2 fa fa-gears" aria-hidden="false"></span>Standard</label>
                                 <div class="btn-group" role="group" aria-label="Standard">
                                   <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(15,0);">15 min</button>
                                   <button type="button" class="w-100 btn btn-outline-secondary btn-md" href="#" onclick="getGame(20,0);">20 min</button>
                                 </div>
-                                <a href="#" class="btn btn-outline-secondary btn-md disabled p-0" role="button" aria-disabled="true"><span class="me-2 fa fa-clock-o" aria-hidden="false"></span>Custom</a>
-                                <form id="custom-control">
+                                <label class="form-heading" style="margin-bottom: 2px;"><span class="me-2 fa fa-clock-o" aria-hidden="false"></span>Custom</a></label>
+                                <form id="custom-control" class="w-100">
                                   <div class="input-group">
-                                    <input type="text" class="form-control text-center" id="custom-control-min" value="0" maxlength="3">
+                                    <input type="number" min="0" max="999" class="form-control text-center" id="custom-control-min" value="0">
                                     <span class="input-group-text"> min </span>
-                                    <input type="text" class="form-control text-center" id="custom-control-sec" value="0" maxlength="3">
+                                    <input type="number" min="0" max="999" class="form-control text-center" id="custom-control-inc" value="0">
                                     <span class="input-group-text"> inc </span>
                                     <span class="input-group-append">
                                       <button class="btn btn-outline-secondary btn-md" type="submit" id="custom-control-go">Go</button>
                                     </span>
                                   </div>
                                 </form>
-                                <div class="btn-group dropdown position-static" role="group" aria-label="Study">
-                                  <button class="btn btn-outline-secondary dropdown-toggle" id="variants-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">Variants</button>
-                                  <ul class="dropdown-menu" id="variants-menu">
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Standard', '');">Standard</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Chess960', 'wild fr');">Chess960</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Bughouse', 'bughouse');">Bughouse (4 player)</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Crazyhouse', 'crazyhouse');">Crazyhouse</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Losers', 'losers');">Losers</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 0', 'wild 0');">Wild 0</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 1', 'wild 1');">Wild 1</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 2', 'wild 2');">Wild 2</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 3', 'wild 3');">Wild 3</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 4', 'wild 4');">Wild 4</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 5', 'wild 5');">Wild 5</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 8', 'wild 8');">Wild 8</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="setNewGameVariant('Wild 8a', 'wild 8a');">Wild 8a</a></li>
+                                <div class="btn-group dropdown position-static" role="group" aria-label="Custom-2">  
+                                  <button class="btn btn-outline-secondary dropdown-toggle w-100" id="player-color-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">Any color</button>
+                                  <ul class="dropdown-menu" id="player-color-menu">
+                                    <li><a class="dropdown-item" onclick="setNewGameColor('Any color');">Any color</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameColor('White');">White</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameColor('Black');">Black</a></li>
                                   </ul>
+                                  <button class="btn btn-outline-secondary dropdown-toggle w-100" id="rated-unrated-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">Unrated</button>
+                                  <ul class="dropdown-menu" id="rated-unrated-menu">
+                                    <li><a class="dropdown-item" onclick="setNewGameRated('Rated');">Rated</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameRated('Unrated');">Unrated</a></li>
+                                  </ul>
+                                  <button class="btn btn-outline-secondary dropdown-toggle w-100" id="variants-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">Variants</button>
+                                  <ul class="dropdown-menu" id="variants-menu">
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Standard', '');">Standard</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Chess960', 'wild fr');">Chess960</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Bughouse', 'bughouse');">Bughouse (4 player)</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Crazyhouse', 'crazyhouse');">Crazyhouse</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Losers', 'losers');">Losers</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 0', 'wild 0');">Wild 0</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 1', 'wild 1');">Wild 1</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 2', 'wild 2');">Wild 2</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 3', 'wild 3');">Wild 3</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 4', 'wild 4');">Wild 4</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 5', 'wild 5');">Wild 5</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 8', 'wild 8');">Wild 8</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 8a', 'wild 8a');">Wild 8a</a></li>
+                                  </ul>
+                                </div>
+                                <div class="btn-group dropdown position-static" role="group" aria-label="Study">
                                   <button type="button" class="btn btn-outline-secondary btn-md" id="puzzlebot">Puzzle</button>
                                   <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Endgames</button>
                                   <ul class="dropdown-menu dropdown-menu-end" id="endgamebot">
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kpk'); showGameTab();">kpk</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kbnk'); showGameTab();">kbnk</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kbbk'); showGameTab();">kbbk</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqk'); showGameTab();">kqk</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play krpkr'); showGameTab();">krpkr</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play krk'); showGameTab();">krk</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqkr'); showGameTab();">kqkr</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kpkp'); showGameTab();">kpkp</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play kqpkq'); showGameTab();">kqpkq</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="sessionSend('t endgamebot play knnkp'); showGameTab();">knnkp</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kpk'); showGameTab();">kpk</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kbnk'); showGameTab();">kbnk</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kbbk'); showGameTab();">kbbk</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kqk'); showGameTab();">kqk</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play krpkr'); showGameTab();">krpkr</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play krk'); showGameTab();">krk</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kqkr'); showGameTab();">kqkr</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kpkp'); showGameTab();">kpkp</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kqpkq'); showGameTab();">kqpkq</a></li>
+                                    <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play knnkp'); showGameTab();">knnkp</a></li>
                                   </ul>
                                 </div>
                               </div>
@@ -265,7 +387,7 @@
                   <div class="tab-content flex-grow-1" style="min-height: 0">
                     <div class="tab-pane fade show active p-1 h-100" id="status-panel" role="tabpanel" aria-labelledby="status-panel">
                       <div class="d-flex flex-column overflow-auto center h-100">
-                        <div class="px-2 w-100">
+                        <div class="px-2 w-100 h-100">
                           <div id="game-status" class="center py-1"></div>
                           <div id="opening-name" class="center py-1 border-top" style="display: none"></div>
                           <div id="game-watchers" class="center pt-2 pb-1 border-top"></div>
@@ -328,7 +450,10 @@
                 <span class="badge bg-secondary" id="opponent-rating"></span>
                 <div class="ms-auto p-2"></div>
                 <div class="p-2 captured" id="opponent-captured"></div>
-                <div class="p-2 clock" id="opponent-time"></div>
+                <div class="clock d-flex ps-2 pe-2" id="opponent-clock" style="align-items: baseline;">
+                  <div class="clock-time" id="opponent-time"></div>
+                  <div class="fractional-clock-time" id="opponent-fractional-time" style="display: none;"></div>
+                </div>
               </div>
             </div>
             <div class="card-body p-0 noselect" id="board-card">
@@ -346,7 +471,10 @@
                 <span class="badge bg-secondary" id="player-rating"></span>
                 <div class="ms-auto p-2"></div>
                 <div class="p-2 captured" id="player-captured"></div>
-                <div class="p-2 clock" id="player-time"></div>
+                <div class="clock d-flex ps-2 pe-2" id="player-clock" style="align-items: baseline;">
+                  <div class="clock-time" id="player-time"></div>
+                  <div class="fractional-clock-time" id="player-fractional-time" style="display: none;"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -372,7 +500,7 @@
                   <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
                       <div class="modal-header">
-                        <h5 class="modal-title" id="settings-modal-label"><span class="fa fa-gear" aria-hidden="false"></span> Settings</h5>
+                        <h5 class="modal-title" id="settings-modal-label"><span class="fa fa-gear me-2" aria-hidden="false"></span>Settings</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                       </div>
                       <div class="modal-body">
@@ -427,20 +555,26 @@
                             </div>
                           </div>
                           <div class="form-group row">
-                            <label for="themes-btn-group" class="col-form-label">Themes</label>
+                            <legend class="col-form-label">Themes</legend>
                             <div class="btn-group" role="group" aria-label="Themes">
-                              <button type="button" class="btn btn-outline-dark col" style="background-color: #82B1CD" id="colortheme-default">Arctic Blue</button>
-                              <button type="button" class="btn btn-outline-dark col" style="background-color: #7AAB80" id="colortheme-green">Green Bean</button>
-                              <button type="button" class="btn btn-outline-dark col" style="background-color: #C6AB8E" id="colortheme-yellow">Coffee & Cream</button>
-                              <button type="button" class="btn btn-outline-dark col" style="background-color: #9298a5" id="colortheme-gray">Space Gray</button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #dee3e6 50%, #8ca2ad 50%)" id="theme-default"></button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #eaffea 50%, #7aab80 50%)" id="theme-green"></button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #f4ede1 50%, #c6ab8e 50%)" id="theme-yellow"></button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #d3d3d3 50%, #555555 50%)" id="theme-gray"></button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #decfef 50%, #b160ca 50%)" id="theme-purple"></button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #ececec 50%, #c1c18e 50%)" id="theme-ic"></button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #dcdcdc 50%, #c9c9c9 50%)" id="theme-newspaper"></button>
                             </div>
                           </div>
                           <div class="form-group row">
-                            <label for="pieces-btn-group" class="col-form-label">Pieces</label>
-                            <div class="btn-group" id="pieces-btn-group" role="group" aria-label="Pieces">
+                            <legend class="col-form-label">Pieces</legend>
+                            <div class="btn-group" role="group" aria-label="Pieces">
                               <button type="button" class="btn btn-outline-secondary" id="pieces-merida"><img src="assets/css/images/pieces/merida/wN.svg" width="36"/></button>
                               <button type="button" class="btn btn-outline-secondary" id="pieces-cburnett"><img src="assets/css/images/pieces/cburnett/wN.svg" width="36"/></button>
                               <button type="button" class="btn btn-outline-secondary" id="pieces-alpha"><img src="assets/css/images/pieces/alpha/wN.svg" width="36"/></button>
+                              <button type="button" class="btn btn-outline-secondary" id="pieces-cardinal"><img src="assets/css/images/pieces/cardinal/wN.svg" width="36"/></button>
+                              <button type="button" class="btn btn-outline-secondary" id="pieces-leipzig"><img src="assets/css/images/pieces/leipzig/wN.svg" width="36"/></button>
+                              <button type="button" class="btn btn-outline-secondary" id="pieces-maestro"><img src="assets/css/images/pieces/maestro/wN.svg" width="36"/></button>
                             </div>
                           </div>
                         </form>
