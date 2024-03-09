@@ -1530,6 +1530,7 @@ function messageHandler(data) {
           $('#player-name').text(game.bname);
           $('#opponent-name').text(game.wname);
         }       
+        setFontSizes();
 
         var flipped = $('#opponent-status').parent().hasClass('bottom-panel');
         board.set({
@@ -1580,7 +1581,7 @@ function messageHandler(data) {
           evalEngine = null;
         }
 
-        game.history = new History(game.fen, board, game.time * 60, game.time * 60);
+        game.history = new History(game.fen, board, game.time * 60000, game.time * 60000);
         updateBoard();
 
         // Adjust settings for game category (variant)
@@ -1670,7 +1671,7 @@ function messageHandler(data) {
       break;
     case MessageType.GameEnd:
       // Set clock time to the time that the player resigns/aborts etc.
-      game.history.setClockTimes(game.history.last(), clock.getWhiteTime(), clock.getBlackTime());
+      game.history.updateClockTimes(game.history.last(), clock.getWhiteTime(), clock.getBlackTime());
 
       if (data.reason <= 4 && $('#player-name').text() === data.winner) {
         // player won
@@ -2424,11 +2425,11 @@ function updateHistory(move?: any, fen?: string) {
   }
   else {
     if(!movelistRequested && game.role !== Role.NONE) 
-      game.history.setClockTimes(index, game.wtime, game.btime);
+      game.history.updateClockTimes(index, game.wtime, game.btime);
 
     // move is already displayed
     if(index === game.history.index()) {
-      setClocksFromHistory();
+      setClocks();
       return;
     }
 
@@ -2520,10 +2521,30 @@ function updatePromotedList(move: any, promoted: any) {
   return promoted;
 }
 
-function setClocksFromHistory() {
+function setClocks() {
+  var hEntry = game.history.get();
+
   if(!game.isPlaying() && game.role !== Role.OBSERVING) {
-    clock.setWhiteClock(game.history.get().wtime);
-    clock.setBlackClock(game.history.get().btime);
+    clock.setWhiteClock(hEntry.wtime);
+    clock.setBlackClock(hEntry.btime);
+  }
+
+  // Add my-turn highlighting to clock
+  var whiteClock = (game.color === 'w' ? $('#player-clock') : $('#opponent-clock'));
+  var blackClock = (game.color === 'b' ? $('#player-clock') : $('#opponent-clock'));
+  var turnColor;
+  if(game.isPlaying() || game.role === Role.OBSERVING)
+    turnColor = game.chess.turn();
+  else
+    turnColor = History.getTurnColorFromFEN(hEntry.fen);
+
+  if(turnColor === 'b') {
+    whiteClock.removeClass('my-turn');
+    blackClock.addClass('my-turn');
+  }
+  else {
+    blackClock.removeClass('my-turn');
+    whiteClock.addClass('my-turn');
   }
 }
 
@@ -2533,7 +2554,7 @@ function hitClock(setClocks: boolean = false) {
     const thisPly = History.getPlyFromFEN(game.chess.fen());  
     
     // If a move was received from the server, set the clocks to the updated times
-    // Note: When in examine mode this is handled by updateClocksByHistory() instead
+    // Note: When in examine mode this is handled by setClocks() instead
     if(setClocks) { // Get remaining time from server message
       if(game.category === 'untimed') {
         clock.setWhiteClock(null); 
@@ -2563,7 +2584,7 @@ export function updateBoard(playSound = false) {
   const move = game.history.get().move;
   const fen = game.history.get().fen;
 
-  setClocksFromHistory();
+  setClocks();
 
   board.set({ fen });
 
@@ -2621,6 +2642,7 @@ export function updateBoard(playSound = false) {
 
   showCapturedMaterial(fen);
   showOpeningName();
+  setFontSizes(); 
 
   if(playSound && soundToggle) {
     clearTimeout(soundTimer);
@@ -2708,10 +2730,10 @@ function getPlayComputerEngineOptions(): object {
 }
 
 function getPlayComputerMoveParams(): string {
-  var moveTimes = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]; // Move times (ms) for each difficulty level
-  // var maxDepths = [5, 5, 5, 5, 5, 8, 13, 22]; // Max search depths for each difficulty level 
-  
-  var moveParams = 'movetime ' + moveTimes[game.difficulty - 1];
+  // Max nodes for each difficulty level. This is also used to limit the engine's thinking time
+  // but in a way that keeps the difficulty the same across devices
+  var maxNodes = [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000];
+  var moveParams = 'nodes ' + maxNodes[game.difficulty - 1];
 
   return moveParams;
 }
@@ -3433,6 +3455,33 @@ function setPanelSizes() {
     $('#notifications').width($(document).outerWidth(true) - $('#left-col').outerWidth(true) - $('#mid-col').outerWidth(true));
 }
 
+function calculateFontSize(container: any, containerMaxWidth: number, minWidth?: number, maxWidth?: number) {
+  if(minWidth === undefined)
+    var minWidth = +$('body').css('font-size').replace('px', '');
+  if(maxWidth === undefined)
+    var maxWidth = +container.css('font-size').replace('px', '');
+
+  var fontFamily = container.css('font-family');
+  var fontWeight = container.css('font-weight');
+
+  var canvas = document.createElement("canvas");
+  var context = canvas.getContext("2d");
+  
+  function getTextWidth(text, font) {
+    context.font = font;
+    var metrics = context.measureText(text);
+    return metrics.width;
+  }
+
+  var fontSize = maxWidth + 1; // Initial font size
+  var textWidth;
+  do {
+    fontSize--;
+    textWidth = getTextWidth(container.text(), fontWeight + ' ' + fontSize + 'px ' + fontFamily);
+  } while (textWidth > containerMaxWidth && fontSize > minWidth);
+  return fontSize;
+}
+
 async function getOpening() {
   var historyItem = game.history.get();
   
@@ -4042,12 +4091,28 @@ $(window).on('resize', () => {
     useDesktopLayout();
 
   setPanelSizes();
+  setFontSizes();
 
   prevWindowWidth = window.innerWidth;
 
   if(evalEngine)
     evalEngine.redraw();
 });
+
+function setFontSizes() {
+  // Resize fonts for player and opponent name to fit
+  $('#opponent-name').css('font-size', ''); 
+  var nameBorderWidth = $('#opponent-name').outerWidth() - $('#opponent-name').width();
+  var nameMaxWidth = $('#opponent-name-rating').width() - $('#opponent-rating').outerWidth() - nameBorderWidth;
+  var fontSize = calculateFontSize($('#opponent-name'), nameMaxWidth);
+  $('#opponent-name').css('font-size', fontSize + 'px');
+
+  $('#player-name').css('font-size', ''); 
+  var nameBorderWidth = $('#player-name').outerWidth() - $('#player-name').width();
+  var nameMaxWidth = $('#player-name-rating').width() - $('#player-rating').outerWidth() - nameBorderWidth;
+  var fontSize = calculateFontSize($('#player-name'), nameMaxWidth);
+  $('#player-name').css('font-size', fontSize + 'px');
+}
 
 // prompt before unloading page if in a game
 $(window).on('beforeunload', () => {

@@ -218,4 +218,7 @@ cg-board {
   --bs-dropdown-header-color: #8c959d;
 }
 
+.clock.my-turn {
+  background-color: rgba(255, 255, 255, 0.075);
+}
 

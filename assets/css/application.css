@@ -123,8 +123,13 @@ html, body {
 
 .name {
   display: inline-block;
+  white-space: nowrap;
   font-size: 1.6rem;
   line-height: 21px;
+}
+
+.captured {
+  white-space: nowrap;
 }
 
 .captured img {
@@ -140,6 +145,16 @@ html, body {
   left: -15px;
   top: 12px;
   opacity: 0.6;
+}
+
+.clock {
+  align-items: baseline;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.clock.my-turn {
+  background-color: rgba(0, 0, 0, 0.125);
 }
 
 .clock.low-time {
@@ -492,10 +507,6 @@ html, body {
   padding-top: 1px;
   padding-bottom: 1px;
   background-color: rgba(0, 0, 0, 0.05);
-}
-
-#play-computer-modal .modal-dialog {
-  width: 380px;
 }
 
 .modal {

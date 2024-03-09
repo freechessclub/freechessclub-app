@@ -35,7 +35,7 @@ export class History {
     this.add(undefined, fen, false, wtime, btime);
   }
 
-  public setClockTimes(index: number, wtime: number, btime: number) {
+  public updateClockTimes(index: number, wtime: number, btime: number) {
     if(index === undefined)
       index = this.id;
     
@@ -74,7 +74,7 @@ export class History {
     this.id++;
 
     this.moves.splice(this.id, 0, {move, fen, subvariation, opening: null});
-    this.setClockTimes(this.id, wtime, btime);
+    this.updateClockTimes(this.id, wtime, btime);
 
     if(move)
       this.addTableItem(move.san, History.getPlyFromFEN(fen), subvariation, this.id, score);
