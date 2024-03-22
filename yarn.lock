@@ -46,12 +46,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@capacitor/android@npm:^5.7.2":
-  version: 5.7.2
-  resolution: "@capacitor/android@npm:5.7.2"
+"@capacitor/android@npm:^5.7.4":
+  version: 5.7.4
+  resolution: "@capacitor/android@npm:5.7.4"
   peerDependencies:
     "@capacitor/core": ^5.7.0
-  checksum: 8079ff174836b325dfedc328bfcea8c9a26ce63f0f9fcd521141c26d4fe1ad6d61d7f0913606ca42aa406be271960134461cb372e3c2c5e8cd55f50d879f586a
+  checksum: ff9643ad453c4937b72f1a88325a5de191a409475b1a007d93ce4f22b042fa7e8e7a3c408cae50d19f1af979be137ed31d9683e159d90a633fb1d81b69495287
   languageName: node
   linkType: hard
 
@@ -77,7 +77,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@capacitor/cli@npm:^5.3.0, @capacitor/cli@npm:^5.7.2":
+"@capacitor/cli@npm:^5.3.0":
   version: 5.7.2
   resolution: "@capacitor/cli@npm:5.7.2"
   dependencies:
@@ -105,21 +105,49 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@capacitor/core@npm:^5.7.2":
-  version: 5.7.2
-  resolution: "@capacitor/core@npm:5.7.2"
+"@capacitor/cli@npm:^5.7.4":
+  version: 5.7.4
+  resolution: "@capacitor/cli@npm:5.7.4"
   dependencies:
-    tslib: ^2.1.0
-  checksum: 8278d995866593afde3c408bbc9aa034da343f0977019d2e8a862e230508859dd14afcfb6856e80ef9b02c77cddfa9bb2918ed17cca70583eb715e829fd39d5c
+    "@ionic/cli-framework-output": ^2.2.5
+    "@ionic/utils-fs": ^3.1.6
+    "@ionic/utils-subprocess": ^2.1.11
+    "@ionic/utils-terminal": ^2.3.3
+    commander: ^9.3.0
+    debug: ^4.3.4
+    env-paths: ^2.2.0
+    kleur: ^4.1.4
+    native-run: ^2.0.0
+    open: ^8.4.0
+    plist: ^3.0.5
+    prompts: ^2.4.2
+    rimraf: ^4.4.1
+    semver: ^7.3.7
+    tar: ^6.1.11
+    tslib: ^2.4.0
+    xml2js: ^0.5.0
+  bin:
+    cap: bin/capacitor
+    capacitor: bin/capacitor
+  checksum: b47f7fc56a43bf5e787703363156ff0b2a0da44b5ce5b0246db73808ebd830337b956e1d0973779dd05f8672d9aed800810887f7545a49b8a6ee19465e5b7585
   languageName: node
   linkType: hard
 
-"@capacitor/ios@npm:^5.7.2":
-  version: 5.7.2
-  resolution: "@capacitor/ios@npm:5.7.2"
+"@capacitor/core@npm:^5.7.4":
+  version: 5.7.4
+  resolution: "@capacitor/core@npm:5.7.4"
+  dependencies:
+    tslib: ^2.1.0
+  checksum: 584b05b65312db96214d7c066a51c5d6847a473c6f547dc72c1110369edaff560d513990fd6489cdc28a28e7dbfb5807be36b8890bc3dbc016fa9c571d945c52
+  languageName: node
+  linkType: hard
+
+"@capacitor/ios@npm:^5.7.4":
+  version: 5.7.4
+  resolution: "@capacitor/ios@npm:5.7.4"
   peerDependencies:
     "@capacitor/core": ^5.7.0
-  checksum: 63d54bc5e44da159730928ad352dff2f9f13fbef132c8ba151b26d4c460fbca9fae32e8be3022d99409d9f3a8ab654637a837e961b092c73efa1e55b3501c9f1
+  checksum: 99edf65724cde14a3e6c101dae654da357ac173cf10ddce6b6eef9cb113af4039520ba934e37f2c8f8a651ba1fcae84c94987c86b90b508e3681f51422b73223
   languageName: node
   linkType: hard
 
@@ -4553,11 +4581,11 @@ autolink-js@freechessclub/autolink-js:
   version: 0.0.0-use.local
   resolution: "freechessclub@workspace:."
   dependencies:
-    "@capacitor/android": ^5.7.2
+    "@capacitor/android": ^5.7.4
     "@capacitor/assets": ^3.0.4
-    "@capacitor/cli": ^5.7.2
-    "@capacitor/core": ^5.7.2
-    "@capacitor/ios": ^5.7.2
+    "@capacitor/cli": ^5.7.4
+    "@capacitor/core": ^5.7.4
+    "@capacitor/ios": ^5.7.4
     "@popperjs/core": ^2.11.6
     "@types/bootstrap": 5.2.3
     "@types/jquery": ^3.5.16
