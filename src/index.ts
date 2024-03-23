@@ -2065,9 +2065,9 @@ function messageHandler(data) {
               else brating = '----';
             }
 
-            $('#player-rating').text(bname === session.getUser() ? game.brating : game.wrating);
-            $('#opponent-rating').text(bname === session.getUser() ? game.wrating : game.brating);
-    
+            $('#player-rating').text(game.color === 'b' ? game.brating : game.wrating);
+            $('#opponent-rating').text(game.color === 'b' ? game.wrating : game.brating);
+
             let time = ' ' + initialTime + ' ' + increment;
             if(initialTime === '0' && increment === '0')
               time = '';
