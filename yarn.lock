@@ -3893,16 +3893,16 @@ autolink-js@freechessclub/autolink-js:
   languageName: node
   linkType: hard
 
-"electron@npm:^24.1.3":
-  version: 24.6.1
-  resolution: "electron@npm:24.6.1"
+"electron@npm:^24.8.5":
+  version: 24.8.6
+  resolution: "electron@npm:24.8.6"
   dependencies:
     "@electron/get": ^2.0.0
     "@types/node": ^18.11.18
     extract-zip: ^2.0.1
   bin:
     electron: cli.js
-  checksum: 8dac86adca2e1aff46c5dfd320dadeeac37a0b6c17123ee71f58f5838639ddde02c1ac5af82418f15a2bec0952ba3ea3c02da34db1e6d932c124dba325f5c8f7
+  checksum: 6dcc8617feaa23138204e6b4fbe436bb796be962b1d5142694a3bf2c07976978268168757715b9b0adf2ec40d11da20c4f5fe969bc7a7b063d18d57c71e8553c
   languageName: node
   linkType: hard
 
@@ -4600,7 +4600,7 @@ autolink-js@freechessclub/autolink-js:
     chessground: ^9.0.4
     css-loader: ^6.6.0
     d3: ^7.8.0
-    electron: ^24.1.3
+    electron: ^24.8.5
     electron-builder: ^24.3.0
     electron-updater: ^5.3.0
     eslint: ^8.44.0
