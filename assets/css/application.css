@@ -513,6 +513,10 @@ html, body {
   --bs-modal-color: var(--fg-color);
 }
 
+#play-computer-modal .modal-dialog {
+  max-width: 400px;
+}
+
 .form-heading {
   color: #638FA8;
 }
