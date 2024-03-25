@@ -1509,7 +1509,7 @@ function messageHandler(data) {
 
       var amIblack = game.bname === session.getUser();
       var amIwhite = game.wname === session.getUser();
-      if(Role.PLAYING_COMPUTER && game.color === 'b')
+      if(game.role === Role.PLAYING_COMPUTER && game.color === 'b')
         amIblack = true;  
 
       if (game.chess === null) {
