@@ -60,7 +60,8 @@
     "gh-emoji": "^0.2.5",
     "jquery": "^3.7.0",
     "js-cookie": "^3.0.1",
-    "stockfish.js": "^10.0.2"
+    "stockfish.js": "^10.0.2",
+    "cm-polyglot": "^1.1.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^5.7.4",
