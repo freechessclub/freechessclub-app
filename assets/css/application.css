@@ -418,6 +418,18 @@ html, body {
   padding: 20px;
 }
 
+.move-times-white {
+  fill: whitesmoke;
+  stroke-width: 1;
+  stroke: white
+}
+
+.move-times-black {
+  fill: dimgrey;
+  stroke-width: 1;
+  stroke: black;
+}
+
 #promotion-panel {
   display: none;
   position: absolute;
