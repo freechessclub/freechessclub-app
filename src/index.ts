@@ -2638,6 +2638,7 @@ export function updateBoard(playSound = false) {
     predroppable: { enabled: game.category === 'crazyhouse' || game.category === 'bughouse' },
     check: localChess.in_check() ? toColor(localChess) : false,
     blockTouchScroll: (game.isPlaying() ? true : false),
+    drawable: { autoShapes: [] },
   });
 
   showCapturedMaterial(fen);
@@ -2993,7 +2994,6 @@ function stopEngine() {
   if(engine) {
     engine.terminate();
     engine = null;
-    board.setAutoShapes([]);
   }
 }
 
