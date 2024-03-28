@@ -37,6 +37,8 @@ let soundToggle: boolean = (Cookies.get('sound') !== 'false');
 let autoPromoteToggle: boolean = (Cookies.get('autopromote') === 'true');
 // toggle for showing Computer opponents in the lobby
 let lobbyShowComputersToggle: boolean = (Cookies.get('lobbyshowcomputers') === 'true');
+// toggle for showing Rated games in the lobby
+let lobbyShowRatedToggle: boolean = (Cookies.get('lobbyshowrated') === 'true');
 // toggle for automatically showing new slide-down notifications or notifications in chat channels
 export let notificationsToggle: boolean = (Cookies.get('notifications') !== 'false');
 // toggle for showing highlights/graphics on the board
@@ -1723,6 +1725,8 @@ function messageHandler(data) {
       if(seeks.length && lobbyRequested) {
         seeks.forEach((item) => {
           if(!lobbyShowComputersToggle && item.title === 'C')
+            return;
+          if(lobbyShowRatedToggle && item.title === 'U')
             return;
 
           var lobbyEntryText = formatLobbyEntry(item);
@@ -4327,6 +4331,7 @@ function initLobbyPane() {
   else {
     $('#lobby-pane-status').hide();
     $('#lobby-show-computers').prop('checked', lobbyShowComputersToggle);
+    $('#lobby-show-rated').prop('checked', lobbyShowRatedToggle);
     $('#lobby').show();
     $('#lobby-table').html('');
     lobbyScrolledToBottom = true;
@@ -4369,6 +4374,12 @@ function leaveLobbyPane() {
 $('#lobby-show-computers').on('change', function (e) {
   lobbyShowComputersToggle = $(this).is(':checked');
   Cookies.set('lobbyshowcomputers', String(lobbyShowComputersToggle), { expires: 365 });
+  initLobbyPane();
+});
+
+$('#lobby-show-rated').on('change', function (e) {
+  lobbyShowRatedToggle = $(this).is(':checked');
+  Cookies.set('lobbyshowrated', String(lobbyShowRatedToggle), { expires: 365 });
   initLobbyPane();
 });
 
