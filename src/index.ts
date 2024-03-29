@@ -2691,7 +2691,6 @@ export function updateBoard(playSound = false) {
     predroppable: { enabled: game.category === 'crazyhouse' || game.category === 'bughouse' },
     check: localChess.in_check() ? toColor(localChess) : false,
     blockTouchScroll: (game.isPlaying() ? true : false),
-    drawable: { autoShapes: [] },
   });
 
   showCapturedMaterial(fen);
@@ -3047,6 +3046,7 @@ function stopEngine() {
   if(engine) {
     engine.terminate();
     engine = null;
+    setTimeout(() => { board.setAutoShapes([]); }, 0); // Need timeout to avoid conflict with board.set({orientation: X}); if that occurs in the same message handler
   }
 }
 
