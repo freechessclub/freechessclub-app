@@ -6,6 +6,7 @@ import Chess from 'chess.js';
 import Cookies from 'js-cookie';
 import { Chessground } from 'chessground';
 import { Color, Key } from 'chessground/types';
+import { Polyglot } from 'cm-polyglot/src/Polyglot.js';
 import NoSleep from '@uriopass/nosleep.js'; // Prevent screen dimming
 import Chat from './chat';
 import { Clock } from './clock';
@@ -79,8 +80,9 @@ let lobbyEntries = new Map();
 let lobbyScrolledToBottom;
 let scrollBarWidth; // Used for sizing the layout
 let noSleep = new NoSleep(); // Prevent screen dimming
-let openings;
-let fetchOpeningsPromise = null;
+let openings; // Opening names with corresponding moves
+let fetchOpeningsPromise = null; 
+let book; // Opening book used in 'Play Computer' mode
 let isRegistered = false;
 let lastComputerGame = null; // Attributes of the last game played against the Computer. Used for Rematch and alternating colors each game.
 let lastComputerMoveEval = null; // Keeps track of the current eval for a game against the Computer. Used for draw offers
@@ -545,12 +547,59 @@ export function movePiece(source: any, target: any, metadata: any) {
   if (move !== null)
     movePieceAfter(move, fen);
 
-  if(game.role === Role.PLAYING_COMPUTER) // Send move to engine in Play Computer mode
-    playEngine.move(game.history.last());
+  if(game.role === Role.PLAYING_COMPUTER) { // Send move to engine in Play Computer mode
+    getComputerMove();
+  } 
 
   showTab($('#pills-game-tab'));
   // Show 'Analyze' button once any moves have been made on the board
   showAnalyzeButton();
+}
+
+// Get Computer's next move either from the opening book or engine
+async function getComputerMove() {
+  var bookMove = '';
+  if(game.category === 'standard') { // only use opening book with normal chess
+    var fen = game.history.get(game.history.last()).fen;
+    var moveNo = History.getMoveNoFromFEN(fen);
+    // Cool-down function for deviating from the opening book. The chances of staying in book 
+    // decrease with each move 
+    var coolDownParams = [
+      { slope: 0.2, shift: 1.0 }, // Difficulty level 1
+      { slope: 0.2, shift: 1.2 }, // 2
+      { slope: 0.2, shift: 1.4 }, // 3
+      { slope: 0.2, shift: 1.6 }, // 4
+      { slope: 0.2, shift: 1.8 }, // 5
+      { slope: 0.2, shift: 2.0 }, // 6
+      { slope: 0.2, shift: 2.5 }, // 7
+      { slope: 0.2, shift: 3.0 }, // 8
+      { slope: 0.2, shift: 3.5 }, // 9
+      { slope: 0.2, shift: 4.0 }, // 10
+    ];
+    let a = coolDownParams[game.difficulty - 1].slope;
+    let b = coolDownParams[game.difficulty - 1].shift;
+    let x = moveNo;
+    var sigma = 1 / (1 + Math.exp(a*x - b));
+    if(Math.random() < sigma) {
+      // Use book move (if there is one)
+      var bookMoves = await getBookMoves(fen);
+      var totalWeight = bookMoves.reduce((acc, curr) => acc + curr.weight, 0);
+      var probability = 0;
+      var rValue = Math.random();
+      for(let bm of bookMoves) {
+        probability += bm.weight / totalWeight; // polyglot moves are weighted based on number of wins and draws
+        if(rValue <= probability) {
+          bookMove = bm.from + bm.to;
+          break;
+        }
+      }
+    }  
+  }
+
+  if(bookMove)
+    playComputerBestMove(bookMove);
+  else
+    playEngine.move(game.history.last());  
 }
 
 function preMovePiece(source: any, target: any, metadata: any) {
@@ -1605,7 +1654,7 @@ function messageHandler(data) {
 
               playEngine = new Engine(game.history, playComputerBestMove, null, getPlayComputerEngineOptions(), getPlayComputerMoveParams());
               if(amIblack) 
-                playEngine.move(0); 
+                getComputerMove();
             } 
             else {            
               $('#play-computer').prop('disabled', true);              
@@ -2642,7 +2691,6 @@ export function updateBoard(playSound = false) {
     predroppable: { enabled: game.category === 'crazyhouse' || game.category === 'bughouse' },
     check: localChess.in_check() ? toColor(localChess) : false,
     blockTouchScroll: (game.isPlaying() ? true : false),
-    drawable: { autoShapes: [] },
   });
 
   showCapturedMaterial(fen);
@@ -2808,7 +2856,7 @@ function playComputer(params: any) {
   playComputer(lastComputerGame);
 };
 
-function playComputerBestMove(bestMove: string, score: string) {
+function playComputerBestMove(bestMove: string, score: string = '=0.00') {
   var move;
   if(bestMove[1] === '@') // Crazyhouse/bughouse
     move = bestMove;
@@ -2998,6 +3046,7 @@ function stopEngine() {
   if(engine) {
     engine.terminate();
     engine = null;
+    setTimeout(() => { board.setAutoShapes([]); }, 0); // Need timeout to avoid conflict with board.set({orientation: X}); if that occurs in the same message handler
   }
 }
 
@@ -3187,6 +3236,14 @@ $('#input-form').on('submit', (event) => {
   session.send(text);
   $('#input-text').val('');
 });
+
+async function getBookMoves(fen: string): Promise<any[]> {
+  if(!book)
+    book = new Polyglot("assets/data/gm2600.bin");
+  
+  var entries = await book.getMovesFromFen(fen);
+  return entries;
+}
 
 function onDeviceReady() {
   disableOnlineInputs(true);
