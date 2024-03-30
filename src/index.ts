@@ -12,7 +12,7 @@ import Chat from './chat';
 import { Clock } from './clock';
 import { Engine, EvalEngine } from './engine';
 import { game, Role } from './game';
-import History from './history';
+import { History, HEntry } from './history';
 import { GetMessageType, MessageType, Session } from './session';
 import * as Sounds from './sounds';
 import { Reason } from './parser';
@@ -73,7 +73,7 @@ let promotePiece;
 let promoteSource;
 let promoteTarget;
 let promoteIsPremove;
-let bufferedHistoryIndex = -1;
+let bufferedHistoryEntry = null;
 let bufferedHistoryCount = 0;
 let newGameVariant = '';
 let lobbyEntries = new Map();
@@ -126,7 +126,7 @@ function cleanupGame() {
   if($('#pills-play').hasClass('active') && $('#pills-lobby').hasClass('active'))
     initLobbyPane();
 
-  bufferedHistoryIndex = -1;
+  bufferedHistoryEntry = null;
   bufferedHistoryCount = 0;
 }
 
@@ -280,58 +280,49 @@ function setInputFilter(textbox: Element, inputFilter: (value: string) => boolea
 }
 
 $('#move-history').on('click', '.selectable', function() {
-  const id = $('#move-history .selectable').index(this) + 1;
-  gotoMove(id);
+  gotoMove($(this).data('hEntry'));
 });
 
-export function gotoMove(id: number) {
+export function gotoMove(entry: HEntry) {
   if(game.isExamining()) {
-    const move = game.history.get(id);
-    const prevMove = game.history.get();
+    const prevEntry = game.history.current();
 
-    let mainlineId = id;
-    let firstSubvarId = id;
-    if(!prevMove.subvariation && move.subvariation) {
-      do {
-        firstSubvarId = mainlineId;
-        mainlineId = game.history.prev(mainlineId);
-      }
-      while(game.history.get(mainlineId).subvariation);
+    let mainlineEntry = entry;
+    let firstSubvarEntry = entry;
+    if(!prevEntry.isSubvariation() && entry.isSubvariation()) {
+      firstSubvarEntry = entry.first;
+      mainlineEntry = firstSubvarEntry.prev;
     }
-
+    
     let backNum = 0;
-    let i = game.history.index();
-    while(i > id || (!move.subvariation && game.history.get(i).subvariation)) {
-      i = game.history.prev(i);
+    let i = prevEntry
+    let mainlinePly = mainlineEntry.ply;
+    while(i.ply > mainlinePly || (!entry.isSubvariation() && i.isSubvariation())) {     
+      i = i.prev;
       backNum++;
     }
-    if(i > mainlineId)
-      backNum++;
-    if(backNum > 0) {
+    if(backNum > 0) 
       session.send('back ' + backNum);
-    }
 
     let forwardNum = 0;
-    while(i < mainlineId && !game.history.scratch() && (!prevMove.subvariation || !move.subvariation)) {
-      i = game.history.next(i);
+    while(i !== mainlineEntry && !game.history.scratch() && (!prevEntry.isSubvariation() || !entry.isSubvariation())) {     
+      i = i.next;
       forwardNum++;
     }
     if(forwardNum > 0)
       session.send('for ' + forwardNum);
 
-    if(!prevMove.subvariation && move.subvariation) {
-      i = firstSubvarId;
-      const iMove = game.history.get(i);
-      sendMove(iMove.move);
+    if(!prevEntry.isSubvariation() && entry.isSubvariation()) {
+      i = firstSubvarEntry;
+      sendMove(i.move);
     }
-    while(i < id) {
-      i = game.history.next(i);
-      const iMove = game.history.get(i);
-      sendMove(iMove.move);
+    while(i !== entry) {
+      i = i.next;
+      sendMove(i.move);
     }
   }
   else
-    var entry = game.history.display(id);
+    game.history.display(entry);
 }
 
 function sendMove(move: any) {
@@ -406,7 +397,7 @@ function variantToDests(chess: any): Map<Key, Key[]> {
     var color = chess.turn();
     var rank = (color === 'w' ? '1' : '8');
     var files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-    var startChess = new Chess(game.history.get(0).fen);
+    var startChess = new Chess(game.history.first().fen);
     for(const file of files) {
       let square = file + rank;
       let piece = startChess.get(square);
@@ -479,8 +470,8 @@ function movePieceAfter(move: any, fen?: string) {
     fen = game.chess.fen();
 
   // go to current position if user is looking at earlier move in the move list
-  if((game.isPlaying() || game.isObserving()) && game.history.ply() < game.history.length())
-    game.history.display(game.history.length());
+  if((game.isPlaying() || game.isObserving()) && game.history.current() !== game.history.last())
+    game.history.display(game.history.last());
 
   updateHistory(move, fen);
 
@@ -498,7 +489,7 @@ export function movePiece(source: any, target: any, metadata: any) {
     if(game.isPlaying() || game.isExamining()) 
       var chess = game.chess;
     else
-      var chess = new Chess(game.history.get().fen);
+      var chess = new Chess(game.history.current().fen);
 
     var inMove = {from: source, to: target, promotion: (promotePiece ? promotePiece : 'q')};
     
@@ -530,8 +521,8 @@ export function movePiece(source: any, target: any, metadata: any) {
       sendMove(move);
    
     if(game.isExamining()) {
-      var nextMove = game.history.get(game.history.next());
-      if(nextMove && !nextMove.subvariation && !game.history.scratch() && fen === nextMove.fen) 
+      var nextMove = game.history.next();
+      if(nextMove && !nextMove.isSubvariation() && !game.history.scratch() && fen === nextMove.fen) 
         session.send('for');
       else
         sendMove(move);
@@ -560,7 +551,7 @@ export function movePiece(source: any, target: any, metadata: any) {
 async function getComputerMove() {
   var bookMove = '';
   if(game.category === 'standard') { // only use opening book with normal chess
-    var fen = game.history.get(game.history.last()).fen;
+    var fen = game.history.last().fen;
     var moveNo = History.getMoveNoFromFEN(fen);
     // Cool-down function for deviating from the opening book. The chances of staying in book 
     // decrease with each move 
@@ -1157,7 +1148,7 @@ function parseVariantMove(fen: string, move: any, category: string) {
       var kingFrom = '';
       var rank = (color === 'w' ? '1' : '8');
       var files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-      var startChess = new Chess(game.history.get(0).fen);
+      var startChess = new Chess(game.history.first().fen);
       for(const file of files) {
         let square = file + rank;
         let piece = startChess.get(square);
@@ -1342,7 +1333,7 @@ function parseVariantMove(fen: string, move: any, category: string) {
         if(category === 'crazyhouse') {
           // check if we have a held piece capable of occupying the blocking square
           var canBlock = false;
-          var holdings = game.history.get().holdings;
+          var holdings = game.history.current().holdings;
           for(let k in holdings) {
             if(holdings[k] === 0)
               continue;
@@ -1367,7 +1358,7 @@ function parseVariantMove(fen: string, move: any, category: string) {
     // Adjust castling rights after rook move
     if(outMove.piece === 'r') {
       // Check if rook moved from starting position
-      var startChess = new Chess(game.history.get(0).fen);
+      var startChess = new Chess(game.history.first().fen);
       var files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
       var rank = (afterPre.color === 'w' ? '1' : '8');
       var leftRook = '';
@@ -1761,7 +1752,7 @@ function messageHandler(data) {
       cleanupGame();
       break;
     case MessageType.GameHoldings:
-      game.history.get().holdings = data.holdings;
+      game.history.current().holdings = data.holdings;
       break;
     case MessageType.Offers:
       var offers = data.offers;
@@ -2346,7 +2337,7 @@ function showCapturedMaterial(fen: string) {
   };
 
   if(game.category === 'crazyhouse' || game.category === 'bughouse') 
-    captured = game.history.get().holdings; // for crazyhouse/bughouse we display the actual pieces captured
+    captured = game.history.current().holdings; // for crazyhouse/bughouse we display the actual pieces captured
   else {
     // Get material difference between white and black, represented as "captured pieces"
     // e.g. if black is 2 pawns up on white, then 'captured' will contain P: 2 (two white pawns).
@@ -2439,31 +2430,31 @@ function dragCapturedPiece(event: any) {
 
 function updateHistory(move?: any, fen?: string) {
   // This is to allow multiple fast 'forward' or 'back' button presses in examine mode before the command reaches the server
-  // bufferedHistoryIndex contains a temporary index of the current move which is used for subsequent forward/back button presses
+  // bufferedHistoryEntry contains a temporary reference to the current move which is used for subsequent forward/back button presses
   if(bufferedHistoryCount)
     bufferedHistoryCount--;
   
   if(!fen) 
     fen = game.chess.fen();
 
-  const index = game.history.find(fen);
+  const hEntry = game.history.find(fen);
 
-  if(index === undefined) {
+  if(!hEntry) {
     if(move) {
-      var subvariation = false;
+      var newSubvariation = false;
 
       if(game.role === Role.NONE || game.isExamining()) {
         if(game.history.length() === 0)
           game.history.scratch(true);
 
-        var subvariation = !game.history.scratch();
-        if(subvariation) {
+        var newSubvariation = !game.history.scratch() && !game.history.current().isSubvariation();
+        if(newSubvariation) {
           $('#exit-subvariation').show();
           $('#navigation-toolbar [data-bs-toggle="tooltip"]').tooltip('update');
         }
       }
 
-      game.history.add(move, fen, subvariation, game.wtime, game.btime);
+      game.history.add(move, fen, newSubvariation, game.wtime, game.btime);
       getOpening();      
       updateVariantMoveData();
       $('#playing-game').hide();
@@ -2478,29 +2469,29 @@ function updateHistory(move?: any, fen?: string) {
   }
   else {
     if(!movelistRequested && game.role !== Role.NONE) 
-      game.history.updateClockTimes(index, game.wtime, game.btime);
+      game.history.updateClockTimes(hEntry, game.wtime, game.btime);
 
     // move is already displayed
-    if(index === game.history.index()) {
+    if(hEntry === game.history.current()) {
       setClocks();
       return;
     }
 
     // move is earlier, we need to take-back
     if(game.isPlaying() || game.isObserving()) {
-      if(index < game.history.length()) {
+      if(hEntry !== game.history.last()) {
         board.cancelPremove();
         board.cancelPredrop();
       }
-      while(index < game.history.length())
+      while(hEntry !== game.history.last())
         game.history.removeLast();
     }
   }
 
-  game.history.display(index, move !== undefined);
+  game.history.display(hEntry, move !== undefined);
 
-  if(removeSubvariationRequested && !game.history.get(index).subvariation) {
-    game.history.removeSubvariation();
+  if(removeSubvariationRequested && !hEntry.isSubvariation()) {
+    game.history.removeAllSubvariations();
     $('#exit-subvariation').tooltip('hide');
     $('#exit-subvariation').hide();
     removeSubvariationRequested = false;
@@ -2510,10 +2501,8 @@ function updateHistory(move?: any, fen?: string) {
 function updateVariantMoveData() {
   // Maintain map of captured pieces for crazyhouse variant
   if(game.category === 'crazyhouse' || game.category === 'bughouse') {
-    var prevIndex = game.history.prev();
-    var prevMove = game.history.get(prevIndex);
-
-    var currMove = game.history.get();
+    var prevMove = game.history.prev();
+    var currMove = game.history.current();
     var move = currMove.move;
 
     if(prevMove.holdings === undefined)
@@ -2535,7 +2524,7 @@ function updateVariantMoveData() {
         holdings[pieceType]++;
       }
       else if(move.flags && move.flags.includes('e')) {
-        var color = History.getTurnColorFromFEN(prevMove.fen);
+        var color = prevMove.turnColor;
         let pieceType = (color === 'w' ? 'p' : 'P');
         holdings[pieceType]++;
       }
@@ -2545,7 +2534,7 @@ function updateVariantMoveData() {
     }
 
     if(move.san && move.san.includes('@')) {
-      var color = History.getTurnColorFromFEN(prevMove.fen);
+      var color = prevMove.turnColor;
       let pieceType = (color === 'w' ? move.piece.toLowerCase() : move.piece.toUpperCase());
       holdings[pieceType]--;
     }
@@ -2575,7 +2564,7 @@ function updatePromotedList(move: any, promoted: any) {
 }
 
 function setClocks() {
-  var hEntry = game.history.get();
+  var hEntry = game.history.current();
 
   if(!game.isPlaying() && game.role !== Role.OBSERVING) {
     clock.setWhiteClock(hEntry.wtime);
@@ -2589,7 +2578,7 @@ function setClocks() {
   if(game.isPlaying() || game.role === Role.OBSERVING)
     turnColor = game.chess.turn();
   else
-    turnColor = History.getTurnColorFromFEN(hEntry.fen);
+    turnColor = hEntry.turnColor;
 
   if(turnColor === 'b') {
     whiteClock.removeClass('my-turn');
@@ -2634,8 +2623,8 @@ function hitClock(setClocks: boolean = false) {
 }
 
 export function updateBoard(playSound = false) {
-  const move = game.history.get().move;
-  const fen = game.history.get().fen;
+  const move = game.history.current().move;
+  const fen = game.history.current().fen;
 
   setClocks();
 
@@ -2700,7 +2689,7 @@ export function updateBoard(playSound = false) {
   if(playSound && soundToggle) {
     clearTimeout(soundTimer);
     soundTimer = setTimeout(() => {
-      const entry = game.history.get();
+      const entry = game.history.current();
       const chess = new Chess(entry.fen);
       if(chess.in_check()) {
         Sounds.checkSound.pause();
@@ -2749,7 +2738,7 @@ function startEngine() {
     
     engine = new Engine(game.history, null, displayEnginePV, options);
     if(!movelistRequested)
-      engine.move(game.history.index());
+      engine.move(game.history.current());
   }
 }
 
@@ -2759,7 +2748,7 @@ function displayEnginePV(pvNum: number, pvEval: string, pvMoves: string) {
   if(pvNum === 1 && pvMoves) {
     var words = pvMoves.split(/\s+/);
     var san = words[0].split(/\.+/)[1];
-    var parsed = parseMove(game.history.get().fen, san, game.category);
+    var parsed = parseMove(game.history.current().fen, san, game.category);
     board.setAutoShapes([{
       orig: parsed.move.from || parsed.move.to, // For crazyhouse, just draw a circle on dest square
       dest: parsed.move.to,
@@ -3024,19 +3013,17 @@ function checkGameEnd() {
 async function showOpeningName() {
   await fetchOpeningsPromise; // Wait for the openings file to be loaded
 
-  var index = game.history.index();
-  if(index === 0)
-    index = game.history.last();
+  var hEntry = game.history.current();
+  if(!hEntry.move)
+    hEntry = game.history.last();
 
-  var hItem = game.history.get(index);
-  while(!hItem.opening) {
-    index = game.history.prev(index);
-    if(index === undefined)
+  while(!hEntry.opening) {
+    if(!hEntry.move)
       return;
-    hItem = game.history.get(index);
+    hEntry = hEntry.prev;
   }
 
-  $('#opening-name').text(hItem.opening.name);
+  $('#opening-name').text(hEntry.opening.name);
   $('#opening-name').show();
 }
 
@@ -3544,7 +3531,7 @@ function calculateFontSize(container: any, containerMaxWidth: number, minWidth?:
 }
 
 async function getOpening() {
-  var historyItem = game.history.get();
+  var historyItem = game.history.current();
   
   var fetchOpenings = async () => {
     var inputFilePath = 'assets/data/openings.tsv';
@@ -3829,9 +3816,9 @@ $('#fast-backward').on('click', () => {
 
 function fastBackward() {
   if (game.isExamining()) {
-    var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
-    if(index !== 0) {
-      bufferedHistoryIndex = 0;
+    var hEntry = (bufferedHistoryCount ? bufferedHistoryEntry : game.history.current());
+    if(hEntry !== game.history.first()) {
+      bufferedHistoryEntry = game.history.first();
       bufferedHistoryCount++;
       session.send('back 999');
     }
@@ -3849,11 +3836,11 @@ $('#backward').on('click', () => {
 function backward() {
   if(game.history) {
     if(game.isExamining()) {
-      var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
-      var prevIndex = game.history.prev(index);
+      var hEntry = (bufferedHistoryCount ? bufferedHistoryEntry : game.history.current());
+      var prev = hEntry.prev;
 
-      if(prevIndex !== undefined) {
-        bufferedHistoryIndex = prevIndex;
+      if(prev) {
+        bufferedHistoryEntry = prev;
         bufferedHistoryCount++;
         session.send('back');
       }        
@@ -3872,18 +3859,17 @@ $('#forward').on('click', () => {
 function forward() {
   if(game.history) {
     if (game.isExamining()) {
-      var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
-      var nextIndex = game.history.next(index);
+      var hEntry = (bufferedHistoryCount ? bufferedHistoryEntry : game.history.current());
+      var next = hEntry.next;
 
-      if(nextIndex !== undefined) {
-        const nextMove = game.history.get(nextIndex);
-        if(nextMove.subvariation || game.history.scratch()) {
-          sendMove(nextMove.move);
+      if(next) {
+        if(next.isSubvariation() || game.history.scratch()) {
+          sendMove(next.move);
         }
         else
           session.send('for');
 
-        bufferedHistoryIndex = nextIndex;
+        bufferedHistoryEntry = next;
         bufferedHistoryCount++;
       }
     }
@@ -3902,16 +3888,16 @@ function fastForward() {
   if (game.isExamining()) {
     if(!game.history.scratch()) {
       fastBackward();
-      var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
-      if(index !== game.history.last()) {
+      var hEntry = (bufferedHistoryCount ? bufferedHistoryEntry : game.history.current());
+      if(hEntry !== game.history.last()) {
         session.send('for 999');
         bufferedHistoryCount++;
-        bufferedHistoryIndex = game.history.last();
+        bufferedHistoryEntry = game.history.last();
       }
     }
     else {
-      var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
-      while(index = game.history.next(index))
+      var hEntry = (bufferedHistoryCount ? bufferedHistoryEntry : game.history.current());
+      while(hEntry = hEntry.next)
         forward();
     }
   }
@@ -3924,28 +3910,26 @@ function fastForward() {
 $('#exit-subvariation').off('click');
 $('#exit-subvariation').on('click', () => {
   if(game.isExamining()) {
-    var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
-    let move = game.history.get(index);
+    var hEntry = (bufferedHistoryCount ? bufferedHistoryEntry : game.history.current());
     let backNum = 0;
-    while(move.subvariation) {
+    while(hEntry.isSubvariation()) {
       backNum++;
-      index = game.history.prev(index);
-      move = game.history.get(index);
+      hEntry = hEntry.prev;
     }
     if(backNum > 0) {
       session.send('back ' + backNum);
       removeSubvariationRequested = true;
       bufferedHistoryCount++;
-      bufferedHistoryIndex = index;
+      bufferedHistoryEntry = hEntry;
     }
     else {
-      game.history.removeSubvariation();
+      game.history.removeAllSubvariations();
       $('#exit-subvariation').tooltip('hide');
       $('#exit-subvariation').hide();
     }
   }
   else {
-    game.history.removeSubvariation();
+    game.history.removeAllSubvariations();
     $('#exit-subvariation').tooltip('hide');
     $('#exit-subvariation').hide();
   }
