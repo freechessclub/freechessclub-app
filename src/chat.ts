@@ -333,7 +333,7 @@ export class Chat {
   public newNotification(msg: string) {
     if(!msg.startsWith('Notification:') || notificationsToggle) {
       var currentTab = this.currentTab().toLowerCase().replace(/\s/g, '-');
-      msg = '<strong class="notification">' + msg + '</strong>';
+      msg = '<strong class="chat-notification">' + msg + '</strong>';
     }
     else 
       var currentTab = 'console';
@@ -343,19 +343,26 @@ export class Chat {
 }
 
 function scrollToChat() {
-  if(isSmallWindow())
-    $(document).scrollTop($('#right-panel-header').offset().top);
+  if(isSmallWindow()) {
+    if($('#secondary-board-area').is(':visible'))
+      $(document).scrollTop($('#right-panel').offset().top);
+    else
+      $(document).scrollTop($('#right-panel-header').offset().top);
+  }
 }
 
 $('#chat-maximize-btn').on('click', () => {
   if (maximized) {
     $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
     $('#chat-maximize-btn').attr('data-bs-original-title', 'Maximize');
+    if($('#secondary-board-area > .game-card').length)
+      $('#secondary-board-area').css('display', 'flex');
     maximized = false;
   } else {
     $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
     $('#chat-maximize-btn').attr('data-bs-original-title', 'Unmaximize');
     $('#collapse-chat').collapse('show');
+    $('#secondary-board-area').hide();
     maximized = true;
   }
   $('#left-col').toggleClass('d-none');
@@ -379,6 +386,10 @@ $('#collapse-chat').on('show.bs.collapse', () => {
 
 $('#collapse-chat').on('hide.bs.collapse', () => {
   $('#chat-toggle-btn').removeClass('toggle-btn-selected');
+});
+
+$('#collapse-chat-arrow').on('click', () => {
+  $('#collapse-chat').collapse('hide');
 });
 
 export default Chat;

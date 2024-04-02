@@ -26,7 +26,7 @@ cg-board {
 .chat-text strong, a {
   color: rgba(159, 184, 228, 0.75);
 }
-#game-status,#game-watchers,.chat-text strong.mine {
+.game-status,.game-watchers,.chat-text strong.mine {
   color: rgba(240, 159, 67, 0.95);
 }
 
@@ -113,31 +113,31 @@ cg-board {
   --bs-modal-bg: var(--bg-color);
 }
 
-.history th {
+#move-table th {
   color: rgba(255, 255, 255, 0.4);
 }
-.history tr:nth-of-type(odd) {
+#move-table tr:nth-of-type(odd) {
   background-color: rgba(0, 0, 0, 0.08);
 }
-.history .selectable:hover {
+#move-table .selectable:hover {
   background-color: rgba(255, 255, 255, 0.06);
 }
-.history .selected {
+#move-table .selected {
   background-color: #606060; 
 }
-.history .subvariation:hover {
+#move-table .subvariation:hover {
   background-color: rgba(0, 0, 0, 0.05);
 }
-.history .subvariation .selected {
+#move-table .subvariation .selected {
   background-color: #777777; 
 }
-.history .subvariation td {
+#move-table .subvariation td {
   background: #606060;
 }
-.history .subvariation th {
+#move-table .subvariation th {
   background: #606060;
 }
-.history .subvariation a {
+#move-table .subvariation a {
   color: #DDDDDD
 }
 
@@ -174,11 +174,14 @@ cg-board {
   --bs-progress-bar-bg: #0d6efd;
 }
 
-.status {
+.game-card {
   --game-tie-color: #654D2F;
   --game-win-color: #35644D;
   --game-lose-color: #804545;
+  --border-expand-color: #FFFFFF;
+  --border-expand-width: 1px;
 }
+
 .clock.low-time {
   color: red;
 }
@@ -222,3 +225,10 @@ cg-board {
   background-color: rgba(255, 255, 255, 0.075);
 }
 
+.game-card .title-bar {
+  --bs-card-cap-bg: #464646;
+}
+
+.game-card .title-bar .btn span {
+  filter: brightness(0.9);
+}

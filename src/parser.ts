@@ -13,6 +13,7 @@ export enum Reason {
   Draw,
   Adjourn,
   Abort,
+  PartnerWon,
 }
 
 export class Parser {
@@ -117,6 +118,12 @@ export class Parser {
         } else if (p2 === who) {
           return [p1, p2, Reason.Resign];
         }
+      case 'partner won':
+        if (p1 === who) {
+          return [p1, p2, Reason.PartnerWon];
+        } else if (p2 === who) {
+          return [p2, p1, Reason.PartnerWon];
+        }
       case 'forfeits by disconnection':
         if (p1 === who) {
           return [p2, p1, Reason.Disconnect];
@@ -137,6 +144,7 @@ export class Parser {
         }
       case 'aborted on move 1':
       case 'aborted by mutual agreement':
+      case 'aborted':
         return [p1, p2, Reason.Abort];
       case 'drawn by mutual agreement':
       case 'drawn because both players ran out of time':
@@ -147,7 +155,9 @@ export class Parser {
       case 'player has mating material':
       case 'drawn by adjudication':
       case 'drawn by stalemate':
+      case 'drawn':
         return [p1, p2, Reason.Draw];
+      case 'adjourned':
       case 'adjourned by mutual agreement':
         return [p1, p2, Reason.Adjourn];
     }
@@ -307,7 +317,7 @@ export class Parser {
         holdings[piece.toUpperCase()]++;
 
       return {
-        game_id: match[1],
+        game_id: +match[1],
         holdings: holdings,
         new_holding: match[4],
       };
@@ -317,14 +327,14 @@ export class Parser {
     match = msg.match(/^\s*\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\sCreating.*\}.*/s);
     if (match != null && match.length > 2) {
       return {
-        game_id: match[1],
+        game_id: +match[1],
         player_one: match[2],
         player_two: match[3],
       };
     }
 
     // game end
-    match = msg.match(/^[^\(\):]*(?:Game\s[0-9]+:.*)?\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)\s([a-zA-Z0-9\s]+)\}\s(?:[012/]+-[012/]+)?.*/s);
+    match = msg.match(/^[^\(\):]*(?:Game\s[0-9]+:.*)?\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)(?:' game|'s)?\s([a-zA-Z0-9\s]+)\}\s(?:[012/]+-[012/]+)?.*/s);
     if (match != null && match.length > 4) {
       var msgs = this.splitMessage(msg);
       if(msgs)

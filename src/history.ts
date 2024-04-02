@@ -147,13 +147,13 @@ export class HEntry {
 }
 
 export class History {
-  private board: any;
+  private game: any;
   private firstEntry: HEntry;
   private currEntry: HEntry;
   private _scratch: boolean;
 
-  constructor(fen: string, board: any, wtime: number = 0, btime: number = 0) {
-    this.board = board;
+  constructor(game: any, fen: string, wtime: number = 0, btime: number = 0) {
+    this.game = game;
     this._scratch = false;
 
     $('#collapse-history').on('hidden.bs.collapse', () => {
@@ -169,7 +169,7 @@ export class History {
   public reset(fen: string, wtime: number, btime: number) {
     this.firstEntry = this.currEntry = new HEntry(undefined, fen);
     this.updateClockTimes(this.firstEntry, wtime, btime);
-    $('#move-history').empty();
+    this.game.moveTableElement.empty();
   }
 
   public updateClockTimes(entry: HEntry, wtime: number, btime: number) {   
@@ -269,7 +269,7 @@ export class History {
     if(entry) 
       this.currEntry = entry;
 
-    updateBoard(playSound);
+    updateBoard(this.game, playSound);
     this.highlightMove();
   }
 
@@ -417,7 +417,8 @@ export class History {
   }
 
   public highlightMove() {
-    $('#move-history a').each(function () {
+    var moveTable = this.game.moveTableElement;
+    moveTable.find('a').each(function () {
       $(this).removeClass('selected');
     });
 
@@ -461,6 +462,7 @@ export class History {
   }
 
   private addTableItem(entry: HEntry): void {
+    var moveTable = this.game.moveTableElement;
     var san = entry.move.san;
     var ply = entry.ply;
     var moveNo = moveNo = Math.floor(ply / 2);
@@ -491,12 +493,12 @@ export class History {
     
     if(!prevCell || prevCell.length === 0) {
       if(ply % 2 === 0) {
-        $('#move-history').append('<tr><th scope="row">' + moveNo + '</th><td class="selectable">' + cellBody + '</td><td></td></tr>');
-        cell = $('#move-history td:eq(0)');      
+        moveTable.append('<tr><th scope="row">' + moveNo + '</th><td class="selectable">' + cellBody + '</td><td></td></tr>');
+        cell = moveTable.find('td:eq(0)');      
       }
       else {
-        $('#move-history').append('<tr><th scope="row">' + moveNo + '</th><td></td><td class="selectable">' + cellBody + '</td></tr>');
-        cell = $('#move-history td:eq(1)');   
+        moveTable.append('<tr><th scope="row">' + moveNo + '</th><td></td><td class="selectable">' + cellBody + '</td></tr>');
+        cell = moveTable.find('td:eq(1)');   
       }
     }
     else if(depth !== prevDepth) {
@@ -612,6 +614,16 @@ export class History {
 
     return false;
   }  
+
+  public hasSubvariation(): boolean {
+    var entry = this.first();
+    while(entry) {
+      if(entry.subvariations.length)
+        return true;
+      entry = entry.next;
+    }
+    return false;
+  }
 }
 
 export default History;

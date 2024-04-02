@@ -40,11 +40,11 @@ class GameData {
   };
   move: string;                         // pretty notation for the previous move ("none" if there is none)
   flip: boolean = false;                // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.
-  wrating: string                       // white's rating
-  brating: string                       // black's rating
-  category: string                      // category or variant
+  wrating: string;                      // white's rating
+  brating: string;                      // black's rating
+  category: string = '';                // category or variant
   color: string = 'w';
-  difficulty: number;  // computer difficulty level
+  difficulty: number;                   // computer difficulty level
 
   public isPlaying() { return this.role === Role.MY_MOVE || this.role === Role.OPPONENTS_MOVE || this.role === Role.PLAYING_COMPUTER; }
   public isExamining() { return this.role === Role.EXAMINING; }
@@ -52,15 +52,38 @@ class GameData {
 }
 
 // An online chess game
-class Game extends GameData {
-  playerCaptured: any = {};
-  oppCaptured: any = {};
+export class Game extends GameData {
   chess: any = null;
   history: any = null;
+  clock: any = null;
+  board: any = null;
   watchers: any = null;
+  captured: any = {};
+
+  // HTML elements associated with this Game
+  element: any = null; // The main game card including the board
+  moveTableElement: any = null; // The move list (in 2 column table form)
+  statusElement: any = null; // The status panel 
+
+  // Keep track of which analysis tab is showing
+  analyzing: boolean = false;
+  currentStatusTab: any = null;
+
+  // Store result of promotion dialog to pass to movePiece()
+  promotePiece; 
+  promoteSource;
+  promoteTarget;
+  promoteIsPremove;
+
+  // Used to buffer navigation buttons when in examine mode
+  bufferedHistoryEntry: any = null;
+  bufferedHistoryCount: number = 0;
+  removeSubvariationRequested: boolean = false;
+
+  lastComputerMoveEval: string = null; // Keeps track of the current eval for a game against the Computer. Used for draw offers
+  partnerGameId: number = null;        // bughouse partner's game id
 }
 
-export const game = new Game();
+class GameList {
 
-export default game;
-
+}

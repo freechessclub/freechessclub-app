@@ -43,13 +43,13 @@ html, body {
   z-index: 100;
 }
 
-#game-status {
+.game-status {
   text-align: center;
   font-weight: bold;
   color: rgba(80, 80, 120, 0.65);
 }
 
-#opening-name {
+.opening-name {
   text-align: center;
 }
 
@@ -72,7 +72,7 @@ html, body {
   color: rgba(240, 120, 120, 0.7);
 }
 
-.chat-text strong.notification {
+.chat-text strong.chat-notification {
   font-style: italic;
   color: rgba(140, 140, 140, 0.8);
 }
@@ -126,15 +126,25 @@ html, body {
   white-space: nowrap;
   font-size: 1.6rem;
   line-height: 21px;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
 }
 
 .captured {
   white-space: nowrap;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.captured-piece {
+  padding-top: 0.35em;
+  padding-bottom: 0.65em;
+  line-height: 2.6em;
 }
 
 .captured img {
   display: inline-block;
-  margin: -15px 0 -4px -4px;
+  margin: -15px -5px 0 2px;
   width: 23px;
   opacity: 0.6;
   pointer-events: none;
@@ -142,7 +152,7 @@ html, body {
 
 .captured small {
   position: relative;
-  left: -15px;
+  left: -10px;
   top: 12px;
   opacity: 0.6;
 }
@@ -169,11 +179,126 @@ html, body {
   font-size: 1.0rem;
 }
 
-.history {
+.top-panel, .bottom-panel {
+  height: 56px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: flex;  
+}
+
+.game-card {
+  --game-tie-color: #fcddae;
+  --game-win-color: #d4f9d9;
+  --game-lose-color: #f9d4d4;
+  --border-highlight-color: #009900;
+  --border-expand-color: #000000;
+  --border-expand-width: 2px;
+}
+
+.game-card.game-focused {
+  border-color: var(--border-highlight-color);
+}
+
+.game-card .status {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.game-card .title-bar {
+  display: none;
+  --bs-card-cap-bg: #CCCCCC;
+  padding-top: 0px;
+  padding-bottom: 0px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.game-card .title-bar .btn {
+  padding: 2px;
+  line-height: 1;
+  --bs-btn-active-bg: transparent;
+  --bs-btn-hover-bg: transparent;
+  --bs-btn-border-color: transparent; 
+  --bs-btn-active-border-color: transparent;
+  --bs-btn-hover-border-color: transparent;
+}
+
+.game-card .title-bar .game-maximize-icon {
+  font-size: 1em;
+}
+
+.game-card .title-bar .game-close-icon {
+  font-size: 1.39em;   /* Randomely tweaked some values until the icons aligned properly */
+  line-height: 0.72em;
+  vertical-align: -0.11em;
+}
+
+.game-card-sm .status {
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+
+.game-card-sm .top-panel,
+.game-card-sm .bottom-panel {
+  height: 32px;
+}
+
+.game-card-sm .name {
+  font-size: inherit;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.game-card-sm .rating {
+  font-size: 0.6rem;
+}
+
+.game-card-sm .clock {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.game-card-sm .clock-time {
+  font-size: 1.0rem;
+}
+
+.game-card-sm .fractional-clock-time {
+  font-size: 0.625rem;
+}
+
+.game-card-sm .captured {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.game-card-sm .captured-piece {
+  font-size: 0.75rem;
+  padding-top: 0.38em;
+  padding-bottom: 0.38em;
+}
+
+.game-card-sm .captured img {
+  margin: -13px -6px 0 -1px;
+  width: 15px;
+}
+
+.game-card-sm .captured small {
+  left: -4px;
+  top: 6px;
+}
+
+#secondary-board-area {
+  display: none;
+  gap: 8px; 
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+#move-table {
   padding: 0;
 }
 
-.history th {
+#move-table th {
   border: 0;
   width: 20%;
   text-align: center;
@@ -181,46 +306,46 @@ html, body {
   color: rgba(0, 0, 0, 0.4);
 }
 
-.history td {
+#move-table td {
   border: 0;
   width: 40%;
   text-align: center;
 }
 
-.history .selectable:hover {
+#move-table .selectable:hover {
   background-color: rgba(0, 0, 0, 0.075);
 }
 
-.history .subvariation:hover {
+#move-table .subvariation:hover {
   background-color: rgba(255, 255, 255, 0.075);
 }
 
-.history .selectable:hover a {
+#move-table .selectable:hover a {
   font-weight: bold;
   text-decoration: none;
 }
 
-.history .subvariation td {
+#move-table .subvariation td {
   background: #D7D7D7;
 }
 
-.history .subvariation th {
+#move-table .subvariation th {
   background: #D7D7D7;
 }
 
-.history tr:nth-of-type(odd) {
+#move-table tr:nth-of-type(odd) {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-.history .subvariation .selected {
+#move-table .subvariation .selected {
   background-color: #BBBBBB; 
 }
 
-.history .subvariation a {
+#move-table .subvariation a {
   color: #191970
 }
 
-.history .selected {
+#move-table .selected {
   background-color: #DDDDDD; 
   padding-top: 2px; 
   padding-bottom: 3px; 
@@ -329,20 +454,6 @@ html, body {
   font-weight: bold;
 }
 
-.top-panel {
-  height: 56px;
-  padding-top: 0;
-  padding-bottom: 0;
-  display: flex;
-}
-
-.bottom-panel {
-  height: 56px;
-  padding-top: 0;
-  padding-bottom: 0;
-  display: flex;
-}
-
 .pane-status {
   margin: 10px; 
   text-align: center;
@@ -418,7 +529,7 @@ html, body {
   padding: 20px;
 }
 
-#promotion-panel {
+.promotion-panel {
   display: none;
   position: absolute;
   z-index: 10;
@@ -493,12 +604,6 @@ html, body {
 #notifications-footer .toast-body {
   padding-top: 3px;
   padding-bottom: 4px;
-}
-
-.status {
-  --game-tie-color: #fcddae;
-  --game-win-color: #d4f9d9;
-  --game-lose-color: #f9d4d4;
 }
 
 .close {
