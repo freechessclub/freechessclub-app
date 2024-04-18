@@ -2103,8 +2103,6 @@ function messageHandler(data) {
           obsRequested--;
           $('#observe-pane-status').hide();
         }
-
-        chat.newMessage('console', data);
         return;
       }
 
@@ -2121,7 +2119,6 @@ function messageHandler(data) {
         session.send('iset seekinfo 1');
         session.send('iset seekinfo 0');
         session.send('iset showownseek 0');
-        chat.newMessage('console', data);
         return;
       }
 
@@ -2136,8 +2133,6 @@ function messageHandler(data) {
 
         if(!$('#sent-offers-status').children().length)
           $('#sent-offers-status').hide();
-
-        chat.newMessage('console', data);
         return;
       }
      
