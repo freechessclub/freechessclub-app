@@ -3,8 +3,9 @@
 // license that can be found in the LICENSE file.
 
 import { Chessground } from 'chessground';
-import History from './history';
+import { History, HEntry } from './history';
 import { gotoMove, parseMove } from './index';
+import { Game } from './game';
 import * as d3 from 'd3';
 
 var SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'wild/fr', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
@@ -14,18 +15,16 @@ export class Engine {
   protected numPVs: number;
   protected currMove: any;
   protected currEval: string;
-  protected history: any;
-  protected category: string;
-  protected bestMoveCallback: (move: string, score: string) => void;
-  protected pvCallback: (pvNum: number, pvEval: string, pvMoves: string) => void;
+  protected game: Game;
+  protected bestMoveCallback: (game: Game, move: string, score: string) => void;
+  protected pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string) => void;
   protected moveParams: string;
 
-  constructor(history: any, bestMoveCallback: (move: string, score: string) => void, pvCallback: (pvNum: number, pvEval: string, pvMoves: string) => void, options?: object, moveParams?: string) {
+  constructor(game: Game, bestMoveCallback: (game: Game, move: string, score: string) => void, pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string) => void, options?: object, moveParams?: string) {
     this.numPVs = 1;
     this.moveParams = moveParams;
-    this.category = 'standard';
     this.currMove = undefined;
-    this.history = history;
+    this.game = game;
     this.bestMoveCallback = bestMoveCallback;
     this.pvCallback = pvCallback;
 
@@ -116,7 +115,7 @@ export class Engine {
                 promotion: (move.length === 5 ? move.charAt(4) : undefined)
               };
                      
-            var parsedMove = parseMove(currFen, moveParam, this.category);    
+            var parsedMove = parseMove(this.game, currFen, moveParam);    
             if(!parsedMove) {
               // Non-standard or unsupported moves were passed to Engine.
               this.terminate();
@@ -135,21 +134,21 @@ export class Engine {
           }
 
           if(this.pvCallback)
-            this.pvCallback(pvNum, scoreStr, pv);
+            this.pvCallback(this.game, pvNum, scoreStr, pv);
         }
         // mate in 0
         else if(scoreStr === '#0' || scoreStr === '-#0') {
           if(this.pvCallback)
-            this.pvCallback(1, scoreStr, '');
+            this.pvCallback(this.game, 1, scoreStr, '');
         }
         this.currEval = scoreStr;
 
         if(depth0 && this.bestMoveCallback) 
-          this.bestMoveCallback('', this.currEval);
+          this.bestMoveCallback(this.game, '', this.currEval);
       }
       else if(response.data.startsWith('bestmove') && this.bestMoveCallback) {
         var bestMove = response.data.trim().split(/\s+/)[1];
-        this.bestMoveCallback(bestMove, this.currEval);
+        this.bestMoveCallback(this.game, bestMove, this.currEval);
       }
     };
 
@@ -158,11 +157,7 @@ export class Engine {
     // Parse options
     for(const opt in options) {
       if(opt === 'MultiPV')
-        this.numPVs = options[opt];
-      else if(opt === 'UCI_Chess960' && options[opt] === true)
-        this.category = 'wild/fr';
-      else if(opt === 'UCI_Variant') 
-        this.category = options[opt];      
+        this.numPVs = options[opt];  
 
       this.uci('setoption name ' + opt + ' value ' + options[opt]);
     }
@@ -179,25 +174,24 @@ export class Engine {
     this.stockfish.terminate();
   }
 
-  public move(index: number) {
-    this.currMove = this.history.get(index);
+  public move(hEntry: HEntry) {
+    this.currMove = hEntry;
     
     var movelist = [];
-    while(index > 0) {
-      var hEntry = this.history.get(index);    
+    while(hEntry.move) {  
       var move = hEntry.move.from + hEntry.move.to + (hEntry.move.promotion ? hEntry.move.promotion : '');
       if(!hEntry.move.from) // crazyhouse
         move = hEntry.move.san.replace(/[+#]/, ''); // Stockfish crazyhouse implementation doesn't like + or # chars for piece placement
       
       movelist.push(move);
-      index = this.history.prev(index);
+      hEntry = hEntry.prev;
     }
 
     var movesStr = '';
     if(movelist.length)
       var movesStr = ' moves ' + movelist.reverse().join(' ');
 
-    this.uci('position fen ' + this.history.get(0).fen + movesStr);
+    this.uci('position fen ' + this.game.history.first().fen + movesStr);
     this.uci('go ' + this.moveParams);
   }
 
@@ -215,15 +209,15 @@ export class EvalEngine extends Engine {
   private _redraw: boolean = true;
   private numGraphMoves: number = 0;
 
-  constructor(history: any, options?: any, moveParams?: string) {
+  constructor(game: Game, options?: any, moveParams?: string) {
     if(!moveParams)
       moveParams = 'movetime 100';
     
-    super(history, null, null, options, moveParams);   
+    super(game, null, null, options, moveParams);   
     this.bestMoveCallback = this.bestMove;
   }
 
-  public bestMove(move: string, score: string) {
+  public bestMove(game: Game, move: string, score: string) {
     this.currMove.eval = score;
     this.currMove = undefined;
     this._redraw = true;
@@ -234,19 +228,18 @@ export class EvalEngine extends Engine {
     if(this._redraw)
       $('#eval-graph-container').html('');
 
-    if(this.history.length() === 0 || !$('#eval-graph-panel').is(':visible'))
+    if(this.game.history.length() === 0 || !$('#eval-graph-panel').is(':visible'))
       return;
 
     if(this.currMove === undefined) {
-      let hIndex = 0; let total = 0; let completed = 0;
-      while(hIndex !== undefined) {
-        const move = this.history.get(hIndex);
-        if(this.currMove === undefined && move.eval === undefined) {
-          this.currMove = move;
-          var currIndex = hIndex;
+      let total = 0; let completed = 0;
+      let hEntry = this.game.history.first();
+      while(hEntry) {
+        if(!this.currMove && hEntry.eval === undefined) {
+          this.currMove = hEntry;
           completed = total;
         }
-        hIndex = this.history.next(hIndex);
+        hEntry = hEntry.next;
         total++;
       }
 
@@ -255,8 +248,8 @@ export class EvalEngine extends Engine {
         $('#eval-graph-container').html('');
       }
 
-      if(this.currMove !== undefined) {
-        this.move(currIndex);
+      if(this.currMove) {
+        this.move(this.currMove);
 
         const progress = Math.round(100 * completed / total);
         // update progress bar
@@ -286,26 +279,26 @@ export class EvalEngine extends Engine {
     let currIndex;
     const that = this;
 
-    for(let i = 0, hIndex = 0; hIndex !== undefined; i++) {
-      if(hIndex === this.history.index())
+    let hEntry = this.game.history.first();
+    for(let i = 0; hEntry !== undefined; i++) {
+      if(hEntry === this.game.history.current())
         currIndex = i;
 
-      const move = this.history.get(hIndex);
-      if(move.eval.includes('#')) {
-        if(move.eval.includes('-'))
+      if(hEntry.eval.includes('#')) {
+        if(hEntry.eval.includes('-'))
           moveEval = -5;
         else
           moveEval = 5;
       }
       else {
-        var moveEval = +move.eval.replace(/[+=]/g,'');
+        var moveEval = +hEntry.eval.replace(/[+=]/g,'');
         if(moveEval > 5)
           moveEval = 5;
         else if(moveEval < -5)
           moveEval = -5;
       }
-      dataset.push({evalStr: move.eval, y: moveEval});
-      hIndex = this.history.next(hIndex);
+      dataset.push({evalStr: hEntry.eval, y: moveEval});
+      hEntry = hEntry.next;
     }
 
     const container = $('#eval-graph-container');
@@ -396,12 +389,9 @@ export class EvalEngine extends Engine {
             (a, b) => getDistanceFromPos(a) - getDistanceFromPos(b)
           );
 
-          let historyIndex = 0;
-          for(let i = 0; i < closestIndex; i++)
-            historyIndex = that.history.next(historyIndex);
-          gotoMove(historyIndex);
+          gotoMove(that.game.history.getByIndex(closestIndex));
 
-          if(historyIndex) {
+          if(closestIndex) {
             selectCircle
               .attr('cx', xScale(closestIndex))
               .attr('cy', yScale(dataset[closestIndex].y))

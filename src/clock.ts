@@ -9,11 +9,11 @@ export class Clock {
   private btime: number; // initial time for black clock (set after call to setClock() or stopClocks())
   private timestamp: number;
   private runningClock: string; // 'w' if white clock running, 'b' for black, or '' if no clock running
-  private flagFallCallback: () => void;
+  private flagFallCallback: (game: any) => void;
   private interval: number; // milliseconds between clock updates
   private lowTimeThreshold: number // mark clock as low-time when it goes below this value
 
-  constructor(game: any, flagFallCallback?: () => void) {
+  constructor(game: any, flagFallCallback?: (game: any) => void) {
     this.game = game;    
     this.runningClock = '';
     this.wtime = 0; 
@@ -79,7 +79,8 @@ export class Clock {
     if(time === null)
       time = 0;
     
-    const clockElement = this.game.color === color ? $('#player-clock') : $('#opponent-clock');  
+    var element = this.game.element;
+    const clockElement = this.game.color === color ? element.find('.player-status .clock') : element.find('.opponent-status .clock');  
     const clockTimeElement = clockElement.find('.clock-time'); 
     const fractionalTimeElement = clockElement.find('.fractional-clock-time');    
 
@@ -148,7 +149,7 @@ export class Clock {
       this.timer = setTimeout(timerFunc, adjustedWaitTime);
 
       if(time < 0 && this.flagFallCallback)
-        this.flagFallCallback();
+        this.flagFallCallback(this.game);
     };
     this.timer = setTimeout(timerFunc, waitTime);
   }

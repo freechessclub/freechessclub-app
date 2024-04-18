@@ -11,8 +11,8 @@ import NoSleep from '@uriopass/nosleep.js'; // Prevent screen dimming
 import Chat from './chat';
 import { Clock } from './clock';
 import { Engine, EvalEngine } from './engine';
-import { game, Role } from './game';
-import History from './history';
+import { Game, Role } from './game';
+import { History, HEntry } from './history';
 import { GetMessageType, MessageType, Session } from './session';
 import * as Sounds from './sounds';
 import { Reason } from './parser';
@@ -30,7 +30,6 @@ let chat: Chat;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
 let playEngine: Engine | null;
-let clock: Clock | null;
 
 // toggle game sounds
 let soundToggle: boolean = (Cookies.get('sound') !== 'false');
@@ -39,13 +38,15 @@ let autoPromoteToggle: boolean = (Cookies.get('autopromote') === 'true');
 // toggle for showing Computer opponents in the lobby
 let lobbyShowComputersToggle: boolean = (Cookies.get('lobbyshowcomputers') === 'true');
 // toggle for showing Rated games in the lobby
-let lobbyShowRatedToggle: boolean = (Cookies.get('lobbyshowrated') === 'true');
+let lobbyShowUnratedToggle: boolean = (Cookies.get('lobbyshowunrated') !== 'false');
 // toggle for automatically showing new slide-down notifications or notifications in chat channels
 export let notificationsToggle: boolean = (Cookies.get('notifications') !== 'false');
 // toggle for showing highlights/graphics on the board
 let highlightsToggle: boolean = (Cookies.get('highlights') !== 'false');
 // toggle for showing highlights/graphics on the board
 let wakelockToggle: boolean = (Cookies.get('wakelock') !== 'false');
+// toggle for multi-board mode / single-board mode
+let multiboardToggle: boolean = (Cookies.get('multiboard') !== 'false');
 // toggle for creating a window for chat
 export let chattabsToggle: boolean = (Cookies.get('chattabs') !== 'false');
 
@@ -56,25 +57,17 @@ let movelistRequested = 0;
 let lobbyRequested = false;
 let channelListRequested = false;
 let computerListRequested = false;
+let gameExitPending = 0;
 let computerList = [];
 let modalCounter = 0;
 let numPVs = 1;
-let gameChangePending = false;
 let matchRequested = 0;
 let prevWindowWidth = 0;
 let layout = Layout.Desktop;
 let addressBarHeight;
 let soundTimer
 let showSentOffersTimer;
-let removeSubvariationRequested = false;
-let prevCaptured;
 let activeTab;
-let promotePiece;
-let promoteSource;
-let promoteTarget;
-let promoteIsPremove;
-let bufferedHistoryIndex = -1;
-let bufferedHistoryCount = 0;
 let newGameVariant = '';
 let lobbyEntries = new Map();
 let lobbyScrolledToBottom;
@@ -85,9 +78,12 @@ let fetchOpeningsPromise = null;
 let book; // Opening book used in 'Play Computer' mode
 let isRegistered = false;
 let lastComputerGame = null; // Attributes of the last game played against the Computer. Used for Rematch and alternating colors each game.
-let lastComputerMoveEval = null; // Keeps track of the current eval for a game against the Computer. Used for draw offers
+let gameWithFocus: Game = null;
+let games: Game[] = []; 
 
-function cleanupGame() {
+const mainBoard: any = createBoard($('#main-board-area').children().first().find('.board'));
+
+function cleanupGame(game: Game) {
   if(game.role === Role.PLAYING_COMPUTER)
     return;
 
@@ -98,36 +94,42 @@ function cleanupGame() {
     playEngine = null;
   }
 
-  hideButton($('#stop-observing'));
-  hideButton($('#stop-examining'));
-  hideCloseGamePanel();
-  hidePromotionPanel();
-  $('#takeback').prop('disabled', false);
-  $('#play-computer').prop('disabled', false);  
-  $('#playing-game-buttons').hide();
-  $('#viewing-game-buttons').show();
-  $('#lobby-pane-status').hide();
+  if(game === gameWithFocus) {
+    hideButton($('#stop-observing'));
+    hideButton($('#stop-examining'));
+    hideCloseGamePanel();
+    $('#takeback').prop('disabled', false);
+    $('#play-computer').prop('disabled', false);  
+    $('#playing-game-buttons').hide();
+    $('#viewing-game-buttons').show();
+    $('#lobby-pane-status').hide();
+  }
 
-  clock.stopClocks();
+  game.element.find($('[title="Close"]')).show();
+
+  hidePromotionPanel(game);
+  game.clock.stopClocks();
 
   if(game.watchers)
     clearInterval(game.watchers);
   game.watchers = null;
-  $('#game-watchers').empty();
+  game.statusElement.find('.game-watchers').empty();
 
-  game.id = 0;
+  game.id = null;
   delete game.chess;
   game.chess = null;
-  board.cancelMove();
-  updateBoard();
-  if($('#left-panel-bottom').is(':visible'))
-    showStatusPanel();
+  gameExitPending = 0;
+  game.partnerGameId = null;
+  game.board.cancelMove();
+  updateBoard(game);
+  initStatusPanel();
 
   if($('#pills-play').hasClass('active') && $('#pills-lobby').hasClass('active'))
     initLobbyPane();
 
-  bufferedHistoryIndex = -1;
-  bufferedHistoryCount = 0;
+  game.bufferedHistoryEntry = null;
+  game.bufferedHistoryCount = 0;
+  game.removeSubvariationRequested = false;
 }
 
 export function cleanup() {
@@ -138,11 +140,11 @@ export function cleanup() {
   lobbyRequested = false;
   channelListRequested = false;
   computerListRequested = false;
-  gameChangePending = false;
-  removeSubvariationRequested = false;
   clearMatchRequests();
   clearNotifications();
-  cleanupGame();
+  games.forEach((game) => {
+    cleanupGame(game);
+  });
 }
 
 export function disableOnlineInputs(disable: boolean) {
@@ -155,23 +157,39 @@ export function disableOnlineInputs(disable: boolean) {
   $('#input-form *').prop('disabled', disable);
 }
 
-function initCategory() {
-  // Check if game category (variant) is supported by Engine
-  if(Engine.categorySupported(game.category)) {
-    if(!evalEngine) {
-      // Configure for variants
-      var options = {};
-      if(game.category === 'wild/fr')
-        options['UCI_Chess960'] = true;
-      else if(game.category === 'crazyhouse')
-        options['UCI_Variant'] = game.category;
-      
-      evalEngine = new EvalEngine(game.history, options);
-    }
-    showAnalyzeButton();
+function createEvalEngine(game: Game) {
+  if(game.category && Engine.categorySupported(game.category)) {
+    // Configure for variants
+    var options = {};
+    if(game.category === 'wild/fr')
+      options['UCI_Chess960'] = true;
+    else if(game.category === 'crazyhouse')
+      options['UCI_Variant'] = game.category;
+    
+    evalEngine = new EvalEngine(game, options);
   }
-  else 
-    hideAnalysis();  
+}
+
+function initAnalysis(game: Game) {
+  // Check if game category (variant) is supported by Engine
+  if(game === gameWithFocus) {
+    if(evalEngine) {
+      evalEngine.terminate();
+      evalEngine = null;
+    }
+
+    if(game.category) {
+      if(Engine.categorySupported(game.category)) {
+        if(game.id != undefined || game.history.length())
+          showAnalyzeButton();
+      }
+      else 
+        hideAnalysis();  
+    }
+
+    if($('#eval-graph-panel').is(':visible'))
+      createEvalEngine(game);
+  }
 }
 
 function hideCloseGamePanel() {
@@ -195,24 +213,34 @@ function hideStatusPanel() {
 
 function showStatusPanel() {
   $('#left-panel-bottom').show();
-  if(game.isPlaying()) {
+  initStatusPanel();
+  setPanelSizes();
+}
+
+function initStatusPanel() {
+  if(gameWithFocus.isPlaying()) {
     $('#close-status').hide(); 
     hideAnalysis();
   }
-  else {
+  else if($('#left-panel-bottom').is(':visible')) {
+    if(gameWithFocus.analyzing) 
+      showAnalysis();
+    else
+      hideAnalysis();
+
     showAnalyzeButton();
     if($('#engine-tab').is(':visible') && evalEngine) 
       evalEngine.evaluate();
     $('#close-status').show();
   }
-  setPanelSizes();
 }
 
 function showPromotionPanel(source: string, target: string, premove: boolean = false) {
-  promoteSource = source;
-  promoteTarget = target;
-  promoteIsPremove = premove;
-  var orientation = board.state.orientation;
+  var game = gameWithFocus;
+  game.promoteSource = source;
+  game.promoteTarget = target;
+  game.promoteIsPremove = premove;
+  var orientation = game.board.state.orientation;
   var color = (target.charAt(1) === '8' ? 'white' : 'black');
   var fileNum = target.toLowerCase().charCodeAt(0) - 97;
 
@@ -223,10 +251,11 @@ function showPromotionPanel(source: string, target: string, premove: boolean = f
   var bgRook = $('<piece class="rook ' + color + '"></piece>').appendTo(pieces).css('background-image').replace(/\"/g, '\'');
   var bgBishop = $('<piece class="bishop ' + color + '"></piece>').appendTo(pieces).css('background-image').replace(/\"/g, '\'');  
   pieces.remove();
-  $('#promotion-panel').css('left', $('#promotion-panel').width() * (orientation === "white" ? fileNum : 7 - fileNum));
+  var promotionPanel = game.element.find('.promotion-panel');
+  promotionPanel.css('left', promotionPanel.width() * (orientation === "white" ? fileNum : 7 - fileNum));
   if(orientation === color) {
-    $('#promotion-panel').css('top', 0);
-    $('#promotion-panel').html(`
+    promotionPanel.css('top', 0);
+    promotionPanel.html(`
       <button id="promote-piece-q" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgQueen + `; background-size: cover;"></button>
       <button id="promote-piece-n" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgKnight + `; background-size: cover;"></button>
       <button id="promote-piece-r" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgRook + `; background-size: cover;"></button>
@@ -234,8 +263,8 @@ function showPromotionPanel(source: string, target: string, premove: boolean = f
     `);
   }
   else {
-    $('#promotion-panel').css('top', '50%');
-    $('#promotion-panel').html(`
+    promotionPanel.css('top', '50%');
+    promotionPanel.html(`
       <button id="promote-piece-b" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgBishop + `; background-size: cover;"></button>
       <button id="promote-piece-r" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgRook + `; background-size: cover;"></button>
       <button id="promote-piece-n" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgKnight + `; background-size: cover;"></button>
@@ -245,17 +274,20 @@ function showPromotionPanel(source: string, target: string, premove: boolean = f
  
   $('.promote-piece').on('click', (event) => {
     hidePromotionPanel();
-    promotePiece = $(event.target).attr('id').slice(-1);
+    gameWithFocus.promotePiece = $(event.target).attr('id').slice(-1);
     if(!premove)
       movePiece(source, target, null);
   });
 
-  $('#promotion-panel').show();
+  promotionPanel.show();
 }
 
-function hidePromotionPanel() {
-  promotePiece = null;
-  $('#promotion-panel').hide();
+function hidePromotionPanel(game?: Game) {
+  if(!game)
+    game = gameWithFocus;
+
+  game.promotePiece = null;
+  game.element.find('.promotion-panel').hide();
 }
 
 // Restricts input for the set of matched elements to the given inputFilter function.
@@ -279,59 +311,51 @@ function setInputFilter(textbox: Element, inputFilter: (value: string) => boolea
   });
 }
 
-$('#move-history').on('click', '.selectable', function() {
-  const id = $('#move-history .selectable').index(this) + 1;
-  gotoMove(id);
+$('#move-table').on('click', '.selectable', function() {
+  gotoMove($(this).data('hEntry'));
 });
 
-export function gotoMove(id: number) {
+export function gotoMove(entry: HEntry) {
+  var game = gameWithFocus;
   if(game.isExamining()) {
-    const move = game.history.get(id);
-    const prevMove = game.history.get();
+    const prevEntry = game.history.current();
 
-    let mainlineId = id;
-    let firstSubvarId = id;
-    if(!prevMove.subvariation && move.subvariation) {
-      do {
-        firstSubvarId = mainlineId;
-        mainlineId = game.history.prev(mainlineId);
-      }
-      while(game.history.get(mainlineId).subvariation);
+    let mainlineEntry = entry;
+    let firstSubvarEntry = entry;
+    if(!prevEntry.isSubvariation() && entry.isSubvariation()) {
+      firstSubvarEntry = entry.first;
+      mainlineEntry = firstSubvarEntry.prev;
     }
-
+    
     let backNum = 0;
-    let i = game.history.index();
-    while(i > id || (!move.subvariation && game.history.get(i).subvariation)) {
-      i = game.history.prev(i);
+    let i = prevEntry
+    let mainlinePly = mainlineEntry.ply;
+    while(i.ply > mainlinePly || (!entry.isSubvariation() && i.isSubvariation())) {     
+      i = i.prev;
       backNum++;
     }
-    if(i > mainlineId)
-      backNum++;
-    if(backNum > 0) {
+    if(backNum > 0) 
       session.send('back ' + backNum);
-    }
 
     let forwardNum = 0;
-    while(i < mainlineId && !game.history.scratch() && (!prevMove.subvariation || !move.subvariation)) {
-      i = game.history.next(i);
+    while(i !== mainlineEntry && !game.history.scratch() && (!prevEntry.isSubvariation() || !entry.isSubvariation())) {     
+      i = i.next;
       forwardNum++;
     }
     if(forwardNum > 0)
       session.send('for ' + forwardNum);
 
-    if(!prevMove.subvariation && move.subvariation) {
-      i = firstSubvarId;
-      const iMove = game.history.get(i);
-      sendMove(iMove.move);
+    if(!prevEntry.isSubvariation() && entry.isSubvariation()) {
+      i = firstSubvarEntry;
+      sendMove(i.move);
     }
-    while(i < id) {
-      i = game.history.next(i);
-      const iMove = game.history.get(i);
-      sendMove(iMove.move);
+    while(i !== entry) {
+      i = i.next;
+      sendMove(i.move);
     }
   }
   else
-    var entry = game.history.display(id);
+    game.history.display(entry);
 }
 
 function sendMove(move: any) {
@@ -344,30 +368,9 @@ function sendMove(move: any) {
   session.send(moveStr);
 }
 
-const board: any = Chessground(document.getElementById('board'), {
-  highlight: {
-    lastMove: highlightsToggle,
-    check: highlightsToggle
-  },  
-  movable: {
-    free: false,
-    color: undefined,
-    events: {
-      after: movePiece,
-      afterNewPiece: movePiece,
-    }
-  },
-  premovable: {
-    events: {
-      set: preMovePiece,
-      unset: hidePromotionPanel,
-    }
-  }
-});
-
-function toDests(chess: any): Map<Key, Key[]> {
+function toDests(game: Game, chess: any): Map<Key, Key[]> {
   if(game.category === 'losers' || game.category.startsWith('wild'))
-    return variantToDests(chess);
+    return variantToDests(game, chess);
 
   var dests = new Map();
   chess.SQUARES.forEach(s => {
@@ -379,7 +382,7 @@ function toDests(chess: any): Map<Key, Key[]> {
   return dests;
 }
 
-function variantToDests(chess: any): Map<Key, Key[]> {
+function variantToDests(game: Game, chess: any): Map<Key, Key[]> {
   // In 'losers' variant, if a capture is possible then include only captures in dests
   if(game.category === 'losers') {
     var dests = new Map();
@@ -406,7 +409,7 @@ function variantToDests(chess: any): Map<Key, Key[]> {
     var color = chess.turn();
     var rank = (color === 'w' ? '1' : '8');
     var files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-    var startChess = new Chess(game.history.get(0).fen);
+    var startChess = new Chess(game.history.first().fen);
     for(const file of files) {
       let square = file + rank;
       let piece = startChess.get(square);
@@ -433,7 +436,7 @@ function variantToDests(chess: any): Map<Key, Key[]> {
         dests.delete(king);
     }
     
-    var parsedMove = parseMove(chess.fen(), 'O-O', game.category);
+    var parsedMove = parseMove(game, chess.fen(), 'O-O');
     if(parsedMove) {
       var from = parsedMove.move.from;
       if(game.category === 'wild/fr')
@@ -445,7 +448,7 @@ function variantToDests(chess: any): Map<Key, Key[]> {
         kingDests.push(to);
       else dests.set(from, [to]);
     }
-    var parsedMove = parseMove(chess.fen(), 'O-O-O', game.category);
+    var parsedMove = parseMove(game, chess.fen(), 'O-O-O');
     if(parsedMove) {
       var from = parsedMove.move.from;
       if(game.category === 'wild/fr')
@@ -474,33 +477,34 @@ function inCheck(san: string) {
   return (san.slice(-1) === '+');
 }
 
-function movePieceAfter(move: any, fen?: string) {
+function movePieceAfter(game: Game, move: any, fen?: string) {
   if(!fen)
     fen = game.chess.fen();
 
   // go to current position if user is looking at earlier move in the move list
-  if((game.isPlaying() || game.isObserving()) && game.history.ply() < game.history.length())
-    game.history.display(game.history.length());
+  if((game.isPlaying() || game.isObserving()) && game.history.current() !== game.history.last())
+    game.history.display(game.history.last());
 
-  updateHistory(move, fen);
+  updateHistory(game, move, fen);
 
-  board.playPremove();
-  board.playPredrop(() => true);
+  game.board.playPremove();
+  game.board.playPredrop(() => true);
 
-  checkGameEnd(); // Check whether game is over when playing against computer (offline mode)
+  checkGameEnd(game); // Check whether game is over when playing against computer (offline mode)
 }
 
 export function movePiece(source: any, target: any, metadata: any) {
   let fen = '';
   let move = null;
+  var game = gameWithFocus;
 
   if(game.isPlaying() || game.isExamining() || game.role === Role.NONE) {  
     if(game.isPlaying() || game.isExamining()) 
       var chess = game.chess;
     else
-      var chess = new Chess(game.history.get().fen);
+      var chess = new Chess(game.history.current().fen);
 
-    var inMove = {from: source, to: target, promotion: (promotePiece ? promotePiece : 'q')};
+    var inMove = {from: source, to: target, promotion: (game.promotePiece ? game.promotePiece : 'q')};
     
     // Crazyhouse/bughouse piece placement
     const cgRoles = {pawn: 'p', rook: 'r', knight: 'n', bishop: 'b', queen: 'q', king: 'k'};
@@ -509,18 +513,18 @@ export function movePiece(source: any, target: any, metadata: any) {
       inMove.from = '';
     }
   
-    var parsedMove = parseMove(chess.fen(), inMove, game.category);
+    var parsedMove = parseMove(game, chess.fen(), inMove);
     if(!parsedMove) {
-      updateBoard();
+      updateBoard(game);
       return;
     }
 
     fen = parsedMove.fen;
     move = parsedMove.move;
 
-    if(!promotePiece && !autoPromoteToggle && move && move.flags.includes('p')) {
+    if(!game.promotePiece && !autoPromoteToggle && move && move.flags.includes('p')) {
       showPromotionPanel(source, target, false);
-      board.set({ movable: { color: undefined } });
+      game.board.set({ movable: { color: undefined } });
       return;
     }
 
@@ -530,25 +534,25 @@ export function movePiece(source: any, target: any, metadata: any) {
       sendMove(move);
    
     if(game.isExamining()) {
-      var nextMove = game.history.get(game.history.next());
-      if(nextMove && !nextMove.subvariation && !game.history.scratch() && fen === nextMove.fen) 
+      var nextMove = game.history.next();
+      if(nextMove && !nextMove.isSubvariation() && !game.history.scratch() && fen === nextMove.fen) 
         session.send('for');
       else
         sendMove(move);
     }
 
-    hitClock(false);
+    hitClock(game, false);
   }
 
-  game.wtime = clock.getWhiteTime();
-  game.btime = clock.getBlackTime();
+  game.wtime = game.clock.getWhiteTime();
+  game.btime = game.clock.getBlackTime();
 
-  promotePiece = null;  
+  game.promotePiece = null;  
   if (move !== null)
-    movePieceAfter(move, fen);
+    movePieceAfter(game, move, fen);
 
   if(game.role === Role.PLAYING_COMPUTER) { // Send move to engine in Play Computer mode
-    getComputerMove();
+    getComputerMove(game);
   } 
 
   showTab($('#pills-game-tab'));
@@ -557,10 +561,10 @@ export function movePiece(source: any, target: any, metadata: any) {
 }
 
 // Get Computer's next move either from the opening book or engine
-async function getComputerMove() {
+async function getComputerMove(game: Game) {
   var bookMove = '';
   if(game.category === 'standard') { // only use opening book with normal chess
-    var fen = game.history.get(game.history.last()).fen;
+    var fen = game.history.last().fen;
     var moveNo = History.getMoveNoFromFEN(fen);
     // Cool-down function for deviating from the opening book. The chances of staying in book 
     // decrease with each move 
@@ -597,25 +601,27 @@ async function getComputerMove() {
   }
 
   if(bookMove)
-    playComputerBestMove(bookMove);
+    playComputerBestMove(game, bookMove);
   else
     playEngine.move(game.history.last());  
 }
 
 function preMovePiece(source: any, target: any, metadata: any) {
-  var chess = new Chess(board.getFen() + ' w KQkq - 0 1'); 
-  if(!promotePiece && chess.get(source).type === 'p' && (target.charAt(1) === '1' || target.charAt(1) === '8')) {
+  var game = gameWithFocus;
+  var chess = new Chess(game.board.getFen() + ' w KQkq - 0 1'); 
+  if(!game.promotePiece && chess.get(source).type === 'p' && (target.charAt(1) === '1' || target.charAt(1) === '8')) {
     showPromotionPanel(source, target, true);
   }
 }
 
-function showStatusMsg(msg: string) {
-  showStatusPanel();
-  $('#game-status').html(msg + '<br/>');
+function showStatusMsg(game: Game, msg: string) {
+  if(game === gameWithFocus)
+    showStatusPanel();
+  game.statusElement.find('.game-status').html(msg + '<br/>');
 }
 
-function showBoardModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true): any {
-  var modalHtml = createModal(type, title, msg, btnFailure, btnSuccess, progress, useSessionSend);
+function showBoardModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true, icons = true): any {
+  var modalHtml = createModal(type, title, msg, btnFailure, btnSuccess, progress, useSessionSend, icons);
   var modal = $(modalHtml).appendTo($('#game-requests'));
   modal.addClass('board-modal');
   modal.toast('show');
@@ -623,7 +629,7 @@ function showBoardModal(type: string, title: string, msg: string, btnFailure: st
   return modal;
 }
 
-function createModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true) { 
+function createModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true, icons = true) { 
   const modalId = 'modal' + modalCounter++;
   let req = `
   <div id="` + modalId + `" class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
@@ -646,15 +652,18 @@ function createModal(type: string, title: string, msg: string, btnFailure: strin
       let successCmd = btnSuccess[0];
       if(useSessionSend) 
         successCmd = "sessionSend('" + btnSuccess[0] + "');";
-      req += '<button type="button" onclick="' + successCmd + `" class="button-success btn btn-sm btn-outline-success me-4" data-bs-dismiss="toast">
-          <span class="fa fa-check-circle-o" aria-hidden="false"></span> ` + btnSuccess[1] + '</button>';
+      req += '<button type="button" onclick="' + successCmd + `" class="button-success btn btn-sm btn-outline-success` 
+          + (btnFailure && btnFailure.length === 2 ? ` me-4` : ``) + `" data-bs-dismiss="toast">`
+          + (icons ? `<span class="fa fa-check-circle-o" aria-hidden="false"></span> ` : ``) 
+          + btnSuccess[1] + '</button>';
     }
     if (btnFailure && btnFailure.length === 2) {
       let failureCmd = btnFailure[0];
       if(useSessionSend) 
         failureCmd = "sessionSend('" + btnFailure[0] + "');";  
-      req += '<button type="button" onclick="' + failureCmd + `" class="button-failure btn btn-sm btn-outline-danger" data-bs-dismiss="toast">
-          <span class="fa fa-times-circle-o" aria-hidden="false"></span> ` + btnFailure[1] + '</button>';
+      req += '<button type="button" onclick="' + failureCmd + `" class="button-failure btn btn-sm btn-outline-danger" data-bs-dismiss="toast">` 
+          + (icons ? `<span class="fa fa-times-circle-o" aria-hidden="false"></span> ` : ``)
+          + btnFailure[1] + '</button>';
     }
     req += '</div>';
   }
@@ -750,7 +759,7 @@ function showNotifications(modals: any) {
     }
   });
 
-  if($('.notification:not([data-remove="true"])').length > 1 && !$('#notifications-footer').attr('data-show')) {
+  if($('.notification:not([data-remove="true"])').length > 1 && !$('#notifications-footer').attr('data-show')) {  
     $('#notifications-footer').attr('data-show', 'true');
     $('#notifications-footer').toast('show');
     slideNotification($('#notifications-footer'), 'down');
@@ -1040,10 +1049,11 @@ function joinFEN(obj: any) {
   return Object.keys(obj).map(key => obj[key]).join(' ');
 }
 
-export function parseMove(fen: string, move: any, category: string) {
+export function parseMove(game: Game, fen: string, move: any) {
   // Parse variant move
+  var category = game.category;
   if(category.includes('wild') || category.includes('house')) 
-    return parseVariantMove(fen, move, category);
+    return parseVariantMove(game, fen, move);
 
   // Parse standard move
   var chess = new Chess(fen);
@@ -1052,7 +1062,8 @@ export function parseMove(fen: string, move: any, category: string) {
   return { fen: outFen, move: outMove };
 }
 
-function parseVariantMove(fen: string, move: any, category: string) {
+function parseVariantMove(game: Game, fen: string, move: any) {
+  var category = game.category;  
   var chess = new Chess(fen);
   var san = '';
 
@@ -1157,7 +1168,7 @@ function parseVariantMove(fen: string, move: any, category: string) {
       var kingFrom = '';
       var rank = (color === 'w' ? '1' : '8');
       var files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-      var startChess = new Chess(game.history.get(0).fen);
+      var startChess = new Chess(game.history.first().fen);
       for(const file of files) {
         let square = file + rank;
         let piece = startChess.get(square);
@@ -1342,7 +1353,7 @@ function parseVariantMove(fen: string, move: any, category: string) {
         if(category === 'crazyhouse') {
           // check if we have a held piece capable of occupying the blocking square
           var canBlock = false;
-          var holdings = game.history.get().holdings;
+          var holdings = game.history.current().holdings;
           for(let k in holdings) {
             if(holdings[k] === 0)
               continue;
@@ -1367,7 +1378,7 @@ function parseVariantMove(fen: string, move: any, category: string) {
     // Adjust castling rights after rook move
     if(outMove.piece === 'r') {
       // Check if rook moved from starting position
-      var startChess = new Chess(game.history.get(0).fen);
+      var startChess = new Chess(game.history.first().fen);
       var files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
       var rank = (afterPre.color === 'w' ? '1' : '8');
       var leftRook = '';
@@ -1425,7 +1436,7 @@ function parseVariantMove(fen: string, move: any, category: string) {
   return {fen: outFen, move: outMove};
 }
 
-export function parseMovelist(movelist: string) {
+export function parseMovelist(game: Game, movelist: string) {
   const moves = [];
   let found : string[] & { index?: number } = [''];
   let n = 1;
@@ -1453,24 +1464,24 @@ export function parseMovelist(movelist: string) {
       const m1 = found[1].trim();
       if(m1 !== '...') {
         wtime += (n === 1 ? 0 : game.inc * 1000) - (+found[2] * 60000 + +found[3] * 1000 + +found[4]);
-        var parsedMove = parseMove(chess.fen(), m1, game.category);
+        var parsedMove = parseMove(game, chess.fen(), m1);
         if(!parsedMove)
           break;
         chess.load(parsedMove.fen);
         game.history.add(parsedMove.move, parsedMove.fen, false, wtime, btime);
-        getOpening();
-        updateVariantMoveData();
+        getOpening(game);
+        updateVariantMoveData(game);
       }
       if (found.length > 5 && found[5]) {
         const m2 = found[5].trim();
         btime += (n === 1 ? 0 : game.inc * 1000) - (+found[6] * 60000 + +found[7] * 1000 + +found[8]);
-        parsedMove = parseMove(chess.fen(), m2, game.category);
+        parsedMove = parseMove(game, chess.fen(), m2);
         if(!parsedMove)
           break;
         chess.load(parsedMove.fen);
         game.history.add(parsedMove.move, parsedMove.fen, false, wtime, btime);
-        getOpening();
-        updateVariantMoveData();
+        getOpening(game);
+        updateVariantMoveData(game);
       }
       n++;
     }
@@ -1479,6 +1490,164 @@ export function parseMovelist(movelist: string) {
     session.send('back 999');
   else
     game.history.display();
+}
+
+function gameStart(game: Game) {
+  var amIblack = game.bname === session.getUser();
+  var amIwhite = game.wname === session.getUser();
+  if(game.role === Role.PLAYING_COMPUTER && game.color === 'b')
+    amIblack = true;  
+
+  if(getPlyFromFEN(game.fen) === 1)
+    game.chess = new Chess(game.fen);
+  else
+    game.chess = new Chess();
+
+  hidePromotionPanel(game);
+  game.board.cancelMove();
+  if(game === gameWithFocus)
+    hideExitSubvariationButton();
+
+  // for bughouse set game.color of partner to opposite of us
+  var mainGame = getPlayingExaminingGame();
+  var partnerColor = (mainGame && mainGame.partnerGameId === game.id && mainGame.color === 'w' ? 'b' : 'w');
+
+  if((!amIblack || amIwhite) && partnerColor !== 'b') { 
+    game.color = 'w';
+    game.element.find('.player-status .name').text(game.wname);
+    game.element.find('.opponent-status .name').text(game.bname);
+  } else {
+    game.color = 'b';
+    game.element.find('.player-status .name').text(game.bname);
+    game.element.find('.opponent-status .name').text(game.wname);
+  }       
+  setFontSizes();
+
+  var flipped = game.element.find('.opponent-status').parent().hasClass('bottom-panel');
+  game.board.set({
+    orientation: ((game.color === 'b') === flipped ? 'white' : 'black'),
+  });
+
+  // Check if server flip variable is set and flip board if necessary
+  if(game.isPlaying())
+    var v_flip = (game.color === 'b') !== game.flip; 
+  else 
+    var v_flip = game.flip;
+
+  if(v_flip != flipped)
+    flipBoard(game);
+
+  game.element.find('.player-status .captured').text('');
+  game.element.find('.opponent-status .captured').text('');
+  game.element.find('.card-header').css('--bs-card-cap-bg', '');
+  game.element.find('.card-footer').css('--bs-card-cap-bg', '');
+  $('#playing-game').hide();
+  $('#pairing-pane-status').hide();
+  game.statusElement.find('.game-watchers').empty();
+  game.statusElement.find('.opening-name').hide();
+
+  if(game.isPlaying() || game.isExamining()) {
+    clearMatchRequests();
+    $('#game-requests').html('');
+
+    if(game.role !== Role.PLAYING_COMPUTER) {
+      session.send('allobs ' + game.id);
+      if(game.isPlaying()) {
+        game.watchers = setInterval(() => {
+          const time = game.color === 'b' ? game.btime : game.wtime;
+          if (time > 60000) {
+            session.send('allobs ' + game.id);
+          }
+        }, 90000); // 90000 seems a bit slow
+      }
+      else {
+        game.watchers = setInterval(() => {
+          session.send('allobs ' + game.id);
+        }, 5000);
+      }
+    }
+  }
+
+  if(game === gameWithFocus && evalEngine) {
+    evalEngine.terminate();
+    evalEngine = null;
+  }
+
+  game.history = new History(game, game.fen, game.time * 60000, game.time * 60000);
+  
+  if(game.isPlaying() && game.role !== Role.PLAYING_COMPUTER)
+    game.element.find($('[title="Close"]')).hide();
+
+  var focusSet = false;
+  if(!game.isObserving() || getMainGame().role === Role.NONE) {
+    if(game !== gameWithFocus) {
+      setGameWithFocus(game);
+      focusSet = true;
+    }
+    maximizeGame(game);
+  }
+  if(!focusSet) {
+    if(game === gameWithFocus)
+      initGameRole(game);
+    updateBoard(game);
+  }
+
+  if(!mainGame || game.id !== mainGame.partnerGameId) 
+    scrollToBoard(game);
+
+  if(game.isPlaying() || game.isObserving()) {
+    // Adjust settings for game category (variant)
+    // When examining we do this after requesting the movelist (since the category is told to us by the 'moves' command)
+    if(game.isPlaying()) {
+      if (soundToggle) {
+        Sounds.startSound.play();
+      }
+
+      if(game.role === Role.PLAYING_COMPUTER) { // Play Computer mode
+        playEngine = new Engine(game, playComputerBestMove, null, getPlayComputerEngineOptions(game), getPlayComputerMoveParams(game));
+        if(amIblack) 
+          getComputerMove(game);
+      } 
+      else {            
+        $('#play-computer').prop('disabled', true);    
+        
+        if(game.category === 'bughouse') 
+          chat.createTab('Game ' + game.id);
+        else if(game.color === 'w') 
+          chat.createTab(game.bname);
+        else 
+          chat.createTab(game.wname);  
+      }
+    }
+
+    if(mainGame && game.id === mainGame.partnerGameId) {
+      if(game.color === 'w') 
+        chat.createTab(game.wname);
+      else 
+        chat.createTab(game.bname);
+    }
+  }
+
+  if(game.isExamining() || game.isObserving()) {           
+    if(game.isExamining()) {
+      if(game.wname === game.bname)
+        game.history.scratch(true);
+      else {
+        if(getPlyFromFEN(game.fen) !== 1)
+          session.send('back 999');
+        session.send('for 999');
+      }
+    }
+    movelistRequested++;
+    session.send('iset startpos 1'); // Show the initial board position before the moves list 
+    session.send('moves ' + game.id);
+    session.send('iset startpos 0');
+  }
+
+  if(game === gameWithFocus) {
+    showTab($('#pills-game-tab'));
+    showStatusPanel();
+  }
 }
 
 function messageHandler(data) {
@@ -1537,231 +1706,118 @@ function messageHandler(data) {
       chat.newMessage(data.user, data);
       break;
     case MessageType.GameMove:
-      // Check we are not examining/observing another game already
-      if((game.isExamining() || game.isObserving()) && game.id !== data.id) {
-        if(game.isExamining())
-          session.send('unex');
-        else if(game.isObserving()) 
-          session.send('unobs ' + game.id);
-                
-        if(data.role === Role.PLAYING_COMPUTER)
-          cleanupGame();  
-        else {
-          gameChangePending = true;
+      // If in single-board mode, check we are not examining/observing another game already
+      if(!multiboardToggle) {
+        var game = getMainGame();
+        if(game.isPlaying() && game.role !== Role.PLAYING_COMPUTER && game.id !== data.id) {
+          if(data.role === Role.OBSERVING || data.role === Role.OBS_EXAMINED)
+            session.send('unobs ' + data.id);
           break;
         }
+        else if((game.isExamining() || game.isObserving()) && game.id !== data.id) {
+          if(game.isExamining())
+            session.send('unex');
+          else if(game.isObserving()) 
+            session.send('unobs ' + game.id);
+                  
+          if(data.role === Role.PLAYING_COMPUTER)
+            cleanupGame(game);  
+          else {
+            gameExitPending++;
+            break;
+          }
+        }
+        else if(game.role === Role.PLAYING_COMPUTER && data.role !== Role.PLAYING_COMPUTER) {
+          game.role = Role.NONE;
+          cleanupGame(game); // Allow player to imemediately play/examine/observe a game at any time while playing the Computer. The Computer game will simply be aborted.
+        }
       }
-      else if(game.role === Role.PLAYING_COMPUTER && data.role !== Role.PLAYING_COMPUTER) {
-        game.role = Role.NONE;
-        cleanupGame(); // Allow player to imemediately play/examine/observe a game at any time while playing the Computer. The Computer game will simply be aborted.
+      else {
+        // Get game object
+        var game = findGame(data.id);
+        if(!game)
+          game = getFreeGame();
+        if(!game)
+          game = createGame();
       }
 
       Object.assign(game, data);
 
-      var amIblack = game.bname === session.getUser();
-      var amIwhite = game.wname === session.getUser();
-      if(game.role === Role.PLAYING_COMPUTER && game.color === 'b')
-        amIblack = true;  
+      // New game
+      if(game.chess === null) 
+        gameStart(game);
 
-      if (game.chess === null) {
-        if(getPlyFromFEN(game.fen) === 1)
-          game.chess = new Chess(game.fen);
-        else
-          game.chess = new Chess();
-
-        hidePromotionPanel();
-        board.cancelMove();
-
-        if (!amIblack || amIwhite) {
-          game.color = 'w';
-          $('#player-name').text(game.wname);
-          $('#opponent-name').text(game.bname);
-        } else {
-          game.color = 'b';
-          $('#player-name').text(game.bname);
-          $('#opponent-name').text(game.wname);
-        }       
-        setFontSizes();
-
-        var flipped = $('#opponent-status').parent().hasClass('bottom-panel');
-        board.set({
-          orientation: ((game.color === 'b') === flipped ? 'white' : 'black'),
-        });
-
-        // Check if server flip variable is set and flip board if necessary
-        if(game.isPlaying())
-          var v_flip = (game.color === 'b') !== game.flip; 
-        else 
-          var v_flip = game.flip;
-
-        if(v_flip != flipped)
-          flipBoard();
-
-        $('#exit-subvariation').tooltip('hide');
-        $('#exit-subvariation').hide();
-        $('#player-captured').text('');
-        $('#opponent-captured').text('');
-        $('#player-status').css('background-color', '');
-        $('#opponent-status').css('background-color', '');
-        $('#pairing-pane-status').hide();
-        $('#opening-name').hide();
-
-        if(game.isPlaying() || game.isExamining()) {
-          clearMatchRequests();
- 
-          if(game.role !== Role.PLAYING_COMPUTER) {
-            session.send('allobs ' + game.id);
-            if(game.isPlaying()) {
-              game.watchers = setInterval(() => {
-                const time = game.color === 'b' ? game.btime : game.wtime;
-                if (time > 60000) {
-                  session.send('allobs ' + game.id);
-                }
-              }, 90000); // 90000 seems a bit slow
-            }
-            else {
-              game.watchers = setInterval(() => {
-                session.send('allobs ' + game.id);
-              }, 5000);
-            }
-          }
-        }
-
-        if(evalEngine) {
-          evalEngine.terminate();
-          evalEngine = null;
-        }
-
-        game.history = new History(game.fen, board, game.time * 60000, game.time * 60000);
-        updateBoard();
-
-        // Adjust settings for game category (variant)
-        // When examining we do this after requesting the movelist (since the category is told to us by the 'moves' command)
-        if(game.isPlaying() || game.isObserving()) {
-          initCategory();
-
-          if(game.isPlaying()) {
-            $('#viewing-game-buttons').hide();
-            $('#playing-game').hide();
-            $('#playing-game-buttons').show();
-
-            if (soundToggle) {
-              Sounds.startSound.play();
-            }
-
-            if(game.role === Role.PLAYING_COMPUTER) { // Play Computer mode
-              $('#takeback').prop('disabled', true);
-
-              playEngine = new Engine(game.history, playComputerBestMove, null, getPlayComputerEngineOptions(), getPlayComputerMoveParams());
-              if(amIblack) 
-                getComputerMove();
-            } 
-            else {            
-              $('#play-computer').prop('disabled', true);              
-              if (game.wname === session.getUser()) 
-                chat.createTab(game.bname);
-              else 
-                chat.createTab(game.wname);
-            }
-          }
-        }
-
-        if (game.role === Role.NONE || game.isObserving() || game.isExamining()) {
-          if(game.isExamining() || game.isObserving()) {      
-            if(!isSmallWindow())
-              showCloseGamePanel();
-            
-            if(game.isExamining()) {
-              showButton($('#stop-examining'));
-              if(game.wname === game.bname)
-                game.history.scratch(true);
-              else {
-                if(getPlyFromFEN(game.fen) !== 1)
-                  session.send('back 999');
-                session.send('for 999');
-              }
-            }
-            else if(game.isObserving()) 
-              showButton($('#stop-observing'));
-
-            movelistRequested++;
-            session.send('iset startpos 1'); // Show the initial board position before the moves list 
-            session.send('moves ' + game.id);
-            session.send('iset startpos 0');
-          }
-
-          $('#playing-game').hide();
-
-          // Show analysis buttons
-          $('#playing-game-buttons').hide();
-          $('#viewing-game-buttons').show();
-        }
-        showTab($('#pills-game-tab'));
-        showStatusPanel();
-        scrollToBoard();
-      }
-
+      // Make move
       if(game.role === Role.NONE || game.role >= -2 || game.role === Role.PLAYING_COMPUTER) {
         const lastPly = getPlyFromFEN(game.chess.fen());
         const thisPly = getPlyFromFEN(game.fen);
  
         if (game.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
-          var parsedMove = parseMove(game.chess.fen(), game.move, game.category);
+          var parsedMove = parseMove(game, game.chess.fen(), game.move);
           game.chess.load(game.fen);
-          movePieceAfter((parsedMove ? parsedMove.move : {san: game.move}));
+          movePieceAfter(game, (parsedMove ? parsedMove.move : {san: game.move}));
         }
         else {
           game.chess.load(game.fen);
-          updateHistory();
+          updateHistory(game);
         }
 
-        hitClock(true);
+        hitClock(game, true);
       }
       break;
     case MessageType.GameStart:
       break;
     case MessageType.GameEnd:
-      // Set clock time to the time that the player resigns/aborts etc.
-      game.history.updateClockTimes(game.history.last(), clock.getWhiteTime(), clock.getBlackTime());
+      var game = findGame(data.game_id);
 
-      if (data.reason <= 4 && $('#player-name').text() === data.winner) {
+      // Set clock time to the time that the player resigns/aborts etc.
+      game.history.updateClockTimes(game.history.last(), game.clock.getWhiteTime(), game.clock.getBlackTime());
+
+      if (data.reason <= 4 && game.element.find('.player-status .name').text() === data.winner) {
         // player won
-        $('#player-status').css('background-color', 'var(--game-win-color)');
-        $('#opponent-status').css('background-color', 'var(--game-lose-color)');
-        if (soundToggle) {
+        game.element.find('.player-status').parent().css('--bs-card-cap-bg', 'var(--game-win-color)');
+        game.element.find('.opponent-status').parent().css('--bs-card-cap-bg', 'var(--game-lose-color)');
+        if (game === gameWithFocus && soundToggle) {
           Sounds.winSound.play();
         }
-      } else if (data.reason <= 4 && $('#player-name').text() === data.loser) {
+      } else if (data.reason <= 4 && game.element.find('.player-status .name').text() === data.loser) {
         // opponent won
-        $('#player-status').css('background-color', 'var(--game-lose-color)');
-        $('#opponent-status').css('background-color', 'var(--game-win-color)');
-        if (soundToggle) {
+        game.element.find('.player-status').parent().css('--bs-card-cap-bg', 'var(--game-lose-color)');
+        game.element.find('.opponent-status').parent().css('--bs-card-cap-bg', 'var(--game-win-color)');
+        if (game === gameWithFocus && soundToggle) {
           Sounds.loseSound.play();
         }
       } else {
         // tie
-        $('#player-status').css('background-color', 'var(--game-tie-color)');
-        $('#opponent-status').css('background-color', 'var(--game-tie-color)');
+        game.element.find('.player-status').parent().css('--bs-card-cap-bg', 'var(--game-tie-color)');
+        game.element.find('.opponent-status').parent().css('--bs-card-cap-bg', 'var(--game-tie-color)');
       }
 
-      showStatusMsg(data.message);
-      let rematch = [];
-      var useSessionSend = true;   
-      if(data.reason !== 2 && data.reason !== 7) {
-        if(game.role === Role.PLAYING_COMPUTER) {
-          rematch = ['rematchComputer();', 'Rematch']
-          useSessionSend = false;
+      showStatusMsg(game, data.message);
+      
+      if(game.isPlaying()) {
+        let rematch = [], analyze = [];
+        var useSessionSend = true;   
+        if(data.reason !== 2 && data.reason !== 7) {
+          if(game.role === Role.PLAYING_COMPUTER) {
+            rematch = ['rematchComputer();', 'Rematch'];
+            useSessionSend = false;
+          }
+          else if(game.element.find('.player-status .name').text() === session.getUser()) 
+            rematch = [`sessionSend('rematch')`, 'Rematch']
         }
-        else if($('#player-name').text() === session.getUser()) 
-          rematch = ['rematch', 'Rematch']
+        if(data.reason !== 7 && game.history.length()) {
+          analyze = ['analyze();', 'Analyze'];
+        }
+        showBoardModal('Match Result', '', data.message, rematch, analyze, false, false, false);
       }
-
-      showBoardModal('Match Result', '', data.message, rematch, [], false, useSessionSend);
       game.role = Role.NONE;
-      cleanupGame();
+      cleanupGame(game);
       break;
     case MessageType.GameHoldings:
-      game.history.get().holdings = data.holdings;
+      var game = findGame(data.game_id);
+      game.history.current().holdings = data.holdings;
+      showCapturedMaterial(game);
       break;
     case MessageType.Offers:
       var offers = data.offers;
@@ -1775,7 +1831,7 @@ function messageHandler(data) {
         seeks.forEach((item) => {
           if(!lobbyShowComputersToggle && item.title === 'C')
             return;
-          if(lobbyShowRatedToggle && item.title === 'U')
+          if(!lobbyShowUnratedToggle && item.ratedUnrated === 'u')
             return;
 
           var lobbyEntryText = formatLobbyEntry(item);
@@ -1890,26 +1946,25 @@ function messageHandler(data) {
 
       var match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
       if (match != null && match.length > 1) {
-        $('#game-watchers').empty();
-        if (+match[1] === game.id) {
-          match[2] = match[2].replace(/\(U\)/g, '');
-          const watchers = match[2].split(' ');
-          let req = '';
-          let numWatchers = 0;
-          for (let i = 0; i < watchers.length; i++) {
-            if(watchers[i].replace('#', '') === session.getUser())
-              continue;
-            numWatchers++;
-            if(numWatchers == 1)
-              req = 'Watchers:';
-            req += '<span class="ms-1 badge rounded-pill bg-secondary noselect">' + watchers[i] + '</span>';
-            if (numWatchers > 5) {
-              req += ' + ' + (watchers.length - i) + ' more.';
-              break;
-            }
+        var game = findGame(+match[1]);
+        game.statusElement.find('.game-watchers').empty();
+        match[2] = match[2].replace(/\(U\)/g, '');
+        const watchers = match[2].split(' ');
+        let req = '';
+        let numWatchers = 0;
+        for (let i = 0; i < watchers.length; i++) {
+          if(watchers[i].replace('#', '') === session.getUser())
+            continue;
+          numWatchers++;
+          if(numWatchers == 1)
+            req = 'Watchers:';
+          req += '<span class="ms-1 badge rounded-pill bg-secondary noselect">' + watchers[i] + '</span>';
+          if (numWatchers > 5) {
+            req += ' + ' + (watchers.length - i) + ' more.';
+            break;
           }
-          $('#game-watchers').html(req);
         }
+        game.statusElement.find('.game-watchers').html(req);
         return;
       }
 
@@ -2088,7 +2143,8 @@ function messageHandler(data) {
      
       match = msg.match(/(?:^|\n)\s*Movelist for game (\d+):\s+(\w+) \((\d+|UNR)\) vs\. (\w+) \((\d+|UNR)\)[^\n]+\s+(\w+) (\S+) match, initial time: (\d+) minutes, increment: (\d+) seconds\./);
       if (match != null && match.length > 9) {
-        if (+match[1] === game.id && movelistRequested) {
+        var game = findGame(+match[1]);
+        if (game && movelistRequested) {
           movelistRequested--;
           if(movelistRequested)
             return;
@@ -2118,8 +2174,8 @@ function messageHandler(data) {
               else brating = '----';
             }
 
-            $('#player-rating').text(game.color === 'b' ? game.brating : game.wrating);
-            $('#opponent-rating').text(game.color === 'b' ? game.wrating : game.brating);
+            game.element.find('.player-status .rating').text(game.color === 'b' ? game.brating : game.wrating);
+            game.element.find('.opponent-status .rating').text(game.color === 'b' ? game.wrating : game.brating);
 
             let time = ' ' + initialTime + ' ' + increment;
             if(initialTime === '0' && increment === '0')
@@ -2128,11 +2184,11 @@ function messageHandler(data) {
             const statusMsg = wname + ' (' + wrating + ') ' + bname + ' (' + brating + ') '
               + rated + ' ' + game.category + time;
 
-            showStatusMsg(statusMsg);
-            initCategory();
+            showStatusMsg(game, statusMsg);
+            initAnalysis(game);
           }
 
-          parseMovelist(msg);
+          parseMovelist(game, msg);
           return;          
         }
         else {
@@ -2141,40 +2197,78 @@ function messageHandler(data) {
         }
       }
   
+      match = msg.match(/^Your partner is playing game (\d+)/m);
+      if (match != null && match.length > 1) {
+        if(multiboardToggle)
+          session.send('pobserve');
+        
+        var mainGame = getPlayingExaminingGame();
+        if(mainGame)
+          mainGame.partnerGameId = +match[1];
+      }
+
       match = msg.match(/(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\) \S+ (\S+).+/);
       if (match != null && match.length > 7) {
+        if(!multiboardToggle) {
+          var game = getMainGame();
+          if(game.isPlaying()) 
+            return;
+
+          if(game.id === null) 
+            game.id = +match[2];
+        }
+        else {     
+          var game = getFreeGame();
+          if(!game)
+            game = createGame();
+          game.id = +match[2];
+        }
+
         game.wrating = (isNaN(match[4]) || match[4] === '0') ? '' : match[4];
         game.brating = (isNaN(match[6]) || match[6] === '0') ? '' : match[6];
         game.category = match[7];
-        showStatusMsg(match[0].substring(match[0].indexOf(':')+1));
+        showStatusMsg(game, match[0].substring(match[0].indexOf(':')+1));
         if (match[3] === session.getUser() || match[1].startsWith('Game')) {
-          if (game.id === 0) {
-            game.id = +match[2];
-          }
-          $('#player-rating').text(game.wrating);
-          $('#opponent-rating').text(game.brating);
+          game.element.find('.player-status .rating').text(game.wrating);
+          game.element.find('.opponent-status .rating').text(game.brating);
         } else if (match[5] === session.getUser()) {
-          $('#opponent-rating').text(game.wrating);
-          $('#player-rating').text(game.brating);
+          game.element.find('.opponent-status .rating').text(game.wrating);
+          game.element.find('.player-status .rating').text(game.brating);
         }
         return;
       }
 
       match = msg.match(/Removing game (\d+) from observation list./);
-      if (match != null && match.length > 1) {
-        if(gameChangePending)
-          session.send('refresh');
-        stopEngine();
-        cleanupGame();
+      if(match != null && match.length > 1) {
+        var game = findGame(+match[1]);
+        if(game) {
+          if(gameExitPending) { 
+            gameExitPending--;
+            if(!gameExitPending)
+              session.send('refresh');
+          }
+
+          if(game === gameWithFocus)
+            stopEngine();
+          cleanupGame(game);
+        }
         return;
       }
 
       match = msg.match(/You are no longer examining game (\d+)./);
       if (match != null && match.length > 1) {
-        if(gameChangePending)
-          session.send('refresh');
-        stopEngine();
-        cleanupGame();
+        var game = findGame(+match[1]);
+        if(game) {
+          if(gameExitPending) {
+            gameExitPending--; 
+            if(!gameExitPending)
+              session.send('refresh');
+          }
+
+          if(game === gameWithFocus)
+            stopEngine();
+           cleanupGame(game);
+        }
         return;
       }
 
@@ -2304,9 +2398,13 @@ function showSentOffers(offers: any) {
   $('#play-pane-subcontent')[0].scrollTop = 0;
 }
 
-export function scrollToBoard() {
-  if(isSmallWindow())
-    $(document).scrollTop($('#right-panel-header').offset().top + $('#right-panel-header').outerHeight() - $(window).height());
+export function scrollToBoard(game?: Game) {
+  if(isSmallWindow()) {
+    if(!game || game.element.parent().attr('id') === 'main-board-area')
+      $(document).scrollTop($('#right-panel-header').offset().top + $('#right-panel-header').outerHeight() - $(window).height());
+    else
+      $(document).scrollTop(game.element.offset().top);
+  }
 }
 
 function scrollToLeftPanelBottom() {
@@ -2327,27 +2425,27 @@ function getPlyFromFEN(fen: string) {
   return ply;
 }
 
-function showCapturedMaterial(fen: string) {
+function showCapturedMaterial(game: Game) {
   var whiteChanged = false;
   var blackChanged = false;
 
-  const material = { 
-    P: 0, R: 0, B: 0, N: 0, Q: 0, K: 0, p: 0, r: 0, b: 0, n: 0, q: 0, k: 0 
-  };
-
-  const pos = fen.split(/\s+/)[0];
-  for(let i = 0; i < pos.length; i++) {
-    if(material.hasOwnProperty(pos[i]))
-      material[pos[i]]++;
-  }
-  
   var captured = { 
     P: 0, R: 0, B: 0, N: 0, Q: 0, K: 0, p: 0, r: 0, b: 0, n: 0, q: 0, k: 0 
   };
 
   if(game.category === 'crazyhouse' || game.category === 'bughouse') 
-    captured = game.history.get().holdings; // for crazyhouse/bughouse we display the actual pieces captured
+    captured = game.history.current().holdings; // for crazyhouse/bughouse we display the actual pieces captured
   else {
+    const material = { 
+      P: 0, R: 0, B: 0, N: 0, Q: 0, K: 0, p: 0, r: 0, b: 0, n: 0, q: 0, k: 0 
+    };
+
+    const pos = game.history.current().fen.split(/\s+/)[0];
+    for(let i = 0; i < pos.length; i++) {
+      if(material.hasOwnProperty(pos[i]))
+        material[pos[i]]++;
+    }
+    
     // Get material difference between white and black, represented as "captured pieces"
     // e.g. if black is 2 pawns up on white, then 'captured' will contain P: 2 (two white pawns).
     var pieces = Object.keys(material).filter(key => key === key.toUpperCase());
@@ -2364,9 +2462,9 @@ function showCapturedMaterial(fen: string) {
     }
   }
 
-  if(prevCaptured !== undefined) {
+  if(game.captured !== undefined) {
     for(let key in captured) {
-      if(prevCaptured[key] != captured[key]) {
+      if(game.captured[key] != captured[key]) {
         if(key === key.toUpperCase())
           blackChanged = true;
         else
@@ -2374,14 +2472,14 @@ function showCapturedMaterial(fen: string) {
       }
     }
   }
-  prevCaptured = captured; 
+  game.captured = captured; 
 
   if(whiteChanged) {
-    let panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured'));   
+    let panel = (game.color === 'w' ? game.element.find('.player-status .captured') : game.element.find('.opponent-status .captured'));   
     panel.empty();
   }
   if(blackChanged) {
-    let panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured'));   
+    let panel = (game.color === 'b' ? game.element.find('.player-status .captured') : game.element.find('.opponent-status .captured'));   
     panel.empty();
   } 
 
@@ -2391,13 +2489,13 @@ function showCapturedMaterial(fen: string) {
       var color = 'b';
       var piece = color + key.toUpperCase();
       var num = captured[key];
-      panel = (game.color === 'w' ? $('#player-captured') : $('#opponent-captured'));
+      panel = (game.color === 'w' ? game.element.find('.player-status .captured') : game.element.find('.opponent-status .captured'));
     }
     else if(blackChanged && key === key.toUpperCase() && captured[key] > 0) {
       var color = 'w';
       var piece = color + key;
       var num = captured[key];
-      panel = (game.color === 'b' ? $('#player-captured') : $('#opponent-captured'));
+      panel = (game.color === 'b' ? game.element.find('.player-status .captured') : game.element.find('.opponent-status .captured'));
     }
     if(panel) {
       panel.append(
@@ -2413,12 +2511,11 @@ function showCapturedMaterial(fen: string) {
 }
 
 function dragCapturedPiece(event: any) {  
-  lockOverflow();
-
+  var game = gameWithFocus;
   var id = $(event.currentTarget).attr('id');
   var color = id.charAt(0);
   var type = id.charAt(1);
-  
+
   const cgRoles = {
     p: 'pawn',
     r: 'rook',
@@ -2432,43 +2529,47 @@ function dragCapturedPiece(event: any) {
     role: cgRoles[type.toLowerCase()], 
     color: (color === 'w' ? 'black' : 'white')
   };
-  board.dragNewPiece(piece, event);
 
-  event.preventDefault();
+  if((game.isPlaying() && game.color !== color) || game.isExamining() || game.role === Role.NONE) {
+    lockOverflow();
+    game.board.dragNewPiece(piece, event);
+    event.preventDefault();
+  }
 }
 
-function updateHistory(move?: any, fen?: string) {
+function updateHistory(game: Game, move?: any, fen?: string) {
   // This is to allow multiple fast 'forward' or 'back' button presses in examine mode before the command reaches the server
-  // bufferedHistoryIndex contains a temporary index of the current move which is used for subsequent forward/back button presses
-  if(bufferedHistoryCount)
-    bufferedHistoryCount--;
+  // bufferedHistoryEntry contains a temporary reference to the current move which is used for subsequent forward/back button presses
+  if(game.bufferedHistoryCount)
+    game.bufferedHistoryCount--;
   
   if(!fen) 
     fen = game.chess.fen();
 
-  const index = game.history.find(fen);
+  const hEntry = game.history.find(fen);
 
-  if(index === undefined) {
+  if(!hEntry) {
+    if(movelistRequested)
+      return;
+
     if(move) {
-      var subvariation = false;
+      var newSubvariation = false;
 
       if(game.role === Role.NONE || game.isExamining()) {
         if(game.history.length() === 0)
           game.history.scratch(true);
 
-        var subvariation = !game.history.scratch();
-        if(subvariation) {
-          $('#exit-subvariation').show();
-          $('#navigation-toolbar [data-bs-toggle="tooltip"]').tooltip('update');
-        }
+        var newSubvariation = !game.history.scratch() && !game.history.current().isSubvariation();
+        if(newSubvariation && game === gameWithFocus) 
+          showExitSubvariationButton();
       }
 
-      game.history.add(move, fen, subvariation, game.wtime, game.btime);
-      getOpening();      
-      updateVariantMoveData();
+      game.history.add(move, fen, newSubvariation, game.wtime, game.btime);
+      getOpening(game);      
+      updateVariantMoveData(game);
       $('#playing-game').hide();
     }
-    else if(!movelistRequested) { 
+    else { 
       // move not found, request move list
       movelistRequested++;
       session.send('iset startpos 1'); // Show the initial board position before the moves list 
@@ -2478,42 +2579,40 @@ function updateHistory(move?: any, fen?: string) {
   }
   else {
     if(!movelistRequested && game.role !== Role.NONE) 
-      game.history.updateClockTimes(index, game.wtime, game.btime);
+      game.history.updateClockTimes(hEntry, game.wtime, game.btime);
 
     // move is already displayed
-    if(index === game.history.index()) {
-      setClocks();
+    if(hEntry === game.history.current()) {
+      setClocks(game);
       return;
     }
 
     // move is earlier, we need to take-back
     if(game.isPlaying() || game.isObserving()) {
-      if(index < game.history.length()) {
-        board.cancelPremove();
-        board.cancelPredrop();
+      if(hEntry !== game.history.last()) {
+        game.board.cancelPremove();
+        game.board.cancelPredrop();
       }
-      while(index < game.history.length())
+      while(hEntry !== game.history.last())
         game.history.removeLast();
     }
   }
 
-  game.history.display(index, move !== undefined);
+  game.history.display(hEntry, move !== undefined);
 
-  if(removeSubvariationRequested && !game.history.get(index).subvariation) {
-    game.history.removeSubvariation();
-    $('#exit-subvariation').tooltip('hide');
-    $('#exit-subvariation').hide();
-    removeSubvariationRequested = false;
+  if(game.removeSubvariationRequested && !hEntry.isSubvariation()) {
+    game.history.removeAllSubvariations();
+    if(game === gameWithFocus) 
+      hideExitSubvariationButton();
+    game.removeSubvariationRequested = false;
   }
 }
 
-function updateVariantMoveData() {
+function updateVariantMoveData(game: Game) {
   // Maintain map of captured pieces for crazyhouse variant
   if(game.category === 'crazyhouse' || game.category === 'bughouse') {
-    var prevIndex = game.history.prev();
-    var prevMove = game.history.get(prevIndex);
-
-    var currMove = game.history.get();
+    var prevMove = game.history.prev();
+    var currMove = game.history.current();
     var move = currMove.move;
 
     if(prevMove.holdings === undefined)
@@ -2535,7 +2634,7 @@ function updateVariantMoveData() {
         holdings[pieceType]++;
       }
       else if(move.flags && move.flags.includes('e')) {
-        var color = History.getTurnColorFromFEN(prevMove.fen);
+        var color = prevMove.turnColor;
         let pieceType = (color === 'w' ? 'p' : 'P');
         holdings[pieceType]++;
       }
@@ -2545,7 +2644,7 @@ function updateVariantMoveData() {
     }
 
     if(move.san && move.san.includes('@')) {
-      var color = History.getTurnColorFromFEN(prevMove.fen);
+      var color = prevMove.turnColor;
       let pieceType = (color === 'w' ? move.piece.toLowerCase() : move.piece.toUpperCase());
       holdings[pieceType]--;
     }
@@ -2574,22 +2673,22 @@ function updatePromotedList(move: any, promoted: any) {
   return promoted;
 }
 
-function setClocks() {
-  var hEntry = game.history.get();
+function setClocks(game: Game) {
+  var hEntry = game.history.current();
 
   if(!game.isPlaying() && game.role !== Role.OBSERVING) {
-    clock.setWhiteClock(hEntry.wtime);
-    clock.setBlackClock(hEntry.btime);
+    game.clock.setWhiteClock(hEntry.wtime);
+    game.clock.setBlackClock(hEntry.btime);
   }
 
   // Add my-turn highlighting to clock
-  var whiteClock = (game.color === 'w' ? $('#player-clock') : $('#opponent-clock'));
-  var blackClock = (game.color === 'b' ? $('#player-clock') : $('#opponent-clock'));
+  var whiteClock = (game.color === 'w' ? game.element.find('.player-status .clock') : game.element.find('.opponent-status .clock'));
+  var blackClock = (game.color === 'b' ? game.element.find('.player-status .clock') : game.element.find('.opponent-status .clock'));
   var turnColor;
   if(game.isPlaying() || game.role === Role.OBSERVING)
     turnColor = game.chess.turn();
   else
-    turnColor = History.getTurnColorFromFEN(hEntry.fen);
+    turnColor = hEntry.turnColor;
 
   if(turnColor === 'b') {
     whiteClock.removeClass('my-turn');
@@ -2602,7 +2701,7 @@ function setClocks() {
 }
 
 // Start clock after a move, switch from white to black's clock etc
-function hitClock(setClocks: boolean = false) {
+function hitClock(game: Game, setClocks: boolean = false) {
   if(game.isPlaying() || game.role === Role.OBSERVING) {
     const thisPly = History.getPlyFromFEN(game.chess.fen());  
     
@@ -2610,50 +2709,52 @@ function hitClock(setClocks: boolean = false) {
     // Note: When in examine mode this is handled by setClocks() instead
     if(setClocks) { // Get remaining time from server message
       if(game.category === 'untimed') {
-        clock.setWhiteClock(null); 
-        clock.setBlackClock(null);
+        game.clock.setWhiteClock(null); 
+        game.clock.setBlackClock(null);
       }
       else {
-        clock.setWhiteClock(); 
-        clock.setBlackClock();
+        game.clock.setWhiteClock(); 
+        game.clock.setBlackClock();
       }
     }
     else if(game.inc !== 0) { // Manually add time increment
       if(game.chess.turn() === 'w' && thisPly >= 5) 
-        clock.setBlackClock(clock.getBlackTime() + game.inc * 1000);
+        game.clock.setBlackClock(game.clock.getBlackTime() + game.inc * 1000);
       else if(game.chess.turn() === 'b' && thisPly >= 4)
-        clock.setWhiteClock(clock.getWhiteTime() + game.inc * 1000);
+        game.clock.setWhiteClock(game.clock.getWhiteTime() + game.inc * 1000);
     }
 
-    if(thisPly >= 3 && game.chess.turn() === 'w') 
-      clock.startWhiteClock();
-    else if(thisPly >= 4 && game.chess.turn() === 'b') {
-      clock.startBlackClock();
-    }
+    if((thisPly >= 3 || game.category === 'bughouse') && game.chess.turn() === 'w')
+      game.clock.startWhiteClock();
+    else if((thisPly >= 4 || game.category === 'bughouse') && game.chess.turn() === 'b')
+      game.clock.startBlackClock();
   }
 }
 
-export function updateBoard(playSound = false) {
-  const move = game.history.get().move;
-  const fen = game.history.get().fen;
+export function updateBoard(game: Game, playSound = false) {
+  if(!game.history)
+    return;
 
-  setClocks();
+  const move = game.history.current().move;
+  const fen = game.history.current().fen;
 
-  board.set({ fen });
+  setClocks(game);
 
-  if($('#promotion-panel').is(':visible')) {
-    board.cancelPremove();
-    hidePromotionPanel();
+  game.board.set({ fen });
+
+  if(game.element.find('.promotion-panel').is(':visible')) {
+    game.board.cancelPremove();
+    hidePromotionPanel(game);
   }
 
   const localChess = new Chess(fen);
 
   if(move && move.from && move.to) 
-    board.set({ lastMove: [move.from, move.to] });
+    game.board.set({ lastMove: [move.from, move.to] });
   else if(move && move.to)
-    board.set({ lastMove: [move.to] });
+    game.board.set({ lastMove: [move.to] });
   else
-    board.set({ lastMove: false });
+    game.board.set({ lastMove: false });
 
   let dests : Map<Key, Key[]> | undefined;
   let movableColor : string | undefined;
@@ -2664,12 +2765,12 @@ export function updateBoard(playSound = false) {
   }
   else if(game.isPlaying()) {
     movableColor = (game.color === 'w' ? 'white' : 'black');
-    dests = toDests(game.chess);
+    dests = toDests(game, game.chess);
     turnColor = toColor(game.chess);
   }
   else {
     movableColor = toColor(localChess);
-    dests = toDests(localChess);
+    dests = toDests(game, localChess);
     turnColor = toColor(localChess);
   }
 
@@ -2681,7 +2782,7 @@ export function updateBoard(playSound = false) {
     rookCastle: game.category === 'wild/fr'
   };
 
-  board.set({
+  game.board.set({
     turnColor,
     movable,
     highlight: {
@@ -2693,14 +2794,14 @@ export function updateBoard(playSound = false) {
     blockTouchScroll: (game.isPlaying() ? true : false),
   });
 
-  showCapturedMaterial(fen);
-  showOpeningName();
+  showCapturedMaterial(game);
+  showOpeningName(game);
   setFontSizes(); 
 
-  if(playSound && soundToggle) {
+  if(playSound && soundToggle && game === gameWithFocus) {
     clearTimeout(soundTimer);
     soundTimer = setTimeout(() => {
-      const entry = game.history.get();
+      const entry = game.history.current();
       const chess = new Chess(entry.fen);
       if(chess.in_check()) {
         Sounds.checkSound.pause();
@@ -2721,15 +2822,19 @@ export function updateBoard(playSound = false) {
   }
 
   // create new imstance of Stockfish for each move, since waiting for new position/go commands is very slow (with current SF build)
-  if(engine != null) {
-    stopEngine();
-    startEngine();
+  if(game === gameWithFocus) {
+    if(engine) {
+      stopEngine();
+      startEngine();
+    }
+    if(evalEngine)
+      evalEngine.evaluate();
   }
-  if(evalEngine)
-    evalEngine.evaluate();
 }
 
 function startEngine() {
+  var game = gameWithFocus;
+
   if(Engine.categorySupported(game.category)) {
     $('#start-engine').text('Stop');
 
@@ -2747,20 +2852,20 @@ function startEngine() {
     else if(game.category === 'crazyhouse')
       options['UCI_Variant'] = game.category;
     
-    engine = new Engine(game.history, null, displayEnginePV, options);
+    engine = new Engine(game, null, displayEnginePV, options);
     if(!movelistRequested)
-      engine.move(game.history.index());
+      engine.move(game.history.current());
   }
 }
 
-function displayEnginePV(pvNum: number, pvEval: string, pvMoves: string) {
+function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: string) {
   $('#engine-pvs li').eq(pvNum - 1).html('<b>(' + pvEval + ')</b> ' + pvMoves + '<b/>');
 
   if(pvNum === 1 && pvMoves) {
     var words = pvMoves.split(/\s+/);
     var san = words[0].split(/\.+/)[1];
-    var parsed = parseMove(game.history.get().fen, san, game.category);
-    board.setAutoShapes([{
+    var parsed = parseMove(game, game.history.current().fen, san);
+    game.board.setAutoShapes([{
       orig: parsed.move.from || parsed.move.to, // For crazyhouse, just draw a circle on dest square
       dest: parsed.move.to,
       brush: 'yellow',
@@ -2768,7 +2873,7 @@ function displayEnginePV(pvNum: number, pvEval: string, pvMoves: string) {
   }
 }
 
-function getPlayComputerEngineOptions(): object {
+function getPlayComputerEngineOptions(game: Game): object {
   var skillLevels = [0, 1, 2, 3, 5, 7, 9, 11, 13, 15]; // Skill Level for each difficulty level
   
   var engineOptions = {}
@@ -2782,7 +2887,7 @@ function getPlayComputerEngineOptions(): object {
   return engineOptions;
 }
 
-function getPlayComputerMoveParams(): string {
+function getPlayComputerMoveParams(game: Game): string {
   // Max nodes for each difficulty level. This is also used to limit the engine's thinking time
   // but in a way that keeps the difficulty the same across devices
   var maxNodes = [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000];
@@ -2792,9 +2897,19 @@ function getPlayComputerMoveParams(): string {
 }
 
 function playComputer(params: any) {
-  if(game.role === Role.PLAYING_COMPUTER) {
-    game.role = Role.NONE;
-    cleanupGame();
+  var computerGame = getComputerGame();
+  if(computerGame) {
+    computerGame.role = Role.NONE;
+    cleanupGame(computerGame);
+    var game = computerGame; 
+  }
+  else if(!multiboardToggle) 
+    var game = getMainGame();
+  else {
+    var game = getFreeGame();
+    if(!game)
+      game = createGame();
+    game.id = -1;
   }
 
   var playerName = (session.isConnected() ? session.getUser() : 'Player');
@@ -2845,7 +2960,7 @@ function playComputer(params: any) {
   if(params.gameType !== 'Standard')
     gameType = ' ' + params.gameType;
   const statusMsg = wname + ' vs. ' + bname + gameType + time;
-  showStatusMsg(statusMsg);
+  showStatusMsg(game, statusMsg);
 
   messageHandler(data); 
 }
@@ -2856,7 +2971,13 @@ function playComputer(params: any) {
   playComputer(lastComputerGame);
 };
 
-function playComputerBestMove(bestMove: string, score: string = '=0.00') {
+(window as any).analyze = () => {
+  showAnalysis();
+  showStatusPanel();
+  scrollToLeftPanelBottom();
+};
+
+function playComputerBestMove(game: Game, bestMove: string, score: string = '=0.00') {
   var move;
   if(bestMove[1] === '@') // Crazyhouse/bughouse
     move = bestMove;
@@ -2867,17 +2988,17 @@ function playComputerBestMove(bestMove: string, score: string = '=0.00') {
       promotion: (bestMove.length === 5 ? bestMove[4] : undefined)
     }
 
-  lastComputerMoveEval = score;
+  game.lastComputerMoveEval = score;
 
-  var parsedMove = parseMove(game.chess.fen(), move, game.category);
+  var parsedMove = parseMove(game, game.chess.fen(), move);
 
   var moveData = {
     role: Role.PLAYING_COMPUTER,                      // game mode
     id: -1,                                           // game id, always -1 for playing computer
     fen: parsedMove.fen,                              // board/game state
     turn: History.getTurnColorFromFEN(parsedMove.fen), // color whose turn it is to move ("B" or "W")
-    wtime: clock.getWhiteTime(),                      // White's remaining time
-    btime: clock.getBlackTime(),                      // Black's remaining time
+    wtime: game.clock.getWhiteTime(),                      // White's remaining time
+    btime: game.clock.getBlackTime(),                      // Black's remaining time
     moveNo: History.getMoveNoFromFEN(parsedMove.fen), // the number of the move about to be made
     moveVerbose: parsedMove,                          // verbose coordinate notation for the previous move ("none" if there werenone) [note this used to be broken for examined games]
     move: parsedMove.move.san,                        // pretty notation for the previous move ("none" if there is none)
@@ -2944,7 +3065,7 @@ function generateChess960FEN(): string {
   return fen;
 }
 
-function checkGameEnd() {  
+function checkGameEnd(game: Game) {  
   if(game.role !== Role.PLAYING_COMPUTER)
     return;
 
@@ -2956,9 +3077,9 @@ function checkGameEnd() {
   var gameStr = '(' + game.wname + ' vs. ' + game.bname + ')';
 
   // Check white or black is out of time
-  if(clock.getWhiteTime() < 0 || clock.getBlackTime() < 0) {
-    var wtime = clock.getWhiteTime();
-    var btime = clock.getBlackTime();
+  if(game.clock.getWhiteTime() < 0 || game.clock.getBlackTime() < 0) {
+    var wtime = game.clock.getWhiteTime();
+    var btime = game.clock.getBlackTime();
 
     // Check if the side that is not out of time has sufficient material to mate, otherwise its a draw
     var insufficientMaterial = false;
@@ -3021,23 +3142,21 @@ function checkGameEnd() {
   }
 }
 
-async function showOpeningName() {
+async function showOpeningName(game: Game) {
   await fetchOpeningsPromise; // Wait for the openings file to be loaded
 
-  var index = game.history.index();
-  if(index === 0)
-    index = game.history.last();
+  var hEntry = game.history.current();
+  if(!hEntry.move)
+    hEntry = game.history.last();
 
-  var hItem = game.history.get(index);
-  while(!hItem.opening) {
-    index = game.history.prev(index);
-    if(index === undefined)
+  while(!hEntry.opening) {
+    if(!hEntry.move)
       return;
-    hItem = game.history.get(index);
+    hEntry = hEntry.prev;
   }
 
-  $('#opening-name').text(hItem.opening.name);
-  $('#opening-name').show();
+  game.statusElement.find('.opening-name').text(hEntry.opening.name);
+  game.statusElement.find('.opening-name').show();
 }
 
 function stopEngine() {
@@ -3046,7 +3165,7 @@ function stopEngine() {
   if(engine) {
     engine.terminate();
     engine = null;
-    setTimeout(() => { board.setAutoShapes([]); }, 0); // Need timeout to avoid conflict with board.set({orientation: X}); if that occurs in the same message handler
+    setTimeout(() => { gameWithFocus.board.setAutoShapes([]); }, 0); // Need timeout to avoid conflict with board.set({orientation: X}); if that occurs in the same message handler
   }
 }
 
@@ -3055,6 +3174,8 @@ function hideAnalysis() {
   closeLeftBottomTab($('#engine-tab'));
   closeLeftBottomTab($('#eval-graph-tab'));
   showAnalyzeButton();
+  gameWithFocus.analyzing = false;
+  gameWithFocus.currentStatusTab = null;
 }
 
 function showAnalyzeButton() { 
@@ -3063,21 +3184,27 @@ function showAnalyzeButton() {
     $('#show-status-panel').attr('title', 'Analyze Game');
   }  
 
-  if(!$('#engine-tab').is(':visible') && Engine.categorySupported(game.category))
+  if(!$('#engine-tab').is(':visible') && Engine.categorySupported(gameWithFocus.category))
     $('#show-status-panel').show();
   else if($('#left-panel-bottom').is(':visible'))
     $('#show-status-panel').hide();
 }
 
 function showAnalysis() {
+  var game = gameWithFocus;
+  var currentStatusTab = game.currentStatusTab;
+
   openLeftBottomTab($('#engine-tab'));
   openLeftBottomTab($('#eval-graph-tab'));
+
   $('#engine-pvs').empty();
   for(let i = 0; i < numPVs; i++)
     $('#engine-pvs').append('<li>&nbsp;</li>');
   $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
-  if(evalEngine)
-    evalEngine.evaluate();
+  gameWithFocus.analyzing = true;
+
+  if(currentStatusTab && currentStatusTab.attr('id') !== 'eval-graph-tab')
+    currentStatusTab.tab('show');
 }
 
 function closeLeftBottomTab(tab: any) {
@@ -3093,7 +3220,7 @@ function openLeftBottomTab(tab: any) {
   tab.tab('show');
 }
 
-function getMoves() {
+function getMoves(game: Game) {
   let moves = '';
   const history = game.chess.history({verbose: true});
   for (let i = 0; i < history.length; ++i) {
@@ -3138,24 +3265,24 @@ $('#pills-tab button').on('click', function(event) {
 });
 
 $('#flip-toggle').on('click', (event) => {
-  flipBoard();
+  flipBoard(gameWithFocus);
 });
 
-function flipBoard() {
-  board.toggleOrientation();
+function flipBoard(game: Game) {
+  game.board.toggleOrientation();
 
   // If pawn promotion dialog is open, redraw it in the correct location
-  if($('#promotion-panel').is(':visible')) 
-    showPromotionPanel(promoteSource, promoteTarget, promoteIsPremove);
+  if(game.element.find('.promotion-panel').is(':visible')) 
+    showPromotionPanel(game.promoteSource, game.promoteTarget, game.promoteIsPremove);
 
   // Swap player and opponent status panels
-  if($('#player-status').parent().hasClass('top-panel')) {
-    $('#player-status').appendTo('#mid-card .bottom-panel');
-    $('#opponent-status').appendTo('#mid-card .top-panel');
+  if(game.element.find('.player-status').parent().hasClass('top-panel')) {
+    game.element.find('.player-status').appendTo(game.element.find('.bottom-panel'));
+    game.element.find('.opponent-status').appendTo(game.element.find('.top-panel'));
   }
   else {
-    $('#player-status').appendTo('#mid-card .top-panel');
-    $('#opponent-status').appendTo('#mid-card .bottom-panel');
+    game.element.find('.player-status').appendTo(game.element.find('.top-panel'));
+    game.element.find('.opponent-status').appendTo(game.element.find('bottom-panel'));
   }
 }
 
@@ -3245,10 +3372,314 @@ async function getBookMoves(fen: string): Promise<any[]> {
   return entries;
 }
 
-function onDeviceReady() {
-  disableOnlineInputs(true);
+function createBoard(element: any): any {
+  return Chessground(element[0], {
+    highlight: {
+      lastMove: highlightsToggle,
+      check: highlightsToggle
+    },  
+    movable: {
+      free: false,
+      color: undefined,
+      events: {
+        after: movePiece,
+        afterNewPiece: movePiece,
+      }
+    },
+    premovable: {
+      events: {
+        set: preMovePiece,
+        unset: hidePromotionPanel,
+      }
+    }
+  });
+}
 
-  clock = new Clock(game, checkGameEnd);
+function createGame(): Game {
+  var game = new Game();
+  if(!games.length) {
+    game.element = $('#main-board-area').children().first();
+    game.statusElement = $('#game-status-list > :first-child');
+    game.moveTableElement = $('#move-table > :first-child');
+    game.board = mainBoard;
+  }
+  else {
+    var elem = $('#main-board-area').children().first().clone();
+    game.element = elem.appendTo($('#secondary-board-area'));
+    game.board = createBoard(game.element.find('.board'));
+    makeSecondaryBoard(game);
+    game.element.find($('[title="Close"]')).show();
+    $('#secondary-board-area').css('display', 'flex');
+
+    game.statusElement = $('#game-status-list > :first-child').clone();
+    game.statusElement.css('display', 'none');
+    game.statusElement.appendTo($('#game-status-list'));
+
+    game.moveTableElement = $('#move-table > :first-child').clone();
+    game.moveTableElement.css('display', 'none');
+    game.moveTableElement.appendTo($('#move-table'));
+
+    $('#secondary-board-area')[0].scrollTop = $('#secondary-board-area')[0].scrollHeight; // Scroll secondary board area to the bottom
+  }
+
+  game.element.on('click', (event) => {
+    setGameWithFocus(game);
+  });
+
+  game.element.on('click', '[title="Close"]', (event) => {
+    closeGame(game);
+    event.stopPropagation();
+  });
+
+  game.element.on('click', '[title="Maximize"]', (event) => {
+    setGameWithFocus(game);
+    animateBoundingRects(game.element, $('#main-board-area'), game.element.css('--border-expand-color'), game.element.css('--border-expand-width'));
+    maximizeGame(game);
+  });
+
+  game.element.on('dblclick', '.title-bar', (event) => {
+    setGameWithFocus(game);
+    animateBoundingRects(game.element, $('#main-board-area'), game.element.css('--border-expand-color'), game.element.css('--border-expand-width'));
+    maximizeGame(game);
+  });
+
+  game.clock = new Clock(game, checkGameEnd);
+  games.push(game);
+  setPanelSizes();
+
+  return game;
+}
+
+function makeSecondaryBoard(game: Game) {
+  game.element.find('.top-panel, .bottom-panel').css('height', '');
+  game.element.addClass('game-card-sm');
+  game.element.find('.title-bar').show();
+  game.board.set({ coordinates: false }); 
+  game.board.redrawAll();
+}
+
+function makeMainBoard(game: Game) {
+  game.element.removeClass('game-card-sm');
+  game.element.removeClass('game-focused');
+  game.element.find('.title-bar').hide();
+  game.board.set({ coordinates: true }); 
+  game.board.redrawAll();
+}
+
+function maximizeGame(game: Game) {
+  if(getMainGame() === game)
+    return;
+
+  // Move currently maximized game card to secondary board area
+  var prevMaximized = getMainGame();
+  prevMaximized.element.appendTo('#secondary-board-area');
+  makeSecondaryBoard(prevMaximized);
+  // Move card to main board area
+  game.element.appendTo('#main-board-area');
+  makeMainBoard(game);
+
+  setPanelSizes();
+  setFontSizes();
+  scrollToBoard(game);
+}
+
+function animateBoundingRects(fromElement: any, toElement: any, color: string = '#000000', width: string = '1px', numRects: number = 3) {
+  var fromTop = fromElement.offset().top;
+  var fromLeft = fromElement.offset().left;
+  var fromWidth = fromElement.outerWidth();
+  var fromHeight = fromElement.outerHeight();
+  
+  var toTop = toElement.offset().top;
+  var toLeft = toElement.offset().left;
+  var toWidth = toElement.outerWidth();
+  var toHeight = toElement.outerHeight();
+
+  var distance = Math.sqrt((toTop - fromTop) ** 2 + (toLeft - fromLeft) ** 2);
+  var speed = 0.015 * Math.sqrt(distance); 
+  
+  // Create bounding div
+  var boundingDiv = $('<div></div>');
+  boundingDiv.css({
+    position: 'absolute',
+    top: fromTop,
+    left: fromLeft,
+    width: fromWidth,
+    height: fromHeight,
+    zIndex: 3,
+    'transition-property': 'width, height, top, left',
+    'transition-duration': speed + 's',
+    'transition-timing-function': 'ease'
+  });
+  boundingDiv.appendTo($('body'));
+
+  // Create animated rects
+  var rect = boundingDiv;
+  for(let i = 0; i < numRects; i++) {
+    var childRect = $('<div></div>');
+    childRect.css({
+      width: '100%',
+      height: '100%',
+      padding: 'calc(50% / ' + (numRects - i) + ')',
+      border: width + ' solid ' + color
+    });
+    var rect = childRect.appendTo(rect);
+  }
+
+  boundingDiv.one('transitionend', () => {
+    boundingDiv.remove();
+  });
+  setTimeout(() => { 
+    boundingDiv.css({
+      top: toTop,
+      left: toLeft,
+      width: toWidth,
+      height: toHeight
+    }); 
+  }, 0);
+}
+
+function closeGame(game: Game) {
+  if(!multiboardToggle && (game.isObserving() || game.isExamining()))
+    gameExitPending++;
+  
+  if(game.isObserving()) 
+    session.send('unobs ' + game.id);
+  else if(game.isExamining())
+    session.send('unex');
+  removeGame(game);    
+}
+
+function getMainGame(): Game {
+  return games.find(g => g.element.parent().is('#main-board-area'));
+}
+
+function getPlayingExaminingGame(): Game {
+  return games.find(g => (g.isPlaying() && g.role !== Role.PLAYING_COMPUTER) || g.isExamining());
+}
+
+function getFreeGame(): Game {
+  var game = getMainGame();
+  if(game.role === Role.NONE)
+    return game;
+
+  return games.find(g => g.role === Role.NONE);
+}
+
+function getComputerGame(): Game {
+  return games.find(g => g.role === Role.PLAYING_COMPUTER);
+}
+
+function removeGame(game: Game) {
+  // If game currently had the focus, switch focus to the main game
+  if(game === gameWithFocus)
+    setGameWithFocus(getMainGame());
+  
+  // Remove game's html elements from the DOM
+  game.element.remove();
+  game.moveTableElement.remove();
+  game.statusElement.remove();
+ 
+  // remove game from games list
+  let index = games.indexOf(game);
+  if(index !== -1) 
+    games.splice(index, 1);
+
+  // clean up circular references
+  game.history = null;
+  game.clock = null;
+
+  if(!$('#secondary-board-area').children().length) 
+    $('#secondary-board-area').hide();
+  setPanelSizes();
+}
+
+function findGame(id: number): Game {
+  return games.find(element => element.id === id);
+}
+
+function setGameWithFocus(game: Game) {
+  if(game !== gameWithFocus) {
+    if(gameWithFocus) {
+      gameWithFocus.element.removeClass('game-focused');
+      gameWithFocus.moveTableElement.hide();
+      gameWithFocus.statusElement.hide();
+      gameWithFocus.board.setAutoShapes([]);
+    }
+
+    game.moveTableElement.show();
+    game.statusElement.show();
+
+    if(game.element.parent().attr('id') === 'secondary-board-area')
+      game.element.addClass('game-focused');  
+
+    gameWithFocus = game;
+    initGameRole(game);
+   
+    updateBoard(game);
+  }
+}
+
+function initGameRole(game: Game) {
+  if(game !== gameWithFocus)
+    return; 
+
+  initAnalysis(game);
+
+  if(game.history && game.history.hasSubvariation()) 
+    showExitSubvariationButton();
+  else
+    hideExitSubvariationButton();
+
+  if(game.isPlaying()) {
+    $('#viewing-game-buttons').hide();
+    $('#playing-game-buttons').show();
+  }
+  else {
+    $('#playing-game-buttons').hide();
+    $('#viewing-game-buttons').show();
+  }
+
+  $('#takeback').prop('disabled', game.role === Role.PLAYING_COMPUTER);
+
+  if((game.isExamining() || game.isObserving()) && !isSmallWindow())       
+    showCloseGamePanel();
+  else
+    hideCloseGamePanel();
+
+  if(game.isExamining()) 
+    showButton($('#stop-examining'));
+  else if(game.isObserving()) 
+    showButton($('#stop-observing'));
+  
+  if(!game.isExamining())
+    hideButton($('#stop-examining'));
+  if(!game.isObserving())
+    hideButton($('#stop-observing'));
+
+  if(game.isPlaying())
+    showStatusPanel();
+  else
+    initStatusPanel();
+}
+
+function showExitSubvariationButton() {
+  $('#exit-subvariation').show();
+  $('#navigation-toolbar [data-bs-toggle="tooltip"]').tooltip('update');
+}
+
+function hideExitSubvariationButton() {
+  $('#exit-subvariation').tooltip('hide');
+  $('#exit-subvariation').hide();
+}
+
+function onDeviceReady() {
+  var game = createGame();
+  game.role = Role.NONE;
+  game.category = 'untimed';
+  game.history = new History(game, new Chess().fen());
+  setGameWithFocus(game);
+
+  disableOnlineInputs(true);
   
   if(isSmallWindow()) {
     $('#collapse-chat').collapse('hide');
@@ -3276,10 +3707,6 @@ function onDeviceReady() {
   // Split it off into a timeout so that onDeviceReady doesn't take too long.
   setTimeout(() => { $(window).trigger('resize'); }, 0);
 
-  game.role = Role.NONE;
-  game.category = 'untimed';
-  game.history = new History(new Chess().fen(), board);
-
   const user = Cookies.get('user');
   const pass = Cookies.get('pass');
   if (user !== undefined && pass !== undefined) {
@@ -3287,9 +3714,6 @@ function onDeviceReady() {
   } else {
     session = new Session(messageHandler);
   }
-
-  evalEngine = new EvalEngine(game.history);
-  updateBoard();
 }
 
 // Enable tooltips. 
@@ -3361,6 +3785,7 @@ function useMobileLayout() {
   $('#stop-observing').appendTo($('#viewing-game-buttons').last());
   $('#stop-examining').appendTo($('#viewing-game-buttons').last());
   $('#viewing-games-buttons:visible:last').addClass('me-0'); // This is so visible buttons in the btn-toolbar center properly
+  $('#collapse-chat-arrow').show();
   hideCloseGamePanel();
   createTooltips();
   layout = Layout.Mobile;
@@ -3371,8 +3796,10 @@ function useDesktopLayout() {
   $('#chat-maximize-btn').show();
   $('#stop-observing').appendTo($('#close-game-panel').last());
   $('#stop-examining').appendTo($('#close-game-panel').last());
-  if(game.isObserving() || game.isExamining())
+  if(gameWithFocus.isObserving() || gameWithFocus.isExamining())
     showCloseGamePanel();
+  $('#collapse-chat-arrow').hide();
+
   createTooltips();
   layout = Layout.Desktop;
 }
@@ -3399,45 +3826,100 @@ function swapLeftRightPanelHeaders() {
   }
 }
 
+function setGameCardSize(card: any, cardMaxWidth?: number, cardMaxHeight?: number) {
+  var roundingCorrection = (card.hasClass('game-card-sm') ? 0.032 : 0.1);
+
+  if(cardMaxWidth !== undefined || cardMaxHeight !== undefined) {
+    var cardBorderWidth = card.outerWidth() - card.width();
+    var boardMaxWidth = cardMaxWidth - cardBorderWidth;  
+    var cardBorderHeight = card.outerHeight() - card.height();
+    
+    // Get height of card headers/footers
+    var siblings = card.find('.card-body').siblings();
+    var siblingsHeight = 0;
+    siblings.each((index, element) => {
+      if($(element).is(':visible'))
+        siblingsHeight += $(element).outerHeight();
+    });
+
+    var boardMaxHeight = cardMaxHeight - cardBorderHeight - siblingsHeight;
+
+    if(!cardMaxWidth)
+      boardMaxWidth = boardMaxHeight;
+    if(!cardMaxHeight)
+      boardMaxHeight = boardMaxWidth;
+
+    var cardWidth: any = Math.min(boardMaxWidth, boardMaxHeight) - roundingCorrection; // Subtract small amount for rounding error
+  }
+  else {
+    card.css('width', '');
+    var cardWidth = card.width();
+  }
+
+  // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match 
+  // what chessground does internally
+  cardWidth = (Math.floor((cardWidth * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio + roundingCorrection;
+
+  // Set card width
+  card.width(cardWidth);
+}
+
 function setPanelSizes() {
   // Reset player status panels that may have been previously slimmed down on single column screen
+  var maximizedGameCard = $('#main-board-area > :first-child');
+
   if(!isSmallWindow() && isSmallWindow(prevWindowWidth)) {
-    $('#mid-panel-header').css('height', '');
-    $('#mid-panel-footer').css('height', '');
+    maximizedGameCard.find('.top-panel').css('height', '');
+    maximizedGameCard.find('.bottom-panel').css('height', '');
   }
 
   // Make sure the board is smaller than the window height and also leaves room for the other columns' min-widths
   if(!isSmallWindow()) {
     // Set board width a bit smaller in order to leave room for a scrollbar on <body>. This is because 
     // we don't want to resize all the panels whenever a dropdown or something similar overflows the body.   
-    var cardBorderWidth = $('#mid-card').outerWidth() - $('#mid-card').width();
-    var bordersWidth = cardBorderWidth + scrollBarWidth;
     if(window.innerWidth < 992) // display 2 columns on md (medium) display
-      var boardMaxWidth = window.innerWidth - $('#left-col').outerWidth() - bordersWidth;
+      var cardMaxWidth = window.innerWidth - $('#left-col').outerWidth() - scrollBarWidth;
     else
-      var boardMaxWidth = window.innerWidth - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')) - bordersWidth;    
+      var cardMaxWidth = window.innerWidth - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')) - scrollBarWidth;    
     
     var feature3Border = $('.feature3').outerHeight(true) - $('.feature3').height();
-    var cardBorderHeight = $('#mid-card').outerHeight() - $('#mid-card').height();
-    var bordersHeight = feature3Border + cardBorderHeight;
-    var boardMaxHeight = $(window).height() - $('#mid-panel-header').outerHeight()
-        - $('#mid-panel-footer').outerHeight() - bordersHeight;
-    
-    var boardWidth = Math.min(boardMaxWidth, boardMaxHeight) - 0.1; // Subtract 0.1 for rounding error
-
+    var cardMaxHeight = $(window).height() - feature3Border;
+    setGameCardSize(maximizedGameCard, cardMaxWidth, cardMaxHeight);
     // Force resizing of bootstrap row after scrollbars disappear
-    setTimeout(() => { $('#mid-card').width($('#mid-card').width()); }, 0);
+    setTimeout(() => { maximizedGameCard.width(maximizedGameCard.width()); }, 0);
   }
-  else {
-    $('#mid-card').css('width', '');
-    var boardWidth = $('#mid-card').width();
-  }
+  else 
+    setGameCardSize(maximizedGameCard);
 
-  // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match 
-  // what chessground does internally
-  boardWidth = (Math.floor((boardWidth * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio + 0.1;
-  // Set board width
-  $('#mid-card').width(boardWidth);
+  const boardHeight = maximizedGameCard.find('.board').innerHeight();
+
+  // Set width and height of game cards in the right board area
+  var numCards = $('#secondary-board-area').children().length;
+  if(numCards > 2) 
+    $('#secondary-board-area').css('overflow-y', 'scroll');
+  else 
+    $('#secondary-board-area').css('overflow-y', 'hidden');
+  
+  games.forEach((game) => {
+    if(game.element.parent().is($('#secondary-board-area'))) {
+      if(isLargeWindow()) {
+        var cardsPerRow = Math.min(2, numCards);
+        var cardHeight: any = boardHeight * 0.6;
+      }
+      else {
+        var cardsPerRow = 2;
+        var cardHeight = null;
+      }
+
+      var scrollbarWidth = $('#secondary-board-area')[0].offsetWidth - $('#secondary-board-area')[0].clientWidth; 
+      var innerWidth = $('#secondary-board-area').width() - scrollbarWidth - 1;
+      setGameCardSize(game.element, innerWidth / cardsPerRow - parseInt($('#secondary-board-area').css('gap')) * (cardsPerRow - 1) / cardsPerRow, cardHeight);
+    }
+  });
+  if(isSmallWindow())
+    $('#secondary-board-area').css('height', '');
+  else
+    $('#secondary-board-area').height($('#secondary-board-area > :first-child').outerHeight());
 
   // Set the height of dynamic elements inside left and right panel collapsables.
   // Try to do it in a robust way that won't break if we add/remove elements later.
@@ -3449,19 +3931,18 @@ function setPanelSizes() {
   // On mobile, slim down player status panels in order to fit everything within window height
   if(isSmallWindow()) {
     const originalStatusHeight = $('#left-panel-header').height();
-    const cardBorders = $('#mid-card').outerHeight() - $('#mid-card').height()
+    const cardBorders = maximizedGameCard.outerHeight() - maximizedGameCard.height()
       + Math.round(parseFloat($('#left-card').css('border-bottom-width')))
       + Math.round(parseFloat($('#right-card').css('border-top-width')));
-    const playerStatusBorder = $('#mid-panel-header').outerHeight() - $('#mid-panel-header').height();
+    const playerStatusBorder = maximizedGameCard.find('.top-panel').outerHeight() - maximizedGameCard.find('.top-panel').height();
     var playerStatusHeight = ($(window).height() - addressBarHeight - $('#board-card').outerHeight() - $('#left-panel-footer').outerHeight() - $('#right-panel-header').outerHeight() - cardBorders) / 2 - playerStatusBorder;
     playerStatusHeight = Math.min(Math.max(playerStatusHeight, originalStatusHeight - 20), originalStatusHeight);
 
-    $('#mid-panel-header').height(playerStatusHeight);
-    $('#mid-panel-footer').height(playerStatusHeight);
+    maximizedGameCard.find('.top-panel').height(playerStatusHeight);
+    maximizedGameCard.find('.bottom-panel').height(playerStatusHeight);
   }
 
   // set height of left menu panel inside collapsable
-  const boardHeight = $('#board').innerHeight();
   if (boardHeight) {
     if($('#left-panel').height() === 0)
         $('#left-panel-bottom').css('height', '');
@@ -3495,14 +3976,13 @@ function setPanelSizes() {
   });
   const rightPanelBorder = $('#right-panel').outerHeight() - $('#right-panel').height();
 
-  if(isSmallWindow() || !boardHeight) {
-    var stuff = $(window).height() - addressBarHeight - rightPanelBorder - siblingsHeight
-    - $('#right-panel-header').outerHeight() - $('#right-panel-footer').outerHeight();
+  if(!isLargeWindow() || !boardHeight) {
     var feature3Border = $('.feature3').outerHeight(true) - $('.feature3').height();
     var rightCardBorder = $('#right-card').outerHeight(true) - $('#right-card').height();
     var borders = rightPanelBorder + rightCardBorder + feature3Border + addressBarHeight;
-    $('#right-panel').height($(window).height() - borders - siblingsHeight
-        - $('#right-panel-header').outerHeight() - $('#right-panel-footer').outerHeight());
+    var headerHeight = (siblingsHeight ? 0 : $('#right-panel-header').outerHeight()); // If there are game boards in the right column, then don't try to fit the header and chat into the same screen height
+    $('#right-panel').height($(window).height() - borders 
+        - headerHeight - $('#right-panel-footer').outerHeight());
   }
   else
     $('#right-panel').height(boardHeight - rightPanelBorder - siblingsHeight);
@@ -3543,8 +4023,8 @@ function calculateFontSize(container: any, containerMaxWidth: number, minWidth?:
   return fontSize;
 }
 
-async function getOpening() {
-  var historyItem = game.history.get();
+async function getOpening(game: Game) {
+  var historyItem = game.history.current();
   
   var fetchOpenings = async () => {
     var inputFilePath = 'assets/data/openings.tsv';
@@ -3637,8 +4117,10 @@ $('#notifications-btn').on('click', function(event) {
 });
 
 $('#resign').on('click', (event) => {
+  var game = gameWithFocus;
+
   if(!game.isPlaying()) {
-    showStatusMsg('You are not playing a game.');
+    showStatusMsg(game, 'You are not playing a game.');
     return;
   }
 
@@ -3662,8 +4144,10 @@ $('#resign').on('click', (event) => {
 });
 
 $('#abort').on('click', (event) => {
+  var game = gameWithFocus;
+
   if(!game.isPlaying()) {
-    showStatusMsg('You are not playing a game.');
+    showStatusMsg(game, 'You are not playing a game.');
     return;
   }
 
@@ -3684,21 +4168,25 @@ $('#abort').on('click', (event) => {
 });
 
 $('#takeback').on('click', (event) => {
+  var game = gameWithFocus;
+
   if (game.chess !== null) {
     if (game.chess.turn() === game.color)
       session.send('take 2');
     else
       session.send('take 1');
   } else {
-    showStatusMsg('You are not playing a game.');
+    showStatusMsg(game, 'You are not playing a game.');
   }
 });
 
 $('#draw').on('click', (event) => {
+  var game = gameWithFocus;
+
   if(game.chess !== null) {
     if(game.role === Role.PLAYING_COMPUTER) {
       // Computer accepts a draw if they're behind or it's dead equal and the game is on move 30 or beyond
-      var gameEval = lastComputerMoveEval;
+      var gameEval = game.lastComputerMoveEval;
       if(gameEval === null)
         gameEval = '';
       gameEval = gameEval.replace(/[#+=]/, '');
@@ -3721,7 +4209,7 @@ $('#draw').on('click', (event) => {
     else
       session.send('draw');
   } else {
-    showStatusMsg('You are not playing a game.');
+    showStatusMsg(game, 'You are not playing a game.');
   }
 });
 
@@ -3780,7 +4268,8 @@ function getGame(min: number, sec: number) {
   matchRequested++;
 
   const cmd: string = (opponent !== '') ? 'match ' + opponent : 'seek'; 
-  if(game.isExamining())
+  var mainGame = getPlayingExaminingGame();
+  if(mainGame && mainGame.isExamining())
     session.send('unex'); 
   session.send(cmd + ' ' + min + ' ' + sec + ' ' + ratedUnrated + ' ' + color + newGameVariant);
 }
@@ -3793,18 +4282,25 @@ function clearMatchRequests() {
 }
 
 $('#input-text').on('focus', () => {
-  $('#board')[0].addEventListener('touchstart', (event) => {
+  function touchStartHandler(event) {
     $('#input-text').trigger('blur');
-  }, {once: true, passive: true}); // Got sick of Google Chrome complaining about passive event listeners
+    $('.board').get().forEach(element => {
+      element.removeEventListener('touchstart', touchStartHandler);
+    });
+  };
+  
+  $('.board').get().forEach(element => {
+    element.addEventListener('touchstart', touchStartHandler, {passive: true}); // Got sick of Google Chrome complaining about passive event listeners
+  });
 });
 
 $('#quick-game').on('click', (event) => {
-  if (game.chess === null)
+  if(!getPlayingExaminingGame())
     session.send('getga');
 });
 
 $('#stop-observing').on('click', (event) => {
-  session.send('unobs');
+  session.send('unobs ' + gameWithFocus.id);
 });
 
 $('#stop-examining').on('click', (event) => {
@@ -3828,11 +4324,13 @@ $('#fast-backward').on('click', () => {
 });
 
 function fastBackward() {
+  var game = gameWithFocus;
+
   if (game.isExamining()) {
-    var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
-    if(index !== 0) {
-      bufferedHistoryIndex = 0;
-      bufferedHistoryCount++;
+    var hEntry = (game.bufferedHistoryCount ? game.bufferedHistoryEntry : game.history.current());
+    if(hEntry !== game.history.first()) {
+      game.bufferedHistoryEntry = game.history.first();
+      game.bufferedHistoryCount++;
       session.send('back 999');
     }
   }
@@ -3847,14 +4345,16 @@ $('#backward').on('click', () => {
 });
 
 function backward() {
+  var game = gameWithFocus;
+
   if(game.history) {
     if(game.isExamining()) {
-      var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
-      var prevIndex = game.history.prev(index);
+      var hEntry = (game.bufferedHistoryCount ? game.bufferedHistoryEntry : game.history.current());
+      var prev = hEntry.prev;
 
-      if(prevIndex !== undefined) {
-        bufferedHistoryIndex = prevIndex;
-        bufferedHistoryCount++;
+      if(prev) {
+        game.bufferedHistoryEntry = prev;
+        game.bufferedHistoryCount++;
         session.send('back');
       }        
     }
@@ -3870,21 +4370,22 @@ $('#forward').on('click', () => {
 });
 
 function forward() {
+  var game = gameWithFocus;
+
   if(game.history) {
     if (game.isExamining()) {
-      var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
-      var nextIndex = game.history.next(index);
+      var hEntry = (game.bufferedHistoryCount ? game.bufferedHistoryEntry : game.history.current());
+      var next = hEntry.next;
 
-      if(nextIndex !== undefined) {
-        const nextMove = game.history.get(nextIndex);
-        if(nextMove.subvariation || game.history.scratch()) {
-          sendMove(nextMove.move);
+      if(next) {
+        if(next.isSubvariation() || game.history.scratch()) {
+          sendMove(next.move);
         }
         else
           session.send('for');
 
-        bufferedHistoryIndex = nextIndex;
-        bufferedHistoryCount++;
+        game.bufferedHistoryEntry = next;
+        game.bufferedHistoryCount++;
       }
     }
     else
@@ -3899,19 +4400,21 @@ $('#fast-forward').on('click', () => {
 });
 
 function fastForward() {
+  var game = gameWithFocus;
+
   if (game.isExamining()) {
     if(!game.history.scratch()) {
       fastBackward();
-      var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
-      if(index !== game.history.last()) {
+      var hEntry = (game.bufferedHistoryCount ? game.bufferedHistoryEntry : game.history.current());
+      if(hEntry !== game.history.last()) {
         session.send('for 999');
-        bufferedHistoryCount++;
-        bufferedHistoryIndex = game.history.last();
+        game.bufferedHistoryCount++;
+        game.bufferedHistoryEntry = game.history.last();
       }
     }
     else {
-      var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
-      while(index = game.history.next(index))
+      var hEntry = (game.bufferedHistoryCount ? game.bufferedHistoryEntry : game.history.current());
+      while(hEntry = hEntry.next)
         forward();
     }
   }
@@ -3923,31 +4426,29 @@ function fastForward() {
 
 $('#exit-subvariation').off('click');
 $('#exit-subvariation').on('click', () => {
+  var game = gameWithFocus;
+
   if(game.isExamining()) {
-    var index = (bufferedHistoryCount ? bufferedHistoryIndex : game.history.index());
-    let move = game.history.get(index);
+    var hEntry = (game.bufferedHistoryCount ? game.bufferedHistoryEntry : game.history.current());
     let backNum = 0;
-    while(move.subvariation) {
+    while(hEntry.isSubvariation()) {
       backNum++;
-      index = game.history.prev(index);
-      move = game.history.get(index);
+      hEntry = hEntry.prev;
     }
     if(backNum > 0) {
       session.send('back ' + backNum);
-      removeSubvariationRequested = true;
-      bufferedHistoryCount++;
-      bufferedHistoryIndex = index;
+      game.removeSubvariationRequested = true;
+      game.bufferedHistoryCount++;
+      game.bufferedHistoryEntry = hEntry;
     }
     else {
-      game.history.removeSubvariation();
-      $('#exit-subvariation').tooltip('hide');
-      $('#exit-subvariation').hide();
+      game.history.removeAllSubvariations();
+      hideExitSubvariationButton();
     }
   }
   else {
-    game.history.removeSubvariation();
-    $('#exit-subvariation').tooltip('hide');
-    $('#exit-subvariation').hide();
+    game.history.removeAllSubvariations();
+    hideExitSubvariationButton();
   }
   showTab($('#pills-game-tab'));
 });
@@ -3991,7 +4492,7 @@ $('#autopromote-toggle').on('click', (event) => {
 $('#highlights-toggle').prop('checked', highlightsToggle);
 $('#highlights-toggle').on('click', (event) => {
   highlightsToggle = !highlightsToggle;
-  updateBoard();
+  updateBoard(gameWithFocus);
   Cookies.set('highlights', String(highlightsToggle), { expires: 365 })
 });
 
@@ -4004,6 +4505,34 @@ $('#wakelock-toggle').on('click', (event) => {
     noSleep.disable();
   }
   Cookies.set('wakelock', String(wakelockToggle), { expires: 365 })
+});
+
+$('#multiboard-toggle').prop('checked', multiboardToggle);
+$('#multiboard-toggle').on('click', (event) => {
+  multiboardToggle = !multiboardToggle;
+  if(!multiboardToggle) {
+    // close all games except one
+
+    // find most important board to keep
+    // out of playing/examining game, then computer game, then observed game on main board, then other observed game
+    var game = getPlayingExaminingGame();
+    if(!game)
+      game = getComputerGame();
+    if(!game && !getMainGame().isObserving())
+      game = games.find(g => g.isObserving());
+
+    if(game) {
+      setGameWithFocus(game);
+      maximizeGame(game);
+    }
+
+    // close all games in the secondary board area
+    for(let i = games.length - 1; i >= 0; i--) {
+      if(games[i].element.parent().is('#secondary-board-area')) 
+        closeGame(games[i]);
+    }
+  }
+  Cookies.set('multiboard', String(multiboardToggle), { expires: 365 })
 });
 
 $('#chattabs-toggle').prop('checked', chattabsToggle);
@@ -4162,22 +4691,33 @@ $(window).on('resize', () => {
 
 function setFontSizes() {
   // Resize fonts for player and opponent name to fit
-  $('#opponent-name').css('font-size', ''); 
-  var nameBorderWidth = $('#opponent-name').outerWidth() - $('#opponent-name').width();
-  var nameMaxWidth = $('#opponent-name-rating').width() - $('#opponent-rating').outerWidth() - nameBorderWidth;
-  var fontSize = calculateFontSize($('#opponent-name'), nameMaxWidth);
-  $('#opponent-name').css('font-size', fontSize + 'px');
+  $('.status').each((index, element) => {
+    var nameElement = $(element).find('.name');
+    var ratingElement = $(element).find('.rating');
+    var nameRatingElement = $(element).find('.name-rating');
 
-  $('#player-name').css('font-size', ''); 
-  var nameBorderWidth = $('#player-name').outerWidth() - $('#player-name').width();
-  var nameMaxWidth = $('#player-name-rating').width() - $('#player-rating').outerWidth() - nameBorderWidth;
-  var fontSize = calculateFontSize($('#player-name'), nameMaxWidth);
-  $('#player-name').css('font-size', fontSize + 'px');
+    nameElement.css('font-size', ''); 
+    ratingElement.css('width', '');
+
+    var nameBorderWidth = nameElement.outerWidth() - nameElement.width();
+    var nameMaxWidth = nameRatingElement.width() - ratingElement.outerWidth() - nameBorderWidth;
+    var fontSize = calculateFontSize(nameElement, nameMaxWidth);
+    nameElement.css('font-size', fontSize + 'px');
+
+    // Hide rating badge if partially clipped
+    if(nameElement.outerWidth() + ratingElement.outerWidth() > nameRatingElement.width()) {
+      ratingElement.width(0);
+      ratingElement.css('visibility', 'hidden');
+    }
+    else 
+      ratingElement.css('visibility', 'visible');
+   });
 }
 
 // prompt before unloading page if in a game
 $(window).on('beforeunload', () => {
-  if(game.isPlaying()) 
+  var game = getPlayingExaminingGame();
+  if(game && game.isPlaying()) 
     return true;
 });
 
@@ -4236,7 +4776,8 @@ function showHistory(user: string, history: string) {
 }
 
 (window as any).examineGame = (user, id) => {
-  if(game.isExamining())
+  var game = getPlayingExaminingGame();
+  if(game && game.isExamining())
     session.send('unex');
   session.send('ex ' + user + ' ' + id);
 };
@@ -4274,12 +4815,6 @@ $('#observe-user').on('submit', (event) => {
 });
 
 function observe(id?: string) {
-  if(game.isPlaying() && game.role !== Role.PLAYING_COMPUTER) {
-    $('#observe-pane-status').text("You're already playing a game.");
-    $('#observe-pane-status').show();
-    return false;
-  }
-
   if(!id) {
     id = getValue('#observe-username');
     id = id.trim().split(/\s+/)[0];
@@ -4344,9 +4879,16 @@ $('#puzzlebot').on('click', (event) => {
   showTab($('#pills-game-tab'));
 });
 
-$(document).on('shown.bs.tab', 'button[href="#eval-graph-panel"]', (e) => {
-  if(evalEngine)
-    evalEngine.redraw();
+$('#left-panel-bottom').on('shown.bs.tab', '.nav-link', (e) => {
+  gameWithFocus.currentStatusTab = $(e.target);
+
+  if($(e.target).attr('id') === 'eval-graph-tab') {
+    if(!evalEngine)
+      createEvalEngine(gameWithFocus);
+    
+    if(evalEngine)
+      evalEngine.redraw();
+  }
 });
 
 $('#left-bottom-tabs .closeTab').on('click', (event) => {
@@ -4375,9 +4917,10 @@ $(document).on('hidden.bs.tab', 'button[data-bs-target="#pills-play"]', (e) => {
 });
 
 function initLobbyPane() {
+  var game = getPlayingExaminingGame();
   if(!session || !session.isConnected())
     $('#lobby').hide();
-  else if(game.isExamining() || (game.isPlaying() && game.role !== Role.PLAYING_COMPUTER)) {
+  else if(game && (game.isExamining() || (game.isPlaying() && game.role !== Role.PLAYING_COMPUTER))) {
     if(game.isExamining())
       $('#lobby-pane-status').text('Can\'t enter lobby while examining a game.');
     else
@@ -4387,8 +4930,31 @@ function initLobbyPane() {
   }
   else {
     $('#lobby-pane-status').hide();
+    if(session.isRegistered()) 
+      $('#lobby-show-unrated').parent().show();
+    else 
+      $('#lobby-show-unrated').parent().hide();
+
+    if(lobbyShowComputersToggle) {
+      $('#lobby-show-computers-icon').removeClass('fa-eye-slash');
+      $('#lobby-show-computers-icon').addClass('fa-eye');
+    }
+    else {
+      $('#lobby-show-computers-icon').removeClass('fa-eye');
+      $('#lobby-show-computers-icon').addClass('fa-eye-slash');
+    }
+    
+    if(lobbyShowUnratedToggle) {
+      $('#lobby-show-unrated-icon').removeClass('fa-eye-slash');
+      $('#lobby-show-unrated-icon').addClass('fa-eye');
+    }
+    else {
+      $('#lobby-show-unrated-icon').removeClass('fa-eye');
+      $('#lobby-show-unrated-icon').addClass('fa-eye-slash');
+    }
+
     $('#lobby-show-computers').prop('checked', lobbyShowComputersToggle);
-    $('#lobby-show-rated').prop('checked', lobbyShowRatedToggle);
+    $('#lobby-show-unrated').prop('checked', lobbyShowUnratedToggle);
     $('#lobby').show();
     $('#lobby-table').html('');
     lobbyScrolledToBottom = true;
@@ -4434,9 +5000,9 @@ $('#lobby-show-computers').on('change', function (e) {
   initLobbyPane();
 });
 
-$('#lobby-show-rated').on('change', function (e) {
-  lobbyShowRatedToggle = $(this).is(':checked');
-  Cookies.set('lobbyshowrated', String(lobbyShowRatedToggle), { expires: 365 });
+$('#lobby-show-unrated').on('change', function (e) {
+  lobbyShowUnratedToggle = $(this).is(':checked');
+  Cookies.set('lobbyshowunrated', String(lobbyShowUnratedToggle), { expires: 365 });
   initLobbyPane();
 });
 
