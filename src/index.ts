@@ -1951,7 +1951,6 @@ function messageHandler(data) {
 
       var match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
       if (match != null && match.length > 1) {
-        console.log('allobsRequested', allobsRequested);
         if (allobsRequested) {
           allobsRequested--;
           if(!allobsRequested) {
