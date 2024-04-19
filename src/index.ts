@@ -2102,7 +2102,10 @@ function messageHandler(data) {
         if(obsRequested) {
           obsRequested--;
           $('#observe-pane-status').hide();
+          return;
         }
+
+        chat.newMessage('console', data);
         return;
       }
 
