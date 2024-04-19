@@ -3422,9 +3422,12 @@ function createGame(): Game {
     $('#secondary-board-area')[0].scrollTop = $('#secondary-board-area')[0].scrollHeight; // Scroll secondary board area to the bottom
   }
 
-  game.element.on('click', (event) => {
+  function gameTouchHandler(event) {
+    $('#input-text').trigger('blur');
     setGameWithFocus(game);
-  });
+  }
+  game.element[0].addEventListener('touchstart', gameTouchHandler, {passive: true}); 
+  game.element[0].addEventListener('mousedown', gameTouchHandler);
 
   game.element.on('click', '[title="Close"]', (event) => {
     closeGame(game);
@@ -3437,7 +3440,10 @@ function createGame(): Game {
     maximizeGame(game);
   });
 
-  game.element.on('dblclick', '.title-bar', (event) => {
+  game.element.on('dblclick', (event) => {
+    if(getMainGame() === game)
+      return;
+
     setGameWithFocus(game);
     animateBoundingRects(game.element, $('#main-board-area'), game.element.css('--border-expand-color'), game.element.css('--border-expand-width'));
     maximizeGame(game);
@@ -4280,19 +4286,6 @@ function clearMatchRequests() {
   $('#sent-offers-status').html('');
   $('#sent-offers-status').hide();
 }
-
-$('#input-text').on('focus', () => {
-  function touchStartHandler(event) {
-    $('#input-text').trigger('blur');
-    $('.board').get().forEach(element => {
-      element.removeEventListener('touchstart', touchStartHandler);
-    });
-  };
-  
-  $('.board').get().forEach(element => {
-    element.addEventListener('touchstart', touchStartHandler, {passive: true}); // Got sick of Google Chrome complaining about passive event listeners
-  });
-});
 
 $('#quick-game').on('click', (event) => {
   if(!getPlayingExaminingGame())
