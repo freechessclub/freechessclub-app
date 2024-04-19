@@ -51,6 +51,7 @@ let multiboardToggle: boolean = (Cookies.get('multiboard') !== 'false');
 export let chattabsToggle: boolean = (Cookies.get('chattabs') !== 'false');
 
 let historyRequested = 0;
+let allobsRequested = 0;
 let obsRequested = 0;
 let gamesRequested = false;
 let movelistRequested = 0;
@@ -134,6 +135,7 @@ function cleanupGame(game: Game) {
 
 export function cleanup() {
   historyRequested = 0;
+  allobsRequested = 0;
   obsRequested = 0;
   gamesRequested = false;
   movelistRequested = 0;
@@ -1549,22 +1551,25 @@ function gameStart(game: Game) {
   if(game.isPlaying() || game.isExamining()) {
     clearMatchRequests();
     $('#game-requests').html('');
+  }
 
-    if(game.role !== Role.PLAYING_COMPUTER) {
-      session.send('allobs ' + game.id);
-      if(game.isPlaying()) {
-        game.watchers = setInterval(() => {
-          const time = game.color === 'b' ? game.btime : game.wtime;
-          if (time > 60000) {
-            session.send('allobs ' + game.id);
-          }
-        }, 90000); // 90000 seems a bit slow
-      }
-      else {
-        game.watchers = setInterval(() => {
+  if(game.role !== Role.PLAYING_COMPUTER) {
+    session.send('allobs ' + game.id);
+    allobsRequested++;
+    if(game.isPlaying()) {
+      game.watchers = setInterval(() => {
+        const time = game.color === 'b' ? game.btime : game.wtime;
+        if (time > 20000) {
           session.send('allobs ' + game.id);
-        }, 5000);
-      }
+          allobsRequested++;
+        }
+      }, 30000);
+    }
+    else {
+      game.watchers = setInterval(() => {
+        session.send('allobs ' + game.id);
+        allobsRequested++;
+      }, 5000);
     }
   }
 
@@ -1946,25 +1951,32 @@ function messageHandler(data) {
 
       var match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
       if (match != null && match.length > 1) {
-        var game = findGame(+match[1]);
-        game.statusElement.find('.game-watchers').empty();
-        match[2] = match[2].replace(/\(U\)/g, '');
-        const watchers = match[2].split(' ');
-        let req = '';
-        let numWatchers = 0;
-        for (let i = 0; i < watchers.length; i++) {
-          if(watchers[i].replace('#', '') === session.getUser())
-            continue;
-          numWatchers++;
-          if(numWatchers == 1)
-            req = 'Watchers:';
-          req += '<span class="ms-1 badge rounded-pill bg-secondary noselect">' + watchers[i] + '</span>';
-          if (numWatchers > 5) {
-            req += ' + ' + (watchers.length - i) + ' more.';
-            break;
+        if (allobsRequested) {
+          allobsRequested--;
+          if(!allobsRequested) {
+            var game = findGame(+match[1]);
+            game.statusElement.find('.game-watchers').empty();
+            match[2] = match[2].replace(/\(U\)/g, '');
+            const watchers = match[2].split(' ');
+            let req = '';
+            let numWatchers = 0;
+            for (let i = 0; i < watchers.length; i++) {
+              if(watchers[i].replace('#', '') === session.getUser())
+                continue;
+              numWatchers++;
+              if(numWatchers == 1)
+                req = 'Watchers:';
+              req += '<span class="ms-1 badge rounded-pill bg-secondary noselect">' + watchers[i] + '</span>';
+              if (numWatchers > 5) {
+                req += ' + ' + (watchers.length - i) + ' more.';
+                break;
+              }
+            }
+            game.statusElement.find('.game-watchers').html(req);
+            return;
           }
         }
-        game.statusElement.find('.game-watchers').html(req);
+        chat.newMessage('console', data);
         return;
       }
 
@@ -2102,6 +2114,7 @@ function messageHandler(data) {
         if(obsRequested) {
           obsRequested--;
           $('#observe-pane-status').hide();
+          return;
         }
 
         chat.newMessage('console', data);
@@ -2121,7 +2134,6 @@ function messageHandler(data) {
         session.send('iset seekinfo 1');
         session.send('iset seekinfo 0');
         session.send('iset showownseek 0');
-        chat.newMessage('console', data);
         return;
       }
 
@@ -2136,8 +2148,6 @@ function messageHandler(data) {
 
         if(!$('#sent-offers-status').children().length)
           $('#sent-offers-status').hide();
-
-        chat.newMessage('console', data);
         return;
       }
      
