@@ -1975,6 +1975,7 @@ function messageHandler(data) {
             game.statusElement.find('.game-watchers').html(req);
             return;
           }
+          return;
         }
         chat.newMessage('console', data);
         return;
