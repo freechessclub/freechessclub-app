@@ -51,7 +51,6 @@ let multiboardToggle: boolean = (Cookies.get('multiboard') !== 'false');
 export let chattabsToggle: boolean = (Cookies.get('chattabs') !== 'false');
 
 let historyRequested = 0;
-let allobsRequested = 0;
 let obsRequested = 0;
 let gamesRequested = false;
 let movelistRequested = 0;
@@ -114,6 +113,7 @@ function cleanupGame(game: Game) {
   if(game.watchers)
     clearInterval(game.watchers);
   game.watchers = null;
+  game.allobsRequested = 0;
   game.statusElement.find('.game-watchers').empty();
 
   game.id = null;
@@ -135,7 +135,6 @@ function cleanupGame(game: Game) {
 
 export function cleanup() {
   historyRequested = 0;
-  allobsRequested = 0;
   obsRequested = 0;
   gamesRequested = false;
   movelistRequested = 0;
@@ -1555,20 +1554,20 @@ function gameStart(game: Game) {
 
   if(game.role !== Role.PLAYING_COMPUTER) {
     session.send('allobs ' + game.id);
-    allobsRequested++;
+    game.allobsRequested++;
     if(game.isPlaying()) {
       game.watchers = setInterval(() => {
         const time = game.color === 'b' ? game.btime : game.wtime;
         if (time > 20000) {
           session.send('allobs ' + game.id);
-          allobsRequested++;
+          game.allobsRequested++;
         }
       }, 30000);
     }
     else {
       game.watchers = setInterval(() => {
         session.send('allobs ' + game.id);
-        allobsRequested++;
+        game.allobsRequested++;
       }, 5000);
     }
   }
@@ -1949,12 +1948,23 @@ function messageHandler(data) {
     default:
       const msg = data.message;
 
+      var match = msg.match(/^No one is observing game (\d+)\./m);
+      if (match != null && match.length > 1) {
+        var game = findGame(+match[1]);
+        if(game && game.allobsRequested) {
+          game.allobsRequested--;
+          return;
+        }
+        chat.newMessage('console', data);
+        return;
+      }
+
       var match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
       if (match != null && match.length > 1) {
-        if (allobsRequested) {
-          allobsRequested--;
-          if(!allobsRequested) {
-            var game = findGame(+match[1]);
+        var game = findGame(+match[1]);
+        if (game && game.allobsRequested) {
+          game.allobsRequested--;
+          if(!game.allobsRequested) {
             game.statusElement.find('.game-watchers').empty();
             match[2] = match[2].replace(/\(U\)/g, '');
             const watchers = match[2].split(' ');
@@ -1973,8 +1983,8 @@ function messageHandler(data) {
               }
             }
             game.statusElement.find('.game-watchers').html(req);
-            return;
           }
+          return;
         }
         chat.newMessage('console', data);
         return;
@@ -2333,8 +2343,7 @@ function messageHandler(data) {
         msg === 'startpos set.' || msg === 'startpos unset.' ||
         msg === 'showownseek set.' || msg === 'showownseek unset.' ||
         msg === 'pendinfo set.' || 
-        msg === 'ms set.' ||
-        msg.startsWith('No one is observing game ') 
+        msg === 'ms set.' 
       ) {
         return;
       }
@@ -3292,7 +3301,7 @@ function flipBoard(game: Game) {
   }
   else {
     game.element.find('.player-status').appendTo(game.element.find('.top-panel'));
-    game.element.find('.opponent-status').appendTo(game.element.find('bottom-panel'));
+    game.element.find('.opponent-status').appendTo(game.element.find('.bottom-panel'));
   }
 }
 

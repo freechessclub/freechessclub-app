@@ -53,6 +53,10 @@ html, body {
   text-align: center;
 }
 
+.game-watchers {
+  white-space: pre-wrap;
+}
+
 #left-panel {
   height: 460px;
 }
