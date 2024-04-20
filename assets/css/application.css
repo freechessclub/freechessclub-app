@@ -130,8 +130,7 @@ html, body {
   white-space: nowrap;
   font-size: 1.6rem;
   line-height: 21px;
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
+  padding: 0.5rem;
 }
 
 .captured {
@@ -249,8 +248,7 @@ html, body {
 
 .game-card-sm .name {
   font-size: inherit;
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
+  padding: 0.5rem;
 }
 
 .game-card-sm .rating {

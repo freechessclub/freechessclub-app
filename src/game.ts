@@ -82,5 +82,4 @@ export class Game extends GameData {
 
   lastComputerMoveEval: string = null; // Keeps track of the current eval for a game against the Computer. Used for draw offers
   partnerGameId: number = null;        // bughouse partner's game id
-  allobsRequested: number = 0;         // Keeps track of requests for watchers
 }
