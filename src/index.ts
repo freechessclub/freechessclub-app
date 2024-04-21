@@ -52,6 +52,7 @@ export let chattabsToggle: boolean = (Cookies.get('chattabs') !== 'false');
 
 let historyRequested = 0;
 let obsRequested = 0;
+let allobsRequested = 0;
 let gamesRequested = false;
 let movelistRequested = 0;
 let lobbyRequested = false;
@@ -110,10 +111,9 @@ function cleanupGame(game: Game) {
   hidePromotionPanel(game);
   game.clock.stopClocks();
 
-  if(game.watchers)
+  if(game.watchers) 
     clearInterval(game.watchers);
   game.watchers = null;
-  game.allobsRequested = 0;
   game.statusElement.find('.game-watchers').empty();
 
   game.id = null;
@@ -136,6 +136,7 @@ function cleanupGame(game: Game) {
 export function cleanup() {
   historyRequested = 0;
   obsRequested = 0;
+  allobsRequested = 0;
   gamesRequested = false;
   movelistRequested = 0;
   lobbyRequested = false;
@@ -1554,20 +1555,20 @@ function gameStart(game: Game) {
 
   if(game.role !== Role.PLAYING_COMPUTER) {
     session.send('allobs ' + game.id);
-    game.allobsRequested++;
+    allobsRequested++;
     if(game.isPlaying()) {
       game.watchers = setInterval(() => {
         const time = game.color === 'b' ? game.btime : game.wtime;
         if (time > 20000) {
           session.send('allobs ' + game.id);
-          game.allobsRequested++;
+          allobsRequested++;
         }
       }, 30000);
     }
     else {
       game.watchers = setInterval(() => {
         session.send('allobs ' + game.id);
-        game.allobsRequested++;
+        allobsRequested++;
       }, 5000);
     }
   }
@@ -1950,9 +1951,8 @@ function messageHandler(data) {
 
       var match = msg.match(/^No one is observing game (\d+)\./m);
       if (match != null && match.length > 1) {
-        var game = findGame(+match[1]);
-        if(game && game.allobsRequested) {
-          game.allobsRequested--;
+        if(allobsRequested) {
+          allobsRequested--;
           return;
         }
         chat.newMessage('console', data);
@@ -1961,29 +1961,31 @@ function messageHandler(data) {
 
       var match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
       if (match != null && match.length > 1) {
-        var game = findGame(+match[1]);
-        if (game && game.allobsRequested) {
-          game.allobsRequested--;
-          if(!game.allobsRequested) {
-            game.statusElement.find('.game-watchers').empty();
-            match[2] = match[2].replace(/\(U\)/g, '');
-            const watchers = match[2].split(' ');
-            let req = '';
-            let numWatchers = 0;
-            for (let i = 0; i < watchers.length; i++) {
-              if(watchers[i].replace('#', '') === session.getUser())
-                continue;
-              numWatchers++;
-              if(numWatchers == 1)
-                req = 'Watchers:';
-              req += '<span class="ms-1 badge rounded-pill bg-secondary noselect">' + watchers[i] + '</span>';
-              if (numWatchers > 5) {
-                req += ' + ' + (watchers.length - i) + ' more.';
-                break;
-              }
+        if (allobsRequested) {
+          allobsRequested--;
+          var game = findGame(+match[1]);
+          if(!game)
+            return;
+
+          game.statusElement.find('.game-watchers').empty();
+          match[2] = match[2].replace(/\(U\)/g, '');
+          const watchers = match[2].split(' ');
+          let req = '';
+          let numWatchers = 0;
+          for (let i = 0; i < watchers.length; i++) {
+            if(watchers[i].replace('#', '') === session.getUser())
+              continue;
+            numWatchers++;
+            if(numWatchers == 1)
+              req = 'Watchers:';
+            req += '<span class="ms-1 badge rounded-pill bg-secondary noselect">' + watchers[i] + '</span>';
+            if (numWatchers > 5) {
+              req += ' + ' + (watchers.length - i) + ' more.';
+              break;
             }
-            game.statusElement.find('.game-watchers').html(req);
           }
+          game.statusElement.find('.game-watchers').html(req);
+
           return;
         }
         chat.newMessage('console', data);
@@ -2050,7 +2052,7 @@ function messageHandler(data) {
         match = msg.match(/^Your opponent has no partner for bughouse\./m);
       if(!match) 
         match = msg.match(/^You have no partner for bughouse\./m);
-      if(match && (historyRequested || obsRequested || matchRequested)) {
+      if(match && (historyRequested || obsRequested || matchRequested || allobsRequested)) {
         let status;
         if(historyRequested) 
           status = $('#examine-pane-status');
@@ -2073,6 +2075,8 @@ function messageHandler(data) {
         }
         else if(matchRequested) 
           matchRequested--;
+        else if(allobsRequested && match[0] === 'There is no such game.')
+          allobsRequested--;
         
         if(match[0].startsWith('Ambiguous name'))
           status.text('There is no player matching the name ' + match[1] + '.');
@@ -2084,7 +2088,9 @@ function messageHandler(data) {
           status.text(match[0] + ' Get one by using \'partner <username>\' in the Console.');
         else
           status.text(match[0]);
-        status.show();
+        
+        if(status)
+          status.show();
 
         return;
       }
@@ -2164,9 +2170,9 @@ function messageHandler(data) {
       match = msg.match(/(?:^|\n)\s*Movelist for game (\d+):\s+(\w+) \((\d+|UNR)\) vs\. (\w+) \((\d+|UNR)\)[^\n]+\s+(\w+) (\S+) match, initial time: (\d+) minutes, increment: (\d+) seconds\./);
       if (match != null && match.length > 9) {
         var game = findGame(+match[1]);
-        if (game && movelistRequested) {
+        if (movelistRequested) {
           movelistRequested--;
-          if(movelistRequested)
+          if(!game)
             return;
 
           if(game.isExamining()) {
@@ -3164,6 +3170,9 @@ function checkGameEnd(game: Game) {
 async function showOpeningName(game: Game) {
   await fetchOpeningsPromise; // Wait for the openings file to be loaded
 
+  if(!game.history)
+    return;
+
   var hEntry = game.history.current();
   if(!hEntry.move)
     hEntry = game.history.last();
@@ -3598,7 +3607,9 @@ function removeGame(game: Game) {
   // If game currently had the focus, switch focus to the main game
   if(game === gameWithFocus)
     setGameWithFocus(getMainGame());
-  
+
+  cleanupGame(game);
+
   // Remove game's html elements from the DOM
   game.element.remove();
   game.moveTableElement.remove();
