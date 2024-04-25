@@ -277,6 +277,18 @@ export class Chat {
     });
   }
 
+  private escapeHTML(text: string) {
+    return text.replace(/[&<>"]/g, (tag) => {
+      var charsToReplace = {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&#34;'
+      };
+      return charsToReplace[tag] || tag;
+    });
+  }
+
   public newMessage(from: string, data: any) {
     let tabName = chattabsToggle ? from : 'console';
     const tab = this.createTab(tabName);
@@ -293,7 +305,7 @@ export class Chat {
       who = '<strong' + textclass + '>' + $('<span/>').text(prompt).html() + '</strong>: ';
     }
 
-    let text = data.message;
+    let text = this.escapeHTML(data.message);
     if (this.emojisLoaded) {
       text = parseEmojis(text);
     }
