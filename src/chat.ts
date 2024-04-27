@@ -369,13 +369,13 @@ function scrollToChat() {
 $('#chat-maximize-btn').on('click', () => {
   if (maximized) {
     $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
-    $('#chat-maximize-btn').attr('data-bs-original-title', 'Maximize');
+    $('#chat-maximize-btn').attr('title', 'Maximize');
     if($('#secondary-board-area > .game-card').length)
       $('#secondary-board-area').css('display', 'flex');
     maximized = false;
   } else {
     $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
-    $('#chat-maximize-btn').attr('data-bs-original-title', 'Unmaximize');
+    $('#chat-maximize-btn').attr('title', 'Unmaximize');
     $('#collapse-chat').collapse('show');
     $('#secondary-board-area').hide();
     maximized = true;

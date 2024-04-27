@@ -11,7 +11,7 @@ import NoSleep from '@uriopass/nosleep.js'; // Prevent screen dimming
 import Chat from './chat';
 import { Clock } from './clock';
 import { Engine, EvalEngine } from './engine';
-import { Game, Role } from './game';
+import { Game, GameData, Role } from './game';
 import { History, HEntry } from './history';
 import { GetMessageType, MessageType, Session } from './session';
 import * as Sounds from './sounds';
@@ -59,6 +59,7 @@ let lobbyRequested = false;
 let channelListRequested = false;
 let computerListRequested = false;
 let gameExitPending = 0;
+let examineModeRequested: Game | null = null;
 let computerList = [];
 let modalCounter = 0;
 let numPVs = 1;
@@ -99,7 +100,7 @@ function cleanupGame(game: Game) {
   if(game === gameWithFocus) {
     hideButton($('#stop-observing'));
     hideButton($('#stop-examining'));
-    hideCloseGamePanel();
+    hideLeftPanelHeader2();
     $('#takeback').prop('disabled', false);
     $('#play-computer').prop('disabled', false);  
     $('#playing-game-buttons').hide();
@@ -122,9 +123,11 @@ function cleanupGame(game: Game) {
   game.chess = null;
   gameExitPending = 0;
   game.partnerGameId = null;
+  game.commitingMovelist = false;
   game.board.cancelMove();
   updateBoard(game);
   initStatusPanel();
+  initGameTools(game);
 
   if($('#pills-play').hasClass('active') && $('#pills-lobby').hasClass('active'))
     initLobbyPane();
@@ -143,6 +146,7 @@ export function cleanup() {
   lobbyRequested = false;
   channelListRequested = false;
   computerListRequested = false;
+  examineModeRequested = null;
   clearMatchRequests();
   clearNotifications();
   games.forEach((game) => {
@@ -183,7 +187,7 @@ function initAnalysis(game: Game) {
 
     if(game.category) {
       if(Engine.categorySupported(game.category)) {
-        if(game.id != undefined || game.history.length())
+        if(game.id != -1 || game.history.length()) 
           showAnalyzeButton();
       }
       else 
@@ -195,13 +199,13 @@ function initAnalysis(game: Game) {
   }
 }
 
-function hideCloseGamePanel() {
-  $('#close-game-panel').hide();
+function hideLeftPanelHeader2() {
+  $('#left-panel-header-2').hide();
   setPanelSizes();
 }
 
-function showCloseGamePanel() {
-  $('#close-game-panel').show();
+function showLeftPanelHeader2() {
+  $('#left-panel-header-2').show();
   setPanelSizes();
 }
 
@@ -315,6 +319,10 @@ function setInputFilter(textbox: Element, inputFilter: (value: string) => boolea
 }
 
 $('#move-table').on('click', '.selectable', function() {
+  gotoMove($(this).data('hEntry'));
+});
+
+$('#movelists').on('click', '.move', function() {
   gotoMove($(this).data('hEntry'));
 });
 
@@ -521,7 +529,7 @@ export function movePiece(source: any, target: any, metadata: any) {
     
     // Crazyhouse/bughouse piece placement
     const cgRoles = {pawn: 'p', rook: 'r', knight: 'n', bishop: 'b', queen: 'q', king: 'k'};
-    if(cgRoles.hasOwnProperty(source)) { // Crazyhouse/bughouse piece placement
+    if(cgRoles.hasOwnProperty(source)) { 
       inMove['piece'] = cgRoles[source];
       inMove.from = '';
     }
@@ -633,16 +641,34 @@ function showStatusMsg(game: Game, msg: string) {
   game.statusElement.find('.game-status').html(msg + '<br/>');
 }
 
-function showBoardModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true, icons = true): any {
-  var modalHtml = createModal(type, title, msg, btnFailure, btnSuccess, progress, useSessionSend, icons);
+function showBoardModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], useSessionSend = true, icons = true, progress = false): any {
+  var modalHtml = createModal(type, title, msg, btnFailure, btnSuccess, useSessionSend, icons, progress);
   var modal = $(modalHtml).appendTo($('#game-requests'));
   modal.addClass('board-modal');
   modal.toast('show');
 
+  modal.on('hidden.bs.toast', function () {
+    $(this).remove();
+  });
+
   return modal;
 }
 
-function createModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true, icons = true) { 
+function showFixedModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], useSessionSend = true, icons = true, progress = false): any {
+  var modalHtml = createModal(type, title, msg, btnFailure, btnSuccess, useSessionSend, icons, progress);
+  var container = $('<div class="toast-container position-fixed top-50 start-50 translate-middle" style="z-index: 101">');
+  container.appendTo('body');
+  var modal = $(modalHtml).appendTo(container);
+  modal.toast('show');
+
+  modal.on('hidden.bs.toast', function () {
+    $(this).parent().remove();
+  });
+
+  return modal;
+}
+
+function createModal(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], useSessionSend = true, icons = true, progress = false) { 
   const modalId = 'modal' + modalCounter++;
   let req = `
   <div id="` + modalId + `" class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
@@ -686,8 +712,8 @@ function createModal(type: string, title: string, msg: string, btnFailure: strin
   return req;
 }
 
-function createNotification(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], progress = false, useSessionSend = true): any {
-  var modalHtml = createModal(type, title, msg, btnFailure, btnSuccess, progress, useSessionSend);
+function createNotification(type: string, title: string, msg: string, btnFailure: string[], btnSuccess: string[], useSessionSend = true, icons = true, progress = false): any {
+  var modalHtml = createModal(type, title, msg, btnFailure, btnSuccess, useSessionSend, icons, progress);
   var modal = $(modalHtml).insertBefore($('#notifications-footer')); 
   modal.find('[data-bs-dismiss="toast"]').removeAttr('data-bs-dismiss');  
   modal.on('click', 'button', (event) => {
@@ -1512,15 +1538,12 @@ export function parseMovelist(game: Game, movelist: string) {
 }
 
 function gameStart(game: Game) {
-  var amIblack = game.bname === session.getUser();
-  var amIwhite = game.wname === session.getUser();
-  if(game.role === Role.PLAYING_COMPUTER && game.color === 'b')
-    amIblack = true;  
-
-  if(getPlyFromFEN(game.fen) === 1)
-    game.chess = new Chess(game.fen);
-  else
-    game.chess = new Chess();
+  if(game.role !== Role.NONE) {
+    if(game.move === 'none')
+      game.chess = new Chess(game.fen);
+    else
+      game.chess = new Chess();
+  }
 
   hidePromotionPanel(game);
   game.board.cancelMove();
@@ -1531,15 +1554,25 @@ function gameStart(game: Game) {
   var mainGame = getPlayingExaminingGame();
   var partnerColor = (mainGame && mainGame.partnerGameId === game.id && mainGame.color === 'w' ? 'b' : 'w');
 
-  if((!amIblack || amIwhite) && partnerColor !== 'b') { 
+  var amIblack = game.bname === session.getUser();
+  var amIwhite = game.wname === session.getUser();
+  if(game.role === Role.PLAYING_COMPUTER && game.color === 'b')
+    amIblack = true;  
+
+  if((!amIblack || amIwhite) && partnerColor !== 'b') 
     game.color = 'w';
-    game.element.find('.player-status .name').text(game.wname);
-    game.element.find('.opponent-status .name').text(game.bname);
-  } else {
+  else 
     game.color = 'b';
-    game.element.find('.player-status .name').text(game.bname);
-    game.element.find('.opponent-status .name').text(game.wname);
-  }       
+
+  var whiteStatus = game.element.find(game.color === 'w' ? '.player-status' : '.opponent-status');
+  var blackStatus = game.element.find(game.color === 'b' ? '.player-status' : '.opponent-status');
+  whiteStatus.find('.name').text(game.wname);
+  blackStatus.find('.name').text(game.bname);
+  if(!game.wrating)
+    whiteStatus.find('.rating').text('');
+  if(!game.brating)
+    blackStatus.find('.rating').text('');
+
   setFontSizes();
 
   var flipped = game.element.find('.opponent-status').parent().hasClass('bottom-panel');
@@ -1561,7 +1594,7 @@ function gameStart(game: Game) {
   game.element.find('.card-header').css('--bs-card-cap-bg', '');
   game.element.find('.card-footer').css('--bs-card-cap-bg', '');
   game.element.find('.clock').removeClass('low-time');
-  $('#playing-game').hide();
+  $('#game-pane-status').hide();
   $('#pairing-pane-status').hide();
   game.statusElement.find('.game-watchers').empty();
   game.statusElement.find('.opening-name').hide();
@@ -1572,7 +1605,7 @@ function gameStart(game: Game) {
     hideAllNotifications();
   }
 
-  if(game.role !== Role.PLAYING_COMPUTER) {
+  if(game.role !== Role.PLAYING_COMPUTER && game.role !== Role.NONE) {
     session.send('allobs ' + game.id);
     allobsRequested++;
     if(game.isPlaying()) {
@@ -1597,8 +1630,9 @@ function gameStart(game: Game) {
     evalEngine = null;
   }
 
-  game.history = new History(game, game.fen, game.time * 60000, game.time * 60000);
-  
+  if(!examineModeRequested) 
+    game.history = new History(game, game.fen, game.time * 60000, game.time * 60000);
+
   if(game.isPlayingOnline())
     game.element.find($('[title="Close"]')).hide();
 
@@ -1649,26 +1683,33 @@ function gameStart(game: Game) {
     }
   }
 
-  if(game.isExamining()) {
-    if(game.wname === game.bname)
-      game.history.scratch(true);
-    else {
-      if(getPlyFromFEN(game.fen) !== 1)
-        session.send('back 999');
-      session.send('for 999');
+  if(examineModeRequested) {
+    setupGameInExamineMode(game);
+    examineModeRequested = null;
+  } 
+  else {
+    if(game.isExamining()) {
+      if(game.wname === game.bname)
+        game.history.scratch(true);
+      else {
+        if(game.move !== 'none')
+          session.send('back 999');
+        session.send('for 999');
+      }
     }
-  }
 
-  if(game.isExamining() || ((game.isObserving() || game.isPlayingOnline()) && getPlyFromFEN(game.fen) > 1)) {        
-    movelistRequested++;
-    session.send('iset startpos 1'); // Show the initial board position before the moves list 
-    session.send('moves ' + game.id);
-    session.send('iset startpos 0');
+    if(game.isExamining() || ((game.isObserving() || game.isPlayingOnline()) && game.move !== 'none')) {        
+      movelistRequested++;
+      session.send('iset startpos 1'); // Show the initial board position before the moves list 
+      session.send('moves ' + game.id);
+      session.send('iset startpos 0');
+    }
   }
 
   if(game === gameWithFocus) {
     showTab($('#pills-game-tab'));
-    showStatusPanel();
+    if(game.role !== Role.NONE)
+      showStatusPanel();
   }
 
   if(!mainGame || game.id !== mainGame.partnerGameId) 
@@ -1731,7 +1772,7 @@ function messageHandler(data) {
       chat.newMessage(data.user, data);
       break;
     case MessageType.GameMove:
-      // If in single-board mode, check we are not examining/observing another game already
+      // If in single-board mode, check we are not examining/observing another game already     
       if(!multiboardToggle) {
         var game = getMainGame();
         if(game.isPlayingOnline() && game.id !== data.id) {
@@ -1757,19 +1798,31 @@ function messageHandler(data) {
           cleanupGame(game); // Allow player to imemediately play/examine/observe a game at any time while playing the Computer. The Computer game will simply be aborted.
         }
       }
+
+      if(examineModeRequested && data.role === Role.EXAMINING) {
+        // Converting a game to examine mode
+        game = examineModeRequested;
+        if(game.role !== Role.NONE && multiboardToggle)
+          game = cloneGame(game);
+        game.id = data.id;    
+        game.role = Role.EXAMINING;
+      }
       else {
-        // Get game object
-        var game = findGame(data.id);
-        if(!game)
-          game = getFreeGame();
-        if(!game)
-          game = createGame();
+        if(multiboardToggle) {
+          // Get game object
+          var game = findGame(data.id);
+          if(!game)
+            game = getFreeGame();
+          if(!game)
+            game = createGame();
+        }
+
+        var prevRole = game.role;
+        Object.assign(game, data);
       }
 
-      Object.assign(game, data);
-
       // New game
-      if(game.chess === null) 
+      if(examineModeRequested || prevRole === Role.NONE) 
         gameStart(game);
 
       // Make move
@@ -2117,20 +2170,20 @@ function messageHandler(data) {
         else if(allobsRequested && match[0] === 'There is no such game.')
           allobsRequested--;
         
-        if(match[0].startsWith('Ambiguous name'))
-          status.text('There is no player matching the name ' + match[1] + '.');
-        else if(match[0].includes('is not open for bughouse.'))
-          status.text(match[0] + ' Ask them to \'set bugopen 1\' in the Console.');
-        else if(match[0] === 'You cannot seek bughouse games.') 
-          status.text('You must specify an opponent for bughouse.');
-        else if(match[0].includes('no partner for bughouse.'))
-          status.text(match[0] + ' Get one by using \'partner <username>\' in the Console.');
-        else
-          status.text(match[0]);
-        
-        if(status)
+        if(status) {
+          if(match[0].startsWith('Ambiguous name'))
+            status.text('There is no player matching the name ' + match[1] + '.');
+          else if(match[0].includes('is not open for bughouse.'))
+            status.text(match[0] + ' Ask them to \'set bugopen 1\' in the Console.');
+          else if(match[0] === 'You cannot seek bughouse games.') 
+            status.text('You must specify an opponent for bughouse.');
+          else if(match[0].includes('no partner for bughouse.'))
+            status.text(match[0] + ' Get one by using \'partner <username>\' in the Console.');
+          else
+            status.text(match[0]);
+      
           status.show();
-
+        }
         return;
       }
       
@@ -2392,6 +2445,35 @@ function messageHandler(data) {
       match = msg.match(/^Game\s\d+: \w+ goes forward (\d+) moves?\./m);
       if (match != null && match.length > 1)
         return;
+      
+      // Suppress output when commiting a movelist in examine mode
+      match = msg.match(/^Game \d+: \w+ commits the subvariation\./m);
+      if(!match) 
+        match = msg.match(/^Game \d+: \w+ sets (white|black)'s clock to \S+/m);
+      if(!match)
+        match = msg.match(/^Game \d+: \w+ moves: \S+/m);
+      if(!match)
+        match = msg.match(/^Entering setup mode\./m);
+      if(!match)
+        match = msg.match(/^Castling rights for (white|black) set to \w+\./m);
+      if(!match)
+        match = msg.match(/^Game is validated - entering examine mode\./m);
+      if(!match)
+        match = msg.match(/^The game type is now .*/m);
+      if(!match)
+        match = msg.match(/^done: Command not found\./m); 
+      if(match) {
+        var game = getPlayingExaminingGame();
+        if(game && game.commitingMovelist) {
+          if(match[0] === 'done: Command not found.') // This was sent by us to indicate when we are done
+            game.commitingMovelist = false;
+          return; 
+        } 
+      }
+      
+      match = msg.match(/^Starting a game in examine \(scratch\) mode\./m);
+      if(match && examineModeRequested)
+        return;
 
       if (
         msg === 'Style 12 set.' ||
@@ -2625,6 +2707,11 @@ function updateHistory(game: Game, move?: any, fen?: string) {
   if(game.bufferedHistoryCount)
     game.bufferedHistoryCount--;
   
+  // If currently commiting a move list in examine mode. Don't display moves until we've finished
+  // sending the move list and then navigated back to the current move.
+  if(game.commitingMovelist)
+    return;
+ 
   if(!fen) 
     fen = game.chess.fen();
 
@@ -2649,7 +2736,7 @@ function updateHistory(game: Game, move?: any, fen?: string) {
       game.history.add(move, fen, newSubvariation, game.wtime, game.btime);
       getOpening(game);      
       updateVariantMoveData(game);
-      $('#playing-game').hide();
+      $('#game-pane-status').hide();
     }
     else { 
       // move not found, request move list
@@ -2883,6 +2970,9 @@ export function updateBoard(game: Game, playSound = false) {
   if(playSound && soundToggle && game === gameWithFocus) {
     clearTimeout(soundTimer);
     soundTimer = setTimeout(() => {
+      if(!game.history)
+        return; 
+
       const entry = game.history.current();
       const chess = new Chess(entry.fen);
       if(chess.in_check()) {
@@ -3014,8 +3104,10 @@ function playComputer(params: any) {
     fen: params.fen,                        // game state
     turn: 'W',                              // color whose turn it is to move ("B" or "W")
     id: -1,                                 // The game number
-    wname: wname, // White's name
-    bname: bname, // Black's name
+    wname: wname,                           // White's name
+    bname: bname,                           // Black's name
+    wrating: '',                            // White's rating
+    brating: '',                            // Black's rating
     role: Role.PLAYING_COMPUTER,            // my relation to this game
     time: params.playerTime,                // initial time in seconds         
     inc: params.playerInc,                  // increment per move in seconds
@@ -3088,7 +3180,7 @@ function playComputerBestMove(game: Game, bestMove: string, score: string = '=0.
   messageHandler(moveData);  
 }
 
-function generateChess960FEN(): string {
+function generateChess960FEN(idn?: number): string {
   // Generate random Chess960 starting position using Scharnagl's method. 
 
   const kingsTable = {
@@ -3125,7 +3217,8 @@ function generateChess960FEN(): string {
     ['-', '-', '-', '-', '-', '-', 'B', 'B']
   ];
 
-  var idn = Math.floor(Math.random() * 960); // Get random Chess960 starting position identification number 
+  if(!(idn >= 0 && idn <= 959))
+    var idn = Math.floor(Math.random() * 960); // Get random Chess960 starting position identification number 
   var kIndex = idn - idn % 16; // Index into King's Table
   var bIndex = idn - kIndex; // Index into Bishop's Table
   var kEntry = kingsTable[kIndex];
@@ -3493,6 +3586,7 @@ function createGame(): Game {
     game.element = $('#main-board-area').children().first();
     game.statusElement = $('#game-status-list > :first-child');
     game.moveTableElement = $('#move-table > :first-child');
+    game.moveListElement = $('#movelists > :first-child');
     game.board = mainBoard;
   }
   else {
@@ -3503,15 +3597,22 @@ function createGame(): Game {
     game.element.find($('[title="Close"]')).show();
     $('#secondary-board-area').css('display', 'flex');
 
-    game.statusElement = $('#game-status-list > :first-child').clone();
+    game.statusElement = gameWithFocus.statusElement.clone();
     game.statusElement.css('display', 'none');
     game.statusElement.appendTo($('#game-status-list'));
 
-    game.moveTableElement = $('#move-table > :first-child').clone();
+    game.moveTableElement = gameWithFocus.moveTableElement.clone();
     game.moveTableElement.css('display', 'none');
     game.moveTableElement.appendTo($('#move-table'));
 
+    game.moveListElement = gameWithFocus.moveListElement.clone();
+    game.moveListElement.css('display', 'none');
+    game.moveListElement.appendTo($('#movelists')); 
+
     $('#secondary-board-area')[0].scrollTop = $('#secondary-board-area')[0].scrollHeight; // Scroll secondary board area to the bottom
+  
+    $('#game-tools-close').parent().show();
+    $('#game-tools-close-divider').parent().show();
   }
 
   function gameTouchHandler(event) {
@@ -3522,13 +3623,16 @@ function createGame(): Game {
   game.element[0].addEventListener('mousedown', gameTouchHandler);
 
   game.element.on('click', '[title="Close"]', (event) => {
-    closeGame(game);
+    var game = gameWithFocus;
+    if(game.preserved)
+      closeGameDialog(game);
+    else
+      closeGame(game);
     event.stopPropagation();
   });
 
   game.element.on('click', '[title="Maximize"]', (event) => {
     setGameWithFocus(game);
-    animateBoundingRects(game.element, $('#main-board-area'), game.element.css('--border-expand-color'), game.element.css('--border-expand-width'));
     maximizeGame(game);
   });
 
@@ -3537,7 +3641,6 @@ function createGame(): Game {
       return;
 
     setGameWithFocus(game);
-    animateBoundingRects(game.element, $('#main-board-area'), game.element.css('--border-expand-color'), game.element.css('--border-expand-width'));
     maximizeGame(game);
   });
 
@@ -3568,10 +3671,16 @@ function maximizeGame(game: Game) {
   if(getMainGame() === game)
     return;
 
+  animateBoundingRects(game.element, $('#main-board-area'), game.element.css('--border-expand-color'), game.element.css('--border-expand-width'));
+
   // Move currently maximized game card to secondary board area
   var prevMaximized = getMainGame();
-  prevMaximized.element.appendTo('#secondary-board-area');
-  makeSecondaryBoard(prevMaximized);
+  if(prevMaximized) {
+    prevMaximized.element.appendTo('#secondary-board-area');
+    makeSecondaryBoard(prevMaximized);
+  }
+  else
+    $('#main-board-area').empty();
   // Move card to main board area
   game.element.appendTo('#main-board-area');
   makeMainBoard(game);
@@ -3636,7 +3745,25 @@ function animateBoundingRects(fromElement: any, toElement: any, color: string = 
   }, 0);
 }
 
+function closeGameDialog(game: Game) {
+  var headerTitle = 'Close Game';
+  var bodyText = 'Really close game?';
+  var button1 = [`closeGameClickHandler(event)`, 'OK'];
+  var button2 = ['', 'Cancel']; 
+  var showIcons = true;
+  var modal = showFixedModal(headerTitle, '', bodyText, button2, button1, false, showIcons);
+  modal.data('game', game);
+}
+
+(window as any).closeGameClickHandler = (event) => {
+  var game = $(event.target).closest('.toast').data('game');
+  closeGame(game);
+};
+
 function closeGame(game: Game) {
+  if(!games.includes(game))
+    return;
+
   if(!multiboardToggle && (game.isObserving() || game.isExamining()))
     gameExitPending++;
   
@@ -3657,17 +3784,49 @@ function getPlayingExaminingGame(): Game {
 
 function getFreeGame(): Game {
   var game = getMainGame();
-  if(game.role === Role.NONE)
+  if(game.role === Role.NONE && !game.preserved)
     return game;
 
-  return games.find(g => g.role === Role.NONE);
+  return games.find(g => g.role === Role.NONE && !g.preserved);
 }
 
 function getComputerGame(): Game {
   return games.find(g => g.role === Role.PLAYING_COMPUTER);
 }
 
+function getMostImportantGame(): Game {
+  // find most important board 
+  // out of playing/examining game, then computer game, then observed game on main board, then other observed game
+  var game = getPlayingExaminingGame();
+  if(!game)
+    game = getComputerGame();
+  if(!game) {
+    var mainGame = getMainGame();
+    if(mainGame && mainGame.isObserving())
+      game = mainGame;
+  }
+  if(!game)
+    game = games.find(g => g.isObserving());
+  if(!game)
+    game = mainGame;
+  if(!game)
+    game = games[0];
+
+  return game;
+}
+
 function removeGame(game: Game) {
+  // remove game from games list
+  let index = games.indexOf(game);
+  if(index !== -1) 
+    games.splice(index, 1);
+
+  // if we are removing the main game, choose the most important secondary game to maximize
+  if(game.element.parent().is('#main-board-area')) {
+    var newMainGame = getMostImportantGame();
+    maximizeGame(newMainGame);
+  }
+
   // If game currently had the focus, switch focus to the main game
   if(game === gameWithFocus)
     setGameWithFocus(getMainGame());
@@ -3677,13 +3836,9 @@ function removeGame(game: Game) {
   // Remove game's html elements from the DOM
   game.element.remove();
   game.moveTableElement.remove();
+  game.moveListElement.remove();
   game.statusElement.remove();
  
-  // remove game from games list
-  let index = games.indexOf(game);
-  if(index !== -1) 
-    games.splice(index, 1);
-
   // clean up circular references
   game.history = null;
   game.clock = null;
@@ -3691,6 +3846,11 @@ function removeGame(game: Game) {
   if(!$('#secondary-board-area').children().length) 
     $('#secondary-board-area').hide();
   setPanelSizes();
+
+  if(games.length === 1) {
+    $('#game-tools-close').parent().hide();
+    $('#game-tools-close-divider').parent().hide();
+  }
 }
 
 function findGame(id: number): Game {
@@ -3702,19 +3862,24 @@ function setGameWithFocus(game: Game) {
     if(gameWithFocus) {
       gameWithFocus.element.removeClass('game-focused');
       gameWithFocus.moveTableElement.hide();
+      gameWithFocus.moveListElement.hide();
       gameWithFocus.statusElement.hide();
       gameWithFocus.board.setAutoShapes([]);
     }
-
+    
     game.moveTableElement.show();
+    game.moveListElement.css('display', 'flex');
     game.statusElement.show();
 
     if(game.element.parent().attr('id') === 'secondary-board-area')
       game.element.addClass('game-focused');  
 
     gameWithFocus = game;
+
+    
+    setMovelistViewMode();
     initGameRole(game);
-   
+  
     updateBoard(game);
   }
 }
@@ -3724,6 +3889,7 @@ function initGameRole(game: Game) {
     return; 
 
   initAnalysis(game);
+  initGameTools(game);
 
   if(game.history && game.history.hasSubvariation()) 
     showExitSubvariationButton();
@@ -3742,9 +3908,9 @@ function initGameRole(game: Game) {
   $('#takeback').prop('disabled', game.role === Role.PLAYING_COMPUTER);
 
   if((game.isExamining() || game.isObserving()) && !isSmallWindow())       
-    showCloseGamePanel();
+    showLeftPanelHeader2();
   else
-    hideCloseGamePanel();
+    hideLeftPanelHeader2();
 
   if(game.isExamining()) 
     showButton($('#stop-examining'));
@@ -3780,10 +3946,11 @@ function onDeviceReady() {
   setGameWithFocus(game);
 
   disableOnlineInputs(true);
-  
+
   if(isSmallWindow()) {
     $('#collapse-chat').collapse('hide');
     $('#collapse-history').collapse('hide');
+    setViewModeList(); 
   }
   else {
     createTooltips();
@@ -3814,6 +3981,8 @@ function onDeviceReady() {
   } else {
     session = new Session(messageHandler);
   }
+
+  initDropdownSubmenus();
 }
 
 // Enable tooltips. 
@@ -3886,7 +4055,7 @@ function useMobileLayout() {
   $('#stop-examining').appendTo($('#viewing-game-buttons').last());
   $('#viewing-games-buttons:visible:last').addClass('me-0'); // This is so visible buttons in the btn-toolbar center properly
   $('#collapse-chat-arrow').show();
-  hideCloseGamePanel();
+  hideLeftPanelHeader2();
   createTooltips();
   layout = Layout.Mobile;
 }
@@ -3894,10 +4063,10 @@ function useMobileLayout() {
 function useDesktopLayout() {
   swapLeftRightPanelHeaders();
   $('#chat-maximize-btn').show();
-  $('#stop-observing').appendTo($('#close-game-panel').last());
-  $('#stop-examining').appendTo($('#close-game-panel').last());
+  $('#stop-observing').appendTo($('#game-role-panel').last());
+  $('#stop-examining').appendTo($('#game-role-panel').last());
   if(gameWithFocus.isObserving() || gameWithFocus.isExamining())
-    showCloseGamePanel();
+    showLeftPanelHeader2();
   $('#collapse-chat-arrow').hide();
 
   createTooltips();
@@ -4599,26 +4768,17 @@ $('#multiboard-toggle').on('click', (event) => {
   multiboardToggle = !multiboardToggle;
   if(!multiboardToggle) {
     // close all games except one
-
-    // find most important board to keep
-    // out of playing/examining game, then computer game, then observed game on main board, then other observed game
-    var game = getPlayingExaminingGame();
-    if(!game)
-      game = getComputerGame();
-    if(!game && !getMainGame().isObserving())
-      game = games.find(g => g.isObserving());
-
-    if(game) {
-      setGameWithFocus(game);
-      maximizeGame(game);
-    }
-
+    var game = getMostImportantGame();
+    setGameWithFocus(game);
+    maximizeGame(game);
+  
     // close all games in the secondary board area
     for(let i = games.length - 1; i >= 0; i--) {
       if(games[i].element.parent().is('#secondary-board-area')) 
         closeGame(games[i]);
     }
   }
+  initGameTools(gameWithFocus);
   Cookies.set('multiboard', String(multiboardToggle), { expires: 365 })
 });
 
@@ -4961,6 +5121,15 @@ function initObservePane() {
   }
 }
 
+$(document).on('show.bs.tab', 'button[data-bs-target="#pills-game"]', (e) => {
+  if($('#game-list-view').is(':checked')) 
+    $('#left-panel').addClass('list-view-showing');
+});
+
+$(document).on('hide.bs.tab', 'button[data-bs-target="#pills-game"]', (e) => {
+  $('#left-panel').removeClass('list-view-showing');
+});
+
 $('#puzzlebot').on('click', (event) => {
   session.send('t puzzlebot getmate');
   showTab($('#pills-game-tab'));
@@ -5101,5 +5270,292 @@ function formatLobbyEntry(seek: any): string {
       + seek.ratedUnrated + ' ' + seek.category + color;
 }
 
+function initGameTools(game: Game) {
+  updateGamePreserved(game);
+  $('#game-tools-clone').parent().toggle(multiboardToggle);
+  $('#game-tools-clone').toggleClass('disabled', game.isPlaying());
+  $('#game-tools-examine').toggleClass('disabled', game.isPlaying() || game.isExamining() 
+      || game.category === 'wild/fr' || game.category === 'wild/0' 
+      || game.category === 'wild/1' || game.category === 'bughouse');
+}
 
+$('#game-table-view').on('change', function() {
+  if($('#game-table-view').is(':checked')) 
+    setViewModeTable();
+});
 
+$('#game-list-view').on('change', function() {
+  if($('#game-list-view').is(':checked')) 
+    setViewModeList();
+});
+
+$('#game-table-view, #game-list-view').on('keydown', function(event) {
+  if(event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    event.preventDefault();
+    $(document).trigger($.Event('keydown', {
+      key: event.key,
+      altKey: event.altKey,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      metaKey: event.metaKey
+    }));
+  }
+});
+
+function setViewModeTable() {
+  $('#left-panel').removeClass('list-view-showing');
+  $('#movelists').hide();
+  $('#move-table').show();
+  $('#game-table-view').prop('checked', true);
+  gameWithFocus.history.highlightMove();
+}
+
+function setViewModeList() {
+  if($('#pills-game').is(':visible'))
+    $('#left-panel').addClass('list-view-showing');
+  $('#move-table').hide();
+  $('#movelists').show();
+  $('#game-list-view').prop('checked', true);
+  gameWithFocus.history.highlightMove();
+}
+
+function setMovelistViewMode() {
+  if($('#game-table-view').is(':checked')) 
+    setViewModeTable();
+  else
+    setViewModeList();
+}
+
+$('#game-preserved').on('change', function (e) {
+  gameWithFocus.preserved = $(this).is(':checked');
+  updateGamePreserved(gameWithFocus);
+});
+
+function updateGamePreserved(game: Game) {
+  var label = $('label[for="game-preserved"]');  
+  if(multiboardToggle) {
+    $('#game-preserved').show();
+    label.show();
+    $('#game-preserved').attr('aria-checked', String(game.preserved));
+    $('#game-preserved').prop('checked', game.preserved);
+    if(game.preserved) 
+      label.find('span').removeClass('fa-unlock').addClass('fa-lock');
+    else 
+      label.find('span').removeClass('fa-lock').addClass('fa-unlock');
+  }
+  else {
+    $('#game-preserved').hide();
+    label.hide();
+  }
+}
+
+$('#game-tools-new').on('click', (event) => {
+  newGameDialog();
+});
+
+$('#new-variant-game-submenu a').on('click', (event) => {
+  var category = $(event.target).text();
+  if(category === 'Chess960')
+    category = 'wild/fr';
+
+  category = category.toLowerCase();
+  newGameDialog(category);
+});
+
+function newGameDialog(category: string = 'untimed') {
+  var chess960idn = 'null';
+  var categoryStr = `'` + category + `'`;
+  var fenStr = 'null';
+  var bodyText = '';
+
+  if(category === 'wild/fr') {
+    chess960idn = `document.getElementById('chess960idn').value`;
+    var bodyText = 
+      `<label for"chess960idn">Chess960 Starting Position ID</label>
+      <input type="number" min="0" max="959" placeholder="0-959" class="form-control text-center" id="chess960idn"><br>`;
+  }
+
+  if(gameWithFocus.role === Role.NONE || category === 'wild/fr') {
+    var headerTitle = 'Create new game';
+    var bodyTitle = '';
+    if(gameWithFocus.role === Role.NONE && multiboardToggle) {
+      var bodyText = bodyText + 'Overwrite existing game or open new board?';
+      var button1 = [`newGame(false, ` + categoryStr + `, ` + fenStr + `, ` + chess960idn + `)`, 'Overwrite'];
+      var button2 = [`newGame(true, ` + categoryStr + `, ` + fenStr + `, ` + chess960idn + `)`, 'New Board'];
+      var showIcons = false;
+    }
+    else if(gameWithFocus.role === Role.NONE) {
+      var bodyText = bodyText + 'This will clear the current game.';
+      var button1 = [`newGame(false, ` + categoryStr + `, ` + fenStr + `, ` + chess960idn + `)`, 'OK'];
+      var button2 = ['', 'Cancel']; 
+      var showIcons = true;
+    }
+    else if(category === 'wild/fr') {
+      var button1 = [`newGame(true, ` + categoryStr + `, ` + fenStr + `, ` + chess960idn + `)`, 'OK'];
+      var button2 = ['', 'Cancel']; 
+      var showIcons = true;
+    }
+    showFixedModal(headerTitle, bodyTitle, bodyText, button2, button1, false, showIcons);
+  }
+  else if(multiboardToggle)
+    newGame(true, category);
+}
+
+(window as any).newGame = newGame;
+function newGame(createNewBoard: boolean, category: string = 'untimed', fen?: string, chess960idn?: string) {
+  if(createNewBoard)
+    var game = createGame();
+  else {
+    var game = gameWithFocus;
+    cleanupGame(game);
+  }
+
+  if(category === 'wild/fr' && !fen) 
+    var fen = generateChess960FEN(chess960idn ? +chess960idn : null);
+  
+  if(!fen) 
+    fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+  var data = {
+    fen: fen,                               // game state
+    turn: 'W',                              // color whose turn it is to move ("B" or "W")
+    id: -1,                                 // The game number
+    wname: '',                              // White's name
+    bname: '',                              // Black's name
+    wrating: '',                            // White's rating
+    brating: '',                            // Black's rating
+    role: Role.NONE,                        // my relation to this game
+    time: 0,                                // initial time in seconds         
+    inc: 0,                                 // increment per move in seconds
+    wtime: 0,                               // White's remaining time
+    btime: 0,                               // Black's remaining time
+    moveNo: 1,                              // the number of the move about to be made
+    move: 'none',                           // pretty notation for the previous move ("none" if there is none)
+    flip: false,                            // whether game starts with board flipped
+    category: category,                     // game variant or type
+  }
+  Object.assign(game, data);
+  game.statusElement.find('.game-status').html('');
+  gameStart(game);
+};
+
+function initDropdownSubmenus() {
+  // stop dropdown disappearing when submenu opened
+  $('.dropdown-submenu').prev().on('click', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    $(e).next().show();
+  });
+}
+
+$('#game-tools-clone').on('click', (event) => {
+  cloneGame(gameWithFocus);
+});
+
+function cloneGame(game: Game): Game {
+  var clonedGame = createGame();
+
+  // Copy GameData properties
+  var gameData = new GameData(); // Create temp instance in order to iterate its proeprties
+  for(const key of Object.keys(gameData)) 
+    clonedGame[key] = game[key];
+  
+  clonedGame.id = -1;
+  clonedGame.role = Role.NONE;
+  clonedGame.history = game.history.clone(clonedGame);
+  clonedGame.history.display();
+  clonedGame.statusElement.find('.game-watchers').empty();
+  clonedGame.board.set({ orientation: game.board.state.orientation });
+  return clonedGame;
+}
+
+$('#game-tools-examine').on('click', (event) => {
+  examineModeRequested = gameWithFocus;
+  session.send('ex');
+});
+
+/** Convert a game to examine mode by using bsetup and then commiting the movelist */
+function setupGameInExamineMode(game: Game) {
+  // Setup the board
+  var fenWords = splitFEN(game.history.first().fen);
+  
+  // starting FEN
+  session.send('bsetup fen ' + fenWords.board);
+
+  // game rules
+  // Note bsetup for fr and wild are currently broken on FICS and there is no option for bughouse 
+  if(game.category === 'wild/fr')
+    session.send('bsetup fr');
+  else if(game.category.startsWith('wild'))
+    session.send('bsetup wild');
+  else if(game.category === 'losers' || game.category === 'crazyhouse' || game.category === 'atomic' || game.category === 'suicide')
+    session.send('bsetup ' + game.category);
+
+   // turn color
+  if(fenWords.color === 'b') 
+    session.send('bsetup tomove black');
+
+  // castling rights
+  var castlingRights = fenWords.castlingRights;
+  if(castlingRights.includes('K') && castlingRights.includes('Q'))
+    var wcastling = 'both';
+  else if(castlingRights.includes('K'))
+    var wcastling = 'kside';
+  else if(castlingRights.includes('Q'))
+    var wcastling = 'qside';
+  else
+    var wcastling = 'none';
+  if(castlingRights.includes('k') && castlingRights.includes('q'))
+    var bcastling = 'both';
+  else if(castlingRights.includes('k'))
+    var bcastling = 'kside';
+  else if(castlingRights.includes('q'))
+    var bcastling = 'qside';
+  else
+    var bcastling = 'none';    
+  session.send('bsetup wcastle ' + wcastling);
+  session.send('bsetup bcastle ' + bcastling);
+
+  // en passant rights
+  var enPassant = fenWords.enPassant;
+  if(enPassant !== '-')
+    session.send('bsetup eppos ' + enPassant[0]);
+
+  session.send('bsetup done');
+  session.send('wname ' + game.wname);
+  session.send('bname ' + game.bname);
+
+  // Send and commit move list
+  game.commitingMovelist = true;
+  if(game.history.current() !== game.history.last())
+    var currMove = game.history.current();
+  game.history.goto(game.history.first());
+  var hEntry = game.history.first();
+  while(hEntry) {
+    if(hEntry.move)
+      sendMove(hEntry.move);
+    session.send('wclock ' + Clock.MSToHHMMSS(hEntry.wtime));
+    session.send('bclock ' + Clock.MSToHHMMSS(hEntry.btime));
+    var hEntry = hEntry.next;
+  }
+  if(!game.history.scratch() && game.history.length())  
+    session.send('commit');
+  game.history.goto(game.history.last());
+
+  // Navigate back to current move
+  if(currMove) {
+    gotoMove(currMove);
+    game.history.goto(currMove);
+  }
+
+  // This is a hack just to indicate we are done
+  session.send('done');
+}
+
+$('#game-tools-close').on('click', (event) => {
+  var game = gameWithFocus;
+  if(game.preserved)
+    closeGameDialog(game);
+  else
+    closeGame(game);
+});

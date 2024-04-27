@@ -139,6 +139,26 @@ cg-board {
   color: #DDDDDD
 }
 
+.movelist .selected {
+  background-color: rgba(255, 255, 255, 0.3);
+  color: #FFFFFF;
+}
+.movelist .subvariation {
+  color: #AAAAAA;
+}
+.movelist .subvariation .selected {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #DDDDDD;
+}
+.movelist .move:hover,
+.movelist .subvariation .move:hover {
+  color: rgb(10, 88, 202);
+}
+.movelist .selected:hover,
+.movelist .subvariation .selected:hover {
+  color: rgb(5, 44, 101);
+}
+
 #engine-pvs > li:nth-of-type(even) {
   background-color: rgba(0, 0, 0, 0.08);
 }

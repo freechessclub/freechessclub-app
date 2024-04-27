@@ -13,38 +13,38 @@ export const Role = {
   PLAYING_COMPUTER: -998    // I am playing the Computer locally
 };
 
-class GameData {
-  fen: string;                          // game position
-  turn: string;                         // color whose turn it is to move ("B" or "W")
-  id: number;                           // The game number
-  wname: string;                        // White's name
-  bname: string;                        // Black's name
-  role: number;                         // my relation to this game
-  time: number;                         // initial time (in seconds) of the match
-  inc: number;                          // increment In seconds) of the match
-  wstrength: number;                    // White material strength
-  bstrength: number;                    // Black material strength
-  wtime: number;                        // White's remaining time in milliseconds
-  btime: number;                        // Black's remaining time in milliseconds
-  moveNo: number;                       // the number of the move about to be made
+export class GameData {
+  fen: string = '';                     // game position
+  turn: string = 'W';                   // color whose turn it is to move ("B" or "W")
+  id: number = -1;                      // The game number
+  wname: string = '';                   // White's name
+  bname: string = '';                   // Black's name
+  role: number = Role.NONE;             // my relation to this game
+  time: number = 0;                     // initial time (in seconds) of the match
+  inc: number = 0;                      // increment In seconds) of the match
+  wstrength: number = 0;                // White material strength
+  bstrength: number = 0;                // Black material strength
+  wtime: number = 0;                    // White's remaining time in milliseconds
+  btime: number = 0;                    // Black's remaining time in milliseconds
+  moveNo: number =  1;                  // the number of the move about to be made
   moveVerbose: {                        // verbose coordinate notation for the previous move
     from: string,                       // from square
     to: string,                         // to square
     promotion: string,                  // promotion piece
     san: string,                        // move in algebraec form
-  };
+  } = null;
   prevMoveTime: {                       // time taken to make previous move
     minutes: number,
     seconds: number,
     milliseconds: number,
-  };
-  move: string;                         // pretty notation for the previous move ("none" if there is none)
+  } = null;
+  move: string = '';                    // pretty notation for the previous move ("none" if there is none)
   flip: boolean = false;                // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.
-  wrating: string;                      // white's rating
-  brating: string;                      // black's rating
+  wrating: string = '';                 // white's rating
+  brating: string = '';                 // black's rating
   category: string = '';                // category or variant
   color: string = 'w';
-  difficulty: number;                   // computer difficulty level
+  difficulty: number = 0;               // computer difficulty level
 
   public isPlaying() { return this.role === Role.MY_MOVE || this.role === Role.OPPONENTS_MOVE || this.role === Role.PLAYING_COMPUTER; }
   public isPlayingOnline() { return this.role === Role.MY_MOVE || this.role === Role.OPPONENTS_MOVE; }
@@ -64,6 +64,7 @@ export class Game extends GameData {
   // HTML elements associated with this Game
   element: any = null; // The main game card including the board
   moveTableElement: any = null; // The move list (in 2 column table form)
+  moveListElement: any = null; // The move list (in PGN form)
   statusElement: any = null; // The status panel 
 
   // Keep track of which analysis tab is showing
@@ -83,4 +84,6 @@ export class Game extends GameData {
 
   lastComputerMoveEval: string = null; // Keeps track of the current eval for a game against the Computer. Used for draw offers
   partnerGameId: number = null;        // bughouse partner's game id
+  preserved: boolean = false;          // if true, prevents a game/board from being overwritten 
+  commitingMovelist = false;           // Used when entering examine mode and using 'commit' to submit a move list
 }

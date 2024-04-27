@@ -34,13 +34,11 @@ html, body {
 }
 
 #game-requests {
-  position: absolute;
   width: 100%;
   height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 100;
 }
 
 .game-status {
@@ -59,6 +57,10 @@ html, body {
 
 #left-panel {
   height: 460px;
+}
+
+#left-panel.list-view-showing {
+  height: 200px;
 }
 
 #left-panel-bottom {
@@ -296,6 +298,20 @@ html, body {
   flex-wrap: wrap;
 }
 
+#game-toolbar .btn {
+  --bs-btn-active-color: rgba(159, 184, 228, 0.75);
+  --bs-btn-active-bg: transparent;
+  --bs-btn-hover-bg: transparent;
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-border-color: transparent; 
+  --bs-btn-active-border-color: transparent;
+}
+
+#game-tools-close .dropdown-icon {
+  padding-left: 0.125rem; 
+  padding-right: 0.25rem;
+}
+
 #move-table {
   padding: 0;
 }
@@ -341,6 +357,26 @@ html, body {
   padding-left: 15px; 
   padding-right: 15px;
   font-weight: bold;
+}
+
+.movelist .selected {
+  background-color: rgba(0, 0, 0, 0.2);
+  color: #000000;
+}
+.movelist .subvariation {
+  color: #5e4d3b;
+}
+.movelist .subvariation .selected {
+  background-color: rgba(0, 0, 0, 0.2);
+  color: #2e2418;
+}
+.movelist .move:hover,
+.movelist .subvariation .move:hover {
+  color: rgb(10, 88, 202);
+}
+.movelist .selected:hover,
+.movelist .subvariation .selected:hover {
+  color: rgb(10, 88, 202);
 }
 
 .nav-tabs .nav-item .closeTab {
@@ -614,3 +650,24 @@ html, body {
 .form-heading {
   color: #638FA8;
 }
+
+.dropdown-menu li { 
+  position: relative; 	
+}
+.dropdown-submenu{  
+  display: none;
+  position: absolute;
+  left:100%;
+  top:-7px;
+}
+.dropdown-submenu-left { 
+  right:100%; left:auto;
+}
+.dropdown-menu > li:hover > .dropdown-submenu{ display: block; }
+@media (max-width: 767px) {
+  .dropdown-submenu {
+    right:100%; left:auto;
+    min-width: 0;
+  }
+}	
+
