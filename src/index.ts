@@ -67,7 +67,8 @@ let prevWindowWidth = 0;
 let layout = Layout.Desktop;
 let addressBarHeight;
 let soundTimer
-let showSentOffersTimer;
+let showSentOffersTimer; // Delay showing new offers until the user has finished clicking buttons
+let newSentOffers = []; // New sent offers (match requests and seeks) that are waiting to be displayed
 let activeTab;
 let newGameVariant = '';
 let lobbyEntries = new Map();
@@ -320,7 +321,7 @@ $('#move-table').on('click', '.selectable', function() {
 export function gotoMove(entry: HEntry) {
   var game = gameWithFocus;
   if(game.isExamining()) {
-    const prevEntry = game.history.current();
+    var prevEntry = (game.bufferedHistoryCount ? game.bufferedHistoryEntry : game.history.current());
 
     let mainlineEntry = entry;
     let firstSubvarEntry = entry;
@@ -336,24 +337,34 @@ export function gotoMove(entry: HEntry) {
       i = i.prev;
       backNum++;
     }
-    if(backNum > 0) 
+    if(backNum > 0) {
       session.send('back ' + backNum);
+      game.bufferedHistoryEntry = i;
+      game.bufferedHistoryCount++;
+    }
 
     let forwardNum = 0;
     while(i !== mainlineEntry && !game.history.scratch() && (!prevEntry.isSubvariation() || !entry.isSubvariation())) {     
       i = i.next;
       forwardNum++;
     }
-    if(forwardNum > 0)
+    if(forwardNum > 0) {
       session.send('for ' + forwardNum);
+      game.bufferedHistoryEntry = i;
+      game.bufferedHistoryCount++;
+    }
 
     if(!prevEntry.isSubvariation() && entry.isSubvariation()) {
       i = firstSubvarEntry;
       sendMove(i.move);
+      game.bufferedHistoryEntry = i;
+      game.bufferedHistoryCount++;
     }
     while(i !== entry) {
       i = i.next;
       sendMove(i.move);
+      game.bufferedHistoryEntry = i;
+      game.bufferedHistoryCount++;
     }
   }
   else
@@ -532,9 +543,9 @@ export function movePiece(source: any, target: any, metadata: any) {
 
     chess.load(fen);
 
-    if (game.isPlaying() && game.chess.turn() !== game.color && game.role !== Role.PLAYING_COMPUTER)
+    if (game.isPlayingOnline() && game.chess.turn() !== game.color) 
       sendMove(move);
-   
+  
     if(game.isExamining()) {
       var nextMove = game.history.next();
       if(nextMove && !nextMove.isSubvariation() && !game.history.scratch() && fen === nextMove.fen) 
@@ -691,7 +702,9 @@ function createNotification(type: string, title: string, msg: string, btnFailure
   $('#notifications-number').text($('.notification:not([data-remove="true"])').length);
   $('#notifications-bubble').show();
   
-  if(notificationsToggle || $('#notifications-header').attr('data-show'))
+  var game = getPlayingExaminingGame();
+  var playingGame = (game && game.isPlayingOnline() ? true : false); // Don't show notifications if playing a game
+  if((notificationsToggle && !playingGame) || $('#notifications-header').attr('data-show'))
     showNotifications(modal);
 
   return modal;
@@ -972,11 +985,15 @@ function hideAllNotifications() {
 }
 
 function clearNotifications() {
-  $('.notification').removeAttr('data-show'); 
   var delay = 0;
-  $('.notification.show').each((index, element) => {
-    setTimeout(() => removeNotification($(element)), delay);
-    delay += 100;
+  $('.notification').each((index, element) => {
+    $(element).removeAttr('data-show');
+    if($(element).hasClass('show')) {
+      setTimeout(() => removeNotification($(element)), delay);
+      delay += 100;
+    }
+    else 
+      removeNotification($(element));
   });
 }
 
@@ -1543,6 +1560,7 @@ function gameStart(game: Game) {
   game.element.find('.opponent-status .captured').text('');
   game.element.find('.card-header').css('--bs-card-cap-bg', '');
   game.element.find('.card-footer').css('--bs-card-cap-bg', '');
+  game.element.find('.clock').removeClass('low-time');
   $('#playing-game').hide();
   $('#pairing-pane-status').hide();
   game.statusElement.find('.game-watchers').empty();
@@ -1551,6 +1569,7 @@ function gameStart(game: Game) {
   if(game.isPlaying() || game.isExamining()) {
     clearMatchRequests();
     $('#game-requests').html('');
+    hideAllNotifications();
   }
 
   if(game.role !== Role.PLAYING_COMPUTER) {
@@ -1580,7 +1599,7 @@ function gameStart(game: Game) {
 
   game.history = new History(game, game.fen, game.time * 60000, game.time * 60000);
   
-  if(game.isPlaying() && game.role !== Role.PLAYING_COMPUTER)
+  if(game.isPlayingOnline())
     game.element.find($('[title="Close"]')).hide();
 
   var focusSet = false;
@@ -1596,9 +1615,6 @@ function gameStart(game: Game) {
       initGameRole(game);
     updateBoard(game);
   }
-
-  if(!mainGame || game.id !== mainGame.partnerGameId) 
-    scrollToBoard(game);
 
   if(game.isPlaying() || game.isObserving()) {
     // Adjust settings for game category (variant)
@@ -1633,16 +1649,17 @@ function gameStart(game: Game) {
     }
   }
 
-  if(game.isExamining() || game.isObserving()) {           
-    if(game.isExamining()) {
-      if(game.wname === game.bname)
-        game.history.scratch(true);
-      else {
-        if(getPlyFromFEN(game.fen) !== 1)
-          session.send('back 999');
-        session.send('for 999');
-      }
+  if(game.isExamining()) {
+    if(game.wname === game.bname)
+      game.history.scratch(true);
+    else {
+      if(getPlyFromFEN(game.fen) !== 1)
+        session.send('back 999');
+      session.send('for 999');
     }
+  }
+
+  if(game.isExamining() || ((game.isObserving() || game.isPlayingOnline()) && getPlyFromFEN(game.fen) > 1)) {        
     movelistRequested++;
     session.send('iset startpos 1'); // Show the initial board position before the moves list 
     session.send('moves ' + game.id);
@@ -1653,6 +1670,9 @@ function gameStart(game: Game) {
     showTab($('#pills-game-tab'));
     showStatusPanel();
   }
+
+  if(!mainGame || game.id !== mainGame.partnerGameId) 
+    scrollToBoard(game);
 }
 
 function messageHandler(data) {
@@ -1714,7 +1734,7 @@ function messageHandler(data) {
       // If in single-board mode, check we are not examining/observing another game already
       if(!multiboardToggle) {
         var game = getMainGame();
-        if(game.isPlaying() && game.role !== Role.PLAYING_COMPUTER && game.id !== data.id) {
+        if(game.isPlayingOnline() && game.id !== data.id) {
           if(data.role === Role.OBSERVING || data.role === Role.OBS_EXAMINED)
             session.send('unobs ' + data.id);
           break;
@@ -1803,7 +1823,7 @@ function messageHandler(data) {
       if(game.isPlaying()) {
         let rematch = [], analyze = [];
         var useSessionSend = true;   
-        if(data.reason !== 2 && data.reason !== 7) {
+        if(data.reason !== Reason.Disconnect && data.reason !== Reason.Adjourn && data.reason !== Reason.Abort) {
           if(game.role === Role.PLAYING_COMPUTER) {
             rematch = ['rematchComputer();', 'Rematch'];
             useSessionSend = false;
@@ -1811,7 +1831,7 @@ function messageHandler(data) {
           else if(game.element.find('.player-status .name').text() === session.getUser()) 
             rematch = [`sessionSend('rematch')`, 'Rematch']
         }
-        if(data.reason !== 7 && game.history.length()) {
+        if(data.reason !== Reason.Adjourn && data.reason !== Reason.Abort && game.history.length()) {
           analyze = ['analyze();', 'Analyze'];
         }
         showBoardModal('Match Result', '', data.message, rematch, analyze, false, false, false);
@@ -1856,17 +1876,19 @@ function messageHandler(data) {
       var sentOffers = offers.filter((item) => item.type === 'sn' 
         || (item.type === 'pt' && (item.subtype === 'partner' || item.subtype === 'match')));
       if(sentOffers.length) {
-        var newOffers = [];
         sentOffers.forEach((item) => {
           if(!$('.sent-offer[data-offer-id="' + item.id + '"]').length) {
             if(matchRequested)
               matchRequested--;
-            newOffers.push(item);
+            newSentOffers.push(item);
           }
         });
-        if(newOffers.length) {
+        if(newSentOffers.length) {
           clearTimeout(showSentOffersTimer);
-          showSentOffersTimer = setTimeout(() => showSentOffers(newOffers), 1000);
+          showSentOffersTimer = setTimeout(() => {
+            showSentOffers(newSentOffers);
+            newSentOffers = [];
+          }, 1000);
         }
         $('#pairing-pane-status').hide();
       }
@@ -1880,7 +1902,10 @@ function messageHandler(data) {
             displayType = 'notification';
             var time = !isNaN(item.initialTime) ? ' ' + item.initialTime + ' ' + item.increment : '';
             bodyText = item.ratedUnrated + ' ' + item.category + time;
-            headerTitle = 'Match Request';
+            if(item.adjourned)
+              headerTitle = 'Resume Adjourned Game Request';
+            else
+              headerTitle = 'Match Request';
             bodyTitle = item.opponent + ' (' + item.opponentRating + ')' + (item.color ? ' [' + item.color + ']' : '');
             $('.notification').each((index, element) => {
               var headerTextElement = $(element).find('.header-text');
@@ -1920,6 +1945,12 @@ function messageHandler(data) {
             bodyTitle = item.toFrom;
             bodyText = 'offers you a draw.';
             break;
+          case 'adjourn': 
+            displayType = 'modal';
+            headerTitle = 'Adjourn Request';
+            bodyTitle = item.toFrom;
+            bodyText = 'would like to adjourn the game.';
+            break;
         }
         
         if(displayType) {
@@ -1948,7 +1979,7 @@ function messageHandler(data) {
     case MessageType.Unknown:
     default:
       const msg = data.message;
-
+    
       var match = msg.match(/^No one is observing game (\d+)\./m);
       if (match != null && match.length > 1) {
         if(allobsRequested) {
@@ -1959,7 +1990,7 @@ function messageHandler(data) {
         return;
       }
 
-      var match = msg.match(/(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/);
+      match = msg.match(/^(?:Observing|Examining)\s+(\d+) [\(\[].+[\)\]]: (.+) \(\d+ users?\)/m);
       if (match != null && match.length > 1) {
         if (allobsRequested) {
           allobsRequested--;
@@ -1992,10 +2023,18 @@ function messageHandler(data) {
         return;
       }
 
-      match = msg.match(/.*\d+\s[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s+\[[\w\s]+\]\s+[\d:]+\s*\-\s*[\d:]+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed./g);
+      match = msg.match(/(?:^|\n)(?:\s*\d+\s+(\(Exam\.\s+)?[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s*(\)\s+)?\[[\w\s]+\]\s+[\d:]+\s*\-\s*[\d:]+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*)+\d+ games displayed./g);
       if (match != null && match.length > 0 && gamesRequested) {
         showGames(msg);
         gamesRequested = false;
+        return;
+      }
+
+      match = msg.match(/^Game (\d+): (\S+) has lagged for 30 seconds\./m);
+      if(match) {
+        var bodyText = match[2] + ' has lagged for 30 seconds.<br>You may courtesy adjourn the game.<br><br>If you believe your opponent has intentionally disconnected, you can request adjudication of an adjourned game. Type \'help adjudication\' in the console for more info.';
+        showBoardModal('Opponent Lagging', '', bodyText, ['', 'Wait'], ['adjourn', 'Adjourn']);
+        chat.newMessage('console', data);
         return;
       }
 
@@ -2094,16 +2133,32 @@ function messageHandler(data) {
 
         return;
       }
-
-      match = msg.match(/^Notification: .*/m);
-      if(!match)
-        match = msg.match(/^\w+ is not logged in./m);
+      
+      match = msg.match(/(?:^|\n)(\d+ players?, who (?:has|have) an adjourned game with you, (?:is|are) online:)\n(.*)/);
+      if(match && match.length > 2) {
+        createNotification('Resume Game', match[1] + '<br>' + match[2], '', [], ['resume', 'Resume Game']);
+        chat.newMessage('console', data);
+        return;
+      }
+      match = msg.match(/^Notification: ((\S+), who has an adjourned game with you, has arrived\.)/m);
+      if(match && match.length > 2) {
+        var alreadyExists = $('.notification').filter(function() {
+          var bodyTextElement = $(this).find('.body-text'); 
+          return bodyTextElement.length && bodyTextElement.text().startsWith(match[1]);
+        }).length;
+        if(!alreadyExists)
+          createNotification('Resume Game', match[1], '', [], ['resume ' + match[2], 'Resume Game']);
+        return;        
+      }
+      match = msg.match(/^\w+ is not logged in./m);
       if(!match)
         match = msg.match(/^Player [a-zA-Z\"]+ is censoring you./m);
       if(!match)
         match = msg.match(/^Sorry the message is too long./m);
       if(!match)
         match = msg.match(/^You are muted./m);
+      if(!match)
+        match = msg.match(/^Notification: .*/m);
       if(match && match.length > 0) {
         chat.newNotification(match[0]);
         return;
@@ -2233,7 +2288,7 @@ function messageHandler(data) {
           mainGame.partnerGameId = +match[1];
       }
 
-      match = msg.match(/(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\) \S+ (\S+).+/);
+      match = msg.match(/^(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\) \S+ (\S+).+/m);
       if (match != null && match.length > 7) {
         if(!multiboardToggle) {
           var game = getMainGame();
@@ -2264,7 +2319,7 @@ function messageHandler(data) {
         return;
       }
 
-      match = msg.match(/Removing game (\d+) from observation list./);
+      match = msg.match(/^Removing game (\d+) from observation list./m);
       if(match != null && match.length > 1) {
         var game = findGame(+match[1]);
         if(game) {
@@ -2281,7 +2336,7 @@ function messageHandler(data) {
         return;
       }
 
-      match = msg.match(/You are no longer examining game (\d+)./);
+      match = msg.match(/^You are no longer examining game (\d+)./m);
       if (match != null && match.length > 1) {
         var game = findGame(+match[1]);
         if(game) {
@@ -2298,7 +2353,7 @@ function messageHandler(data) {
         return;
       }
 
-      match = msg.match(/-- channel list: \d+ channels --([\d\s]*)/);
+      match = msg.match(/(?:^|\n)-- channel list: \d+ channels --([\d\s]*)/);
       if (match !== null && match.length > 1) {
         if(!channelListRequested) 
           chat.newMessage('console', data);
@@ -2307,7 +2362,7 @@ function messageHandler(data) {
         return chat.addChannels(match[1].split(/\s+/));
       }
       
-      match = msg.match(/-- computer list: \d+ names --([\w\s]*)/);
+      match = msg.match(/(?:^|\n)-- computer list: \d+ names --([\w\s]*)/);
       if (match !== null && match.length > 1) {
         if(!computerListRequested) 
           chat.newMessage('console', data);
@@ -2331,10 +2386,10 @@ function messageHandler(data) {
         return;
 
       // Moving backwards and forwards is now handled more generally by updateHistory()
-      match = msg.match(/Game\s\d+: \w+ backs up (\d+) moves?\./);
+      match = msg.match(/^Game\s\d+: \w+ backs up (\d+) moves?\./m);
       if (match != null && match.length > 1)
         return;
-      match = msg.match(/Game\s\d+: \w+ goes forward (\d+) moves?\./);
+      match = msg.match(/^Game\s\d+: \w+ goes forward (\d+) moves?\./m);
       if (match != null && match.length > 1)
         return;
 
@@ -2389,7 +2444,9 @@ function showSentOffers(offers: any) {
           unrated = '';
         }
 
-        requestsHtml += 'Challenging ' + offer.opponent + ' to ' + (time === '' ? 'an ' : 'a ') + time + unrated + offer.category + color + ' game.';
+        var adjourned = (offer.adjourned ? ' (adjourned)' : '');
+
+        requestsHtml += 'Challenging ' + offer.opponent + ' to ' + (time === '' ? 'an ' : 'a ') + time + unrated + offer.category + color + ' game' + adjourned + '.';
         var removeCmd = 'withdraw ' + offer.id;
       }
     }
@@ -3365,7 +3422,14 @@ $('#input-form').on('submit', (event) => {
   if (tab !== 'console') {
     if (val.charAt(0) !== '@') {
       if (tab.startsWith('game-')) {
-        text = 'kib ' + val;
+        var gameNum = tab.split('-')[1];
+        var game = findGame(+gameNum);
+        if(game && (game.isPlayingOnline() || game.isExamining()))
+          var xcmd = 'xkibitz'; 
+        else
+          var xcmd = 'xwhisper';
+            
+        text = xcmd + ' ' + gameNum + ' ' + val;
       } else {
         text = 't ' + tab + ' ' + val;
       }
@@ -3588,7 +3652,7 @@ function getMainGame(): Game {
 }
 
 function getPlayingExaminingGame(): Game {
-  return games.find(g => (g.isPlaying() && g.role !== Role.PLAYING_COMPUTER) || g.isExamining());
+  return games.find(g => g.isPlayingOnline() || g.isExamining());
 }
 
 function getFreeGame(): Game {
@@ -4857,7 +4921,7 @@ function showGames(games: string) {
   $('#observe-pane-status').hide();
 
   for (const g of games.split('\n').slice(0, -2).reverse()) {
-    var match = g.match(/\s+(\d+)\s+(\(Exam\.\s+)?(\S+)\s+(\w+)\s+(\S+)\s+(\w+)\s+(\)\s+)?(\[\s*)(\w+)(.*)/);
+    var match = g.match(/\s*(\d+)\s+(\(Exam\.\s+)?(\S+)\s+(\w+)\s+(\S+)\s+(\w+)\s*(\)\s+)?(\[\s*)(\w+)(.*)/);
     if(match) {
       var id = match[1];
 
@@ -4943,7 +5007,7 @@ function initLobbyPane() {
   var game = getPlayingExaminingGame();
   if(!session || !session.isConnected())
     $('#lobby').hide();
-  else if(game && (game.isExamining() || (game.isPlaying() && game.role !== Role.PLAYING_COMPUTER))) {
+  else if(game && (game.isExamining() || game.isPlayingOnline())) {
     if(game.isExamining())
       $('#lobby-pane-status').text('Can\'t enter lobby while examining a game.');
     else

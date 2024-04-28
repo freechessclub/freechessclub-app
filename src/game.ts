@@ -47,6 +47,7 @@ class GameData {
   difficulty: number;                   // computer difficulty level
 
   public isPlaying() { return this.role === Role.MY_MOVE || this.role === Role.OPPONENTS_MOVE || this.role === Role.PLAYING_COMPUTER; }
+  public isPlayingOnline() { return this.role === Role.MY_MOVE || this.role === Role.OPPONENTS_MOVE; }
   public isExamining() { return this.role === Role.EXAMINING; }
   public isObserving() { return this.role === Role.OBSERVING || this.role === Role.OBS_EXAMINED; }
 }

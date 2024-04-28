@@ -299,7 +299,6 @@ html, body {
 #move-table {
   padding: 0;
 }
-
 #move-table th {
   border: 0;
   width: 20%;
@@ -307,48 +306,36 @@ html, body {
   font-weight: bold;
   color: rgba(0, 0, 0, 0.4);
 }
-
 #move-table td {
   border: 0;
   width: 40%;
   text-align: center;
 }
-
 #move-table .selectable:hover {
   background-color: rgba(0, 0, 0, 0.075);
 }
-
 #move-table .subvariation:hover {
   background-color: rgba(255, 255, 255, 0.075);
 }
-
 #move-table .selectable:hover a {
   font-weight: bold;
   text-decoration: none;
 }
-
-#move-table .subvariation td {
-  background: #D7D7D7;
-}
-
+#move-table .subvariation td,
 #move-table .subvariation th {
-  background: #D7D7D7;
+  background: rgba(0, 0, 0, 0.15);
 }
-
-#move-table tr:nth-of-type(odd) {
+#move-table tr:nth-of-type(odd):not(.subvariation) {
   background-color: rgba(0, 0, 0, 0.05);
 }
-
 #move-table .subvariation .selected {
-  background-color: #BBBBBB; 
+  background-color: rgba(0, 0, 0, 0.15);
 }
-
 #move-table .subvariation a {
   color: #191970
 }
-
 #move-table .selected {
-  background-color: #DDDDDD; 
+  background-color: rgba(0, 0, 0, 0.1);
   padding-top: 2px; 
   padding-bottom: 3px; 
   padding-left: 15px; 

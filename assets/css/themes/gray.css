@@ -116,26 +116,24 @@ cg-board {
 #move-table th {
   color: rgba(255, 255, 255, 0.4);
 }
-#move-table tr:nth-of-type(odd) {
+#move-table tr:nth-of-type(odd):not(.subvariation) {
   background-color: rgba(0, 0, 0, 0.08);
 }
 #move-table .selectable:hover {
   background-color: rgba(255, 255, 255, 0.06);
 }
 #move-table .selected {
-  background-color: #606060; 
+  background-color: rgba(255, 255, 255, 0.15);
 }
 #move-table .subvariation:hover {
   background-color: rgba(0, 0, 0, 0.05);
 }
 #move-table .subvariation .selected {
-  background-color: #777777; 
+  background-color: rgba(255, 255, 255, 0.2);
 }
-#move-table .subvariation td {
-  background: #606060;
-}
+#move-table .subvariation td,
 #move-table .subvariation th {
-  background: #606060;
+  background: rgba(255, 255, 255, 0.15);
 }
 #move-table .subvariation a {
   color: #DDDDDD
