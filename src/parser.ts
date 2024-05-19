@@ -145,6 +145,7 @@ export class Parser {
       case 'aborted on move 1':
       case 'aborted by mutual agreement':
       case 'aborted':
+      case 'lost connection and too few moves; game aborted':
         return [p1, p2, Reason.Abort];
       case 'drawn by mutual agreement':
       case 'drawn because both players ran out of time':
@@ -159,6 +160,9 @@ export class Parser {
         return [p1, p2, Reason.Draw];
       case 'adjourned':
       case 'adjourned by mutual agreement':
+      case 'courtesyadjourned by ' + p1:
+      case 'courtesyadjourned by ' + p2:
+      case 'lost connection; game adjourned':
         return [p1, p2, Reason.Adjourn];
     }
 
@@ -234,7 +238,7 @@ export class Parser {
     let match = null;
 
     // game move
-    match = msg.match(/<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(\-?[0-7])\s([01])\s([01])\s([01])\s([01])\s([0-9]+)\s([0-9]+)\s([a-zA-Z]+)\s([a-zA-Z]+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(\S+)\s\(([0-9]+)\:([0-9]+)\.([0-9]+)\)\s(\S+)\s([01])\s([0-9]+)\s([0-9]+)\s*/);
+    match = msg.match(/(?:^|\n)<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(\-?[0-7])\s([01])\s([01])\s([01])\s([01])\s([0-9]+)\s([0-9]+)\s([a-zA-Z]+)\s([a-zA-Z]+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(\S+)\s\(([0-9]+)\:([0-9]+)\.([0-9]+)\)\s(\S+)\s([01])\s([0-9]+)\s([0-9]+)\s*/);
     if (match != null && match.length >= 34) {
       var msgs = this.splitMessage(msg);
       if(msgs)
@@ -246,7 +250,6 @@ export class Parser {
         fen += '/';
       }
       fen += this.style12ToFEN(match[8]);
-      // Parse the rest of the data, we should make use of all the game state info.
 
       // color whose turn it is to move ("B" or "W")
       fen += ' ' + match[9].toLowerCase();
@@ -260,7 +263,8 @@ export class Parser {
       // -1 if the previous move was NOT a double pawn push, otherwise the chess board file  (numbered 0--7 for a--h) in which the double push was made
       fen += ' ' + (+match[10] === -1 ? '-' : String.fromCharCode('a'.charCodeAt(0) + +match[10]) + (match[9] === 'W' ? '6' : '3'));
       // the number of moves made since the last irreversible move.
-      fen += ' ' + match[15];
+      // FICS sometimes erroneously sets this to 1 when the starting player is black on move 1. 
+      fen += ' ' + (match[31] === 'none' ? '0' : match[15]);
       // the full move number
       fen += ' ' + match[26];
 
@@ -324,7 +328,7 @@ export class Parser {
     }
 
     // game start
-    match = msg.match(/^\s*\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\sCreating.*\}.*/s);
+    match = msg.match(/(?:^|\n)\s*\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s(?:Creating|Continuing).*\}.*/s);
     if (match != null && match.length > 2) {
       return {
         game_id: +match[1],
@@ -334,7 +338,7 @@ export class Parser {
     }
 
     // game end
-    match = msg.match(/^[^\(\):]*(?:Game\s[0-9]+:.*)?\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)(?:' game|'s)?\s([a-zA-Z0-9\s]+)\}\s(?:[012/]+-[012/]+)?.*/s);
+    match = msg.match(/(?:^|\n)[^\(\):]*(?:Game\s[0-9]+:.*)?\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)(?:' game|'s)?\s([^\}]+)\}\s(?:[012/]+-[012/]+)?.*/s);
     if (match != null && match.length > 4) {
       var msgs = this.splitMessage(msg);
       if(msgs)
@@ -356,7 +360,7 @@ export class Parser {
     }
 
     // channel tell
-    match = msg.match(/^([a-zA-Z]+)(?:\([A-Z\*]+\))*\(([0-9]+)\):\s+([\s\S]*)/s);
+    match = msg.match(/(?:^|\n)([a-zA-Z]+)(?:\([A-Z\*]+\))*\(([0-9]+)\):\s+([\s\S]*)/s);
     if (match != null && match.length > 3) {
       return {
         channel: match[2],
@@ -366,7 +370,7 @@ export class Parser {
     }
 
     // private tell
-    match = msg.match(/^([a-zA-Z]+)(?:[\(\[][A-Z0-9\*\-]+[\)\]])* (?:tells you|says):\s+([\s\S]*)/s);
+    match = msg.match(/(?:^|\n)([a-zA-Z]+)(?:[\(\[][A-Z0-9\*\-]+[\)\]])* (?:tells you|says):\s+([\s\S]*)/s);
     if (match != null && match.length > 2) {
       return {
         user: match[1],
@@ -375,7 +379,7 @@ export class Parser {
     }
 
     // kibitz/whispers
-    match = msg.match(/^([a-zA-Z]+)(?:\([A-Z0-9\*\-]+\))*\[([0-9]+)\] (?:kibitzes|whispers):\s+([\s\S]*)/s);
+    match = msg.match(/(?:^|\n)([a-zA-Z]+)(?:\([A-Z0-9\*\-]+\))*\[([0-9]+)\] (?:kibitzes|whispers):\s+([\s\S]*)/s);
     if (match != null && match.length > 3) {
       return {
         channel: 'Game ' + match[2],
@@ -397,7 +401,7 @@ export class Parser {
       for(let line of lines) {
         line = line.trim();
         // parse pendinfo
-        match = line.match(/^<(pt|pf)> (\d+) w=(\S+) t=(\S+) p=((\S+)(?: \((\S+)\)(?: \[(black|white)\])? (\S+) \((\S+)\) (rated|unrated) (\S+)(?: (\d+) (\d+))?(?: Loaded from (\S+))?)?)/);
+        match = line.match(/^<(pt|pf)> (\d+) w=(\S+) t=(\S+) p=((\S+)(?: \((\S+)\)(?: \[(black|white)\])? (\S+) \((\S+)\) (rated|unrated) (\S+)(?: (\d+) (\d+))?(?: Loaded from (\S+))?( \(adjourned\))?)?)/);
         if(match) {
           let type = match[1];
           let subtype = match[4];
@@ -418,6 +422,7 @@ export class Parser {
               category: match[15] || match[12],
               initialTime: +match[13],
               increment: +match[14],
+              adjourned: !!match[16] 
             });
           }
           else {

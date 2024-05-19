@@ -76,7 +76,7 @@
               </div>
             </div>
             <div id="inner-left-panels">
-              <div id="close-game-panel" class="card-header top-panel center" style="display: none">
+              <div id="left-panel-header-2" class="card-header top-panel center" style="display: none">
                 <button type="button" id="stop-observing" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Observing"><span class="fa fa-times-circle me-2" aria-hidden="false"></span>Stop Observing</button>         
                 <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Examining"><span class="fa fa-times-circle me-2" aria-hidden="false"></span>Stop Examining</button>         
               </div>
@@ -99,8 +99,8 @@
               <div id="collapse-history" class="collapse show collapse-init">
                 <div class="card-body noselect p-0" id="left-panel">
                   <div class="h-100 d-flex flex-column" id="left-menu">
-                    <div class="tab-content mt-2 flex-grow-1" style="overflow: hidden; min-height: 0">
-                      <div class="tab-pane fade show active h-100" id="pills-play" role="tabpanel" aria-labelledby="pills-play-tab">
+                    <div class="tab-content flex-grow-1" style="overflow: hidden; min-height: 0">
+                      <div class="tab-pane pt-2 fade show active h-100" id="pills-play" role="tabpanel" aria-labelledby="pills-play-tab">
                         <div class="d-flex flex-column h-100">
                           <div class="modal fade" id="play-computer-modal" tabindex="-1" aria-labelledby="play-computer-modal-label" aria-hidden="true">
                             <div class="modal-dialog modal-dialog-centered">
@@ -336,7 +336,7 @@
                           </div>
                         </div>
                       </div>
-                      <div class="tab-pane fade h-100" id="pills-observe" role="tabpanel" aria-labelledby="pills-observe-tab">
+                      <div class="tab-pane pt-2 fade h-100" id="pills-observe" role="tabpanel" aria-labelledby="pills-observe-tab">
                         <div class="d-flex flex-column h-100">
                           <div class="center pane-status" id="observe-pane-status" style="display: none"></div>
                           <form id="observe-user">
@@ -349,7 +349,7 @@
                           <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="games-table"></div>
                         </div>
                       </div>
-                      <div class="tab-pane fade h-100" id="pills-examine" role="tabpanel" aria-labelledby="pills-examine-tab">
+                      <div class="tab-pane pt-2 fade h-100" id="pills-examine" role="tabpanel" aria-labelledby="pills-examine-tab">
                         <div class="d-flex flex-column h-100">
                           <div class="center pane-status" id="examine-pane-status" style="display: none"></div>
                           <form id="examine-user">
@@ -362,11 +362,54 @@
                           <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="history-table"></div>
                         </div>
                       </div>
-                      <div class="tab-pane h-100 fade overflow-auto" id="pills-game" role="tabpanel" aria-labelledby="pills-game-tab">
-                        <span class="center" id="playing-game">You're not playing a game.</span>
-                        <table id="move-table" class="table table-sm">
-                          <tbody></tbody>
-                        </table>
+                      <div class="tab-pane h-100 fade" id="pills-game" role="tabpanel" aria-labelledby="pills-game-tab">
+                        <div class="d-flex flex-column h-100">
+                          <div id="game-toolbar" class="d-flex justify-content-end pb-1 pt-1 pe-2" style="gap: 14px">
+                            <div class="btn-group">
+                              <input type="radio" checked class="btn-check" name="view-mode" id="game-table-view" autocomplete="off">
+                              <label class="btn btn-outline-secondary btn-sm" for="game-table-view" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-placement-md="top" title="Table View">
+                                <span class="fa-solid fa-table-columns" aria-hidden="false"></span>
+                              </label>
+                              <input type="radio" class="btn-check" name="view-mode" id="game-list-view" autocomplete="off">
+                              <label class="btn btn-outline-secondary btn-sm" for="game-list-view" data-bs-toggle="tooltip" data-bs-placement="top" title="List View">
+                                <span class="fa-solid fa-align-justify" aria-hidden="false"></span>
+                              </label>
+                            </div>
+                            <input type="checkbox" class="btn-check" id="game-preserved" autocomplete="off" aria-checked="false">
+                            <label class="btn btn-outline-secondary btn-sm" for="game-preserved" data-bs-toggle="tooltip" data-bs-placement="top" title="Preserve Game">
+                              <span class="fa-solid fa-unlock" aria-hidden="false"></span>
+                            </label>
+                            <div>
+                              <button type="button" id="more-game-tools" class="btn btn-outline-secondary btn-sm dropdown-toggle hide-caret" data-bs-toggle="dropdown" aria-expanded="false" title="More tools">
+                                <span class="fa-solid fa-ellipsis-vertical" aria-hidden="false"></span>
+                              </button>
+                              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="more-game-tools">
+                                <li><a class="dropdown-item noselect" id="game-tools-new"><span class="fa-solid fa-file-circle-plus dropdown-icon" aria-hidden="false"></span>New Game</a></li>
+                                <li>
+                                  <a class="dropdown-item dropdown-toggle noselect" id="game-tools-new-variant"><span class="fa-solid fa-file-circle-plus dropdown-icon" aria-hidden="false"></span>New Variant Game</a>
+                                  <ul class="dropdown-menu dropdown-submenu" id="new-variant-game-submenu" aria-labelledby="game-tools-new-variant">
+                                    <li><a class="dropdown-item noselect">Chess960</a></li>
+                                    <li><a class="dropdown-item noselect">Crazyhouse</a></li>
+                                    <li><a class="dropdown-item noselect">Losers</a></li>
+                                  </ul>
+                                </li>
+                                <li><a class="dropdown-item noselect" id="game-tools-clone"><span class="fa-solid fa-copy dropdown-icon" aria-hidden="false"></span>Clone Game</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-examine"><span class="fa-brands fa-slideshare dropdown-icon" aria-hidden="false"></span>Examine Mode (Shared)</a></li>
+                                <li style="display: none"><hr id="game-tools-close-divider" class="dropdown-divider"></li>
+                                <li style="display: none"><a class="dropdown-item noselect" id="game-tools-close"><span class="fa-solid fa-xmark dropdown-icon" aria-hidden="false"></span>Close Game</a></li>
+                              </ul>
+                            </div>
+                          </div>
+                          <span class="center" id="game-pane-status">You're not playing a game.</span>
+                          <div id="movelist-container" class="flex-grow-1 overflow-auto" style="min-height: 0">
+                            <table id="move-table" class="table table-sm">
+                              <tbody></tbody>
+                            </table>
+                            <div id="movelists">
+                              <div class="movelist px-2 flex-wrap" style="display: flex"></div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -451,7 +494,7 @@
           </div>
         </div>
         <div id="mid-col" class="col-sm-12 col-md-auto position-relative align-self-center">
-          <div class="toast-container h-100 w-100">
+          <div class="toast-container h-100 w-100" style="z-index: 100;">
             <div id="game-requests" aria-live="polite" aria-atomic="true"></div>
           </div>
           <div id="main-board-area">
@@ -664,7 +707,7 @@
                         <button class="text-sm-center nav-link active" data-bs-toggle="tab" href="#content-console" id="tab-console" role="tab">Console</button>
                       </li>
                     </ul>
-                    <button class="align-self-start btn btn-outline-secondary btn-sm hide-caret" style="display: none" type="button" id="collapse-chat-arrow" aria-label="Close Chat">
+                    <button class="align-self-start btn btn-outline-secondary btn-sm" style="display: none" type="button" id="collapse-chat-arrow" aria-label="Close Chat">
                       <span class="fa-solid fa-arrow-up" aria-hidden="false"></span>
                     </button>
                   </div>

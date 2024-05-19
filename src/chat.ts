@@ -192,6 +192,7 @@ export class Chat {
     }
 
     this.user = user;
+    this.userRE = new RegExp('\\b' + user + '\\b', 'ig');
   }
 
   public createTab(name: string, showTab = false) {
@@ -289,7 +290,7 @@ export class Chat {
     });
   }
 
-  public newMessage(from: string, data: any) {
+  public newMessage(from: string, data: any, html: boolean = false) {
     let tabName = chattabsToggle ? from : 'console';
     const tab = this.createTab(tabName);
     let who = '';
@@ -305,7 +306,9 @@ export class Chat {
       who = '<strong' + textclass + '>' + $('<span/>').text(prompt).html() + '</strong>: ';
     }
 
-    let text = this.escapeHTML(data.message);
+    let text = data.message;
+    if(!html)
+      text = this.escapeHTML(text);
     if (this.emojisLoaded) {
       text = parseEmojis(text);
     }
@@ -350,7 +353,7 @@ export class Chat {
     else 
       var currentTab = 'console';
 
-    this.newMessage(currentTab, {message: msg});
+    this.newMessage(currentTab, {message: msg}, true);
   }
 }
 
@@ -366,13 +369,13 @@ function scrollToChat() {
 $('#chat-maximize-btn').on('click', () => {
   if (maximized) {
     $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
-    $('#chat-maximize-btn').attr('data-bs-original-title', 'Maximize');
+    $('#chat-maximize-btn').attr('title', 'Maximize');
     if($('#secondary-board-area > .game-card').length)
       $('#secondary-board-area').css('display', 'flex');
     maximized = false;
   } else {
     $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
-    $('#chat-maximize-btn').attr('data-bs-original-title', 'Unmaximize');
+    $('#chat-maximize-btn').attr('title', 'Unmaximize');
     $('#collapse-chat').collapse('show');
     $('#secondary-board-area').hide();
     maximized = true;

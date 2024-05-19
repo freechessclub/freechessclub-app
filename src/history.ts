@@ -11,7 +11,8 @@ export class HEntry {
   public btime: number;
   public score: string;
   public eval: string;
-  public moveTableElement: any;
+  public moveTableCellElement: any;
+  public moveListCellElement: any;
   public opening: string;
   public holdings: any;
   private _next: HEntry;
@@ -19,7 +20,7 @@ export class HEntry {
   private _parent: HEntry;
   private _subvariations: HEntry[];
   
-  constructor(move: any, fen: string, wtime: number = 0, btime: number = 0, score?: string) {
+  constructor(move?: any, fen?: string, wtime: number = 0, btime: number = 0, score?: string) {
     this.move = move;
     this.fen = fen;
     this.wtime = wtime;
@@ -120,7 +121,17 @@ export class HEntry {
 
   public addSubvariation(entry: HEntry) {
     entry.parent = this;
-    this._subvariations.push(entry);
+    if(entry.isContinuation())
+      this._subvariations.push(entry);
+    else {
+      var i = 0;
+      while(i < this._subvariations.length) {
+        if(this._subvariations[i].isContinuation()) // insert subvariations before continuations
+          break;
+        i++;
+      }
+      this._subvariations.splice(i, 0, entry);
+    }
   }
 
   public removeSubvariation(index: number) {
@@ -135,6 +146,10 @@ export class HEntry {
     return lastSub.last.getLastSubmove();
   }
 
+  public isContinuation(): boolean {
+    return this.parent && this.ply !== this.parent.ply;
+  }
+
   public depth(): number {
     var p: HEntry | null = this;
     var depth = 0;
@@ -144,6 +159,15 @@ export class HEntry {
     }    
     return depth;
   }
+
+  public clone(): HEntry {
+    var c = new HEntry();
+    for (const key of Object.keys(this)) {
+      if(!key.startsWith('_')) 
+        c[key] = this[key];
+    }
+    return c;
+  }
 }
 
 export class History {
@@ -152,7 +176,7 @@ export class History {
   private currEntry: HEntry;
   private _scratch: boolean;
 
-  constructor(game: any, fen: string, wtime: number = 0, btime: number = 0) {
+  constructor(game: any, fen: string = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', wtime: number = 0, btime: number = 0) {
     this.game = game;
     this._scratch = false;
 
@@ -170,6 +194,7 @@ export class History {
     this.firstEntry = this.currEntry = new HEntry(undefined, fen);
     this.updateClockTimes(this.firstEntry, wtime, btime);
     this.game.moveTableElement.empty();
+    this.game.moveListElement.empty();
   }
 
   public updateClockTimes(entry: HEntry, wtime: number, btime: number) {   
@@ -208,8 +233,10 @@ export class History {
 
     this.currEntry = newEntry;
 
-    if(move) 
-      this.addTableItem(this.currEntry);
+    if(move) {
+      this.addMoveTableItem(this.currEntry);
+      this.addMoveListItem(this.currEntry);
+    }
   }
 
   public remove(entry: HEntry): void {
@@ -223,7 +250,8 @@ export class History {
       if(c === this.currEntry)
         this.currEntry = entry.prev;
 
-      this.removeTableItem(c);   
+      this.removeMoveTableItem(c);   
+      this.removeMoveListItem(c);
       c = c.next;
     }
     entry.remove();
@@ -249,6 +277,44 @@ export class History {
         this.removeSubvariation(s);  
       c = c.next;
     }
+  }
+
+  public clone(game: any): History {
+    var hist = new History(game);
+    hist._scratch = this._scratch;
+    hist.firstEntry = this.cloneVariation(this.firstEntry, hist, null);
+    return hist;
+  }
+
+  private cloneVariation(orig: HEntry, clonedHistory: History, clonedParent: HEntry) {
+    var prevCloned = null;
+    while(orig) {
+      var cloned = orig.clone();     
+      if(!prevCloned) {
+        var first = cloned;
+        cloned.parent = clonedParent;
+      }
+      else 
+        prevCloned.add(cloned);
+
+      if(cloned.move) {
+        clonedHistory.addMoveTableItem(cloned);
+        clonedHistory.addMoveListItem(cloned);
+      }
+      
+      for(let i = 0; i < orig.subvariations.length; i++) {
+        var subVar = this.cloneVariation(orig.subvariations[i], clonedHistory, cloned);
+        cloned.addSubvariation(subVar);
+      }
+
+      if(orig === this.currEntry)
+          clonedHistory.currEntry = cloned;
+
+      orig = orig.next;
+
+      prevCloned = cloned;
+    }
+    return first;
   }
 
   public length(): number {
@@ -421,18 +487,190 @@ export class History {
     moveTable.find('a').each(function () {
       $(this).removeClass('selected');
     });
-
     if(this.currEntry.move) {
-      const cell = this.currEntry.moveTableElement;
+      const cell = this.currEntry.moveTableCellElement;
       cell.find('a').addClass('selected');
-
-      this.scrollParentToChild($('#pills-game'), cell);
+      this.scrollParentToChild($('#movelist-container'), cell);
     }
-    else $('#pills-game').scrollTop(0);
+
+    var moveList = this.game.moveListElement;
+    moveList.find('.move').each(function () {
+      $(this).removeClass('selected');
+    });
+    if(this.currEntry.move) {
+      const cell = this.currEntry.moveListCellElement;
+      cell.find('.move').addClass('selected');
+      this.scrollParentToChild($('#movelist-container'), cell);
+    }
+
+    else $('#movelist-container').scrollTop(0);
   }
 
-  private removeTableItem(entry: HEntry) {
-    const cell = entry.moveTableElement;
+  /* Get previous move as it appears in the list (could be in subvariation of previous move etc) */
+  private getPrevListedHEntry(entry: HEntry): HEntry {
+    if(entry === entry.first)
+      var prevEntry = entry.parent;
+    else
+      var prevEntry = entry.prev;
+
+    if(prevEntry && prevEntry.move) {
+      // Get previous element as displayed in the list, not including subvariation containers
+      if(entry === entry.first) {
+        // new entry is the first move in a subvariation
+        var numSubvariations = prevEntry.subvariations.length;
+        // if entry's parent has multiple subvariations, then the previous cell is the last move in the
+        // previous subvariation, otherwise it's simply the parent
+        if(numSubvariations > 1) {
+          for(let i = 0; i < prevEntry.subvariations.length; i++) {
+            if(prevEntry.subvariations[i] === entry) {
+              var prevListEntry = prevEntry.subvariations[i - 1].last.getLastSubmove();
+              break;
+            }
+          }
+        }
+        else
+          var prevListEntry = prevEntry;
+      }
+      else 
+        var prevListEntry = prevEntry.getLastSubmove();
+    
+      return prevListEntry
+    }
+    return null;
+  }
+
+  private removeMoveListItem(entry: HEntry) {
+    var cell = entry.moveListCellElement;
+    var parent = entry.parent;
+    if(cell.parent().hasClass('subvariation'))
+      var subvar = cell.parent();
+    cell.remove();
+    if(subvar && !subvar.children().length) {
+      // Remove empty subvariation
+      subvar.remove();
+      if(parent && parent.next && parent.ply % 2 === 0) {
+        // If parent's next move is black and there is no subvariations in between, remove the move number from the start
+        var parentCell = parent.moveListCellElement;
+        if(parentCell.next().hasClass('outer-move'))
+          parentCell.next().find('.moveno').remove();
+      }
+    }
+
+    // Rearrange subvariation brackets
+    var depth = entry.depth();  
+    var prevListEntry = this.getPrevListedHEntry(entry);
+    if(!prevListEntry) 
+      return;
+
+    var prevCell = prevListEntry.moveListCellElement;
+    var prevDepth = prevListEntry.depth();
+    
+    var prevRB = prevCell.find('.right-brackets');
+    var rb = cell.find('.right-brackets');
+
+    if(entry === entry.first) // first move in subvariation
+      rb.text(rb.text().slice(0, -1)); 
+
+    if(rb.length && rb.text().length) {
+      if(!prevRB.length)
+        rb.appendTo(prevCell);
+      else 
+        prevRB.text(prevRB.text() + rb.text());
+    }
+  }
+
+  private addMoveListItem(entry: HEntry) {
+    var moveList = this.game.moveListElement;
+    var san = entry.move.san;
+    var ply = entry.ply;
+    var moveNo = moveNo = Math.floor(ply / 2);
+    var depth = entry.depth();  
+
+    if(entry === entry.first)
+      var prevEntry = entry.parent;
+    else
+      var prevEntry = entry.prev;
+
+    if(prevEntry && prevEntry.move) {
+      // Get previous html element including subvariation containers
+      var prevElement = prevEntry.moveListCellElement; 
+      while(prevElement.next().length && !prevElement.next().hasClass('outer-move'))
+        prevElement = prevElement.next();
+    }
+    
+    var cell = $('<span class="outer-move d-inline-flex"><span class="move px-1">' + san + '</span></span>');
+    if(ply % 2 === 0)
+      cell.prepend('<span class="moveno ms-1">' + moveNo + '.</span>');
+
+    if(!prevEntry || !prevEntry.move) {
+      if(ply % 2 === 1)
+        cell.prepend('<span class="moveno ms-1">' + moveNo + '...</span>');
+      moveList.append(cell);
+      var moveNoElement = cell.find('moveno');
+      moveNoElement.removeClass('ms-1');
+    }
+    else {
+      var prevListEntry = this.getPrevListedHEntry(entry);
+      if(prevListEntry) {
+        var prevCell = prevListEntry.moveListCellElement;
+        var prevDepth = prevListEntry.depth();
+      }
+  
+      if(entry === entry.first) {
+        var subVar = $('<span class="subvariation d-inline-flex flex-wrap" style="flex-basis: 100%"></span>');
+        if(!entry.isContinuation())
+          subVar.addClass('ms-2');
+        subVar.append(cell);
+        prevElement.after(subVar);
+      }
+      else
+        prevElement.after(cell);
+
+      if(depth !== prevDepth || entry === entry.first) {
+        if(ply % 2 == 0 && depth > prevDepth && entry.parent.next) 
+          entry.parent.next.moveListCellElement.prepend('<span class="moveno ms-1">' + moveNo + '...</span>');
+        else if(ply % 2 === 1) 
+          cell.prepend('<span class="moveno ms-1">' + moveNo + '...</span>');
+      }
+
+      // Rearrange subvariation brackets
+      var leftBracket = $('<span class="ms-1 brackets left-bracket">(</span>');
+      var rightBracket = $('<span class="me-1 brackets right-brackets">)</span>');
+      var prevRB = prevCell.find('.right-brackets');
+      if(entry === entry.first) { // first move in subvariation
+        cell.prepend(leftBracket);
+        if(!prevRB.length)
+          cell.append(rightBracket);
+        else {
+          var rb = prevRB.appendTo(cell); // move brackets from previous move
+          if(depth > prevDepth) 
+            rb.text(rb.text() + ')'); // add a bracket
+          else
+            prevCell.append(rightBracket);
+        }
+      }
+      else if(prevRB.length) {
+        var numBrackets = prevRB.text().length;
+        var depthDiff = prevDepth - depth;
+        if(numBrackets > depthDiff) {
+          if(depthDiff === 0) 
+            var rb = prevRB.appendTo(cell);
+          else {
+            var rb = prevRB.clone().appendTo(cell);
+            rb.text(')'.repeat(numBrackets - depthDiff));
+            prevRB.text(')'.repeat(depthDiff));
+          }
+        }
+      } 
+    }
+
+    cell.find('.move').data('hEntry', entry); // Add reference to HEntry to element
+    entry.moveListCellElement = cell; // Add reference to table cell to HEntry
+    // Make sure to free this circular reference properly when removing elements!
+  }
+
+  private removeMoveTableItem(entry: HEntry) {
+    const cell = entry.moveTableCellElement;
     if(cell.next('.selectable').length !== 0 || cell.prev('.selectable').length !== 0) {
       cell.html('');
       cell.removeClass('selectable');
@@ -453,7 +691,7 @@ export class History {
         prevCell.attr('class', nextCell.next().attr('class'));
         // Fix up referencing between HEntry and table cell element
         prevCell.data('hEntry', nextCell.next().data('hEntry'));
-        prevCell.data('hEntry').moveTableElement = prevCell;
+        prevCell.data('hEntry').moveTableCellElement = prevCell;
         nextRow.remove();
       }
 
@@ -461,11 +699,12 @@ export class History {
     }
   }
 
-  private addTableItem(entry: HEntry): void {
+  private addMoveTableItem(entry: HEntry): void {
     var moveTable = this.game.moveTableElement;
     var san = entry.move.san;
     var ply = entry.ply;
     var moveNo = moveNo = Math.floor(ply / 2);
+    var depth = entry.depth();  
 
     let scoreStr = '';
     if(entry.score !== undefined) {
@@ -474,23 +713,13 @@ export class History {
 
     const cellBody = '<a href="javascript:void(0);">' + san + '</a>' + scoreStr;
 
-    if(entry === entry.first) {
-      // new entry is the first move in a subvariation
-      var prevEntry = entry.parent;
-      var numSubvariations = prevEntry.subvariations.length;
-      // if entry's parent has multiple subvariations, then the previous table cell is the last move in the
-      // previous subvariation, otherwise it's simply the parent
-      if(numSubvariations > 1)
-        prevEntry = prevEntry.subvariations[numSubvariations - 2].last.getLastSubmove();
+    var prevEntry = this.getPrevListedHEntry(entry);
+    if(prevEntry) {
+      var prevCell = prevEntry.moveTableCellElement;
+      var prevDepth = prevEntry.depth();
     }
-    else
-      var prevEntry = entry.prev.getLastSubmove();
 
-    const prevCell = prevEntry.moveTableElement;
-    var cell;
-    const prevDepth = prevEntry.depth();
-    const depth = entry.depth();  
-    
+    var cell;  
     if(!prevCell || prevCell.length === 0) {
       if(ply % 2 === 0) {
         moveTable.append('<tr><th scope="row">' + moveNo + '</th><td class="selectable">' + cellBody + '</td><td></td></tr>');
@@ -501,7 +730,7 @@ export class History {
         cell = moveTable.find('td:eq(1)');   
       }
     }
-    else if(depth !== prevDepth) {
+    else if(depth !== prevDepth || entry === entry.first) {
       if(ply % 2 == 0) {
         prevCell.parent().after('<tr><th scope="row">' + moveNo + '</th><td class="selectable">' + cellBody + '</td><td></td></tr>');
         cell = prevCell.parent().next().find('td:eq(0)');
@@ -519,7 +748,7 @@ export class History {
           row2Cell1.removeClass('selectable');
           row2Cell1.removeData();
 
-          entry.parent.next.moveTableElement = row2Cell2;
+          entry.parent.next.moveTableCellElement = row2Cell2;
         
           // Remove second cell from row 1
           var row1Cell2 = prevCell.next();
@@ -550,11 +779,14 @@ export class History {
       cell.parent().addClass('subvariation');
 
     cell.data('hEntry', entry); // Add reference to HEntry to table cell
-    entry.moveTableElement = cell; // Add reference to table cell to HEntry
+    entry.moveTableCellElement = cell; // Add reference to table cell to HEntry
     // Make sure to free this circular reference properly when removing elements!
   }
 
   public scrollParentToChild(parent: any, child: any) {
+    if(!child.is(':visible'))
+      return;
+
     parent = parent[0];
     child = child[0];
 
