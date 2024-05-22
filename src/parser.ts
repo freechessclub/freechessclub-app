@@ -379,12 +379,19 @@ export class Parser {
     }
 
     // kibitz/whispers
-    match = msg.match(/(?:^|\n)([a-zA-Z]+)(?:\([A-Z0-9\*\-]+\))*\[([0-9]+)\] (?:kibitzes|whispers):\s+([\s\S]*)/s);
-    if (match != null && match.length > 3) {
+    match = msg.match(/(?:^|\n)([a-zA-Z]+)(?:\([A-Z0-9\*\-]+\))*\[([0-9]+)\] (kibitzes|whispers):\s+(.*)(?:\n(.+))?/);
+    if (match != null && match.length > 4) {
+      if(match[3] === 'kibitzes')
+        var type = 'kibitz';
+      else
+        var type = 'whisper';
+      
       return {
         channel: 'Game ' + match[2],
         user: match[1],
-        message: match[3].replace(/\n/g, ''),
+        type: type,
+        message: match[4].replace(/\n/g, ''),
+        suffix: match[5]
       };
     }
 

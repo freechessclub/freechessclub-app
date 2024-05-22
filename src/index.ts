@@ -83,6 +83,7 @@ let isRegistered = false;
 let lastComputerGame = null; // Attributes of the last game played against the Computer. Used for Rematch and alternating colors each game.
 let gameWithFocus: Game = null;
 let games: Game[] = []; 
+let partnerGameId;
 
 const mainBoard: any = createBoard($('#main-board-area').children().first().find('.board'));
 
@@ -737,7 +738,7 @@ function createNotification(type: string, title: string, msg: string, btnFailure
 }
 
 function removeNotification(element: any) {
-  if(!element.length)
+  if(!element.length || element.attr('data-remove'))
     return;
 
   element.removeAttr('data-show');
@@ -860,7 +861,7 @@ function slideNotification(element: any, direction: 'down' | 'up' | 'left' | 'ri
   }
 }
 
-function slideAllNotifications() {
+function slideUpAllNotifications() {
   $('#notifications').children().each((index, element) => resetSlide($(element)));
   $('#notifications').addClass('slide-up'); 
   $('#notifications').css('opacity', 0);
@@ -1002,12 +1003,17 @@ function showAllNotifications() {
 }
 
 function hideAllNotifications() {
+  if($('.notification[data-remove="true"').length) {
+    setTimeout(hideAllNotifications, 400);
+    return;
+  }
+
   $('#notifications').children('[data-show="true"]').each((index, element) => {
     $(element).removeAttr('data-show'); 
   });
   if($('#notifications-btn').hasClass('active'))
     $('#notifications-btn').button('toggle');
-  slideAllNotifications();
+  slideUpAllNotifications();
 }
 
 function clearNotifications() {
@@ -1563,6 +1569,7 @@ function gameStart(game: Game) {
     game.color = 'w';
   else 
     game.color = 'b';
+  
 
   var whiteStatus = game.element.find(game.color === 'w' ? '.player-status' : '.opponent-status');
   var blackStatus = game.element.find(game.color === 'b' ? '.player-status' : '.opponent-status');
@@ -1666,8 +1673,10 @@ function gameStart(game: Game) {
       else {            
         $('#play-computer').prop('disabled', true);    
         
-        if(game.category === 'bughouse') 
+        if(game.category === 'bughouse') {
+          game.partnerGameId = partnerGameId;
           chat.createTab('Game ' + game.id);
+        }
         else if(game.color === 'w') 
           chat.createTab(game.bname);
         else 
@@ -2076,7 +2085,7 @@ function messageHandler(data) {
         return;
       }
 
-      match = msg.match(/(?:^|\n)(?:\s*\d+\s+(\(Exam\.\s+)?[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s*(\)\s+)?\[[\w\s]+\]\s+[\d:]+\s*\-\s*[\d:]+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*)+\d+ games displayed./g);
+      match = msg.match(/(?:^|\n)\s*\d+\s+(\(Exam\.\s+)?[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s*(\)\s+)?\[[\w\s]+\]\s+[\d:]+\s*\-\s*[\d:]+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed/);
       if (match != null && match.length > 0 && gamesRequested) {
         showGames(msg);
         gamesRequested = false;
@@ -2226,9 +2235,15 @@ function messageHandler(data) {
         $('#pairing-pane-status').text(match[1]);
       }
 
-      match = msg.match(/^(\w+ (accepts|declines) the partnership request\.)/m);
+      match = msg.match(/^(\w+ declines the partnership request\.)/m);
       if(match && match.length > 1) {
-        let headerTitle = 'Partnership ' + (match[2] === 'accepts' ? 'Accepted' : 'Declined');
+        let headerTitle = 'Partnership Declined';
+        let bodyTitle = match[1];
+        createNotification(headerTitle, bodyTitle, '', null, null);
+      }
+      match = msg.match(/^(\w+ agrees to be your partner\.)/m);
+      if(match && match.length > 1) {
+        let headerTitle = 'Partnership Accepted';
         let bodyTitle = match[1];
         createNotification(headerTitle, bodyTitle, '', null, null);
       }
@@ -2335,10 +2350,11 @@ function messageHandler(data) {
       if (match != null && match.length > 1) {
         if(multiboardToggle)
           session.send('pobserve');
-        
+
+        partnerGameId = +match[1];
         var mainGame = getPlayingExaminingGame();
-        if(mainGame)
-          mainGame.partnerGameId = +match[1];
+        if(mainGame) 
+          mainGame.partnerGameId = partnerGameId;
       }
 
       match = msg.match(/^(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\) \S+ (\S+).+/m);
@@ -2406,13 +2422,13 @@ function messageHandler(data) {
         return;
       }
 
-      match = msg.match(/(?:^|\n)-- channel list: \d+ channels --([\d\s]*)/);
+      match = msg.match(/(?:^|\n)-- channel list: \d+ channels --\s*([\d\s]*)/);
       if (match !== null && match.length > 1) {
         if(!channelListRequested) 
           chat.newMessage('console', data);
 
         channelListRequested = false;
-        return chat.addChannels(match[1].split(/\s+/));
+        return chat.addChannels(match[1].split(/\s+/).sort(function(a, b) { return a - b; }));
       }
       
       match = msg.match(/(?:^|\n)-- computer list: \d+ names --([\w\s]*)/);
@@ -2564,8 +2580,10 @@ function showSentOffers(offers: any) {
 
 export function scrollToBoard(game?: Game) {
   if(isSmallWindow()) {
-    if(!game || game.element.parent().attr('id') === 'main-board-area')
-      $(document).scrollTop($('#right-panel-header').offset().top + $('#right-panel-header').outerHeight() - $(window).height());
+    if(!game || game.element.parent().attr('id') === 'main-board-area') {
+      const windowHeight = window.visualViewport ? window.visualViewport.height : $(window).height();
+      $(document).scrollTop($('#right-panel-header').offset().top + $('#right-panel-header').outerHeight() - windowHeight);
+    }
     else
       $(document).scrollTop(game.element.offset().top);
   }
@@ -3517,10 +3535,10 @@ $('#input-form').on('submit', (event) => {
       if (tab.startsWith('game-')) {
         var gameNum = tab.split('-')[1];
         var game = findGame(+gameNum);
-        if(game && (game.isPlayingOnline() || game.isExamining()))
-          var xcmd = 'xkibitz'; 
-        else
+        if(game && game.role === Role.OBSERVING)          
           var xcmd = 'xwhisper';
+        else
+          var xcmd = 'xkibitz'; 
             
         text = xcmd + ' ' + gameNum + ' ' + val;
       } else {
@@ -3596,6 +3614,7 @@ function createGame(): Game {
     makeSecondaryBoard(game);
     game.element.find($('[title="Close"]')).show();
     $('#secondary-board-area').css('display', 'flex');
+    $('#collapse-chat-arrow').show();
 
     game.statusElement = gameWithFocus.statusElement.clone();
     game.statusElement.css('display', 'none');
@@ -3843,8 +3862,10 @@ function removeGame(game: Game) {
   game.history = null;
   game.clock = null;
 
-  if(!$('#secondary-board-area').children().length) 
+  if(!$('#secondary-board-area').children().length) {
     $('#secondary-board-area').hide();
+    $('#collapse-chat-arrow').hide();
+  }
   setPanelSizes();
 
   if(games.length === 1) {
@@ -4054,7 +4075,6 @@ function useMobileLayout() {
   $('#stop-observing').appendTo($('#viewing-game-buttons').last());
   $('#stop-examining').appendTo($('#viewing-game-buttons').last());
   $('#viewing-games-buttons:visible:last').addClass('me-0'); // This is so visible buttons in the btn-toolbar center properly
-  $('#collapse-chat-arrow').show();
   hideLeftPanelHeader2();
   createTooltips();
   layout = Layout.Mobile;
@@ -4063,11 +4083,10 @@ function useMobileLayout() {
 function useDesktopLayout() {
   swapLeftRightPanelHeaders();
   $('#chat-maximize-btn').show();
-  $('#stop-observing').appendTo($('#game-role-panel').last());
-  $('#stop-examining').appendTo($('#game-role-panel').last());
+  $('#stop-observing').appendTo($('#left-panel-header-2').last());
+  $('#stop-examining').appendTo($('#left-panel-header-2').last());
   if(gameWithFocus.isObserving() || gameWithFocus.isExamining())
     showLeftPanelHeader2();
-  $('#collapse-chat-arrow').hide();
 
   createTooltips();
   layout = Layout.Desktop;
@@ -4827,7 +4846,7 @@ $('#login-user').on('change', () => $('#login-user').removeClass('is-invalid'));
 
 $('#login-form').on('submit', (event) => {
   const user: string = getValue('#login-user');
-  if (session && user === session.getUser()) {
+  if (session && session.isConnected() && user === session.getUser()) {
     $('#login-user').addClass('is-invalid');
     event.preventDefault();
     event.stopPropagation();
@@ -4860,6 +4879,7 @@ $('#login-screen').on('show.bs.modal', (e) => {
     $('#login-pass').val(atob(pass));
     $('#remember-me').prop('checked', true);
   }
+  $('#login-user').removeClass('is-invalid');
 });
 
 $('#sign-in').on('click', (event) => {
@@ -5274,7 +5294,8 @@ function initGameTools(game: Game) {
   updateGamePreserved(game);
   $('#game-tools-clone').parent().toggle(multiboardToggle);
   $('#game-tools-clone').toggleClass('disabled', game.isPlaying());
-  $('#game-tools-examine').toggleClass('disabled', game.isPlaying() || game.isExamining() 
+  var mainGame = getPlayingExaminingGame();
+  $('#game-tools-examine').toggleClass('disabled', (mainGame && mainGame.isPlayingOnline()) || game.isPlaying() || game.isExamining() 
       || game.category === 'wild/fr' || game.category === 'wild/0' 
       || game.category === 'wild/1' || game.category === 'bughouse');
 }
@@ -5471,6 +5492,9 @@ function cloneGame(game: Game): Game {
 
 $('#game-tools-examine').on('click', (event) => {
   examineModeRequested = gameWithFocus;
+  var mainGame = getPlayingExaminingGame();
+  if(mainGame && mainGame.isExamining())
+    session.send('unex'); 
   session.send('ex');
 });
 

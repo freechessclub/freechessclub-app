@@ -33,6 +33,20 @@ html, body {
   color: rgba(80, 80, 120, 0.65);
 }
 
+.chat-text-suffix {
+  font-style: italic;
+  color: #8E9DA5;
+}
+
+#collapse-chat-arrow {
+  display: none;
+}
+@media (min-width: 768px) {
+  #collapse-chat-arrow {
+    display: none !important;
+  }
+}
+
 #game-requests {
   width: 100%;
   height: 100%;
@@ -307,6 +321,14 @@ html, body {
   --bs-btn-active-border-color: transparent;
 }
 
+#game-toolbar {
+  padding-top: 3px;
+  padding-bottom: 3px;
+  padding-right: 0.5rem;
+}
+#game-toolbar .btn {
+  --bs-btn-active-color: rgba(159, 184, 228, 0.75);
+}
 #game-tools-close .dropdown-icon {
   padding-left: 0.125rem; 
   padding-right: 0.25rem;

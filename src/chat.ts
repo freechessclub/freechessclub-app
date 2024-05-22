@@ -11,8 +11,8 @@ import { notificationsToggle, scrollToBoard, isSmallWindow, chattabsToggle } fro
 const channels = {
   0:      'Admins',
   1:      'Help',
-  2:      'General',
-  3:      'Programming',
+  2:      'FICS Discussion',
+  3:      'FICS Programmers',
   4:      'Guest Help',
   5:      'Service Representatives',
   6:      'Help (Interface & Timeseal)',
@@ -96,10 +96,10 @@ export class Chat {
   private emojisLoaded: boolean;
   private maximized: boolean;
   private timestampToggle: boolean;
-  private unreadNum: number;
+  private unviewedNum: number;
 
   constructor(user: string) {
-    this.unreadNum = 0;
+    this.unviewedNum = 0;
     this.timestampToggle = (Cookies.get('timestamp') !== 'false');
     // load emojis
     this.emojisLoaded = false;
@@ -149,24 +149,26 @@ export class Chat {
     });
   }
 
-  private updateViewedState(tab: any, closingTab: boolean = false) {
+  private updateViewedState(tab: any, closingTab: boolean = false, incrementCounter: boolean = true) {
     if(!tab.hasClass('tab-unviewed') && !closingTab && (!tab.hasClass('active') || !$('#collapse-chat').hasClass('show')) && tab.attr('id') !== 'tab-console') {
-      // Add unread number to chat-toggle-icon
-      if(tab.attr('id') !== undefined && !this.ignoreUnread(tab.attr('id').split(/-(.*)/)[1])) { // only add if a private message
-        if(this.unreadNum === 0)
-          $('#chat-unread-bubble').show();
-        this.unreadNum++;
-        $('#chat-unread-number').text(this.unreadNum);
+      // Add unviewed number to chat-toggle-icon
+      if(tab.attr('id') !== undefined && !this.ignoreUnviewed(tab.attr('id').split(/-(.*)/)[1]) && incrementCounter) { // only add if a kibitz or private message
+        if(this.unviewedNum === 0)
+          $('#chat-unviewed-bubble').show();
+        this.unviewedNum++;
+        $('#chat-unviewed-number').text(this.unviewedNum);
+        tab.attr('data-unviewed-count', '');
       }
       tab.addClass('tab-unviewed');
     }
     else if(tab.hasClass('tab-unviewed') && (closingTab || (tab.hasClass('active') && $('#collapse-chat').hasClass('show')))) {
-      if(!this.ignoreUnread(tab.attr('id').split(/-(.*)/)[1])) {
-        this.unreadNum--;
-        if(this.unreadNum === 0)
-          $('#chat-unread-bubble').hide();
+      if(tab.attr('data-unviewed-count') !== undefined) {
+        this.unviewedNum--;
+        if(this.unviewedNum === 0)
+          $('#chat-unviewed-bubble').hide();
         else
-          $('#chat-unread-number').text(this.unreadNum);
+          $('#chat-unviewed-number').text(this.unviewedNum);
+        tab.removeAttr('data-unviewed-count');
       }
       tab.removeClass('tab-unviewed');
     }
@@ -315,6 +317,12 @@ export class Chat {
 
     text = text.replace(this.userRE, '<strong class="mention">' + this.user + '</strong>');
 
+    // Suffix for whispers
+    var suffixText = data.suffix;
+    if(data.type === 'whisper' && !suffixText)
+      suffixText = '(whispered)';
+    var suffix = (suffixText ? ' <span class="chat-text-suffix">' + suffixText + '</span>': '');
+
     text = autoLink(text, {
       target: '_blank',
       rel: 'nofollow',
@@ -323,7 +331,7 @@ export class Chat {
           '<a href="' + url + '" target="_blank" rel="nofollow"><img width="60" src="' + url + '"></a>'
           : null;
       },
-    }) + '</br>';
+    }) + suffix + '</br>';
 
     let timestamp = '';
     if (this.timestampToggle) {
@@ -335,13 +343,13 @@ export class Chat {
     const tabheader = $('#tab-' + from.toLowerCase().replace(/\s/g, '-'));
 
     if(this.user !== data.user)
-      this.updateViewedState(tabheader);
+      this.updateViewedState(tabheader, false, data.type !== 'whisper');
     
     if(tab.hasClass('active') && this.scrolledToBottom[tab.attr('id')]) 
       tab.scrollTop(tab[0].scrollHeight);
   }
 
-  private ignoreUnread(from: string) {
+  private ignoreUnviewed(from: string) {
     return /^\d+$/.test(from) || from === 'roboadmin' || from === 'adminbot'
   }
 

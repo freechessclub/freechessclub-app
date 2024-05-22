@@ -364,7 +364,7 @@
                       </div>
                       <div class="tab-pane h-100 fade" id="pills-game" role="tabpanel" aria-labelledby="pills-game-tab">
                         <div class="d-flex flex-column h-100">
-                          <div id="game-toolbar" class="d-flex justify-content-end pb-1 pt-1 pe-2" style="gap: 14px">
+                          <div id="game-toolbar" class="d-flex justify-content-end" style="gap: 14px">
                             <div class="btn-group">
                               <input type="radio" checked class="btn-check" name="view-mode" id="game-table-view" autocomplete="off">
                               <label class="btn btn-outline-secondary btn-sm" for="game-table-view" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-placement-md="top" title="Table View">
@@ -402,11 +402,11 @@
                           </div>
                           <span class="center" id="game-pane-status">You're not playing a game.</span>
                           <div id="movelist-container" class="flex-grow-1 overflow-auto" style="min-height: 0">
-                            <table id="move-table" class="table table-sm">
+                            <table id="move-table" class="table table-sm mb-0">
                               <tbody></tbody>
                             </table>
                             <div id="movelists">
-                              <div class="movelist px-2 flex-wrap" style="display: flex"></div>
+                              <div class="movelist px-2 py-1 flex-wrap" style="display: flex"></div>
                             </div>
                           </div>
                         </div>
@@ -683,9 +683,9 @@
                 </span>
                 <button id="chat-toggle-btn" style="position: relative" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-chat" aria-expanded="true" title="Show/Hide Chat" aria-controls="collapse-chat">
                   <span id="chat-toggle-icon" class="fa fa-comment" aria-hidden="false"></span>
-                  <svg id="chat-unread-bubble" class="counter-bubble h-100 w-100" style="display: none; position: absolute; top: 0; left: 0">
+                  <svg id="chat-unviewed-bubble" class="counter-bubble h-100 w-100" style="display: none; position: absolute; top: 0; left: 0">
                     <circle cx="50%" cy="50%" transform="translate(6, -6)" r="6" />
-                    <text id="chat-unread-number" class="counter-number" x="50%" y="50%" transform="translate(6, -5)" text-anchor="middle" alignment-baseline="middle"></text>
+                    <text id="chat-unviewed-number" class="counter-number" x="50%" y="50%" transform="translate(6, -5)" text-anchor="middle" alignment-baseline="middle"></text>
                   </svg>
                 </button>
               </div>

@@ -810,10 +810,10 @@ export class History {
       const scrollBot = childRect.bottom - parentRect.bottom;
       if (Math.abs(scrollTop) < Math.abs(scrollBot)) {
         // we're near the top of the list
-        parent.scrollTop += scrollTop;
+        parent.scrollTop += scrollTop - 4;
       } else {
         // we're near the bottom of the list
-        parent.scrollTop += scrollBot;
+        parent.scrollTop += scrollBot + 4;
       }
     }
   }
