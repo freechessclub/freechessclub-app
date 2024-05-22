@@ -115,6 +115,10 @@ html, body {
   transform: translateX(-50%);
 }
 
+#input-text {
+  resize: none;   
+}
+
 .counter-bubble {
   fill: red;
 }
@@ -203,6 +207,7 @@ html, body {
   padding-top: 0;
   padding-bottom: 0;
   display: flex;  
+  flex-shrink: 0;
 }
 
 .game-card {

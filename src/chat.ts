@@ -121,6 +121,7 @@ export class Chat {
       if(this.scrolledToBottom[contentPane.attr('id')]) 
         contentPane.scrollTop(contentPane[0].scrollHeight);
       contentPane.trigger('scroll');
+      
     });
 
     $('#chat-scroll-button').on('click', (e) => {
@@ -368,7 +369,7 @@ export class Chat {
 function scrollToChat() {
   if(isSmallWindow()) {
     if($('#secondary-board-area').is(':visible'))
-      $(document).scrollTop($('#right-panel').offset().top);
+      $(document).scrollTop($('#chat-panel').offset().top);
     else
       $(document).scrollTop($('#right-panel-header').offset().top);
   }

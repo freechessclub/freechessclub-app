@@ -3565,7 +3565,71 @@ $('#input-form').on('submit', (event) => {
   }
   session.send(text);
   $('#input-text').val('');
+  updateInputText();
 });
+
+$('#input-text').on('input', function() {
+  updateInputText();
+});
+
+$('#input-text').on('keydown', function(event) {
+  if(event.key === 'Enter') {
+    event.preventDefault(); 
+    $('#input-form').trigger('submit'); 
+  }
+});
+
+$(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
+  updateInputText();
+});
+
+function updateInputText() {
+  var element = $('#input-text')[0] as HTMLTextAreaElement;
+  var start = element.selectionStart;
+  var end = element.selectionEnd;
+
+  var val = element.value as string;
+  val = val.replace(/[^\S ]/g, ' '); // replace all whitespace chars with spaces
+
+  // Stop the user being able to type more than max length characters
+  const tab = chat.currentTab();
+  if(val.charAt(0) === '@')
+    var maxLength = 1024;
+  else if(tab === 'console')
+    var maxLength = 1023;
+  else if(!session.isRegistered()) // Guests are limited to half the tell length
+    var maxLength = 200;
+  else
+    var maxLength = 400;
+
+  if(val.length > maxLength) 
+    val = val.substring(0, maxLength);
+
+  if(val !== element.value as string) {
+    element.value = val;
+    element.setSelectionRange(start, end);
+  }
+
+  adjustInputTextHeight(); // Resize text area
+}
+
+function adjustInputTextHeight() {
+  var inputElem = $('#input-text');
+  inputElem.attr('rows', 1);
+  inputElem.css('overflow', 'hidden');
+
+  var lineHeight = parseFloat(inputElem.css('line-height'));
+  var numLines = Math.floor(inputElem[0].scrollHeight / lineHeight);
+  var maxLines = 0.33 * $('#chat-panel').height() / lineHeight;
+  if(numLines > maxLines) 
+    numLines = maxLines;
+
+  inputElem.attr('rows', numLines);
+  inputElem.css('overflow', '');
+
+  var heightDiff = (numLines - 1) * lineHeight;
+  $('#right-panel-footer').height($('#left-panel-footer').height() + heightDiff);
+}
 
 async function getBookMoves(fen: string): Promise<any[]> {
   if(!book)
@@ -4262,18 +4326,19 @@ function setPanelSizes() {
     if($(this).is(':visible'))
       siblingsHeight += $(this).outerHeight();
   });
-  const rightPanelBorder = $('#right-panel').outerHeight() - $('#right-panel').height();
+  const chatBodyBorder = $('#chat-panel .card-body').outerHeight() - $('#chat-panel .card-body').innerHeight();
 
   if(!isLargeWindow() || !boardHeight) {
     var feature3Border = $('.feature3').outerHeight(true) - $('.feature3').height();
     var rightCardBorder = $('#right-card').outerHeight(true) - $('#right-card').height();
-    var borders = rightPanelBorder + rightCardBorder + feature3Border + addressBarHeight;
+    var borders = chatBodyBorder + rightCardBorder + feature3Border + addressBarHeight;
     var headerHeight = (siblingsHeight ? 0 : $('#right-panel-header').outerHeight()); // If there are game boards in the right column, then don't try to fit the header and chat into the same screen height
-    $('#right-panel').height($(window).height() - borders 
-        - headerHeight - $('#right-panel-footer').outerHeight());
+    $('#chat-panel').height($(window).height() - borders - headerHeight);
   }
-  else
-    $('#right-panel').height(boardHeight - rightPanelBorder - siblingsHeight);
+  else 
+    $('#chat-panel').height(boardHeight + $('#left-panel-footer').outerHeight() - chatBodyBorder - siblingsHeight);
+
+  adjustInputTextHeight(); 
 
   // Adjust Notifications drop-down width
   if(isSmallWindow() && !isSmallWindow(prevWindowWidth)) 
