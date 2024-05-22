@@ -3519,51 +3519,105 @@ function getValue(elt: string): string {
   $('#player-color-button').text(option);
 };
 
+function splitMessage(text: string, maxLength: number): string[] {
+  let result = [];
+  let currentMessage = '';
+  let currentLength = 0;
+  const regex = /&#\d+;|./g; // Match HTML entities or any character
+  
+  text.replace(regex, (match) => {
+    const matchLength = match.length;
+    if (currentLength + matchLength > maxLength) {
+      result.push(currentMessage);
+      currentMessage = match;
+      currentLength = matchLength;
+    } 
+    else {
+      currentMessage += match;
+      currentLength += matchLength;
+    }
+    return match;
+  });
+  if (currentMessage) 
+    result.push(currentMessage);
+  
+  return result;
+}
+
 $('#input-form').on('submit', (event) => {
   event.preventDefault();
   let text;
   let val: string = getValue('#input-text');
   val = val.replace(/[“‘”]/g, "'");
-  val = val.replace(/[^ -~]+/g, '#');
+  val = val.replace(/[^\S ]/g, ' '); // replace other whitespace chars with space
+  val = val.replace(/[\x00-\x1F\x7F-\x9F]/g, ''); // Strip out ascii and unicode control chars
   if (val === '' || val === '\n') {
     return;
   }
 
   const tab = chat.currentTab();
-  if (tab !== 'console') {
-    if (val.charAt(0) !== '@') {
-      if (tab.startsWith('game-')) {
-        var gameNum = tab.split('-')[1];
-        var game = findGame(+gameNum);
-        if(game && game.role === Role.OBSERVING)          
-          var xcmd = 'xwhisper';
-        else
-          var xcmd = 'xkibitz'; 
-            
-        text = xcmd + ' ' + gameNum + ' ' + val;
-      } else {
-        text = 't ' + tab + ' ' + val;
-      }
-    } else {
-      text = val.substr(1);
-    }
-  } else {
-    if (val.charAt(0) !== '@') {
-      text = val;
-    } else {
-      text = val.substr(1);
+  if(val.charAt(0) === '@')
+    text = val.substring(1);
+  else if(tab !== 'console') {  
+    if (tab.startsWith('game-')) {
+      var gameNum = tab.split('-')[1];
+      var game = findGame(+gameNum);
+      if(game && game.role === Role.OBSERVING)          
+        var xcmd = 'xwhisper';
+      else
+        var xcmd = 'xkibitz'; 
+          
+      text = xcmd + ' ' + gameNum + ' ' + val;
+    } 
+    else 
+      text = 't ' + tab + ' ' + val;
+  } 
+  else
+    text = val;
+  
+  // Check if input is a chat command, and if so do processing on the message before sending
+  var match = text.match(/^\s*(\S+)\s+(\S+)\s+(.+)$/);
+  if(match && match.length === 4 && 
+      ('tell'.startsWith(match[1]) || 
+      (('xwhisper'.startsWith(match[1]) || 'xkibitz'.startsWith(match[1]) || 'xtell'.startsWith(match[1])) && match[1].length >= 2))) {
+    var chatCmd = match[1];
+    var recipient = match[2];
+    var message = match[3];
+  }
+  else {
+    match = text.match(/^\s*([.,])\s*(.+)$/);
+    if(!match)
+      match = text.match(/^\s*(\S+)\s+(.+)$/);
+    if(match && match.length === 3 &&
+        ('kibitz'.startsWith(match[1]) || '.,'.includes(match[1]) ||
+        (('whisper'.startsWith(match[1]) || 'say'.startsWith(match[1]) || 'ptell'.startsWith(match[1])) && match[1].length >= 2))) {
+      var chatCmd = match[1];
+      var message = match[2];
     }
   }
+  
+  if(chatCmd) {
+    var maxLength = (session.isRegistered() ? 400 : 200);
+    if(message.length > maxLength) 
+      message = message.slice(0, maxLength);
+    
+    message = unicodeToHTMLEncoding(message);
+    var messages = splitMessage(message, maxLength); // if message is now bigger than maxLength chars due to html encoding split it
 
-  const cmd = text.split(' ');
-  if (cmd.length > 2 && (cmd[0] === 't' || cmd[0].startsWith('te')) && (!/^\d+$/.test(cmd[1]))) {
-    chat.newMessage(cmd[1], {
-      type: MessageType.PrivateTell,
-      user: session.getUser(),
-      message: cmd.slice(2).join(' '),
-    });
+    for(let msg of messages) {
+      if(('xtell'.startsWith(chatCmd) || 'tell'.startsWith(chatCmd)) && !/^\d+$/.test(recipient)) {
+        chat.newMessage(recipient, {
+          type: MessageType.PrivateTell,
+          user: session.getUser(),
+          message: msg,
+        });
+      }
+      session.send(chatCmd + ' ' + (recipient ? recipient + ' ' : '') + msg);    
+    }
   }
-  session.send(text);
+  else
+    session.send(unicodeToHTMLEncoding(text));
+
   $('#input-text').val('');
   updateInputText();
 });
@@ -3629,6 +3683,12 @@ function adjustInputTextHeight() {
 
   var heightDiff = (numLines - 1) * lineHeight;
   $('#right-panel-footer').height($('#left-panel-footer').height() + heightDiff);
+}
+
+function unicodeToHTMLEncoding(text) {
+  return text.replace(/[\u0080-\uffff]/g, function(match) {
+    return `&#${match.charCodeAt(0)};`;
+  });
 }
 
 async function getBookMoves(fen: string): Promise<any[]> {

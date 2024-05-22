@@ -121,7 +121,6 @@ export class Chat {
       if(this.scrolledToBottom[contentPane.attr('id')]) 
         contentPane.scrollTop(contentPane[0].scrollHeight);
       contentPane.trigger('scroll');
-      
     });
 
     $('#chat-scroll-button').on('click', (e) => {
@@ -282,9 +281,8 @@ export class Chat {
   }
 
   private escapeHTML(text: string) {
-    return text.replace(/[&<>"]/g, (tag) => {
+    return text.replace(/[<>"]/g, (tag) => {
       var charsToReplace = {
-          '&': '&amp;',
           '<': '&lt;',
           '>': '&gt;',
           '"': '&#34;'
@@ -295,6 +293,10 @@ export class Chat {
 
   public newMessage(from: string, data: any, html: boolean = false) {
     let tabName = chattabsToggle ? from : 'console';
+
+    if(!/^[\w- ]+$/.test(from)) 
+      return;
+
     const tab = this.createTab(tabName);
     let who = '';
     if (data.user !== undefined) {
