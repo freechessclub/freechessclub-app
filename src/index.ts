@@ -3998,7 +3998,7 @@ function removeGame(game: Game) {
   }
 }
 
-function findGame(id: number): Game {
+export function findGame(id: number): Game {
   return games.find(element => element.id === id);
 }
 
@@ -4130,29 +4130,39 @@ function onDeviceReady() {
   initDropdownSubmenus();
 }
 
+// tooltip overlays are used for elements such as dropdowns and collapsables where we usually
+// want to hide the tooltip when the button is clicked
+$(document).on('click', '.tooltip-overlay', (event) => {
+  $(event.target).tooltip('hide');
+});
+
+// If a tooltip is marked as 'hover only' then only show it on mouseover not on touch
+document.addEventListener('touchstart', (event) => {
+  var tooltipTrigger = $(event.target).closest('[data-tooltip-hover-only]');
+  tooltipTrigger.tooltip('disable');
+  setTimeout(() => { tooltipTrigger.tooltip('enable'); }, 1000);
+}, {passive: true});
+
 // Enable tooltips. 
-// Allow different tooltip placements for mobile vs desktop display.
+// Specify fallback placements for tooltips.
 // Make tooltips stay after click/focus on mobile, but only when hovering on desktop.
-function createTooltip(element: any) {
-  var windowWidth = $(window).width();
+// Allow the creation of "descriptive" tooltips
+export function createTooltip(element: any) {
+  var fallbacksStr = element.attr('data-fallback-placements');
+  if(fallbacksStr)
+    var fallbackPlacements = fallbacksStr.split(',').map(part => part.trim());
+  
+  var title = element.attr('title') || element.attr('data-bs-original-title');
 
-  var sm = element.attr('data-bs-placement-sm');
-  var md = element.attr('data-bs-placement-md');
-  var lg = element.attr('data-bs-placement-lg');
-  var xl = element.attr('data-bs-placement-xl');
-  var general = element.attr('data-bs-placement');
-
-  var placement = (windowWidth >= 1200 ? xl : undefined) ||
-      (windowWidth >= 992 ? lg : undefined) ||
-      (windowWidth >= 768 ? md : undefined) ||
-      sm || general || "top";
-
-  var newTitle = element.prop('title');
+  var description = element.attr('data-description');
+  if(description) 
+    title = `<b>` + title + `</b><hr class="tooltip-separator"><div>` + description + `</div>`; 
 
   element.tooltip('dispose').tooltip({
-    placement: placement as "left" | "top" | "bottom" | "right" | "auto",
     trigger: (isSmallWindow() ? 'hover focus' : 'hover'), // Tooltips stay visible after element is clicked on mobile, but only when hovering on desktop 
-    ...newTitle && {title: newTitle}, // Only set title if it's defined
+    title: title, 
+    ...fallbackPlacements && {fallbackPlacements: fallbackPlacements},
+    html: !!description,
   });
 }
 

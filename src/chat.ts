@@ -5,7 +5,7 @@
 import Cookies from 'js-cookie';
 import { autoLink } from 'autolink-js';
 import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
-import { notificationsToggle, scrollToBoard, isSmallWindow, chattabsToggle } from './index';
+import { findGame, createTooltip, notificationsToggle, scrollToBoard, isSmallWindow, chattabsToggle } from './index';
 
 // list of channels
 const channels = {
@@ -180,6 +180,7 @@ export class Chat {
       $('#tabs .nav-link:first').tab('show');
 
     const name: string = tab.attr('id').toLowerCase().split(/-(.*)/)[1];
+    tab.parent().tooltip('dispose');
     tab.parent().remove();
     this.deleteTab(name);
     $('#content-' + name).remove();
@@ -206,7 +207,16 @@ export class Chat {
       }
 
       if(!$('#tabs').find('#tab-' + from).length) {
-        $(`<li class="nav-item position-relative">
+        var match = chName.match(/Game (\d+)/);
+        var tooltip = '';
+        if(match && match.length > 1) {
+          var game = findGame(+match[1]);
+          if(game) {
+            var gameDescription = game.wname + ' vs. ' + game.bname;
+            tooltip = `data-bs-toggle="tooltip" data-tooltip-hover-only title="` + gameDescription + `" `;
+          }
+        }
+        var tabElement = $(`<li ` + tooltip + `class="nav-item position-relative">
             <button class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-` +
                 from + `" id="tab-` + from + `" role="tab" style="padding-right: 30px">` + chName + `
             </button>   
@@ -215,6 +225,9 @@ export class Chat {
             </container>
           </li>`).appendTo('#tabs');
         $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('#chat-tabContent');
+        
+        if(tooltip)
+          createTooltip(tabElement);
       }
 
       this.tabs[from] = $('#content-' + from);
@@ -380,13 +393,17 @@ function scrollToChat() {
 $('#chat-maximize-btn').on('click', () => {
   if (maximized) {
     $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
-    $('#chat-maximize-btn').attr('title', 'Maximize');
+    $('#chat-maximize-btn').attr('aria-label', 'Maximize Chat');
+    $('#chat-maximize-btn .tooltip-overlay').attr('title', 'Maximize Chat');
+    createTooltip($('#chat-maximize-btn .tooltip-overlay'));
     if($('#secondary-board-area > .game-card').length)
       $('#secondary-board-area').css('display', 'flex');
     maximized = false;
   } else {
     $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
-    $('#chat-maximize-btn').attr('title', 'Unmaximize');
+    $('#chat-maximize-btn').attr('aria-label', 'Unmaximize Chat');
+    $('#chat-maximize-btn .tooltip-overlay').attr('title', 'Unmaximize Chat');
+    createTooltip($('#chat-maximize-btn .tooltip-overlay'));
     $('#collapse-chat').collapse('show');
     $('#secondary-board-area').hide();
     maximized = true;
