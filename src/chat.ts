@@ -199,7 +199,10 @@ export class Chat {
   }
 
   public createTab(name: string, showTab = false) {
-    var from = name.toLowerCase().replace(/\s/g, '-');
+    if(!chattabsToggle)
+      var from = "console";
+    else
+      var from = name.toLowerCase().replace(/\s/g, '-');
 
     // Check whether this is a bughouse chat tab, e.g. 'Game 23 and 42'
     var match = from.match(/^game-(\d+)/);
@@ -395,6 +398,28 @@ export class Chat {
       var currentTab = 'console';
 
     this.newMessage(currentTab, {message: msg}, true);
+  }
+
+  public closeUnusedPrivateTabs() {
+    $('#tabs .nav-link').each((index, element) => {
+      var id = $(element).attr('id');
+      if(id !== 'tab-console' && !/^tab-(game-|\d+)/.test(id)) {
+        var chatText = $($(element).attr('href')).find('.chat-text');
+        if(chatText.html() === '')
+          this.closeTab($(element))
+      }
+    });
+  }
+
+  public closeGameTab(gameId: number) {
+    if(gameId == null || gameId === -1)
+      return;
+
+    $('#tabs .nav-link').each((index, element) => {
+      var match = $(element).attr('id').match(/^tab-game-(\d+)(?:-|$)/);
+      if(match && match.length > 1 && +match[1] === gameId) 
+        this.closeTab($(element));
+    });
   }
 }
 

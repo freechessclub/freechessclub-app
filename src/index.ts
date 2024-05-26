@@ -110,7 +110,9 @@ function cleanupGame(game: Game) {
   }
 
   game.element.find($('[title="Close"]')).show();
-
+  
+  if(chat)
+    chat.closeGameTab(game.id);
   hidePromotionPanel(game);
   game.clock.stopClocks();
 
@@ -1658,6 +1660,28 @@ function gameStart(game: Game) {
     updateBoard(game);
   }
 
+  // Close old unused private chat tabs
+  chat.closeUnusedPrivateTabs();
+  // Open chat tabs
+  if(game.isPlayingOnline()) {
+    if(game.category === 'bughouse' && partnerGameId !== null) 
+      chat.createTab('Game ' + game.id + ' and ' + partnerGameId); // Open chat room for all bughouse participants
+    else if(game.color === 'w') 
+      chat.createTab(game.bname);
+    else 
+      chat.createTab(game.wname);  
+  }
+  else if(game.isObserving() || game.isExamining()) {
+    if(mainGame && game.id === mainGame.partnerGameId) { // Open chat to bughouse partner
+      if(game.color === 'w') 
+        chat.createTab(game.wname);
+      else 
+        chat.createTab(game.bname);
+    }
+    else 
+      chat.createTab('Game ' + game.id);    
+  }
+
   if(game.isPlaying() || game.isObserving()) {
     // Adjust settings for game category (variant)
     // When examining we do this after requesting the movelist (since the category is told to us by the 'moves' command)
@@ -1673,24 +1697,11 @@ function gameStart(game: Game) {
       } 
       else {            
         $('#play-computer').prop('disabled', true);    
-        
         if(game.category === 'bughouse' && partnerGameId !== null) {
           game.partnerGameId = partnerGameId;
-          chat.createTab('Game ' + game.id + ' and ' + partnerGameId);
           partnerGameId = null;
         }
-        else if(game.color === 'w') 
-          chat.createTab(game.bname);
-        else 
-          chat.createTab(game.wname);  
       }
-    }
-
-    if(mainGame && game.id === mainGame.partnerGameId) {
-      if(game.color === 'w') 
-        chat.createTab(game.wname);
-      else 
-        chat.createTab(game.bname);
     }
   }
 
