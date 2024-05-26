@@ -17,7 +17,7 @@ cg-board {
   background-color: var(--bg-color);
   color: var(--fg-color);
 }
-.chat-text,.card-header,.card-footer {
+.chat-text {
   color: lightgray;
 }
 .top-panel,.bottom-panel {
@@ -106,6 +106,7 @@ cg-board {
 
 .card {
   --bs-card-border-color: #555555;
+  --bs-card-cap-color: lightgray;
   --bs-card-cap-bg: rgba(0, 0, 0, 0.06);
 }
 
@@ -192,14 +193,6 @@ cg-board {
   --bs-progress-bar-bg: #0d6efd;
 }
 
-.game-card {
-  --game-tie-color: #654D2F;
-  --game-win-color: #35644D;
-  --game-lose-color: #804545;
-  --border-expand-color: #FFFFFF;
-  --border-expand-width: 1px;
-}
-
 .clock.low-time {
   color: red;
 }
@@ -243,10 +236,16 @@ cg-board {
   background-color: rgba(255, 255, 255, 0.075);
 }
 
+.game-card {
+  --game-tie-color: #654D2F;
+  --game-win-color: #35644D;
+  --game-lose-color: #804545;
+  --border-expand-color: #FFFFFF;
+  --border-expand-width: 1px;
+}
 .game-card .title-bar {
   --bs-card-cap-bg: #464646;
 }
-
 .game-card .title-bar .btn span {
   filter: brightness(0.9);
 }

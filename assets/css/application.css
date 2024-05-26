@@ -61,6 +61,10 @@ html, body {
   color: rgba(80, 80, 120, 0.65);
 }
 
+.game-status .game-id {
+  font-weight: normal;
+}
+
 .opening-name {
   text-align: center;
 }
@@ -235,6 +239,15 @@ html, body {
   padding-bottom: 0px;
   padding-left: 5px;
   padding-right: 5px;
+}
+
+.game-card .title-bar-text {
+  font-size: 0.8em;
+  line-height: 1;
+  user-select: none; 
+  cursor: default; 
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .game-card .title-bar .btn {

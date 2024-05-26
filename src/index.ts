@@ -110,6 +110,8 @@ function cleanupGame(game: Game) {
   }
 
   game.element.find($('[title="Close"]')).show();
+  game.element.find('.title-bar-text').text('');
+  game.statusElement.find('.game-id').remove();
   
   if(chat)
     chat.closeGameTab(game.id);
@@ -1563,6 +1565,7 @@ function gameStart(game: Game) {
   var mainGame = getPlayingExaminingGame();
   var partnerColor = (mainGame && mainGame.partnerGameId === game.id && mainGame.color === 'w' ? 'b' : 'w');
 
+  // Determine the player's color
   var amIblack = game.bname === session.getUser();
   var amIwhite = game.wname === session.getUser();
   if(game.role === Role.PLAYING_COMPUTER && game.color === 'b')
@@ -1573,7 +1576,7 @@ function gameStart(game: Game) {
   else 
     game.color = 'b';
   
-
+  // Set game board text
   var whiteStatus = game.element.find(game.color === 'w' ? '.player-status' : '.opponent-status');
   var blackStatus = game.element.find(game.color === 'b' ? '.player-status' : '.opponent-status');
   whiteStatus.find('.name').text(game.wname);
@@ -1582,8 +1585,23 @@ function gameStart(game: Game) {
     whiteStatus.find('.rating').text('');
   if(!game.brating)
     blackStatus.find('.rating').text('');
-
+  
+  if(game.isPlayingOnline() || game.isExamining() || game.isObserving()) {
+    if(game.isPlayingOnline())
+      var gameType = 'Playing';
+    else if(game.isExamining())
+      var gameType = 'Examining';
+    else if(game.isObserving())
+      var gameType = 'Observing';
+    game.element.find('.title-bar-text').text('Game ' + game.id + ' (' + gameType + ')');
+    game.statusElement.find('.game-status > span').prepend('<span class="game-id">Game ' + game.id + ': </span>');
+  }
+  else if(game.role === Role.PLAYING_COMPUTER)
+    game.element.find('.title-bar-text').text('Computer (Playing)');
+  
   setFontSizes();
+
+  // Set board orientation
 
   var flipped = game.element.find('.opponent-status').parent().hasClass('bottom-panel');
   game.board.set({
@@ -1599,6 +1617,7 @@ function gameStart(game: Game) {
   if(v_flip != flipped)
     flipBoard(game);
 
+  // Reset HTML elements
   game.element.find('.player-status .captured').text('');
   game.element.find('.opponent-status .captured').text('');
   game.element.find('.card-header').css('--bs-card-cap-bg', '');
@@ -1642,7 +1661,7 @@ function gameStart(game: Game) {
 
   if(!examineModeRequested) 
     game.history = new History(game, game.fen, game.time * 60000, game.time * 60000);
-
+  
   if(game.isPlayingOnline())
     game.element.find($('[title="Close"]')).hide();
 
@@ -2312,6 +2331,7 @@ function messageHandler(data) {
             return;
 
           if(game.isExamining()) {
+            var id = match[1];
             var wname = match[2];
             var wrating = game.wrating = match[3];
             var bname = match[4];
@@ -2343,8 +2363,8 @@ function messageHandler(data) {
             if(initialTime === '0' && increment === '0')
               time = '';
     
-            const statusMsg = wname + ' (' + wrating + ') ' + bname + ' (' + brating + ') '
-              + rated + ' ' + game.category + time;
+            const statusMsg = '<span><span class="game-id">Game ' + id + ': </span>' + wname + ' (' + wrating + ') ' + bname + ' (' + brating + ') '
+              + rated + ' ' + game.category + time + '</span>';
 
             showStatusMsg(game, statusMsg);
             initAnalysis(game);
@@ -2378,21 +2398,21 @@ function messageHandler(data) {
           var game = getMainGame();
           if(game.isPlaying()) 
             return;
-
-          if(game.id === null) 
-            game.id = +match[2];
         }
         else {     
           var game = getFreeGame();
           if(!game)
             game = createGame();
-          game.id = +match[2];
         }
 
         game.wrating = (isNaN(match[4]) || match[4] === '0') ? '' : match[4];
         game.brating = (isNaN(match[6]) || match[6] === '0') ? '' : match[6];
         game.category = match[7];
-        showStatusMsg(game, match[0].substring(match[0].indexOf(':')+1));
+        
+        var status = match[0].substring(match[0].indexOf(':')+1);
+        var statusHTML = '<span>' + status + '</span>';
+
+        showStatusMsg(game, statusHTML);
         if (match[3] === session.getUser() || match[1].startsWith('Game')) {
           game.element.find('.player-status .rating').text(game.wrating);
           game.element.find('.opponent-status .rating').text(game.brating);
@@ -5636,6 +5656,9 @@ function cloneGame(game: Game): Game {
   clonedGame.history = game.history.clone(clonedGame);
   clonedGame.history.display();
   clonedGame.statusElement.find('.game-watchers').empty();
+  clonedGame.statusElement.find('.game-id').remove();
+  clonedGame.element.find('.title-bar-text').empty();
+  
   clonedGame.board.set({ orientation: game.board.state.orientation });
   return clonedGame;
 }
