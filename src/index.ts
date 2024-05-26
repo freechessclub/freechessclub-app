@@ -83,7 +83,7 @@ let isRegistered = false;
 let lastComputerGame = null; // Attributes of the last game played against the Computer. Used for Rematch and alternating colors each game.
 let gameWithFocus: Game = null;
 let games: Game[] = []; 
-let partnerGameId;
+let partnerGameId = null;
 
 const mainBoard: any = createBoard($('#main-board-area').children().first().find('.board'));
 
@@ -139,6 +139,7 @@ function cleanupGame(game: Game) {
 }
 
 export function cleanup() {
+  partnerGameId = null;
   historyRequested = 0;
   obsRequested = 0;
   allobsRequested = 0;
@@ -1673,9 +1674,10 @@ function gameStart(game: Game) {
       else {            
         $('#play-computer').prop('disabled', true);    
         
-        if(game.category === 'bughouse') {
+        if(game.category === 'bughouse' && partnerGameId !== null) {
           game.partnerGameId = partnerGameId;
-          chat.createTab('Game ' + game.id);
+          chat.createTab('Game ' + game.id + ' and ' + partnerGameId);
+          partnerGameId = null;
         }
         else if(game.color === 'w') 
           chat.createTab(game.bname);
@@ -2353,8 +2355,10 @@ function messageHandler(data) {
 
         partnerGameId = +match[1];
         var mainGame = getPlayingExaminingGame();
-        if(mainGame) 
+        if(mainGame) {
           mainGame.partnerGameId = partnerGameId;
+          chat.createTab('Game ' + mainGame.id + ' and ' + partnerGameId);
+        }
       }
 
       match = msg.match(/^(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\) \S+ (\S+).+/m);

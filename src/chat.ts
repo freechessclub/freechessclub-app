@@ -199,7 +199,23 @@ export class Chat {
   }
 
   public createTab(name: string, showTab = false) {
-    const from = name.toLowerCase().replace(/\s/g, '-');
+    var from = name.toLowerCase().replace(/\s/g, '-');
+
+    // Check whether this is a bughouse chat tab, e.g. 'Game 23 and 42'
+    var match = from.match(/^game-(\d+)/);
+    if(match && match.length > 1) {
+      var gameId = match[1];
+      for(let key in this.tabs) {
+        if(this.tabs.hasOwnProperty(key)) {
+          match = key.match(/^game-(\d+)-and-(\d+)/)
+          if(match && match.length > 2 && (match[1] === gameId || match[2] === gameId)) {
+            from = key;
+            break;
+          }
+        }
+      }
+    }
+
     if (!this.tabs.hasOwnProperty(from)) {
       let chName = name;
       if (channels[name] !== undefined) {
@@ -207,7 +223,7 @@ export class Chat {
       }
 
       if(!$('#tabs').find('#tab-' + from).length) {
-        var match = chName.match(/Game (\d+)/);
+        var match = chName.match(/^Game (\d+)/);
         var tooltip = '';
         if(match && match.length > 1) {
           var game = findGame(+match[1]);
@@ -233,6 +249,7 @@ export class Chat {
       this.tabs[from] = $('#content-' + from);
       this.scrolledToBottom['content-' + from] = true;
 
+      // Scroll event listener for auto scroll to bottom etc
       var lastWidth, lastHeight;
       $('#content-' + from).on('scroll', (e) => {
         var tab = e.target;
