@@ -18,10 +18,13 @@ html, body {
   min-height: 100vh;
 }
 
+#chat-tabContent .tab-pane {
+  max-height: 100%; 
+  min-height: 100%;
+}
+
 .chat-text {
   width: 100%;
-  max-height: 100%;
-  min-height: 100%;
   overflow: auto;
   color: rgba(0, 0, 0, 0.65);
   white-space: pre-wrap;
@@ -44,6 +47,34 @@ html, body {
 @media (min-width: 768px) {
   #collapse-chat-arrow {
     display: none !important;
+  }
+}
+
+.chat-info {
+  display: none;
+  height: 31px;
+  padding-left: 8px;
+  padding-right: 8px;
+  background-color: rgba(255, 255, 255, 0.4);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+}
+.chat-info .btn-outline-secondary {
+  --bs-btn-color: rgba(80, 80, 120, 0.65);
+  --bs-btn-hover-color: rgba(159, 184, 228, 0.75);
+  --bs-btn-active-color: rgba(159, 184, 228, 0.75);
+  font-weight: bold;
+  white-space: nowrap;
+}
+@media (max-width: 767px) {
+  .chat-watchers-text {
+   display: none; 
+  }
+}
+@media (min-width: 768px) {
+  .chat-watchers-text {
+    display: block;
+    font-style: italic;
+    margin-right: 6px;
   }
 }
 
@@ -143,7 +174,7 @@ html, body {
     margin-right: 0;
 }
 
-#chat-status {
+#session-status {
   display: inline-flex;
   align-items: center;
   overflow: hidden;
@@ -253,11 +284,6 @@ html, body {
 .game-card .title-bar .btn {
   padding: 2px;
   line-height: 1;
-  --bs-btn-active-bg: transparent;
-  --bs-btn-hover-bg: transparent;
-  --bs-btn-border-color: transparent; 
-  --bs-btn-active-border-color: transparent;
-  --bs-btn-hover-border-color: transparent;
 }
 
 .game-card .title-bar .game-maximize-icon {
@@ -330,8 +356,7 @@ html, body {
   flex-wrap: wrap;
 }
 
-#game-toolbar .btn {
-  --bs-btn-active-color: rgba(159, 184, 228, 0.75);
+.btn-transparent {
   --bs-btn-active-bg: transparent;
   --bs-btn-hover-bg: transparent;
   --bs-btn-hover-border-color: transparent;

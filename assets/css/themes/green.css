@@ -1,6 +1,9 @@
 .feature3 {
   background-color: #eaffea;
 }
+#chat-info {
+  background-color: rgba(0, 0, 0, 0.025);
+}
 cg-board {
   background-image: url('../images/board/green.svg');
 }

@@ -5,7 +5,7 @@
 import Cookies from 'js-cookie';
 import { autoLink } from 'autolink-js';
 import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
-import { findGame, createTooltip, notificationsToggle, scrollToBoard, isSmallWindow, chattabsToggle } from './index';
+import { findGame, setGameWithFocus, maximizeGame, createTooltip, notificationsToggle, scrollToBoard, isSmallWindow, chattabsToggle } from './index';
 
 // list of channels
 const channels = {
@@ -118,19 +118,20 @@ export class Chat {
       const tab = $(e.target);
       this.updateViewedState(tab);
       var contentPane = $(tab.attr('href'));
+      var chatText = contentPane.find('.chat-text');
       if(this.scrolledToBottom[contentPane.attr('id')]) 
-        contentPane.scrollTop(contentPane[0].scrollHeight);
-      contentPane.trigger('scroll');
+        chatText.scrollTop(chatText[0].scrollHeight);
+      chatText.trigger('scroll');
     });
 
     $('#chat-scroll-button').on('click', (e) => {
-      var tab = $('.chat-text.active');
+      var chatText = $('.tab-pane.active .chat-text');
       $('#chat-scroll-button').hide();
-      tab.scrollTop(tab[0].scrollHeight);
+      chatText.scrollTop(chatText[0].scrollHeight);
     });
 
     $(window).on('resize', () => {
-      $('.chat-text.active').trigger('scroll'); // Trigger scroll in case scrollbar appears/disappears
+      $('.tab-pane.active .chat-text').trigger('scroll'); // Trigger scroll in case scrollbar appears/disappears
     });
 
     $('#collapse-chat').on('shown.bs.collapse', () => {
@@ -147,6 +148,67 @@ export class Chat {
       this.timestampToggle = !this.timestampToggle;
       Cookies.set('timestamp', String(this.timestampToggle), { expires: 365 })
     });
+  }
+
+  public getWatchers(tab: any): string[] {
+    var match = tab.attr('id').match(/tab-game-(\d+)(?:-and-(\d+))?/);
+    if(match) {
+      var game1 = findGame(+match[1]);
+      if(game1) {
+        var watchers = game1.watchers.map(str => str.replace('#', ''));
+        if(match[2]) {
+          var game2 = findGame(+match[2]);
+          if(game2) {
+            // For bughouse chat rooms, add watchers from the other game  
+            var watchers2 = game2.watchers.map(str => str.replace('#', ''));
+            var watchers = watchers.concat(watchers2).filter((item, index, self) => {
+              return self.indexOf(item) === index;
+            });
+          }
+        }
+        return watchers;
+      }
+    }
+    return null;
+  }
+
+  public updateNumWatchers(tab: any): boolean {
+    var watchers = this.getWatchers(tab);
+    if(watchers != null) {
+      $(tab.attr('href')).find('.chat-watchers-text').text(watchers.length + ' Watchers');
+      return true;
+    }
+    return false;
+  }
+
+  public updateGameDescription(tab: any): boolean {
+    var game = this.getGameFromTab(tab);
+    if(game) {
+      var statusMsg = game.statusElement.find('.game-status').text();
+      var match = statusMsg.match(/\S+ \(\S+\) \S+ \(\S+\)/);
+      if(match) 
+        $(tab.attr('href')).find('.chat-game-description').text(match[0]);
+      else
+        tab.find('.chat-game-description').text('');
+        return true;
+    }
+    return false;
+  }
+
+  public getTabFromGameID(id: number) {
+    var tab = $('#tabs .nav-link').filter((index, element) => {
+      var match = $(element).attr('id').match(/tab-game-(\d+)(?:-and-(\d+))?/);
+      return match && (+match[1] === id || (match[2] && +match[2] === id));
+    });
+    if(tab.length) 
+      return tab;
+    return null;
+  }
+
+  public getGameFromTab(tab: any): any {
+    var match = tab.attr('id').match(/tab-game-(\d+)/);
+    if(match) 
+      return findGame(+match[1]);
   }
 
   private updateViewedState(tab: any, closingTab: boolean = false, incrementCounter: boolean = true) {
@@ -233,6 +295,18 @@ export class Chat {
           if(game) {
             var gameDescription = game.wname + ' vs. ' + game.bname;
             tooltip = `data-bs-toggle="tooltip" data-tooltip-hover-only title="` + gameDescription + `" `;
+
+            // Show Game chat room info bar
+            var infoBar = $(`
+            <div class="d-flex flex-shrink-0 w-100 chat-info">
+              <div class="d-flex align-items-center flex-grow-1 overflow-hidden me-2" style="min-width: 0">
+                <button class="chat-game-description btn btn-outline-secondary btn-transparent p-0 chat-info-text"></button>
+              </div>
+              <button class="chat-watchers d-flex ms-auto align-items-center btn btn-outline-secondary btn-transparent p-0 chat-info-text" data-bs-placement="left">
+                <span class="chat-watchers-text">0 Watchers</span>
+                <span class="fa-solid fa-users"></span>
+              </button> 
+            </div>`);
           }
         }
         var tabElement = $(`<li ` + tooltip + `class="nav-item position-relative">
@@ -243,8 +317,54 @@ export class Chat {
               <span class="closeTab btn btn-default btn-sm">×</span>
             </container>
           </li>`).appendTo('#tabs');
-        $('<div class="tab-pane chat-text" id="content-' + from + '" role="tabpanel"></div>').appendTo('#chat-tabContent');
+
+        var tabContent = $(`<div class="tab-pane" id="content-` + from + `" role="tabpanel">
+          <div class="d-flex flex-column chat-content-wrapper h-100">
+            <div class="chat-text flex-grow-1 mt-3" style="min-height: 0"></div>
+          </div>
+        </div>`).appendTo('#chat-tabContent');
         
+        if(infoBar) {
+          tabContent.find('.chat-content-wrapper').prepend(infoBar); 
+          this.updateGameDescription(tabElement.find('.nav-link'));
+          this.updateNumWatchers(tabElement.find('.nav-link'));
+          
+          // Display watchers-list tooltip when hovering button in info bar
+          tabContent.find('.chat-watchers').on('mouseenter', (e) => {
+            var curr = $(e.currentTarget);
+            var activeTab = $('#tabs button').filter('.active');
+            var watchers = this.getWatchers(activeTab);
+            if(watchers) {
+              var description = watchers.join('<br>');
+              var numWatchers = watchers.length;
+              var title = numWatchers + ' Watchers';
+              if(!watchers.length)
+                var tooltipText = `<b>` + title + `</b>`;
+              else
+                var tooltipText = `<b>` + title + `</b><hr class="tooltip-separator"><div>` + description + `</div>`; 
+              
+              curr.tooltip('dispose').tooltip({
+                title: tooltipText, 
+                html: true,
+                ...watchers.length && {
+                  popperConfig: { 
+                    placement: 'left-start',
+                  },
+                  offset: [-10, 0]
+                }
+              }).tooltip('show');
+            }
+          });
+
+          $('.chat-game-description').on('click', (e) => {
+            var game = this.getGameFromTab($('#tabs button.active'));
+            if(game) {
+              setGameWithFocus(game);
+              maximizeGame(game);
+            }
+          });
+        }
+
         if(tooltip)
           createTooltip(tabElement);
       }
@@ -254,23 +374,25 @@ export class Chat {
 
       // Scroll event listener for auto scroll to bottom etc
       var lastWidth, lastHeight;
-      $('#content-' + from).on('scroll', (e) => {
-        var tab = e.target;
+      $('#content-' + from).find('.chat-text').on('scroll', (e) => {
+        var panel = e.target;
+        var tab = panel.closest('.tab-pane');
+
         if($(tab).hasClass('active')) {
-          var atBottom = tab.scrollHeight - tab.clientHeight < tab.scrollTop + 1.5;      
+          var atBottom = panel.scrollHeight - panel.clientHeight < panel.scrollTop + 1.5;      
           if(atBottom) {
             $('#chat-scroll-button').hide();
             this.scrolledToBottom[$(tab).attr('id')] = true; 
           }
-          else if(lastWidth === tab.clientWidth && lastHeight === tab.clientHeight) { // Only assume user rmoved scrollbar if window is not resizing
+          else if(lastWidth === panel.clientWidth && lastHeight === panel.clientHeight) { // Only assume user rmoved scrollbar if window is not resizing
             this.scrolledToBottom[$(tab).attr('id')] = false; 
             $('#chat-scroll-button').show();
           }
           else if(this.scrolledToBottom[$(tab).attr('id')]) 
-            $(tab).scrollTop(tab.scrollHeight); // Scrollbar moved due to resizing, move it back to the bottom
+            $(panel).scrollTop(panel.scrollHeight); // Scrollbar moved due to resizing, move it back to the bottom
 
-          lastWidth = tab.clientWidth;
-          lastHeight = tab.clientHeight;
+          lastWidth = panel.clientWidth;
+          lastHeight = panel.clientHeight;
         }
       });
     }
@@ -327,7 +449,7 @@ export class Chat {
   public newMessage(from: string, data: any, html: boolean = false) {
     let tabName = chattabsToggle ? from : 'console';
 
-    if(!/^[\w- ]+$/.test(from)) 
+    if(!/^[\w- ]+$/.test(from))
       return;
 
     const tab = this.createTab(tabName);
@@ -374,7 +496,8 @@ export class Chat {
       timestamp = '<span class="timestamp">[' + new Date().toLocaleTimeString() + ']</span> ';
     }
 
-    tab.append(timestamp + who + text);
+    var chatText = tab.find('.chat-text');
+    chatText.append(timestamp + who + text);
 
     const tabheader = $('#tab-' + from.toLowerCase().replace(/\s/g, '-'));
 
@@ -382,7 +505,7 @@ export class Chat {
       this.updateViewedState(tabheader, false, data.type !== 'whisper');
     
     if(tab.hasClass('active') && this.scrolledToBottom[tab.attr('id')]) 
-      tab.scrollTop(tab[0].scrollHeight);
+      chatText.scrollTop(chatText[0].scrollHeight);
   }
 
   private ignoreUnviewed(from: string) {
@@ -417,8 +540,10 @@ export class Chat {
 
     $('#tabs .nav-link').each((index, element) => {
       var match = $(element).attr('id').match(/^tab-game-(\d+)(?:-|$)/);
-      if(match && match.length > 1 && +match[1] === gameId) 
+      if(match && match.length > 1 && +match[1] === gameId) {
+        $($(element).attr('href')).find('.chat-watchers').tooltip('dispose');
         this.closeTab($(element));
+      }
     });
   }
 }

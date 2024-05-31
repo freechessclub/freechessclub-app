@@ -118,9 +118,10 @@ function cleanupGame(game: Game) {
   hidePromotionPanel(game);
   game.clock.stopClocks();
 
-  if(game.watchers) 
-    clearInterval(game.watchers);
-  game.watchers = null;
+  if(game.watchersInterval) 
+    clearInterval(game.watchersInterval);
+  game.watchersInterval = null;
+  game.watchers = [];
   game.statusElement.find('.game-watchers').empty();
 
   game.id = null;
@@ -1638,7 +1639,7 @@ function gameStart(game: Game) {
     session.send('allobs ' + game.id);
     allobsRequested++;
     if(game.isPlaying()) {
-      game.watchers = setInterval(() => {
+      game.watchersInterval = setInterval(() => {
         const time = game.color === 'b' ? game.btime : game.wtime;
         if (time > 20000) {
           session.send('allobs ' + game.id);
@@ -1647,7 +1648,7 @@ function gameStart(game: Game) {
       }, 30000);
     }
     else {
-      game.watchers = setInterval(() => {
+      game.watchersInterval = setInterval(() => {
         session.send('allobs ' + game.id);
         allobsRequested++;
       }, 5000);
@@ -1798,12 +1799,12 @@ function messageHandler(data) {
         }         
       } else if (data.command === 2) {
         session.disconnect();
-        $('#chat-status').popover({
+        $('#session-status').popover({
           animation: true,
           content: data.control,
           placement: 'top',
         });
-        $('#chat-status').popover('show');
+        $('#session-status').popover('show');
       }
       break;
     case MessageType.ChannelTell:
@@ -2095,6 +2096,10 @@ function messageHandler(data) {
           game.statusElement.find('.game-watchers').empty();
           match[2] = match[2].replace(/\(U\)/g, '');
           const watchers = match[2].split(' ');
+          game.watchers = watchers.filter(item => item.replace('#', '') !== session.getUser());
+          var chatTab = chat.getTabFromGameID(game.id);
+          if(chatTab)
+            chat.updateNumWatchers(chatTab);
           let req = '';
           let numWatchers = 0;
           for (let i = 0; i < watchers.length; i++) {
@@ -2367,6 +2372,9 @@ function messageHandler(data) {
               + rated + ' ' + game.category + time + '</span>';
 
             showStatusMsg(game, statusMsg);
+            var chatTab = chat.getTabFromGameID(game.id);
+            if(chatTab) 
+              chat.updateGameDescription(chatTab);
             initAnalysis(game);
           }
 
@@ -2616,6 +2624,10 @@ function showSentOffers(offers: any) {
 export function scrollToBoard(game?: Game) {
   if(isSmallWindow()) {
     if(!game || game.element.parent().attr('id') === 'main-board-area') {
+      if($('#collapse-chat').hasClass('show')) {
+        $('#collapse-chat').collapse('hide'); // this will scroll to board after hiding chat
+        return;
+      }
       const windowHeight = window.visualViewport ? window.visualViewport.height : $(window).height();
       $(document).scrollTop($('#right-panel-header').offset().top + $('#right-panel-header').outerHeight() - windowHeight);
     }
@@ -3845,26 +3857,25 @@ function makeMainBoard(game: Game) {
   game.board.redrawAll();
 }
 
-function maximizeGame(game: Game) {
-  if(getMainGame() === game)
-    return;
+export function maximizeGame(game: Game) {
+  if(getMainGame() !== game) {
+    animateBoundingRects(game.element, $('#main-board-area'), game.element.css('--border-expand-color'), game.element.css('--border-expand-width'));
 
-  animateBoundingRects(game.element, $('#main-board-area'), game.element.css('--border-expand-color'), game.element.css('--border-expand-width'));
+    // Move currently maximized game card to secondary board area
+    var prevMaximized = getMainGame();
+    if(prevMaximized) {
+      prevMaximized.element.appendTo('#secondary-board-area');
+      makeSecondaryBoard(prevMaximized);
+    }
+    else
+      $('#main-board-area').empty();
+    // Move card to main board area
+    game.element.appendTo('#main-board-area');
+    makeMainBoard(game);
 
-  // Move currently maximized game card to secondary board area
-  var prevMaximized = getMainGame();
-  if(prevMaximized) {
-    prevMaximized.element.appendTo('#secondary-board-area');
-    makeSecondaryBoard(prevMaximized);
+    setPanelSizes();
+    setFontSizes();
   }
-  else
-    $('#main-board-area').empty();
-  // Move card to main board area
-  game.element.appendTo('#main-board-area');
-  makeMainBoard(game);
-
-  setPanelSizes();
-  setFontSizes();
   scrollToBoard(game);
 }
 
@@ -4037,7 +4048,7 @@ export function findGame(id: number): Game {
   return games.find(element => element.id === id);
 }
 
-function setGameWithFocus(game: Game) {
+export function setGameWithFocus(game: Game) {
   if(game !== gameWithFocus) {
     if(gameWithFocus) {
       gameWithFocus.element.removeClass('game-focused');

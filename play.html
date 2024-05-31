@@ -368,20 +368,20 @@
                           <div id="game-toolbar" class="d-flex justify-content-end" style="gap: 14px">
                             <div class="btn-group">
                               <input type="radio" checked class="btn-check" name="view-mode" id="game-table-view" autocomplete="off">
-                              <label class="btn btn-outline-secondary btn-sm" for="game-table-view" data-bs-toggle="tooltip" data-bs-placement="top" data-fallback-placements="left,right" title="Table View">
+                              <label class="btn btn-outline-secondary btn-sm btn-transparent" for="game-table-view" data-bs-toggle="tooltip" data-bs-placement="top" data-fallback-placements="left,right" title="Table View">
                                 <span class="fa-solid fa-table-columns" aria-hidden="false"></span>
                               </label>
                               <input type="radio" class="btn-check" name="view-mode" id="game-list-view" autocomplete="off">
-                              <label class="btn btn-outline-secondary btn-sm" for="game-list-view" data-bs-toggle="tooltip" data-bs-placement="top" data-fallback-placements="right,left" title="List View">
+                              <label class="btn btn-outline-secondary btn-sm btn-transparent" for="game-list-view" data-bs-toggle="tooltip" data-bs-placement="top" data-fallback-placements="right,left" title="List View">
                                 <span class="fa-solid fa-align-justify" aria-hidden="false"></span>
                               </label>
                             </div>
                             <input type="checkbox" class="btn-check" id="game-preserved" autocomplete="off" aria-checked="false">
-                            <label class="btn btn-outline-secondary btn-sm" for="game-preserved" data-bs-toggle="tooltip" data-bs-placement="top" title="Preserve Game" data-description="Stop this game being over-written when starting a new game.">
+                            <label class="btn btn-outline-secondary btn-sm btn-transparent" for="game-preserved" data-bs-toggle="tooltip" data-bs-placement="top" title="Preserve Game" data-description="Stop this game being over-written when starting a new game.">
                               <span class="fa-solid fa-unlock" aria-hidden="false"></span>
                             </label>
                             <div>
-                              <button type="button" id="more-game-tools" class="btn btn-outline-secondary btn-sm dropdown-toggle hide-caret position-relative" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More game tools">
+                              <button type="button" id="more-game-tools" class="btn btn-outline-secondary btn-sm btn-transparent dropdown-toggle hide-caret position-relative" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More game tools">
                                 <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" title="More game tools"></div>
                                 <span class="fa-solid fa-ellipsis-vertical" aria-hidden="false"></span>
                               </button>
@@ -503,11 +503,11 @@
             <div class="card game-card bg-transparent">
               <div class="card-header title-bar">
                 <div class="d-flex align-items-center">
-                  <button type="button" class="me-auto btn btn-outline-secondary" title="Maximize" aria-label="Maximize">
+                  <button type="button" class="me-auto btn btn-outline-secondary btn-transparent" title="Maximize" aria-label="Maximize">
                     <span class="game-maximize-icon fa-regular fa-window-maximize" aria-hidden="false"></span>
                   </button>
                   <span m-auto class="title-bar-text"></span>
-                  <button type="button" class="ms-auto btn btn-outline-secondary" title="Close" aria-label="Close">
+                  <button type="button" class="ms-auto btn btn-outline-secondary btn-transparent" title="Close" aria-label="Close">
                     <span class="game-close-icon fa-solid fa-xmark" aria-hidden="false"></span>
                   </button>
                 </div>
@@ -557,7 +557,7 @@
               <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto position-relative" style="max-width: 44%">
                 <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle hide-caret" type="button" id="connectButton" data-bs-toggle="dropdown" aria-label="Connect/Disconnect" aria-expanded="false">
                   <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" title="Connect/Disconnect"></div>
-                  <div id="chat-status" class="w-100"></div>
+                  <div id="session-status" class="w-100"></div>
                 </button>
                 <div class="dropdown-menu" aria-labelledby="connectButton">
                   <a class="dropdown-item noselect" id="disconnect"><span class="fa fa-unlink dropdown-icon" aria-hidden="false"></span>Disconnect</a>
@@ -718,12 +718,15 @@
                         <span class="fa-solid fa-arrow-up" aria-hidden="false"></span>
                       </button>
                     </div>
-                    <br/>
                     <div class="tab-content d-flex flex-column flex-grow-1 position-relative" style="min-height: 0" id="chat-tabContent">
                       <button id="chat-scroll-button" class="btn btn-info" title="Scroll to bottom">
                         <span class="fa-solid fa-arrow-down" aria-hidden="false"></span>
                       </button>
-                      <div class="tab-pane chat-text show active" id="content-console" role="tabpanel"></div>
+                      <div class="tab-pane show active" id="content-console" role="tabpanel">
+                        <div class="d-flex flex-column chat-content-wrapper h-100">
+                          <div class="chat-text flex-grow-1 mt-3" style="min-height: 0"></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div id="right-panel-footer" class="bottom-panel card-footer widget">

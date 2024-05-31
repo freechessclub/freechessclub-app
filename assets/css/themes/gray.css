@@ -20,11 +20,18 @@ cg-board {
 .chat-text {
   color: lightgray;
 }
-.top-panel,.bottom-panel {
-  color: lightslategray;
-}
 .chat-text strong, a {
   color: rgba(159, 184, 228, 0.75);
+}
+.chat-info {
+  background-color: rgba(255, 255, 255, 0.035);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+.chat-info .btn-outline-secondary {
+  --bs-btn-color: rgba(240, 159, 67, 0.95);
+}
+.top-panel,.bottom-panel {
+  color: lightslategray;
 }
 .game-status,.game-watchers,.chat-text strong.mine {
   color: rgba(240, 159, 67, 0.95);

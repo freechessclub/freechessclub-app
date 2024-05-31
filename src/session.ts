@@ -48,8 +48,8 @@ export class Session {
   private tsKey = 'Timestamp (FICS) v1.0 - programmed by Henrik Gram.';
   private parser: Parser;
   private registered: boolean;
-  private chatStatusPopoverTimer; // Hide chat status popover after duration
-  private bodyClickHandler; // Used to detect when user clicks outside of chat status popover
+  private sessionStatusPopoverTimer; // Hide session status popover after duration
+  private bodyClickHandler; // Used to detect when user clicks outside of session status popover
 
   constructor(onRecv: (msg: any) => void, user?: string, pass?: string) {
     this.connected = false;
@@ -60,11 +60,11 @@ export class Session {
 
     // Hide popover if user clicks anywhere outside
     this.bodyClickHandler = (e) => {
-      if(!$('#chat-status').is(e.target) 
-          && $('#chat-status').has(e.target).length === 0
+      if(!$('#session-status').is(e.target) 
+          && $('#session-status').has(e.target).length === 0
           && $('.popover').has(e.target).length === 0)
-        $('#chat-status').popover('dispose');
-        clearTimeout(this.chatStatusPopoverTimer);
+        $('#session-status').popover('dispose');
+        clearTimeout(this.sessionStatusPopoverTimer);
     };
     $('body').on('click', this.bodyClickHandler);
   }
@@ -90,15 +90,15 @@ export class Session {
   }
 
   public setUser(user: string): void {
-    $('#chat-status').html('<span style="overflow: hidden; text-overflow: ellipsis"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;<span class="h6">' + user + '</span></span>');
+    $('#session-status').html('<span style="overflow: hidden; text-overflow: ellipsis"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;<span class="h6">' + user + '</span></span>');
     if(!this.user) { // Only display popover if this is a new user or guest
-      $('#chat-status').popover({
+      $('#session-status').popover({
         animation: true,
         content: 'Connected as ' + user + '. Click here to connect as a different user!',
         placement: 'top',
       });
-      $('#chat-status').popover('show');
-      this.chatStatusPopoverTimer = setTimeout(() => $('#chat-status').popover('dispose'), 3600);
+      $('#session-status').popover('show');
+      this.sessionStatusPopoverTimer = setTimeout(() => $('#session-status').popover('dispose'), 3600);
     }
     this.connected = true;
     this.user = user;
@@ -110,7 +110,7 @@ export class Session {
 
   public connect(user?: string, pass?: string) {
     $('#game-requests').empty();
-    $('#chat-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
+    $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
     const login = (user !== undefined && pass !== undefined);
     let loginOptions = '';
     let text = '';
@@ -137,19 +137,19 @@ export class Session {
     const that = this;
     this.websocket.onclose = function(e) { that.reset(e); };
     this.websocket.onopen = () => {
-      $('#chat-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
+      $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
       this.send(this.timesealHello);
     };
   }
 
   public disconnect() {
-    $('#chat-status').html('<span class="text-danger"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Disconnecting...</span>');
+    $('#session-status').html('<span class="text-danger"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Disconnecting...</span>');
     this.websocket.close();
     this.reset(undefined);
   }
 
   public reset(_e: any) {
-    $('#chat-status').html('<span class="text-danger"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;Offline</span>');
+    $('#session-status').html('<span class="text-danger"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;Offline</span>');
     this.connected = false;
     this.user = '';
     disableOnlineInputs(true);
