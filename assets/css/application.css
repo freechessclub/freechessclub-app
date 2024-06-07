@@ -23,6 +23,10 @@ html, body {
   min-height: 100%;
 }
 
+#chat-panel {
+  display: flex;
+}
+
 .chat-text {
   width: 100%;
   overflow: auto;

@@ -74,7 +74,6 @@ let activeTab;
 let newGameVariant = '';
 let lobbyEntries = new Map();
 let lobbyScrolledToBottom;
-let scrollBarWidth; // Used for sizing the layout
 let noSleep = new NoSleep(); // Prevent screen dimming
 let openings; // Opening names with corresponding moves
 let fetchOpeningsPromise = null; 
@@ -208,12 +207,12 @@ function initAnalysis(game: Game) {
 
 function hideLeftPanelHeader2() {
   $('#left-panel-header-2').hide();
-  setPanelSizes();
+  setLeftColumnSizes();
 }
 
 function showLeftPanelHeader2() {
   $('#left-panel-header-2').show();
-  setPanelSizes();
+  setLeftColumnSizes();
 }
 
 function hideStatusPanel() {
@@ -222,13 +221,13 @@ function hideStatusPanel() {
   $('#show-status-panel').show();
   $('#left-panel-bottom').hide();
   stopEngine();
-  setPanelSizes();
+  setLeftColumnSizes();
 }
 
 function showStatusPanel() {
   $('#left-panel-bottom').show();
   initStatusPanel();
-  setPanelSizes();
+  setLeftColumnSizes();
 }
 
 function initStatusPanel() {
@@ -3836,7 +3835,7 @@ function createGame(): Game {
 
   game.clock = new Clock(game, checkGameEnd);
   games.push(game);
-  setPanelSizes();
+  setRightColumnSizes();
 
   return game;
 }
@@ -4036,7 +4035,7 @@ function removeGame(game: Game) {
     $('#secondary-board-area').hide();
     $('#collapse-chat-arrow').hide();
   }
-  setPanelSizes();
+  setRightColumnSizes();
 
   if(games.length === 1) {
     $('#game-tools-close').parent().hide();
@@ -4158,8 +4157,6 @@ function onDeviceReady() {
   prevWindowWidth = NaN;
   // Here we create a temporary hidden element in order to measure its scrollbar width.
   $('body').append(`<div id="scrollbar-measure" style="position: absolute; top: -9999px; overflow: scroll"></div>`);
-  scrollBarWidth = $('#scrollbar-measure')[0].offsetWidth - $('#scrollbar-measure')[0].clientWidth;
-  $('#scrollbar-measure').remove();
   
   // Change layout for mobile or desktop and resize panels 
   // Split it off into a timeout so that onDeviceReady doesn't take too long.
@@ -4343,9 +4340,14 @@ function setPanelSizes() {
 
   // Make sure the board is smaller than the window height and also leaves room for the other columns' min-widths
   if(!isSmallWindow()) {
+    // Create a temporary hidden element in order to measure its scrollbar width.
+    if(!$('#scrollbar-measure').length)
+      $('body').append(`<div id="scrollbar-measure" style="position: absolute; top: -9999px; overflow: scroll"></div>`);
+    var scrollBarWidth = $('#scrollbar-measure')[0].offsetWidth - $('#scrollbar-measure')[0].clientWidth;
+
     // Set board width a bit smaller in order to leave room for a scrollbar on <body>. This is because 
     // we don't want to resize all the panels whenever a dropdown or something similar overflows the body.   
-    if(window.innerWidth < 992) // display 2 columns on md (medium) display
+    if(isMediumWindow()) // display 2 columns on md (medium) display
       var cardMaxWidth = window.innerWidth - $('#left-col').outerWidth() - scrollBarWidth;
     else
       var cardMaxWidth = window.innerWidth - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')) - scrollBarWidth;    
@@ -4353,41 +4355,9 @@ function setPanelSizes() {
     var feature3Border = $('.feature3').outerHeight(true) - $('.feature3').height();
     var cardMaxHeight = $(window).height() - feature3Border;
     setGameCardSize(maximizedGameCard, cardMaxWidth, cardMaxHeight);
-    // Force resizing of bootstrap row after scrollbars disappear
-    setTimeout(() => { maximizedGameCard.width(maximizedGameCard.width()); }, 0);
   }
   else 
     setGameCardSize(maximizedGameCard);
-
-  const boardHeight = maximizedGameCard.find('.board').innerHeight();
-
-  // Set width and height of game cards in the right board area
-  var numCards = $('#secondary-board-area').children().length;
-  if(numCards > 2) 
-    $('#secondary-board-area').css('overflow-y', 'scroll');
-  else 
-    $('#secondary-board-area').css('overflow-y', 'hidden');
-  
-  games.forEach((game) => {
-    if(game.element.parent().is($('#secondary-board-area'))) {
-      if(isLargeWindow()) {
-        var cardsPerRow = Math.min(2, numCards);
-        var cardHeight: any = boardHeight * 0.6;
-      }
-      else {
-        var cardsPerRow = 2;
-        var cardHeight = null;
-      }
-
-      var scrollbarWidth = $('#secondary-board-area')[0].offsetWidth - $('#secondary-board-area')[0].clientWidth; 
-      var innerWidth = $('#secondary-board-area').width() - scrollbarWidth - 1;
-      setGameCardSize(game.element, innerWidth / cardsPerRow - parseInt($('#secondary-board-area').css('gap')) * (cardsPerRow - 1) / cardsPerRow, cardHeight);
-    }
-  });
-  if(isSmallWindow())
-    $('#secondary-board-area').css('height', '');
-  else
-    $('#secondary-board-area').height($('#secondary-board-area > :first-child').outerHeight());
 
   // Set the height of dynamic elements inside left and right panel collapsables.
   // Try to do it in a robust way that won't break if we add/remove elements later.
@@ -4410,10 +4380,25 @@ function setPanelSizes() {
     maximizedGameCard.find('.bottom-panel').height(playerStatusHeight);
   }
 
+  setLeftColumnSizes();
+  setRightColumnSizes();
+
+  // Adjust Notifications drop-down width
+  if(isSmallWindow() && !isSmallWindow(prevWindowWidth)) 
+    $('#notifications').css('width', '100%');
+  else if(isMediumWindow() && !isMediumWindow(prevWindowWidth)) 
+    $('#notifications').css('width', '50%');
+  else if(isLargeWindow()) 
+    $('#notifications').width($(document).outerWidth(true) - $('#left-col').outerWidth(true) - $('#mid-col').outerWidth(true));
+}
+
+function setLeftColumnSizes() {
+  const boardHeight = $('#main-board-area .board').innerHeight();
+
   // set height of left menu panel inside collapsable
   if (boardHeight) {
     if($('#left-panel').height() === 0)
-        $('#left-panel-bottom').css('height', '');
+      $('#left-panel-bottom').css('height', '');
 
     var siblingsHeight = 0;
     var siblings = $('#collapse-history').siblings();
@@ -4434,6 +4419,40 @@ function setPanelSizes() {
         $('#left-panel-bottom').height($('#left-panel-bottom').height() + leftPanelHeight);
     }
   }
+}
+
+function setRightColumnSizes() {
+  const boardHeight = $('#main-board-area .board').innerHeight();
+  // Hide chat panel before resizing everything so as to remove scrollbar on window and for performance reasons
+  $('#chat-panel').hide(); 
+
+  // Set width and height of game cards in the right board area
+  var numCards = $('#secondary-board-area').children().length;
+  if(numCards > 2) 
+    $('#secondary-board-area').css('overflow-y', 'scroll');
+  else 
+    $('#secondary-board-area').css('overflow-y', 'hidden');
+  
+  games.forEach((game) => {
+    if(game.element.parent().is($('#secondary-board-area'))) {
+      if(isLargeWindow()) {
+        var cardsPerRow = Math.min(2, numCards);
+        var cardHeight: any = boardHeight * 0.6;
+      }
+      else {
+        var cardsPerRow = 2;
+        var cardHeight = null;
+      }
+
+      var boardAreaScrollbarWidth = $('#secondary-board-area')[0].offsetWidth - $('#secondary-board-area')[0].clientWidth; 
+      var innerWidth = $('#secondary-board-area').width() - boardAreaScrollbarWidth - 1;
+      setGameCardSize(game.element, innerWidth / cardsPerRow - parseInt($('#secondary-board-area').css('gap')) * (cardsPerRow - 1) / cardsPerRow, cardHeight);
+    }
+  });
+  if(isSmallWindow())
+    $('#secondary-board-area').css('height', '');
+  else
+    $('#secondary-board-area').height($('#secondary-board-area > :first-child').outerHeight());
 
   // set height of right panel inside collapsable
   var siblingsHeight = 0;
@@ -4453,16 +4472,10 @@ function setPanelSizes() {
   }
   else 
     $('#chat-panel').height(boardHeight + $('#left-panel-footer').outerHeight() - chatBodyBorder - siblingsHeight);
+    
+  $('#chat-panel').css('display', 'flex'); 
 
-  adjustInputTextHeight(); 
-
-  // Adjust Notifications drop-down width
-  if(isSmallWindow() && !isSmallWindow(prevWindowWidth)) 
-    $('#notifications').css('width', '100%');
-  else if(isMediumWindow() && !isMediumWindow(prevWindowWidth)) 
-    $('#notifications').css('width', '50%');
-  else if(isLargeWindow()) 
-    $('#notifications').width($(document).outerWidth(true) - $('#left-col').outerWidth(true) - $('#mid-col').outerWidth(true));
+  adjustInputTextHeight();
 }
 
 function calculateFontSize(container: any, containerMaxWidth: number, minWidth?: number, maxWidth?: number) {
