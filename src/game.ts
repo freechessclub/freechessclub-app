@@ -58,7 +58,8 @@ export class Game extends GameData {
   history: any = null;
   clock: any = null;
   board: any = null;
-  watchers: any = null;
+  watchers: any = [];
+  watchersInterval: any = null;
   captured: any = {};
 
   // HTML elements associated with this Game
