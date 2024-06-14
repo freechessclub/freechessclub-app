@@ -398,7 +398,7 @@ export class Chat {
     }
 
     if(showTab) {
-      const tabs = $('#tabs a').filter(function (index) {
+      const tabs = $('#tabs button').filter(function (index) {
         return $(this).attr('id') === 'tab-' + from;
       });
       tabs.first().tab('show');
