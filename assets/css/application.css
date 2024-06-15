@@ -156,6 +156,7 @@ html, body {
 
 #input-text {
   resize: none;   
+  overflow-x: hidden;
 }
 
 .counter-bubble {
@@ -751,4 +752,13 @@ html, body {
   right: 0;
   bottom: 0;
   left: 0;
+}
+
+input[type="number"] {
+  appearance: initial;
+  -moz-appearance: textfield;
+}
+input[type="number"]:hover,
+input[type="number"]:focus {
+  appearance: initial;
 }
