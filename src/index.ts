@@ -4423,8 +4423,9 @@ function setLeftColumnSizes() {
 
 function setRightColumnSizes() {
   const boardHeight = $('#main-board-area .board').innerHeight();
-  // Hide chat panel before resizing everything so as to remove scrollbar on window and for performance reasons
-  $('#chat-panel').hide(); 
+   // Hide chat panel before resizing everything so as to remove scrollbar on window caused by chat overflowing
+  if(isLargeWindow())
+    $('#chat-panel').hide();
 
   // Set width and height of game cards in the right board area
   var numCards = $('#secondary-board-area').children().length;
@@ -4473,7 +4474,8 @@ function setRightColumnSizes() {
   else 
     $('#chat-panel').height(boardHeight + $('#left-panel-footer').outerHeight() - chatBodyBorder - siblingsHeight);
     
-  $('#chat-panel').css('display', 'flex'); 
+  if(isLargeWindow())
+    $('#chat-panel').css('display', 'flex'); 
 
   adjustInputTextHeight();
 }
