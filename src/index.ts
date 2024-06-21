@@ -1757,6 +1757,12 @@ function gameStart(game: Game) {
     scrollToBoard(game);
 }
 
+function removeLine(msg: string, line: string): string {
+  line = line.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const re = new RegExp(`^.*${line}.*$\\n?`, 'm');
+  return msg.replace(re, '');
+}
+
 function messageHandler(data) {
   if (data === undefined || data === null) {
     return;
@@ -2072,7 +2078,7 @@ function messageHandler(data) {
       break;
     case MessageType.Unknown:
     default:
-      const msg = data.message;
+      var msg = data.message;
     
       var match = msg.match(/^No one is observing game (\d+)\./m);
       if (match != null && match.length > 1) {
@@ -2401,33 +2407,36 @@ function messageHandler(data) {
 
       match = msg.match(/^(Creating|Game\s(\d+)): (\w+) \(([\d\+\-\s]+)\) (\w+) \(([\d\-\+\s]+)\) \S+ (\S+).+/m);
       if (match != null && match.length > 7) {
-        if(!multiboardToggle) {
+        if(!multiboardToggle) 
           var game = getMainGame();
-          if(game.isPlaying()) 
-            return;
-        }
         else {     
-          var game = getFreeGame();
+          var game = findGame(+match[2]);
+          if(!game)
+            game = getFreeGame();
           if(!game)
             game = createGame();
         }
 
-        game.wrating = (isNaN(match[4]) || match[4] === '0') ? '' : match[4];
-        game.brating = (isNaN(match[6]) || match[6] === '0') ? '' : match[6];
-        game.category = match[7];
-        
-        var status = match[0].substring(match[0].indexOf(':')+1);
-        var statusHTML = '<span>' + status + '</span>';
+        if(multiboardToggle || !game.isPlaying() || +match[2] === game.id) {
+          game.wrating = (isNaN(match[4]) || match[4] === '0') ? '' : match[4];
+          game.brating = (isNaN(match[6]) || match[6] === '0') ? '' : match[6];
+          game.category = match[7];
+          
+          var status = match[0].substring(match[0].indexOf(':')+1);
+          var statusHTML = '<span>' + status + '</span>';
 
-        showStatusMsg(game, statusHTML);
-        if (match[3] === session.getUser() || match[1].startsWith('Game')) {
-          game.element.find('.player-status .rating').text(game.wrating);
-          game.element.find('.opponent-status .rating').text(game.brating);
-        } else if (match[5] === session.getUser()) {
-          game.element.find('.opponent-status .rating').text(game.wrating);
-          game.element.find('.player-status .rating').text(game.brating);
+          showStatusMsg(game, statusHTML);
+          if (match[3] === session.getUser() || match[1].startsWith('Game')) {
+            game.element.find('.player-status .rating').text(game.wrating);
+            game.element.find('.opponent-status .rating').text(game.brating);
+          } else if (match[5] === session.getUser()) {
+            game.element.find('.opponent-status .rating').text(game.wrating);
+            game.element.find('.player-status .rating').text(game.brating);
+          }
         }
-        return;
+        data.message = msg = removeLine(msg, match[0]); // remove the matching line
+        if(!msg)
+          return;
       }
 
       match = msg.match(/^Removing game (\d+) from observation list./m);
