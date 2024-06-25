@@ -109,7 +109,12 @@ export class Parser {
     }
   }
 
-  private getGameResult(p1: string, p2: string, who: string, action: string) {
+  public getGameResult(p1: string, p2: string, who: string, action: string) {
+    if(who === 'White')
+      who = p1;
+    else if(who === 'Black')
+      who = p2;
+
     action = action.trim();
     switch (action) {
       case 'resigns':
@@ -238,7 +243,7 @@ export class Parser {
     let match = null;
 
     // game move
-    match = msg.match(/(?:^|\n)<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(\-?[0-7])\s([01])\s([01])\s([01])\s([01])\s([0-9]+)\s([0-9]+)\s([a-zA-Z]+)\s([a-zA-Z]+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(\S+)\s\(([0-9]+)\:([0-9]+)\.([0-9]+)\)\s(\S+)\s([01])\s([0-9]+)\s([0-9]+)\s*/);
+    match = msg.match(/(?:^|\n)<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(\-?[0-7])\s([01])\s([01])\s([01])\s([01])\s([0-9]+)\s([0-9]+)\s(\S+)\s(\S+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(\S+)\s\(([0-9]+)\:([0-9]+)\.([0-9]+)\)\s(\S+)\s([01])\s([0-9]+)\s([0-9]+)\s*/);
     if (match != null && match.length >= 34) {
       var msgs = this.splitMessage(msg);
       if(msgs)
@@ -302,7 +307,7 @@ export class Parser {
         wtime: +match[24],                    // White's remaining time in milliseconds
         btime: +match[25],                    // Black's remaining time in milliseconds
         moveNo: +match[26],                   // the number of the move about to be made
-        moveVerbose,                          // verbose coordinate notation for the previous move ("none" if there werenone) [note this used to be broken for examined games]
+        moveVerbose,                          // verbose coordinate notation for the previous move ("none" if there were none)
         prevMoveTime: {minutes: match[28], seconds: match[29], milliseconds: match[30]}, // time taken to make previous move "(min:sec)".
         move: match[31],                      // pretty notation for the previous move ("none" if there is none)
         flip: match[32] === '1'               // flip field for board orientation: 1 = Black at bottom, 0 = White at bottom.
@@ -328,7 +333,7 @@ export class Parser {
     }
 
     // game start
-    match = msg.match(/(?:^|\n)\s*\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s(?:Creating|Continuing).*\}.*/s);
+    match = msg.match(/(?:^|\n)\s*\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s(?:Creating|Continuing)[^\}]*\}.*/s);
     if (match != null && match.length > 2) {
       return {
         game_id: +match[1],
@@ -338,8 +343,8 @@ export class Parser {
     }
 
     // game end
-    match = msg.match(/(?:^|\n)[^\(\):]*(?:Game\s[0-9]+:.*)?\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)(?:' game|'s)?\s([^\}]+)\}\s(?:[012/]+-[012/]+)?.*/s);
-    if (match != null && match.length > 4) {
+    match = msg.match(/(?:^|\n)[^\(\):]*(?:Game\s[0-9]+:.*)?\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)(?:' game|'s)?\s([^\}]+)\}\s(\*|[012/]+-[012/]+).*/s);
+    if (match != null && match.length > 5) {
       var msgs = this.splitMessage(msg);
       if(msgs)
         return msgs;
@@ -348,6 +353,7 @@ export class Parser {
       const p2 = match[3];
       const who = match[4];
       const action = match[5];
+      const score = match[6];
 
       const [winner, loser, reason] = this.getGameResult(p1, p2, who, action);
       return {
@@ -355,6 +361,7 @@ export class Parser {
         winner,
         loser,
         reason,
+        score,
         message: msg,
       };
     }

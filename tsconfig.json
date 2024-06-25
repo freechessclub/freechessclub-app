@@ -9,6 +9,7 @@
         "resolveJsonModule": true,
         "allowSyntheticDefaultImports": true,
         "module": "es2022",
+        "target": "es2022",
         "moduleResolution": "node"
     },
     "include": [
