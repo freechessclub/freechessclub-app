@@ -4934,7 +4934,7 @@ $('#exit-subvariation').on('click', () => {
 });
 
 $(document).on('keydown', (e) => {
-  if ($(e.target).closest('input')[0]) {
+  if ($(e.target).closest('input, textarea')[0]) {
     return;
   }
 
