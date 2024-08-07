@@ -87,15 +87,12 @@ let partnerGameId = null;
 const mainBoard: any = createBoard($('#main-board-area').children().first().find('.board'));
 
 function cleanupGame(game: Game) {
-  if(game.role === Role.PLAYING_COMPUTER)
-    return;
-
-  game.role = Role.NONE;
-
-  if(playEngine) {
+  if(playEngine && game.role === Role.PLAYING_COMPUTER) {
     playEngine.terminate();
     playEngine = null;
   }
+
+  game.role = Role.NONE;
 
   if(game === gameWithFocus) {
     hideButton($('#stop-observing'));
@@ -156,7 +153,8 @@ export function cleanup() {
   clearMatchRequests();
   clearNotifications();
   games.forEach((game) => {
-    cleanupGame(game);
+    if(game.role !== Role.PLAYING_COMPUTER)
+      cleanupGame(game);
   });
 }
 
@@ -1840,10 +1838,8 @@ function messageHandler(data) {
             break;
           }
         }
-        else if(game.role === Role.PLAYING_COMPUTER && data.role !== Role.PLAYING_COMPUTER) {
-          game.role = Role.NONE;
+        else if(game.role === Role.PLAYING_COMPUTER && data.role !== Role.PLAYING_COMPUTER) 
           cleanupGame(game); // Allow player to imemediately play/examine/observe a game at any time while playing the Computer. The Computer game will simply be aborted.
-        }
       }
 
       if(examineModeRequested && data.role === Role.EXAMINING) {
@@ -1936,7 +1932,6 @@ function messageHandler(data) {
         }
         showBoardModal('Match Result', '', data.message, rematch, analyze, false, false, false);
       }
-      game.role = Role.NONE;
       cleanupGame(game);
       break;
     case MessageType.GameHoldings:
@@ -3144,7 +3139,6 @@ function getPlayComputerMoveParams(game: Game): string {
 function playComputer(params: any) {
   var computerGame = getComputerGame();
   if(computerGame) {
-    computerGame.role = Role.NONE;
     cleanupGame(computerGame);
     var game = computerGame; 
   }
