@@ -54,7 +54,6 @@ let historyRequested = 0;
 let obsRequested = 0;
 let allobsRequested = 0;
 let gamesRequested = false;
-let movelistRequested = 0;
 let lobbyRequested = false;
 let channelListRequested = false;
 let computerListRequested = false;
@@ -126,6 +125,7 @@ function cleanupGame(game: Game) {
   gameExitPending = 0;
   game.partnerGameId = null;
   game.commitingMovelist = false;
+  game.movelistRequested = 0;
   game.board.cancelMove();
   updateBoard(game);
   initStatusPanel();
@@ -145,7 +145,6 @@ export function cleanup() {
   obsRequested = 0;
   allobsRequested = 0;
   gamesRequested = false;
-  movelistRequested = 0;
   lobbyRequested = false;
   channelListRequested = false;
   computerListRequested = false;
@@ -1738,7 +1737,7 @@ function gameStart(game: Game) {
     }
 
     if(game.isExamining() || ((game.isObserving() || game.isPlayingOnline()) && game.move !== 'none')) {        
-      movelistRequested++;
+      game.movelistRequested++;
       session.send('iset startpos 1'); // Show the initial board position before the moves list 
       session.send('moves ' + game.id);
       session.send('iset startpos 0');
@@ -2330,10 +2329,8 @@ function messageHandler(data) {
       match = msg.match(/(?:^|\n)\s*Movelist for game (\d+):\s+(\w+) \((\d+|UNR)\) vs\. (\w+) \((\d+|UNR)\)[^\n]+\s+(\w+) (\S+) match, initial time: (\d+) minutes, increment: (\d+) seconds\./);
       if (match != null && match.length > 9) {
         var game = findGame(+match[1]);
-        if (movelistRequested) {
-          movelistRequested--;
-          if(!game)
-            return;
+        if(game && game.movelistRequested) {
+          game.movelistRequested--;
 
           if(game.isExamining()) {
             var id = match[1];
@@ -2497,8 +2494,12 @@ function messageHandler(data) {
 
       // Suppress messages when 'moves' command issued internally
       match = msg.match(/^You're at the (?:beginning|end) of the game\./m);
-      if(match && movelistRequested)
-        return;
+      if(match) {
+        for(let i = 0; i < games.length; i++) {
+          if(games[i].movelistRequested)
+            return;
+        }
+      }
 
       // Moving backwards and forwards is now handled more generally by updateHistory()
       match = msg.match(/^Game\s\d+: \w+ backs up (\d+) moves?\./m);
@@ -2786,7 +2787,7 @@ function updateHistory(game: Game, move?: any, fen?: string) {
   const hEntry = game.history.find(fen);
 
   if(!hEntry) {
-    if(movelistRequested)
+    if(game.movelistRequested)
       return;
 
     if(move) {
@@ -2808,14 +2809,14 @@ function updateHistory(game: Game, move?: any, fen?: string) {
     }
     else { 
       // move not found, request move list
-      movelistRequested++;
+      game.movelistRequested++;
       session.send('iset startpos 1'); // Show the initial board position before the moves list 
       session.send('moves ' + game.id);
       session.send('iset startpos 0');
     }
   }
   else {
-    if(!movelistRequested && game.role !== Role.NONE) 
+    if(!game.movelistRequested && game.role !== Role.NONE) 
       game.history.updateClockTimes(hEntry, game.wtime, game.btime);
 
     // move is already displayed
@@ -3093,7 +3094,7 @@ function startEngine() {
       options['UCI_Variant'] = game.category;
     
     engine = new Engine(game, null, displayEnginePV, options);
-    if(!movelistRequested)
+    if(!game.movelistRequested)
       engine.move(game.history.current());
   }
 }
