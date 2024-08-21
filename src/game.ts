@@ -87,4 +87,5 @@ export class Game extends GameData {
   partnerGameId: number = null;        // bughouse partner's game id
   preserved: boolean = false;          // if true, prevents a game/board from being overwritten 
   commitingMovelist = false;           // Used when entering examine mode and using 'commit' to submit a move list
+  movelistRequested: number = 0;       // Used to keep track of move list requests
 }
