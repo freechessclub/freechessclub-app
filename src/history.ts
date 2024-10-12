@@ -231,6 +231,7 @@ export class History {
     this.updateClockTimes(this.firstEntry, wtime, btime);
     this.game.moveTableElement.empty();
     this.game.moveListElement.empty();
+    this.resetMetatags();
   }
 
   public updateClockTimes(entry: HEntry, wtime?: number, btime?: number) {
@@ -1339,6 +1340,28 @@ export class History {
     else {
       for(let key in tags) 
         this.metatags[key] = tags[key];
+    }
+  }
+
+  /** 
+   * Reset move-list related metatags when the history is reset() 
+   */
+  public resetMetatags() {
+    var tags = this.metatags;
+    delete tags.Opening;
+    delete tags.Variation;
+    delete tags.SubVariation;
+    delete tags.ECO;
+    delete tags.NIC;
+    tags.Result = '*';
+    var fen = this.first().fen;
+    if(fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+      tags.SetUp = '1';
+      tags.FEN = fen;
+    }
+    else {
+      delete tags.SetUp;
+      delete tags.FEN;
     }
   }
 

@@ -245,6 +245,41 @@ html, body {
   flex-shrink: 0;
 }
 
+.setup-board {
+  padding-left: 0.5em;
+  padding-right: 0.5em;
+  font-size: calc(min(var(--panel-width) / 32, var(--panel-height) / 3.5));
+}
+.setup-board-white::after, .setup-board-black::after {
+  all: unset;
+}
+.setup-board-buttons {
+  min-width: 8.25em;
+}
+.setup-board-buttons button {
+  font-size: calc(min(var(--panel-width) / 16, var(--panel-height) / 1.8));
+  padding: 0.25em;
+}
+.color-to-move-button {
+  font-size: calc(min(var(--panel-width) / 32, var(--panel-height) / 3.5));
+  --bs-btn-padding-x: 0.75em;
+  --bs-btn-padding-y: 0.375em;
+}
+.setup-board .can-castle {
+  margin-left: 0.75em;
+  margin-right: 0.75em;
+}
+.setup-board .setup-board-piece {
+  display: inline-block;
+  position: static;
+  flex: 1;
+  max-width: calc(var(--panel-height) - 8px);
+  height: auto;
+  aspect-ratio: 1 / 1;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 .game-card {
   --game-tie-color: #fcddae;
   --game-win-color: #d4f9d9;
@@ -380,6 +415,9 @@ html, body {
 }
 #game-tools-save-pgn .dropdown-icon {
   padding-right: 0.25rem;
+}
+#game-tools-setup-board .dropdown-icon {
+  padding-right: 0.125rem; 
 }
 #game-tools-close .dropdown-icon {
   padding-left: 0.125rem; 

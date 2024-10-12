@@ -13,7 +13,7 @@ var SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstan
 export class Engine {
   protected stockfish: any;
   protected numPVs: number;
-  protected currMove: any;
+  protected currFen: string;
   protected currEval: string;
   protected game: Game;
   protected bestMoveCallback: (game: Game, move: string, score: string) => void;
@@ -23,7 +23,7 @@ export class Engine {
   constructor(game: Game, bestMoveCallback: (game: Game, move: string, score: string) => void, pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string) => void, options?: object, moveParams?: string) {
     this.numPVs = 1;
     this.moveParams = moveParams;
-    this.currMove = undefined;
+    this.currFen = null;
     this.game = game;
     this.bestMoveCallback = bestMoveCallback;
     this.pvCallback = pvCallback;
@@ -43,8 +43,7 @@ export class Engine {
       let depth0 = false;
 
       if (response.data.startsWith('info')) {
-        if(this.currMove)
-          var fen = this.currMove.fen;
+        var fen = this.currFen;
         
         const info = response.data.substring(5, response.data.length);
 
@@ -175,7 +174,7 @@ export class Engine {
   }
 
   public move(hEntry: HEntry) {
-    this.currMove = hEntry;
+    this.currFen = hEntry.fen;
     
     var movelist = [];
     while(hEntry.move) {  
@@ -195,6 +194,12 @@ export class Engine {
     this.uci('go ' + this.moveParams);
   }
 
+  public evaluateFEN(fen: string) {
+    this.currFen = fen;
+    this.uci('position fen ' + fen);
+    this.uci('go ' + this.moveParams);
+  }
+
   public setNumPVs(num : any = 1) {
     this.numPVs = num;
     this.uci('setoption name MultiPV value ' + this.numPVs);
@@ -208,6 +213,7 @@ export class Engine {
 export class EvalEngine extends Engine {
   private _redraw: boolean = true;
   private numGraphMoves: number = 0;
+  private currMove: any;
 
   constructor(game: Game, options?: any, moveParams?: string) {
     if(!moveParams)

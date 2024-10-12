@@ -78,9 +78,15 @@
               </div>
             </div>
             <div id="inner-left-panels">
+              <div id="left-panel-setup-board" class="card-header top-panel center" style="display: none">
+                <div class="btn-toolbar center w-100">
+                  <button type="button" id="setup-done" class="btn btn-outline-success btn-md" title="Setup Done"><span class="fa fa-check-circle me-2" aria-hidden="false"></span>Setup Done</button>         
+                  <button type="button" id="cancel-setup" class="btn btn-outline-secondary btn-md" title="Cancel Setup"><span class="fa fa-times-circle me-2" aria-hidden="false"></span>Cancel Setup</button>     
+                </div>
+              </div>
               <div id="left-panel-header-2" class="card-header top-panel center" style="display: none">
                 <button type="button" id="stop-observing" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Observing"><span class="fa fa-times-circle me-2" aria-hidden="false"></span>Stop Observing</button>         
-                <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Examining"><span class="fa fa-times-circle me-2" aria-hidden="false"></span>Stop Examining</button>         
+                <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Examining"><span class="fa fa-times-circle me-2" aria-hidden="false"></span>Stop Examining</button>           
               </div>
               <div class="card-body p-0">
                 <ul class="nav nav-pills nav-fill user-select-none" id="pills-tab" role="tablist">
@@ -186,7 +192,7 @@
                                         </div>
                                       </div>
                                     </div>
-                                    <div class="mb-3">                                    
+                                    <div class="mb-4">                                    
                                       <label class="form-heading">Type:</label>
                                       <div>
                                         <div class="form-check form-check-inline">
@@ -202,6 +208,10 @@
                                           <label class="form-check-label" for="play-computer-type-crazyhouse">Crazyhouse</label>
                                         </div>                                      
                                       </div>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                      <input class="form-check-input" id="play-computer-start-from-pos" type="checkbox">
+                                      <label class="form-check-label" for="play-computer-start-from-pos">Start from current board position</label>
                                     </div>
                                   </div>
                                   <div class="modal-footer center">
@@ -411,6 +421,7 @@
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item noselect" id="game-tools-clone"><span class="fa-solid fa-copy dropdown-icon" aria-hidden="false"></span>Duplicate Game</a></li>
                                 <li><a class="dropdown-item noselect" id="game-tools-examine"><span class="fa-brands fa-slideshare dropdown-icon" aria-hidden="false"></span>Examine Mode (Shared)</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-setup-board"><span class="fa-solid fa-chess-board dropdown-icon" aria-hidden="false"></span>Setup Board</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item noselect" id="game-tools-properties"><span class="fa-solid fa-file-pen dropdown-icon" aria-hidden="false"></span>Game Properties</a></li>
                                 <li style="display: none"><a class="dropdown-item noselect" id="game-tools-close"><span class="fa-solid fa-xmark dropdown-icon" aria-hidden="false"></span>Close Game</a></li>
@@ -528,7 +539,39 @@
                 </div>
               </div>
               <div class="top-panel card-header p-0">
-                <div class="h-100 w-100 d-flex justify-content-between align-items-center status noselect opponent-status">
+                <div class="setup-board setup-board-top h-100 w-100 justify-content-between align-items-center noselect" style="display: none">
+                  <div class="setup-board-buttons">
+                    <button type="button" class="reset-board btn btn-outline-secondary btn-transparent" data-bs-toggle="tooltip" title="Reset to initial position" data-bs-placement="top" data-fallback-placements="left, right">
+                      <span class="fa-solid fa-rotate-left" aria-hidden="false"></span>
+                    </button>
+                    <button type="button" class="clear-board btn btn-outline-secondary btn-transparent" data-bs-toggle="tooltip" title="Clear board" data-bs-placement="top" data-fallback-placements="right, left">
+                      <span class="fa-solid fa-trash-can" aria-hidden="false"></span>
+                    </button>
+                  </div>
+                  <div class="cg-wrap flex-grow-1 h-100 d-flex flex-grow-1 justify-content-end align-items-center setup-board-black">
+                    <div class="can-castle">
+                      <div class="m-0 form-check" style="min-height: 0;" data-bs-toggle="tooltip" title="Can black castle king-side?" data-bs-placement="top" data-fallback-placements="right, left">
+                        <label class="form-check-label">
+                          <input class="form-check-input can-kingside-castle-black" type="checkbox" checked>
+                          O-O
+                        </label>
+                      </div>
+                      <div class="m-0 form-check" style="min-height: 0;" data-bs-toggle="tooltip" title="Can black castle queen-side?" data-bs-placement="top" data-fallback-placements="right, left">
+                        <label class="form-check-label">
+                          <input class="form-check-input can-queenside-castle-black" type="checkbox" checked>
+                          O-O-O
+                        </label>
+                      </div>
+                    </div>
+                    <piece class="black king setup-board-piece" data-drag-piece="bK"></piece>
+                    <piece class="black queen setup-board-piece" data-drag-piece="bQ"></piece>
+                    <piece class="black rook setup-board-piece" data-drag-piece="bR"></piece>
+                    <piece class="black bishop setup-board-piece" data-drag-piece="bB"></piece>
+                    <piece class="black knight setup-board-piece" data-drag-piece="bN"></piece>
+                    <piece class="black pawn setup-board-piece" data-drag-piece="bP"></piece>
+                  </div>
+                </div>
+                <div class="h-100 w-100 justify-content-between align-items-center status noselect opponent-status" style="display: flex">
                   <div class="d-flex flex-grow-1 overflow-hidden align-items-center">
                     <div class="d-flex flex-grow-1 overflow-hidden align-items-center name-rating">
                       <div class="name"></div>
@@ -549,7 +592,36 @@
                 </div>
               </div>
               <div class="bottom-panel card-footer p-0">
-                <div class="h-100 w-100 d-flex justify-content-between align-items-center status noselect player-status">
+                <div class="setup-board setup-board-bottom h-100 w-100 justify-content-between align-items-center noselect" style="display: none">
+                  <button class="btn btn-outline-secondary dropdown-toggle color-to-move-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">White's move</button>
+                  <ul class="dropdown-menu" class="color-to-move-menu">
+                    <li><a class="dropdown-item" onclick="setupBoardColorToMove('w');">White to move</a></li>
+                    <li><a class="dropdown-item" onclick="setupBoardColorToMove('b');">Black to move</a></li>
+                  </ul>
+                  <div class="cg-wrap flex-grow-1 h-100 d-flex justify-content-end align-items-center setup-board-white">
+                    <div class="can-castle">
+                      <div class="m-0 form-check" style="min-height: 0;" data-bs-toggle="tooltip" title="Can white castle king-side?" data-bs-placement="top" data-fallback-placements="right, left">
+                        <label class="form-check-label">
+                          <input class="form-check-input can-kingside-castle-white" type="checkbox" checked>  
+                          O-O
+                        </label>
+                      </div>
+                      <div class="m-0 form-check" style="min-height: 0;" data-bs-toggle="tooltip" title="Can white castle queen-side?" data-bs-placement="top" data-fallback-placements="right, left">
+                        <label class="form-check-label">
+                          <input class="form-check-input can-queenside-castle-white" type="checkbox" checked>
+                          O-O-O
+                        </label>
+                      </div>
+                    </div>
+                    <piece class="white king setup-board-piece" data-drag-piece="wK"></piece>
+                    <piece class="white queen setup-board-piece" data-drag-piece="wQ"></piece>
+                    <piece class="white rook setup-board-piece" data-drag-piece="wR"></piece>
+                    <piece class="white bishop setup-board-piece" data-drag-piece="wB"></piece>
+                    <piece class="white knight setup-board-piece" data-drag-piece="wN"></piece>
+                    <piece class="white pawn setup-board-piece" data-drag-piece="wP"></piece>
+                  </div>
+                </div>
+                <div class="h-100 w-100 justify-content-between align-items-center status noselect player-status" style="display: flex">
                   <div class="d-flex flex-grow-1 overflow-hidden align-items-center">
                     <div class="d-flex flex-grow-1 overflow-hidden align-items-center name-rating">
                       <div class="name"></div>

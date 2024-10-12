@@ -15,7 +15,7 @@ export const Role = {
 
 export class GameData {
   fen: string = '';                     // game position
-  turn: string = 'W';                   // color whose turn it is to move ("B" or "W")
+  turn: string = 'w';                   // color whose turn it is to move ("B" or "W")
   id: number = -1;                      // The game number
   wname: string = '';                   // White's name
   bname: string = '';                   // Black's name
@@ -73,14 +73,14 @@ export class Game extends GameData {
   element: any = null; // The main game card including the board
   moveTableElement: any = null; // The move list (in 2 column table form)
   moveListElement: any = null; // The move list (in PGN form)
-  statusElement: any = null; // The status panel 
+  statusElement: any = null; // The status panel
 
   // Keep track of which analysis tab is showing
   analyzing: boolean = false;
   currentStatusTab: any = null;
 
   // Store result of promotion dialog to pass to movePiece()
-  promotePiece; 
+  promotePiece;
   promoteIsPremove;
 
   // Store parameters to movePiece temporarily while handling any intermediate popups, e.g. promotion dialog or new variation menu
@@ -93,11 +93,12 @@ export class Game extends GameData {
   bufferedHistoryCount: number = 0;
 
   removeMoveRequested: any = null;     // In examine mode, store a move to be deleted from the move-list until after we have navigated away from it
-  gameStatusRequested: boolean = false;
+  gameStatusRequested: boolean = false; // Sends the 'moves' command in order to retrieve the game info to display in teh status panel
   lastComputerMoveEval: string = null; // Keeps track of the current eval for a game against the Computer. Used for draw offers
   partnerGameId: number = null;        // bughouse partner's game id
-  newVariationMode: number = NewVariationMode.ASK; 
-  preserved: boolean = false;          // if true, prevents a game/board from being overwritten 
+  newVariationMode: number = NewVariationMode.ASK;
+  preserved: boolean = false;          // if true, prevents a game/board from being overwritten
+  setupBoard: boolean = false;         // in setup-board mode or not
   commitingMovelist = false;           // Used when entering examine mode and using 'commit' to submit a move list
   movelistRequested: number = 0;       // Used to keep track of move list requests
   gameListFilter: string = ''          // Stores the filter text for the game selector menu (when loading a PGN with multiple games)
