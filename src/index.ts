@@ -69,6 +69,8 @@ let computerListRequested = false;
 let setupBoardPending = false;
 let gameExitPending = [];
 let examineModeRequested: Game | null = null;
+let mexamineRequested: Game | null = null;
+let mexamineGame: Game | null = null;
 let computerList = [];
 let dialogCounter = 0;
 let numPVs = 1;
@@ -207,6 +209,7 @@ function cleanupGame(game: Game) {
   game.partnerGameId = null;
   game.commitingMovelist = false;
   game.movelistRequested = 0;
+  game.mexamineMovelist = null;
   game.gameStatusRequested = false;
   game.board.cancelMove();
   updateBoard(game);
@@ -232,6 +235,7 @@ export function cleanup() {
   computerListRequested = false;
   setupBoardPending = false;
   examineModeRequested = null;
+  mexamineRequested = null;
   gameExitPending = [];
   clearMatchRequests();
   clearNotifications();
@@ -274,7 +278,7 @@ function initAnalysis(game: Game) {
 
     if(game.category) {
       if(Engine.categorySupported(game.category)) {
-        if(game.id != -1 || game.history.length())
+        if(game.id || game.history.length())
           showAnalyzeButton();
       }
       else
@@ -1883,8 +1887,19 @@ export function parseMovelist(game: Game, movelist: string) {
       n++;
     }
   }
-  if(game.isExamining() && game.history.length())
-    session.send('back 999');
+  if(game.isExamining()) {
+    if(game.history.length())
+      session.send('back 999');
+    else
+      game.history.scratch(true);
+
+    if(game.mexamineMovelist) { // Restore current move after retrieving move list in mexamine mode
+      var movesArr = game.mexamineMovelist.split(' ');
+      for(let move of movesArr)
+        session.send(move);
+      game.mexamineMovelist = null;
+    }
+  }
   else
     game.history.display();
 }
@@ -2002,7 +2017,7 @@ function gameStart(game: Game) {
     evalEngine = null;
   }
 
-  if(!examineModeRequested) {
+  if(!examineModeRequested && !mexamineRequested) {
     game.historyList.length = 0;
     game.gameListFilter = '';
     $('#game-list-button').hide();
@@ -2080,14 +2095,20 @@ function gameStart(game: Game) {
   }
   else {
     if(game.isExamining()) {
+
       if(setupBoardPending) {
         setupBoardPending = false;
         setupBoard(game, true);
       }
 
-      if(game.wname === game.bname)
-        game.history.scratch(true);
-      else if(!game.setupBoard) {
+      if(!game.setupBoard) {
+        if(mexamineRequested) {
+          var hEntry = game.history.find(game.fen);
+          if(hEntry)
+            game.history.display(hEntry);
+          game.mexamineMovelist = game.history.current().movesToCoordinatesString();
+        }
+
         if(game.move !== 'none')
           session.send('back 999');
         session.send('for 999');
@@ -2102,6 +2123,9 @@ function gameStart(game: Game) {
     }
 
     game.history.initMetatags();
+
+    if(mexamineRequested)
+      mexamineRequested = null;
   }
 
   if(game === gameWithFocus) {
@@ -2204,9 +2228,9 @@ function messageHandler(data) {
           cleanupGame(game); // Allow player to imemediately play/examine/observe a game at any time while playing the Computer. The Computer game will simply be aborted.
       }
 
-      if(examineModeRequested && data.role === Role.EXAMINING) {
+      if((examineModeRequested || mexamineRequested) && data.role === Role.EXAMINING) {
         // Converting a game to examine mode
-        game = examineModeRequested;
+        game = examineModeRequested || mexamineRequested;
         if(game.role !== Role.NONE && multiboardToggle)
           game = cloneGame(game);
         game.id = data.id;
@@ -2231,7 +2255,7 @@ function messageHandler(data) {
       }
 
       // New game
-      if(examineModeRequested || prevRole === Role.NONE)
+      if(examineModeRequested || mexamineRequested || prevRole === Role.NONE)
         gameStart(game);
 
       // Make move
@@ -2807,7 +2831,7 @@ function messageHandler(data) {
           game.category = match[7];
 
           var status = match[0].substring(match[0].indexOf(':')+1);
-          if(game.id)
+          if(game.role !== Role.NONE)
             status = '<span class="game-id">Game ' + game.id + ': </span>' + status;
           showStatusMsg(game, status);
 
@@ -2846,6 +2870,7 @@ function messageHandler(data) {
       if(match != null && match.length > 1) {
         var game = findGame(+match[1]);
         if(game) {
+          mexamineGame = game; // Stores the game in case a 'mexamine' is about to be issued.
           if(game === gameWithFocus)
             stopEngine();
           cleanupGame(game);
@@ -2891,8 +2916,9 @@ function messageHandler(data) {
       match = msg.match(/^You're at the (?:beginning|end) of the game\./m);
       if(match) {
         for(let i = 0; i < games.length; i++) {
-          if(games[i].movelistRequested)
+          if(games[i].movelistRequested) {
             return;
+          }
         }
       }
 
@@ -2962,6 +2988,43 @@ function messageHandler(data) {
         }
       }
 
+      // Support for multiple examiners, we need to handle other users commiting or truncating moves from the main line
+      match = msg.match(/^Game (\d+): \w+ commits the subvariation\./m);
+      if(match) {
+        var game = findGame(+match[1]);
+        if(game) {
+          // An examiner has commited the current move to the mainline. So we need to also make it the mainline.
+          game.history.scratch(false);
+          var curr = game.history.current();
+          while(curr.depth() > 0)
+            game.history.promoteSubvariation(curr);
+          // Make the moves following the commited move a continuation (i.e. not mainline)
+          if(curr.next)
+            game.history.makeContinuation(curr.next);
+        }
+      }
+      match = msg.match(/^Game (\d+): \w+ truncates the game at halfmove (\d+)\./m);
+      if(match) {
+        var game = findGame(+match[1]);
+        if(game) {
+          var index = +match[2];
+          if(index === 0)
+            game.history.scratch(true); // The entire movelist was truncated so revert back to being a scratch game
+          else {
+            var entry = game.history.getByIndex(index)
+            if(entry && entry.next)
+              game.history.makeContinuation(entry.next);
+          }
+        }
+      }
+
+      match = msg.match(/^\w+ has made you an examiner of game (\d+)\./m);
+      if(match) {
+        let id = +match[1];
+        mexamineRequested = mexamineGame;
+        return;
+      }
+
       match = msg.match(/^Starting a game in examine \(scratch\) mode\./m);
       if(match && examineModeRequested)
         return;
@@ -2977,7 +3040,8 @@ function messageHandler(data) {
         msg === 'startpos set.' || msg === 'startpos unset.' ||
         msg === 'showownseek set.' || msg === 'showownseek unset.' ||
         msg === 'pendinfo set.' ||
-        msg === 'ms set.'
+        msg === 'ms set.' ||
+        msg.startsWith('<12>') // Discard malformed style 12 messages (sometimes the server sends them split in two etc).
       ) {
         return;
       }
@@ -3234,8 +3298,14 @@ function updateHistory(game: Game, move?: any, fen?: string) {
         if(game.history.length() === 0)
           game.history.scratch(true);
 
-        var newSubvariation = (game.newVariationMode === NewVariationMode.NEW_VARIATION) ||
-            (game.newVariationMode !== NewVariationMode.OVERWRITE_VARIATION && !game.history.scratch() && !game.history.current().isSubvariation());
+        if(game.newVariationMode === NewVariationMode.NEW_VARIATION)
+          newSubvariation = true;
+        else if(game.newVariationMode === NewVariationMode.OVERWRITE_VARIATION)
+          newSubvariation = false;
+        else { // Either we aren't in edit mode, or the new move was received from the server (i.e. from another examiner)
+          newSubvariation = (!game.history.scratch() && !game.history.current().isSubvariation()) || // Make new subvariation if new move is on the mainline and we're not in scratch mode
+              (game.history.editMode && game.history.current() !== game.history.current().last); // Make new subvariation if we are in edit mode and receive a new move from the server. Note: we never overwrite in edit mode unless the user explicitly requests it.
+         }
 
         game.newVariationMode = NewVariationMode.ASK;
       }
@@ -3610,8 +3680,9 @@ function playComputer(params: any) {
     var game = getFreeGame();
     if(!game)
       game = createGame();
-    game.id = -1;
   }
+
+  game.id = -1;
 
   var playerName = (session.isConnected() ? session.getUser() : 'Player');
   var playerTimeRemaining = params.playerTime * 60000;
@@ -4519,7 +4590,7 @@ function removeGame(game: Game) {
 }
 
 export function findGame(id: number): Game {
-  return games.find(element => element.id === id);
+  return games.find(item => item.id === id);
 }
 
 export function setGameWithFocus(game: Game) {
@@ -6476,7 +6547,7 @@ function newGame(createNewBoard: boolean, category: string = 'untimed', fen?: st
   var data = {
     fen: fen,                               // game state
     turn: 'w',                              // color whose turn it is to move ("B" or "W")
-    id: -1,                                 // The game number
+    id: null,                               // The game number
     wname: '',                              // White's name
     bname: '',                              // Black's name
     wrating: '',                            // White's rating
@@ -6962,7 +7033,7 @@ function cloneGame(game: Game): Game {
   for(const key of Object.keys(gameData))
     clonedGame[key] = game[key];
 
-  clonedGame.id = -1;
+  clonedGame.id = null;
   clonedGame.role = Role.NONE;
   clonedGame.history = game.history.clone(clonedGame);
   clonedGame.history.display();

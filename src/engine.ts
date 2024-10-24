@@ -176,19 +176,7 @@ export class Engine {
   public move(hEntry: HEntry) {
     this.currFen = hEntry.fen;
     
-    var movelist = [];
-    while(hEntry.move) {  
-      var move = hEntry.move.from + hEntry.move.to + (hEntry.move.promotion ? hEntry.move.promotion : '');
-      if(!hEntry.move.from) // crazyhouse
-        move = hEntry.move.san.replace(/[+#]/, ''); // Stockfish crazyhouse implementation doesn't like + or # chars for piece placement
-      
-      movelist.push(move);
-      hEntry = hEntry.prev;
-    }
-
-    var movesStr = '';
-    if(movelist.length)
-      var movesStr = ' moves ' + movelist.reverse().join(' ');
+    var movesStr = hEntry.movesToCoordinatesString();
 
     this.uci('position fen ' + this.game.history.first().fen + movesStr);
     this.uci('go ' + this.moveParams);

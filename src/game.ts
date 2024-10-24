@@ -16,7 +16,7 @@ export const Role = {
 export class GameData {
   fen: string = '';                     // game position
   turn: string = 'w';                   // color whose turn it is to move ("B" or "W")
-  id: number = -1;                      // The game number
+  id: number = null;                      // The game number
   wname: string = '';                   // White's name
   bname: string = '';                   // Black's name
   role: number = Role.NONE;             // my relation to this game
@@ -101,5 +101,6 @@ export class Game extends GameData {
   setupBoard: boolean = false;         // in setup-board mode or not
   commitingMovelist = false;           // Used when entering examine mode and using 'commit' to submit a move list
   movelistRequested: number = 0;       // Used to keep track of move list requests
+  mexamineMovelist: string = null;     // Used to restore the current move after retrieving the move list when given mexamine privilages
   gameListFilter: string = ''          // Stores the filter text for the game selector menu (when loading a PGN with multiple games)
 }
