@@ -276,18 +276,20 @@ export class Parser {
       fen += ' ' + match[26];
 
       // Parse move in long format (from, to, promotion)
-      const moveMatches = match[27].match(/\S+\/(\S{2})-(\S{2})=?(\S?)/);
+      const moveMatches = match[27].match(/(\S+)\/(\S{2})-(\S{2})=?(\S?)/);
       let moveVerbose;
       if(moveMatches) {
         moveVerbose = {
-          from: moveMatches[1],
-          to: moveMatches[2],
-          promotion: moveMatches[3],
+          piece: moveMatches[1].toLowerCase(),
+          from: (moveMatches[2] !== '@@' ? moveMatches[2] : null),
+          to: moveMatches[3],
+          promotion: moveMatches[4].toLowerCase(),
           san: match[31]
         };
       }
       else if(match[31] === 'O-O' || match[31] === 'O-O-O') {
         moveVerbose = {
+          piece: 'k',
           from: 'e' + (match[9] === 'W' ? '8' : '1'),
           to: (match[31] === 'O-O' ? 'g' : 'c') + (match[9] === 'W' ? '8' : '1'),
           promotion: undefined,

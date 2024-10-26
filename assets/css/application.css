@@ -758,6 +758,7 @@ html, body {
 
 .promotion-panel {
   display: none;
+  flex-direction: column;
   position: absolute;
   z-index: 10;
   height: 50%;
@@ -770,6 +771,16 @@ html, body {
               0 0 6px rgba(0, 0, 0, 0.2),
               0 4px 6px -4px rgba(0, 0, 0, 0.2),
               0 -4px 6px -4px rgba(0, 0, 0, 0.2);
+}
+.promotion-panel::after {
+  all: unset;
+}
+.promotion-panel .promotion-piece {
+  flex: 1;
+  position: static;
+  width: 100%;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 /* Fix margin collapse glitch */

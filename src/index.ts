@@ -34,6 +34,12 @@ const enum SizeCategory {
   Large
 }
 
+// The game categories (variants) that we support independantly of FICS, i.e. for offline analysis
+// Currently the only FICS variants we don't support are Atomic and Suicide
+// For unsupported categories, chess.js and toDests() are not used, the board is put into 'free' mode,
+// and a move is not added to the move list unless it is verified by the server.
+var SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'bughouse', 'losers', 'wild/fr', 'wild/0', 'wild/1', 'wild/2', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
+
 let session: Session;
 let chat: Chat;
 let engine: Engine | null;
@@ -204,8 +210,6 @@ function cleanupGame(game: Game) {
   game.statusElement.find('.game-watchers').empty();
 
   game.id = null;
-  delete game.chess;
-  game.chess = null;
   game.partnerGameId = null;
   game.commitingMovelist = false;
   game.movelistRequested = 0;
@@ -349,48 +353,47 @@ function showPromotionPanel(game: Game, premove: boolean = false) {
   var source = game.movePieceSource;
   var target = game.movePieceTarget;
   var metadata = game.movePieceMetadata;
+  var showKing = !SupportedCategories.includes(game.category) && game.category !== 'atomic';
 
   game.promoteIsPremove = premove;
   var orientation = game.board.state.orientation;
   var color = (target.charAt(1) === '8' ? 'white' : 'black');
   var fileNum = target.toLowerCase().charCodeAt(0) - 97;
 
-  // Add temporary pieces to the DOM in order to retrieve the background-image style from them
-  var pieces = $('<div class="cg-wrap d-none"></div>').appendTo($('body'));
-  var bgQueen = $('<piece class="queen ' + color + '"></piece>').appendTo(pieces).css('background-image').replace(/\"/g, '\'');
-  var bgKnight = $('<piece class="knight ' + color + '"></piece>').appendTo(pieces).css('background-image').replace(/\"/g, '\'');
-  var bgRook = $('<piece class="rook ' + color + '"></piece>').appendTo(pieces).css('background-image').replace(/\"/g, '\'');
-  var bgBishop = $('<piece class="bishop ' + color + '"></piece>').appendTo(pieces).css('background-image').replace(/\"/g, '\'');
-  pieces.remove();
   var promotionPanel = game.element.find('.promotion-panel');
-  promotionPanel.css('left', promotionPanel.width() * (orientation === "white" ? fileNum : 7 - fileNum));
+  promotionPanel.css({
+    left: `calc(12.5% * ${orientation === "white" ? fileNum : 7 - fileNum})`,
+    height: showKing ? '62.5%' : '50%'
+  });
   if(orientation === color) {
     promotionPanel.css('top', 0);
     promotionPanel.html(`
-      <button id="promote-piece-q" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgQueen + `; background-size: cover;"></button>
-      <button id="promote-piece-n" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgKnight + `; background-size: cover;"></button>
-      <button id="promote-piece-r" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgRook + `; background-size: cover;"></button>
-      <button id="promote-piece-b" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgBishop + `; background-size: cover;"></button>
+      <piece data-piece="q" class="promotion-piece queen ` + color + `"></piece>
+      <piece data-piece="n" class="promotion-piece knight ` + color + `"></piece>
+      <piece data-piece="r" class="promotion-piece rook ` + color + `"></piece>
+      <piece data-piece="b" class="promotion-piece bishop ` + color + `"></piece>
+      ${showKing ? `<piece data-piece="k" class="promotion-piece king ` + color + `"></piece>` : ``}
     `);
   }
   else {
     promotionPanel.css('top', '50%');
     promotionPanel.html(`
-      <button id="promote-piece-b" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgBishop + `; background-size: cover;"></button>
-      <button id="promote-piece-r" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgRook + `; background-size: cover;"></button>
-      <button id="promote-piece-n" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgKnight + `; background-size: cover;"></button>
-      <button id="promote-piece-q" class="btn btn-default promote-piece w-100 h-25" style="background-image: ` + bgQueen + `; background-size: cover;"></button>
+      ${showKing ? `<piece data-piece="k" class="promotion-piece king ` + color + `"></piece>` : ``}
+      <piece data-piece="b" class="promotion-piece bishop ` + color + `"></piece>
+      <piece data-piece="r" class="promotion-piece rook ` + color + `"></piece>
+      <piece data-piece="n" class="promotion-piece knight ` + color + `"></piece>
+      <piece data-piece="q" class="promotion-piece queen ` + color + `"></piece>
     `);
   }
 
-  $('.promote-piece').on('click', (event) => {
+  $('.promotion-piece').on('click', (event) => {
     hidePromotionPanel();
-    gameWithFocus.promotePiece = $(event.target).attr('id').slice(-1);
+    gameWithFocus.promotePiece = $(event.target).attr('data-piece');
     if(!premove)
       movePiece(source, target, metadata);
   });
 
-  promotionPanel.show();
+  promotionPanel.css('display', 'flex');
 }
 
 function hidePromotionPanel(game?: Game) {
@@ -493,6 +496,7 @@ export function gotoMove(to: HEntry, playSound = false) {
   }
   else {
     game.history.display(to, playSound);
+    updateEngine();
     if(game.setupBoard)
       updateSetupBoard(game);
   }
@@ -512,11 +516,13 @@ function sendMove(move: any) {
   session.send(moveStr);
 }
 
-function toDests(game: Game, chess: any): Map<Key, Key[]> {
-  if(game.category === 'losers' || game.category.startsWith('wild'))
-    return variantToDests(game, chess);
+function toDests(game: Game): Map<Key, Key[]> {
+  var standardCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'bughouse'];
+  if(!standardCategories.includes(game.category))
+    return variantToDests(game);
 
   var dests = new Map();
+  var chess = new Chess(currentGameMove(game).fen)
   chess.SQUARES.forEach(s => {
     var ms = chess.moves({square: s, verbose: true});
     if(ms.length)
@@ -526,7 +532,12 @@ function toDests(game: Game, chess: any): Map<Key, Key[]> {
   return dests;
 }
 
-function variantToDests(game: Game, chess: any): Map<Key, Key[]> {
+function variantToDests(game: Game): Map<Key, Key[]> {
+  if(!SupportedCategories.includes(game.category))
+    return null;
+
+  var chess = new Chess(currentGameMove(game).fen);
+
   // In 'losers' variant, if a capture is possible then include only captures in dests
   if(game.category === 'losers') {
     var dests = new Map();
@@ -609,8 +620,6 @@ function inCheck(san: string) {
 }
 
 function movePieceAfter(game: Game, move: any, fen?: string) {
-  if(!fen)
-    fen = game.chess.fen();
 
   // go to current position if user is looking at earlier move in the move list
   if((game.isPlaying() || game.isObserving()) && game.history.current() !== game.history.last())
@@ -651,45 +660,58 @@ export function movePiece(source: any, target: any, metadata: any) {
   let move = null;
   var game = gameWithFocus;
 
+  if(game.isObserving())
+    return;
+
   // Show 'Analyze' button once any moves have been made on the board
   showAnalyzeButton();
 
   if(game.setupBoard)
     return;
 
-  if(game.isPlaying() || game.isExamining() || game.role === Role.NONE) {
-    var inMove = {from: source, to: target, promotion: (game.promotePiece ? game.promotePiece : 'q')};
-    // Crazyhouse/bughouse/bsetup piece placement
-    const cgRoles = {pawn: 'p', rook: 'r', knight: 'n', bishop: 'b', queen: 'q', king: 'k'};
-    if(cgRoles.hasOwnProperty(source)) {
-      inMove['piece'] = cgRoles[source];
-      inMove.from = '';
-    }
+  var prevHEntry = currentGameMove(game);
 
-    if(game.isPlaying() || game.isExamining())
-      var chess = game.chess;
-    else
-      var chess = new Chess(game.history.current().fen);
+  const cgRoles = {pawn: 'p', rook: 'r', knight: 'n', bishop: 'b', queen: 'q', king: 'k'};
+  var pieces = game.board.state.pieces;
+  var pieceRole = cgRoles[pieces.get(target).role];
+  var pieceColor = pieces.get(target).color;
 
-    var parsedMove = parseMove(game, chess.fen(), inMove);
-    if(!parsedMove) {
-      updateBoard(game);
-      return;
-    }
+  if(game.promotePiece)
+    var promotePiece: string = game.promotePiece;
+  else if(pieceRole === 'p' && target.charAt(1) === (pieceColor === 'white' ? '8' : '1'))
+    var promotePiece = 'q';
+  else
+    var promtoePiece = '';
 
+  var inMove = {
+    from: (!cgRoles.hasOwnProperty(source) ? source : ''),
+    to: target,
+    promotion: promotePiece,
+    piece: pieceRole,
+  };
+
+  var parsedMove = parseMove(game, prevHEntry.fen, inMove);
+  if(parsedMove) {
     fen = parsedMove.fen;
     move = parsedMove.move;
-    game.movePieceSource = source;
-    game.movePieceTarget = target;
-    game.movePieceMetadata = metadata;
-    var nextMove = game.history.next();
+  }
+  else {
+    fen = null;
+    move = inMove;
+  }
 
-    if(!game.promotePiece && !autoPromoteToggle && move && move.flags.includes('p')) {
-      showPromotionPanel(game, false);
-      game.board.set({ movable: { color: undefined } });
-      return;
-    }
+  game.movePieceSource = source;
+  game.movePieceTarget = target;
+  game.movePieceMetadata = metadata;
+  var nextMove = game.history.next();
 
+  if(promotePiece && !game.promotePiece && !autoPromoteToggle) {
+    showPromotionPanel(game, false);
+    game.board.set({ movable: { color: undefined } });
+    return;
+  }
+
+  if(parsedMove) {
     if(game.history.editMode && game.newVariationMode === NewVariationMode.ASK && nextMove) {
       var subFound = false;
       for(let i = 0; i < nextMove.subvariations.length; i++) {
@@ -701,32 +723,36 @@ export function movePiece(source: any, target: any, metadata: any) {
         return;
       }
     }
-
-    chess.load(fen);
-
-    if (game.isPlayingOnline() && game.chess.turn() !== game.color)
-      sendMove(move);
-
-    if(game.isExamining()) {
-      if(nextMove && !nextMove.isSubvariation() && !game.history.scratch() && fen === nextMove.fen)
-        session.send('for');
-      else
-        sendMove(move);
-    }
-
-    hitClock(game, false);
   }
+
+  if(game.isPlayingOnline() && prevHEntry.turnColor === game.color)
+    sendMove(move);
+
+  if(game.isExamining()) {
+    var nextMoveMatches = false;
+    if(nextMove
+        && ((!move.from && !nextMove.from && move.piece === nextMove.piece) || move.from === nextMove.from)
+        && move.to === nextMove.to
+        && move.promotion === nextMove.promotion)
+      nextMoveMatches = true;
+
+    if(nextMoveMatches && !nextMove.isSubvariation && !game.history.scratch())
+      session.send('for');
+    else
+      sendMove(move);
+  }
+
+  hitClock(game, false);
 
   game.wtime = game.clock.getWhiteTime();
   game.btime = game.clock.getBlackTime();
 
   game.promotePiece = null;
-  if (move !== null)
+  if(parsedMove && parsedMove.move)
     movePieceAfter(game, move, fen);
 
-  if(game.role === Role.PLAYING_COMPUTER) { // Send move to engine in Play Computer mode
+  if(game.role === Role.PLAYING_COMPUTER) // Send move to engine in Play Computer mode
     getComputerMove(game);
-  }
 
   showTab($('#pills-game-tab'));
 }
@@ -1380,18 +1406,25 @@ function validateFEN(game: Game, fen: string): string {
 
 export function parseMove(game: Game, fen: string, move: any) {
   // Parse variant move
-  var category = game.category;
-  if(category.includes('wild') || category.includes('house'))
+  var standardCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard'];
+  if(!standardCategories.includes(game.category))
     return parseVariantMove(game, fen, move);
 
   // Parse standard move
   var chess = new Chess(fen);
   var outMove = chess.move(move);
   var outFen = chess.fen();
+
+  if(!outMove || !outFen)
+    return null;
+
   return { fen: outFen, move: outMove };
 }
 
 function parseVariantMove(game: Game, fen: string, move: any) {
+  if(!SupportedCategories.includes(game.category))
+    return null;
+
   var category = game.category;
   var chess = new Chess(fen);
   var san = '';
@@ -1716,6 +1749,9 @@ function parseVariantMove(game: Game, fen: string, move: any) {
   if(afterPost.board === beforePre.board)
     return null;
 
+  if(!outMove || !outFen)
+    return null;
+
   return {fen: outFen, move: outMove};
 }
 
@@ -1887,31 +1923,9 @@ export function parseMovelist(game: Game, movelist: string) {
       n++;
     }
   }
-  if(game.isExamining()) {
-    if(game.history.length())
-      session.send('back 999');
-    else
-      game.history.scratch(true);
-
-    if(game.mexamineMovelist) { // Restore current move after retrieving move list in mexamine mode
-      var movesArr = game.mexamineMovelist.split(' ');
-      for(let move of movesArr)
-        session.send(move);
-      game.mexamineMovelist = null;
-    }
-  }
-  else
-    game.history.display();
 }
 
 function gameStart(game: Game) {
-  if(game.role !== Role.NONE) {
-    if(game.move === 'none')
-      game.chess = new Chess(game.fen);
-    else
-      game.chess = new Chess();
-  }
-
   hidePromotionPanel(game);
   game.board.cancelMove();
   if(game === gameWithFocus && (!game.history || !game.history.hasSubvariation()))
@@ -2095,7 +2109,6 @@ function gameStart(game: Game) {
   }
   else {
     if(game.isExamining()) {
-
       if(setupBoardPending) {
         setupBoardPending = false;
         setupBoard(game, true);
@@ -2263,18 +2276,16 @@ function messageHandler(data) {
         updateSetupBoard(game, game.fen, true);
       }
       else if(game.role === Role.NONE || game.role >= -2 || game.role === Role.PLAYING_COMPUTER) {
-        const lastPly = getPlyFromFEN(game.chess.fen());
+        var lastFen = currentGameMove(game).fen;
+        const lastPly = getPlyFromFEN(lastFen);
         const thisPly = getPlyFromFEN(game.fen);
 
         if(game.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
-          var parsedMove = parseMove(game, game.chess.fen(), game.move);
-          game.chess.load(game.fen);
-          movePieceAfter(game, (parsedMove ? parsedMove.move : {san: game.move}));
+          var parsedMove = parseMove(game, lastFen, game.move);
+          movePieceAfter(game, (parsedMove ? parsedMove.move : game.moveVerbose), game.fen);
         }
-        else {
-          game.chess.load(game.fen);
-          updateHistory(game);
-        }
+        else
+          updateHistory(game, null, game.fen);
 
         hitClock(game, true);
       }
@@ -2790,8 +2801,29 @@ function messageHandler(data) {
           game.gameStatusRequested = false;
           if(game.movelistRequested) {
             game.movelistRequested--;
-            parseMovelist(game, msg);
+            var categorySupported = SupportedCategories.includes(game.category);
+            if(categorySupported)
+              parseMovelist(game, msg);
+
+            if(game.isExamining()) {
+              if(game.history.length() || !categorySupported)
+                session.send('back 999');
+              if(!game.history.length || !categorySupported)
+                game.history.scratch(true);
+
+              if(game.mexamineMovelist) { // Restore current move after retrieving move list in mexamine mode
+                if(categorySupported) {
+                  var movesArr = game.mexamineMovelist.split(' ');
+                  for(let move of movesArr)
+                    session.send(move);
+                }
+                game.mexamineMovelist = null;
+              }
+            }
+            else
+              game.history.display();
           }
+          updateBoard(game, false, false);
           return;
         }
         else {
@@ -3283,7 +3315,7 @@ function updateHistory(game: Game, move?: any, fen?: string) {
     return;
 
   if(!fen)
-    fen = game.chess.fen();
+    fen = game.history.last().fen;
 
   const hEntry = game.history.find(fen);
 
@@ -3317,34 +3349,35 @@ function updateHistory(game: Game, move?: any, fen?: string) {
     }
     else {
       // move not found, request move list
-      game.movelistRequested++;
-      session.send('iset startpos 1'); // Show the initial board position before the moves list
-      session.send('moves ' + game.id);
-      session.send('iset startpos 0');
+      if(SupportedCategories.includes(game.category)) {
+        game.movelistRequested++;
+        session.send('iset startpos 1'); // Show the initial board position before the moves list
+        session.send('moves ' + game.id);
+        session.send('iset startpos 0');
+      }
+      else
+        game.history.reset(game.fen, game.wtime, game.btime);
     }
   }
   else {
     if(!game.movelistRequested && game.role !== Role.NONE)
       game.history.updateClockTimes(hEntry, game.wtime, game.btime);
 
-    // move is already displayed
-    if(hEntry === game.history.current()) {
-      setClocks(game);
-      return;
-    }
-
-    // move is earlier, we need to take-back
-    if(game.isPlaying() || game.isObserving()) {
+    if(hEntry === game.history.current())
+      var sameMove = true;
+    else if(game.isPlaying() || game.isObserving()) {
       if(hEntry !== game.history.last()) {
         game.board.cancelPremove();
         game.board.cancelPredrop();
       }
       while(hEntry !== game.history.last())
-        game.history.removeLast();
+        game.history.removeLast(); // move is earlier, we need to take-back
     }
   }
 
-  game.history.display(hEntry, move !== undefined);
+  game.history.display(hEntry, move && !sameMove);
+  if(!sameMove)
+    updateEngine();
 
   if(game.removeMoveRequested && game.removeMoveRequested.prev === hEntry) {
     game.history.remove(game.removeMoveRequested);
@@ -3420,7 +3453,7 @@ function updatePromotedList(move: any, promoted: any) {
 }
 
 function setClocks(game: Game) {
-  var hEntry = game.history.current();
+  var hEntry = (game.isPlaying() || game.role === Role.OBSERVING ? game.history?.last() : game.history?.current());
 
   if(!game.isPlaying() && game.role !== Role.OBSERVING) {
     game.clock.setWhiteClock(hEntry.wtime);
@@ -3430,12 +3463,8 @@ function setClocks(game: Game) {
   // Add my-turn highlighting to clock
   var whiteClock = (game.color === 'w' ? game.element.find('.player-status .clock') : game.element.find('.opponent-status .clock'));
   var blackClock = (game.color === 'b' ? game.element.find('.player-status .clock') : game.element.find('.opponent-status .clock'));
-  var turnColor;
-  if(game.isPlaying() || game.role === Role.OBSERVING)
-    turnColor = game.chess.turn();
-  else
-    turnColor = hEntry.turnColor;
 
+  var turnColor = hEntry.turnColor;
   if(turnColor === 'b') {
     whiteClock.removeClass('my-turn');
     blackClock.addClass('my-turn');
@@ -3449,7 +3478,8 @@ function setClocks(game: Game) {
 // Start clock after a move, switch from white to black's clock etc
 function hitClock(game: Game, setClocks: boolean = false) {
   if(game.isPlaying() || game.role === Role.OBSERVING) {
-    const thisPly = History.getPlyFromFEN(game.chess.fen());
+    const ply = game.history.last().ply;
+    const turnColor = game.history.last().turnColor;
 
     // If a move was received from the server, set the clocks to the updated times
     // Note: When in examine mode this is handled by setClocks() instead
@@ -3464,15 +3494,15 @@ function hitClock(game: Game, setClocks: boolean = false) {
       }
     }
     else if(game.inc !== 0) { // Manually add time increment
-      if(game.chess.turn() === 'w' && thisPly >= 5)
+      if(turnColor === 'w' && ply >= 5)
         game.clock.setBlackClock(game.clock.getBlackTime() + game.inc * 1000);
-      else if(game.chess.turn() === 'b' && thisPly >= 4)
+      else if(turnColor === 'b' && ply >= 4)
         game.clock.setWhiteClock(game.clock.getWhiteTime() + game.inc * 1000);
     }
 
-    if((thisPly >= 3 || game.category === 'bughouse') && game.chess.turn() === 'w')
+    if((ply >= 3 || game.category === 'bughouse') && turnColor === 'w')
       game.clock.startWhiteClock();
-    else if((thisPly >= 4 || game.category === 'bughouse') && game.chess.turn() === 'b')
+    else if((ply >= 4 || game.category === 'bughouse') && turnColor === 'b')
       game.clock.startBlackClock();
   }
 }
@@ -3483,6 +3513,7 @@ export function updateBoard(game: Game, playSound: boolean = false, setBoard: bo
 
   const move = game.history.current().move;
   const fen = game.history.current().fen;
+  const color = (History.getTurnColorFromFEN(fen) === 'w' ? 'white' : 'black');
 
   setClocks(game);
 
@@ -3494,7 +3525,7 @@ export function updateBoard(game: Game, playSound: boolean = false, setBoard: bo
     hidePromotionPanel(game);
   }
 
-  const localChess = new Chess(fen);
+  var categorySupported = SupportedCategories.includes(game.category);
 
   if(move && move.from && move.to)
     game.board.set({ lastMove: [move.from, move.to] });
@@ -3508,20 +3539,20 @@ export function updateBoard(game: Game, playSound: boolean = false, setBoard: bo
   let turnColor : string | undefined;
 
   if(game.isObserving()) {
-    turnColor = toColor(game.chess);
+    turnColor = color;
   }
   else if(game.isPlaying()) {
     movableColor = (game.color === 'w' ? 'white' : 'black');
-    dests = toDests(game, game.chess);
-    turnColor = toColor(game.chess);
+    dests = toDests(game);
+    turnColor = color;
   }
-  else if(game.setupBoard) {
+  else if(game.setupBoard || (!categorySupported && game.role === Role.NONE)) {
     movableColor = 'both';
   }
   else {
-    movableColor = toColor(localChess);
-    dests = toDests(game, localChess);
-    turnColor = toColor(localChess);
+    movableColor = color;
+    dests = toDests(game);
+    turnColor = color;
   }
 
   let movable : any = {};
@@ -3530,7 +3561,7 @@ export function updateBoard(game: Game, playSound: boolean = false, setBoard: bo
     dests,
     showDests: highlightsToggle,
     rookCastle: game.category === 'wild/fr',
-    free: game.setupBoard
+    free: game.setupBoard || !categorySupported
   };
 
   game.board.set({
@@ -3544,9 +3575,9 @@ export function updateBoard(game: Game, playSound: boolean = false, setBoard: bo
       check: highlightsToggle
     },
     predroppable: { enabled: game.category === 'crazyhouse' || game.category === 'bughouse' },
-    check: localChess.in_check() ? toColor(localChess) : false,
+    check: !game.setupBoard && /[+#]/.test(move?.san) ? color : false,
     blockTouchScroll: (game.isPlaying() ? true : false),
-    autoCastle: !game.setupBoard
+    autoCastle: !game.setupBoard && (categorySupported || game.category === 'atomic')
   });
 
   showCapturedMaterial(game);
@@ -3556,17 +3587,12 @@ export function updateBoard(game: Game, playSound: boolean = false, setBoard: bo
   if(playSound && soundToggle && game === gameWithFocus) {
     clearTimeout(soundTimer);
     soundTimer = setTimeout(() => {
-      if(!game.history)
-        return;
-
-      const entry = game.history.current();
-      const chess = new Chess(entry.fen);
-      if(chess.in_check()) {
+      if(/[+#]/.test(move?.san)) {
         Sounds.checkSound.pause();
         Sounds.checkSound.currentTime = 0;
         Sounds.checkSound.play();
       }
-      else if(entry.move?.captured) {
+      else if(move?.san.includes('x')) {
         Sounds.captureSound.pause();
         Sounds.captureSound.currentTime = 0;
         Sounds.captureSound.play();
@@ -3586,10 +3612,6 @@ export function updateBoard(game: Game, playSound: boolean = false, setBoard: bo
     }
     else
       $('#exit-subvariation').addClass('disabled');
-
-    // create new imstance of Stockfish for each move, since waiting for new position/go commands is very slow (with current SF build)
-    if(setBoard)
-      updateEngine();
   }
 }
 
@@ -3766,7 +3788,7 @@ function playComputerBestMove(game: Game, bestMove: string, score: string = '=0.
 
   game.lastComputerMoveEval = score;
 
-  var parsedMove = parseMove(game, game.chess.fen(), move);
+  var parsedMove = parseMove(game, game.history.last().fen, move);
 
   var moveData = {
     role: Role.PLAYING_COMPUTER,                      // game mode
@@ -3846,11 +3868,13 @@ function checkGameEnd(game: Game) {
   if(game.role !== Role.PLAYING_COMPUTER)
     return;
 
-  var chess = game.chess;
   var gameEnd = false;
   var isThreefold = game.history.isThreefoldRepetition();
   var winner = '', loser = '';
-  var turnColor = History.getTurnColorFromFEN(chess.fen());
+  var lastMove = game.history.last();
+  var turnColor = lastMove.turnColor;
+  var fen = lastMove.fen;
+  var chess = new Chess(fen);
   var gameStr = '(' + game.wname + ' vs. ' + game.bname + ')';
 
   // Check white or black is out of time
@@ -4002,16 +4026,6 @@ function openLeftBottomTab(tab: any) {
   tab.parent().show();
   $('#left-bottom-tabs').css('visibility', 'visible');
   tab.tab('show');
-}
-
-function getMoves(game: Game) {
-  let moves = '';
-  const history = game.chess.history({verbose: true});
-  for (let i = 0; i < history.length; ++i) {
-    const move = history[i];
-    moves += ' ' + move.from + move.to + (move.promotion ? move.promotion : '');
-  }
-  return moves;
 }
 
 function getMoveNoFromFEN(fen: string) {
@@ -4616,6 +4630,7 @@ export function setGameWithFocus(game: Game) {
     initGameControls(game);
 
     updateBoard(game);
+    updateEngine();
   }
 }
 
@@ -5178,8 +5193,8 @@ $('#abort').on('click', (event) => {
 $('#takeback').on('click', (event) => {
   var game = gameWithFocus;
 
-  if (game.chess !== null) {
-    if (game.chess.turn() === game.color)
+  if (game.isPlaying()) {
+    if(game.history.last().turnColor === game.color)
       session.send('take 2');
     else
       session.send('take 1');
@@ -5191,7 +5206,7 @@ $('#takeback').on('click', (event) => {
 $('#draw').on('click', (event) => {
   var game = gameWithFocus;
 
-  if(game.chess !== null) {
+  if(game.isPlaying()) {
     if(game.role === Role.PLAYING_COMPUTER) {
       // Computer accepts a draw if they're behind or it's dead equal and the game is on move 30 or beyond
       var gameEval = game.lastComputerMoveEval;
@@ -5324,7 +5339,10 @@ function bufferedCurrentMove(game: Game) {
 }
 
 function fastBackward() {
-  gotoMove(gameWithFocus.history.first());
+  var game = gameWithFocus;
+  gotoMove(game.history.first());
+  if(!SupportedCategories.includes(game.category) && game.isExamining())
+    session.send('back 999');
   showTab($('#pills-game-tab'));
 }
 
@@ -5334,7 +5352,14 @@ $('#backward').on('click', () => {
 });
 
 function backward() {
-  gotoMove(bufferedCurrentMove(gameWithFocus).prev)
+  var game = gameWithFocus;
+  var move = bufferedCurrentMove(game).prev;
+
+  if(move)
+    gotoMove(move, true)
+  else if(!SupportedCategories.includes(game.category) && game.isExamining())
+    session.send('back');
+
   showTab($('#pills-game-tab'));
 }
 
@@ -5344,7 +5369,14 @@ $('#forward').on('click', () => {
 });
 
 function forward() {
-  gotoMove(bufferedCurrentMove(gameWithFocus).next, true)
+  var game = gameWithFocus;
+  var move = bufferedCurrentMove(game).next;
+
+  if(move)
+    gotoMove(move, true)
+  else if(!SupportedCategories.includes(game.category) && game.isExamining())
+    session.send('forward');
+
   showTab($('#pills-game-tab'));
 }
 
@@ -5354,7 +5386,11 @@ $('#fast-forward').on('click', () => {
 });
 
 function fastForward() {
-  gotoMove(gameWithFocus.history.last());
+  var game = gameWithFocus;
+  gotoMove(game.history.last());
+  if(!SupportedCategories.includes(game.category) && game.isExamining())
+    session.send('forward 999');
+
   showTab($('#pills-game-tab'));
 }
 
@@ -5369,6 +5405,14 @@ function exitSubvariation() {
   var prev = curr.first.prev;
   gotoMove(prev);
   showTab($('#pills-game-tab'));
+}
+
+/**
+ * Returns the game's current position. I.e. the move where new moves will be added from
+ * This is different to game.history.current() which returns the move currently being viewed.
+ */
+function currentGameMove(game: Game): HEntry {
+  return (game.isPlaying() || game.isObserving() ? game.history?.last() : game.history?.current());
 }
 
 updateDropdownSound();
@@ -5975,7 +6019,7 @@ function initObservePane() {
   $('#games-table').html('');
   if (session && session.isConnected()) {
     gamesRequested = true;
-    session.send('games /bslunzwLB');
+    session.send('games');
   }
 }
 
@@ -6283,17 +6327,17 @@ function createMoveContextMenu(event: any) {
  * Removes a move (and all following moves) from the move list / move table
  */
 function deleteMove(game: Game, entry: HEntry) {
-  if(game.isExamining() && game.history.current().isPredecessor(entry)) {
+  if(game.history.current().isPredecessor(entry)) {
     // If the current move is on the line we are just about to delete, we need to back out of it first
     // before deleting the line.
     gotoMove(entry.prev);
-    game.removeMoveRequested = entry;
-  }
-  else {
-    game.history.remove(entry);
-    game.history.display();
-    if(!game.history.hasSubvariation())
-      $('#exit-subvariation').hide();
+    if(game.isExamining())
+      game.removeMoveRequested = entry;
+    else {
+      game.history.remove(entry);
+      if(!game.history.hasSubvariation())
+        $('#exit-subvariation').hide();
+    }
   }
 }
 

@@ -290,15 +290,22 @@
                                     <li><a class="dropdown-item" onclick="setNewGameVariant('Chess960', 'wild fr');">Chess960</a></li>
                                     <li><a class="dropdown-item" onclick="setNewGameVariant('Bughouse', 'bughouse');">Bughouse (4 player)</a></li>
                                     <li><a class="dropdown-item" onclick="setNewGameVariant('Crazyhouse', 'crazyhouse');">Crazyhouse</a></li>
+                                    <li>
+                                      <a class="dropdown-item dropdown-toggle" id="play-variant-wild">Wild</a>                              
+                                      <ul class="dropdown-menu dropdown-submenu" aria-labelledby="play-variant-wild">
+                                        <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 0', 'wild 0');">Wild 0</a></li>
+                                        <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 1', 'wild 1');">Wild 1</a></li>
+                                        <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 2', 'wild 2');">Wild 2</a></li>
+                                        <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 3', 'wild 3');">Wild 3</a></li>
+                                        <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 4', 'wild 4');">Wild 4</a></li>
+                                        <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 5', 'wild 5');">Wild 5</a></li>
+                                        <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 8', 'wild 8');">Wild 8</a></li>
+                                        <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 8a', 'wild 8a');">Wild 8a</a></li>
+                                      </ul>
+                                    </li>
                                     <li><a class="dropdown-item" onclick="setNewGameVariant('Losers', 'losers');">Losers</a></li>
-                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 0', 'wild 0');">Wild 0</a></li>
-                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 1', 'wild 1');">Wild 1</a></li>
-                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 2', 'wild 2');">Wild 2</a></li>
-                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 3', 'wild 3');">Wild 3</a></li>
-                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 4', 'wild 4');">Wild 4</a></li>
-                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 5', 'wild 5');">Wild 5</a></li>
-                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 8', 'wild 8');">Wild 8</a></li>
-                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 8a', 'wild 8a');">Wild 8a</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Atomic', 'atomic');">Atomic</a></li>
+                                    <li><a class="dropdown-item" onclick="setNewGameVariant('Suicide', 'suicide');">Suicide</a></li>
                                   </ul>
                                 </div>
                                 <div class="btn-group dropdown position-static" role="group" aria-label="Study">
@@ -587,7 +594,7 @@
               </div>
               <div class="card-body p-0 noselect" id="board-card">
                 <div class="mw-100 position-relative">
-                  <div class="promotion-panel"></div>
+                  <div class="cg-wrap promotion-panel"></div>
                   <div class="cg-wrap mw-100 board"></div>
                 </div>
               </div>
