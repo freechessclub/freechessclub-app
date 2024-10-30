@@ -197,7 +197,8 @@ function cleanupGame(game: Game) {
   game.element.find($('[title="Close"]')).css('visibility', 'visible');
   game.element.find('.title-bar-text').text('');
   game.statusElement.find('.game-id').remove();
-
+  $('.board-dialog[data-game-id="' + game.id + '"]').toast('hide');
+  
   if(chat)
     chat.closeGameTab(game.id);
   hidePromotionPanel(game);
@@ -2388,6 +2389,8 @@ function messageHandler(data) {
             if(matchRequested)
               matchRequested--;
             newSentOffers.push(item);
+            if(item.adjourned)
+              removeAdjournNotification(item.opponent);
           }
         });
         if(newSentOffers.length) {
@@ -2409,8 +2412,10 @@ function messageHandler(data) {
             displayType = 'notification';
             var time = !isNaN(item.initialTime) ? ' ' + item.initialTime + ' ' + item.increment : '';
             bodyText = item.ratedUnrated + ' ' + item.category + time;
-            if(item.adjourned)
+            if(item.adjourned) {
               headerTitle = 'Resume Adjourned Game Request';
+              removeAdjournNotification(item.opponent);
+            }
             else
               headerTitle = 'Match Request';
             bodyTitle = item.opponent + ' (' + item.opponentRating + ')' + (item.color ? ' [' + item.color + ']' : '');
@@ -2546,7 +2551,8 @@ function messageHandler(data) {
         var game = findGame(+match[1]);
         if(game && game.isPlaying()) {
           var bodyText = match[2] + ' has lagged for 30 seconds.<br>You may courtesy adjourn the game.<br><br>If you believe your opponent has intentionally disconnected, you can request adjudication of an adjourned game. Type \'help adjudication\' in the console for more info.';
-          showBoardDialog({type: 'Opponent Lagging', msg: bodyText, btnFailure: ['', 'Wait'], btnSuccess: ['adjourn', 'Adjourn'], useSessionSend: true});
+          var dialog = showBoardDialog({type: 'Opponent Lagging', msg: bodyText, btnFailure: ['', 'Wait'], btnSuccess: ['adjourn', 'Adjourn'], useSessionSend: true});
+          dialog.attr('data-game-id', game.id);
         }
         chat.newMessage('console', data);
         return;
@@ -2650,18 +2656,17 @@ function messageHandler(data) {
 
       match = msg.match(/(?:^|\n)(\d+ players?, who (?:has|have) an adjourned game with you, (?:is|are) online:)\n(.*)/);
       if(match && match.length > 2) {
-        createNotification({type: 'Resume Game', title: match[1] + '<br>' + match[2], btnSuccess: ['resume', 'Resume Game'], useSessionSend: true});
+        var n = createNotification({type: 'Resume Game', title: match[1] + '<br>' + match[2], btnSuccess: ['resume', 'Resume Game'], useSessionSend: true});
+        n.attr('data-adjourned-list', "true");
         chat.newMessage('console', data);
         return;
       }
       match = msg.match(/^Notification: ((\S+), who has an adjourned game with you, has arrived\.)/m);
       if(match && match.length > 2) {
-        var alreadyExists = $('.notification').filter(function() {
-          var bodyTextElement = $(this).find('.body-text');
-          return bodyTextElement.length && bodyTextElement.text().startsWith(match[1]);
-        }).length;
-        if(!alreadyExists)
-          createNotification({type: 'Resume Game', title: match[1], btnSuccess: ['resume ' + match[2], 'Resume Game'], useSessionSend: true});
+        if(!$(`.notification[data-adjourned-arrived="${match[2]}"]`).length) {
+          var n = createNotification({type: 'Resume Game', title: match[1], btnSuccess: ['resume ' + match[2], 'Resume Game'], useSessionSend: true});
+          n.attr('data-adjourned-arrived', match[2]);   
+        }
         return;
       }
       match = msg.match(/^\w+ is not logged in./m);
@@ -3080,6 +3085,30 @@ function messageHandler(data) {
 
       chat.newMessage('console', data);
       break;
+  }
+}
+
+/**
+ * Remove an adjourned game notification if the players are already attempting to resume their match 
+ */
+function removeAdjournNotification(opponent: string) {
+  var n = $(`.notification[data-adjourned-arrived="${opponent}"]`);
+  removeNotification(n);
+
+  var n = $(`.notification[data-adjourned-list="true"]`);
+  if(n.length) {
+    var bodyTextElement = n.find('.body-text');
+    var bodyText = bodyTextElement.html();
+    var match = bodyText.match(/^\d+( players?, who (?:has|have) an adjourned game with you, (?:is|are) online:<br>)(.*)/);
+    if(match && match.length > 2) {
+      var msg = match[1];
+      var players = match[2].trim().split(/\s+/);
+      players = players.filter(item => item !== opponent);
+      if(!players.length)
+        removeNotification(n);
+      else 
+        bodyTextElement.html(players.length + msg + players.join(' '));
+    }
   }
 }
 
@@ -4654,6 +4683,12 @@ function initGameControls(game: Game) {
 
   if(game.isPlaying()) {
     $('#viewing-game-buttons').hide();
+
+    // show Adjourn button for standard time controls or slower
+    if(game.isPlayingOnline() && (game.time + game.inc * 2/3 >= 15 || (!game.time && !game.inc))) 
+      $('#adjourn').show();
+    else
+      $('#adjourn').hide();
     $('#playing-game-buttons').show();
   }
   else {
@@ -5163,6 +5198,10 @@ $('#resign').on('click', (event) => {
   }
   else
     session.send('resign');
+});
+
+$('#adjourn').on('click', (event) => {
+  session.send('adjourn');
 });
 
 $('#abort').on('click', (event) => {
