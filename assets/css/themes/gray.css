@@ -121,11 +121,14 @@ cg-board {
   --bs-modal-bg: var(--bg-color);
 }
 
-#move-table th {
+#move-table {
   color: rgba(255, 255, 255, 0.4);
 }
-#move-table tr:nth-of-type(odd):not(.subvariation) {
+#move-table tr:not(.subvariation):nth-of-type(odd) {
   background-color: rgba(0, 0, 0, 0.08);
+}
+#move-table .subvariation tr:nth-of-type(odd) {
+  background-color: initial;
 }
 #move-table .selectable:hover {
   background-color: rgba(255, 255, 255, 0.06);
@@ -133,18 +136,20 @@ cg-board {
 #move-table .selected {
   background-color: rgba(255, 255, 255, 0.15);
 }
-#move-table .subvariation:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+#move-table .subvariation .selectable:hover {
+  background-color: rgba(0, 0, 0, 0.2);
 }
 #move-table .subvariation .selected {
   background-color: rgba(255, 255, 255, 0.2);
 }
-#move-table .subvariation td,
-#move-table .subvariation th {
+#move-table > tbody > .subvariation {
   background: rgba(255, 255, 255, 0.15);
 }
 #move-table .subvariation a {
   color: #DDDDDD
+}
+#move-table .subvariation table {
+  --bracket-color: #ffb1bb;
 }
 
 .movelist .selected {
@@ -152,19 +157,29 @@ cg-board {
   color: #FFFFFF;
 }
 .movelist .subvariation {
-  color: #AAAAAA;
+  color: #BBBBBB;
+}
+.movelist .subvariation::before {
+  border-left-color: whitesmoke;
 }
 .movelist .subvariation .selected {
   background-color: rgba(255, 255, 255, 0.2);
   color: #DDDDDD;
 }
 .movelist .move:hover,
-.movelist .subvariation .move:hover {
+.movelist .move.hovered,
+.movelist .subvariation .move:hover,
+.movelist .subvariation .move.hovered {
   color: rgb(10, 88, 202);
 }
 .movelist .selected:hover,
 .movelist .subvariation .selected:hover {
   color: rgb(5, 44, 101);
+}
+
+.comment {
+  caret-color: whitesmoke;
+  color: #999;
 }
 
 #engine-pvs > li:nth-of-type(even) {

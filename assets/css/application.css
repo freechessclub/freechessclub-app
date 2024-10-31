@@ -23,10 +23,6 @@ html, body {
   min-height: 100%;
 }
 
-#chat-panel {
-  display: flex;
-}
-
 .chat-text {
   width: 100%;
   overflow: auto;
@@ -91,7 +87,6 @@ html, body {
 }
 
 .game-status {
-  text-align: center;
   font-weight: bold;
   color: rgba(80, 80, 120, 0.65);
 }
@@ -284,6 +279,8 @@ html, body {
   cursor: default; 
   white-space: nowrap;
   overflow: hidden;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
 }
 
 .game-card .title-bar .btn {
@@ -377,48 +374,89 @@ html, body {
 #game-toolbar .btn {
   --bs-btn-active-color: rgba(159, 184, 228, 0.75);
 }
+#game-tools-open-pgn .dropdown-icon {
+  margin-left: -0.25rem;
+  padding-right: 0.25rem;
+}
+#game-tools-save-pgn .dropdown-icon {
+  padding-right: 0.25rem;
+}
 #game-tools-close .dropdown-icon {
   padding-left: 0.125rem; 
   padding-right: 0.25rem;
 }
 
+#game-list-button > .label {
+  display: inline-flex;
+  overflow: hidden;
+  max-width: calc(100% - 20px);
+}
+#game-list-dropdown {
+  min-width: 100%;
+}
+#game-list-menu {
+  padding: 0;
+  overflow: auto;
+  max-height: calc(100vh - 300px);
+  max-width: 100vw;
+}
+
 #move-table {
   padding: 0;
-}
-#move-table th {
-  border: 0;
-  width: 20%;
   text-align: center;
   font-weight: bold;
   color: rgba(0, 0, 0, 0.4);
 }
+#move-table th {
+  border: 0;
+  width: 20%;
+
+}
 #move-table td {
   border: 0;
   width: 40%;
-  text-align: center;
 }
 #move-table .selectable:hover {
   background-color: rgba(0, 0, 0, 0.075);
 }
-#move-table .subvariation:hover {
-  background-color: rgba(255, 255, 255, 0.075);
+#move-table .subvariation .selectable:hover {
+  background-color: rgba(255, 255, 255, 0.25);
 }
 #move-table .selectable:hover a {
   font-weight: bold;
   text-decoration: none;
 }
-#move-table .subvariation td,
-#move-table .subvariation th {
+#move-table > tbody > .subvariation {
   background: rgba(0, 0, 0, 0.15);
 }
-#move-table tr:nth-of-type(odd):not(.subvariation) {
+#move-table tr:not(.subvariation):nth-of-type(odd) {
   background-color: rgba(0, 0, 0, 0.05);
+}
+#move-table .subvariation tr:nth-of-type(odd) {
+  background-color: initial;
 }
 #move-table .subvariation .selected {
   background-color: rgba(0, 0, 0, 0.15);
 }
 #move-table .subvariation a {
-  color: #191970
+  color: #191970;
+  font-weight: normal;
+}
+#move-table .subvariation td {
+  padding-right: 0;
+}
+#move-table .subvariation table {
+  --bracket-color: #bf8090;
+  background-image: linear-gradient(var(--bracket-color), var(--bracket-color)),
+                    linear-gradient(var(--bracket-color), var(--bracket-color)),
+                    linear-gradient(var(--bracket-color), var(--bracket-color)),
+                    linear-gradient(var(--bracket-color), var(--bracket-color));
+  background-repeat: no-repeat;
+  background-size: 8px 3px;
+  background-position: top left, bottom left;
+  border: 1px solid var(--bracket-color); 
+  border-right: none;       
+  border-width: 0 3px;
 }
 #move-table .selected {
   background-color: rgba(0, 0, 0, 0.1);
@@ -435,18 +473,74 @@ html, body {
 }
 .movelist .subvariation {
   color: #5e4d3b;
+  display: block;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  position: relative;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.movelist .subvariation::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0px;
+  bottom: 0px;
+  width: 1px;
+  border-left: 1px solid rgb(33, 37, 41); 
+}
+.movelist .subvariation:has(+ .subvariation)::before {
+  bottom: 2px;
+}
+.movelist .subvariation + .subvariation::before {
+  top: 2px;
 }
 .movelist .subvariation .selected {
   background-color: rgba(0, 0, 0, 0.2);
   color: #2e2418;
 }
 .movelist .move:hover,
-.movelist .subvariation .move:hover {
+.movelist .move.hovered,
+.movelist .subvariation .move:hover,
+.movelist .subvariation .move.hovered {
   color: rgb(10, 88, 202);
 }
 .movelist .selected:hover,
 .movelist .subvariation .selected:hover {
   color: rgb(10, 88, 202);
+}
+
+.comment {
+  outline: none;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  color: #777;
+  caret-color: #212529;
+}
+.comment[data-before-content]:after {
+  content: attr(data-before-content) " "; 
+  font-style: italic;
+}
+.comment:after {
+  content: " "; /* use trailing space to allow text wrapping to work properly */
+}
+
+.annotations-menu {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 5 columns for symbols */
+}
+.annotations-menu .dropdown-item {
+  text-align: center;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.annotation {
+  font-family: "Segoe UI Symbol", var(--bs-body-font-family), "Noto Sans Math";
+}
+
+.flex-line-break {
+  flex-basis: 100%;
 }
 
 .nav-tabs .nav-item .closeTab {
@@ -762,3 +856,4 @@ input[type="number"]:hover,
 input[type="number"]:focus {
   appearance: initial;
 }
+

@@ -65,12 +65,13 @@
                 <button type="button" id="fast-forward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" data-fallback-placements="right,left" title="End">
                   <span class="fa fa-fast-forward" aria-hidden="false"></span>
                 </button>
-                <button type="button" id="exit-subvariation" style="display: none" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-container="#exit-subvariation" data-bs-placement="top" data-fallback-placements="right,left" title="Exit Subvariation">
+                <button type="button" id="exit-subvariation" style="display: none" class="btn btn-outline-secondary btn-md position-relative" aria-label="Exit Subvariation">
+                  <div class="tooltip-overlay" style="pointer-events: auto" data-bs-toggle="tooltip" data-bs-placement="top" data-fallback-placements="right,left" title="Exit Subvariation"></div> 
                   <span class="fa fa-eject" aria-hidden="false"></span>
                 </button>
-                <button id="history-toggle-btn" class="btn btn-outline-secondary btn-md position-relative" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-history" aria-label="Show/Hide Menus" aria-expanded="true" aria-controls="collapse-history">
+                <button id="menus-toggle-btn" class="btn btn-outline-secondary btn-md position-relative" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-menus" aria-label="Show/Hide Menus" aria-expanded="true" aria-controls="collapse-menus">
                   <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" title="Show/Hide Menus"></div>
-                  <span id="history-toggle-icon" class="fa fa-toggle-up" aria-hidden="false"></span>
+                  <span id="menus-toggle-icon" class="fa fa-toggle-up" aria-hidden="false"></span>
                 </button>
               </div>
               <div id="chat-collapse-toolbar" class="btn-toolbar d-md-none my-auto align-self-end">
@@ -90,14 +91,14 @@
                     <button class="nav-link py-2" id="pills-observe-tab" data-bs-toggle="pill" data-bs-target="#pills-observe" type="button" role="tab" aria-controls="pills-observe" aria-selected="false">Observe</button>
                   </li>
                   <li class="nav-item" role="presentation">
-                    <button class="nav-link py-2" id="pills-examine-tab" data-bs-toggle="pill" data-bs-target="#pills-examine" type="button" role="tab" aria-controls="pills-examine" aria-selected="false">Examine</button>
+                    <button class="nav-link py-2" id="pills-history-tab" data-bs-toggle="pill" data-bs-target="#pills-history" type="button" role="tab" aria-controls="pills-history" aria-selected="false">History</button>
                   </li>
                   <li class="nav-item" role="presentation">
                     <button class="nav-link py-2" id="pills-game-tab" data-bs-toggle="pill" data-bs-target="#pills-game" type="button" role="tab" aria-controls="pills-game" aria-selected="false">Game</button>
                   </li>
                 </ul>
               </div>
-              <div id="collapse-history" class="collapse show collapse-init">
+              <div id="collapse-menus" class="collapse show collapse-init">
                 <div class="card-body noselect p-0" id="left-panel">
                   <div class="h-100 d-flex flex-column" id="left-menu">
                     <div class="tab-content flex-grow-1" style="overflow: hidden; min-height: 0">
@@ -162,9 +163,9 @@
                                     <div class="mb-3">
                                       <label class="form-heading">Player Time:</label>
                                       <div class="input-group">
-                                        <input type="number" min="0" max="999" class="form-control text-center" id="play-computer-min" value="0">
+                                        <input type="number" min="0" max="999" class="form-control text-center blur-on-enter" id="play-computer-min" value="0">
                                         <span class="input-group-text"> min </span>
-                                        <input type="number" min="0" max="999" class="form-control text-center" id="play-computer-inc" value="0">
+                                        <input type="number" min="0" max="999" class="form-control text-center blur-on-enter" id="play-computer-inc" value="0">
                                         <span class="input-group-text"> inc </span>
                                       </div>
                                     </div>
@@ -230,7 +231,7 @@
                                 <div class="center pane-status" id="pairing-pane-status" style="display: none"></div>
                                 <div class="input-group">
                                   <span class="input-group-text" id="opponent-player-label">Play against</span>
-                                  <input type="text" class="form-control" id="opponent-player-name" placeholder="Anyone" aria-describedby="opponent-player-label" spellcheck="false">
+                                  <input type="text" class="form-control blur-on-enter" id="opponent-player-name" placeholder="Anyone" aria-describedby="opponent-player-label" spellcheck="false">
                                 </div>
                                 <label class="form-heading" style="margin-bottom: 2px;"><span class="me-2 fa fa-bolt" aria-hidden="false"></span>Lightning</label>
                                 <div class="btn-group" role="group" aria-label="Lightning">
@@ -252,9 +253,9 @@
                                 <label class="form-heading" style="margin-bottom: 2px;"><span class="me-2 fa fa-clock-o" aria-hidden="false"></span>Custom</a></label>
                                 <form id="custom-control" class="w-100">
                                   <div class="input-group">
-                                    <input type="number" min="0" max="999" class="form-control text-center" id="custom-control-min" value="0">
+                                    <input type="number" min="0" max="999" class="form-control text-center blur-on-enter" id="custom-control-min" value="0">
                                     <span class="input-group-text"> min </span>
-                                    <input type="number" min="0" max="999" class="form-control text-center" id="custom-control-inc" value="0">
+                                    <input type="number" min="0" max="999" class="form-control text-center blur-on-enter" id="custom-control-inc" value="0">
                                     <span class="input-group-text"> inc </span>
                                     <span class="input-group-append">
                                       <button class="btn btn-outline-secondary btn-md" type="submit" id="custom-control-go">Go</button>
@@ -350,14 +351,14 @@
                           <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="games-table"></div>
                         </div>
                       </div>
-                      <div class="tab-pane pt-2 fade h-100" id="pills-examine" role="tabpanel" aria-labelledby="pills-examine-tab">
+                      <div class="tab-pane pt-2 fade h-100" id="pills-history" role="tabpanel" aria-labelledby="pills-history-tab">
                         <div class="d-flex flex-column h-100">
-                          <div class="center pane-status" id="examine-pane-status" style="display: none"></div>
-                          <form id="examine-user">
-                            <div class="input-group" id="examine-user-group">
-                              <span class="input-group-text" id="examine-user-label">History</span>
-                              <input type="text" class="form-control" id="examine-username" placeholder="Player name" aria-describedby="examine-user-label" spellcheck="false">
-                              <button type="submit" class="btn btn-outline-secondary btn-md" id="examine-go">Go</button>
+                          <div class="center pane-status" id="history-pane-status" style="display: none"></div>
+                          <form id="history-user">
+                            <div class="input-group" id="history-user-group">
+                              <span class="input-group-text" id="history-user-label">History</span>
+                              <input type="text" class="form-control" id="history-username" placeholder="Player name" aria-describedby="history-user-label" spellcheck="false">
+                              <button type="submit" class="btn btn-outline-secondary btn-md" id="history-go">Go</button>
                             </div>
                           </form>
                           <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="history-table"></div>
@@ -365,6 +366,12 @@
                       </div>
                       <div class="tab-pane h-100 fade" id="pills-game" role="tabpanel" aria-labelledby="pills-game-tab">
                         <div class="d-flex flex-column h-100">
+                          <button id="game-list-button" style="display: none" class="mt-1 w-100 btn btn-outline-secondary btn-md dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="label"></span>
+                          </button>
+                          <ul class="dropdown-menu" id="game-list-dropdown">
+                            <li class="px-2 pb-2"><input type="text" class="form-control blur-on-enter" id="game-list-filter" placeholder="Filter games..." aria-label="Game list filter" spellcheck="false"></li>
+                          </ul>
                           <div id="game-toolbar" class="d-flex justify-content-end" style="gap: 14px">
                             <div class="btn-group">
                               <input type="radio" checked class="btn-check" name="view-mode" id="game-table-view" autocomplete="off">
@@ -376,6 +383,10 @@
                                 <span class="fa-solid fa-align-justify" aria-hidden="false"></span>
                               </label>
                             </div>
+                            <input type="checkbox" class="btn-check" id="game-edit-mode" autocomplete="off" aria-checked="false">
+                            <label class="btn btn-outline-secondary btn-sm btn-transparent" for="game-edit-mode" data-bs-toggle="tooltip" data-bs-placement="top" title="Edit Mode" data-description="Add multiple sub-variations and annotations.">
+                              <span class="fa-solid fa-pen-to-square" aria-hidden="false"></span>
+                            </label>
                             <input type="checkbox" class="btn-check" id="game-preserved" autocomplete="off" aria-checked="false">
                             <label class="btn btn-outline-secondary btn-sm btn-transparent" for="game-preserved" data-bs-toggle="tooltip" data-bs-placement="top" title="Preserve Game" data-description="Stop this game being over-written when starting a new game.">
                               <span class="fa-solid fa-unlock" aria-hidden="false"></span>
@@ -395,9 +406,13 @@
                                     <li><a class="dropdown-item noselect">Losers</a></li>
                                   </ul>
                                 </li>
-                                <li><a class="dropdown-item noselect" id="game-tools-clone"><span class="fa-solid fa-copy dropdown-icon" aria-hidden="false"></span>Clone Game</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-open-pgn"><span class="fa-solid fa-file-import dropdown-icon" aria-hidden="false"></span>Open Game PGN</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-save-pgn"><span class="fa-solid fa-floppy-disk dropdown-icon" aria-hidden="false"></span>Save Game PGN</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-clone"><span class="fa-solid fa-copy dropdown-icon" aria-hidden="false"></span>Duplicate Game</a></li>
                                 <li><a class="dropdown-item noselect" id="game-tools-examine"><span class="fa-brands fa-slideshare dropdown-icon" aria-hidden="false"></span>Examine Mode (Shared)</a></li>
-                                <li style="display: none"><hr id="game-tools-close-divider" class="dropdown-divider"></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-properties"><span class="fa-solid fa-file-pen dropdown-icon" aria-hidden="false"></span>Game Properties</a></li>
                                 <li style="display: none"><a class="dropdown-item noselect" id="game-tools-close"><span class="fa-solid fa-xmark dropdown-icon" aria-hidden="false"></span>Close Game</a></li>
                               </ul>
                             </div>
@@ -408,7 +423,7 @@
                               <tbody></tbody>
                             </table>
                             <div id="movelists">
-                              <div class="movelist px-2 py-1 flex-wrap" style="display: flex"></div>
+                              <div class="movelist px-2 py-1"></div>
                             </div>
                           </div>
                         </div>
@@ -441,7 +456,7 @@
                     <div class="tab-pane fade show active p-1 h-100" id="status-panel" role="tabpanel" aria-labelledby="status-panel">
                       <div id="game-status-list" class="d-flex flex-column overflow-auto center h-100">
                         <div class="px-2 w-100 h-100">
-                          <div class="game-status center py-1"></div>
+                          <div class="center py-1" style="text-align: center"><span class="game-status"></span></div>
                           <div class="opening-name center py-1 border-top" style="display: none"></div>
                           <div class="game-watchers center flex-wrap pt-2 pb-1 border-top"></div>
                         </div>
@@ -506,7 +521,7 @@
                   <button type="button" class="me-auto btn btn-outline-secondary btn-transparent" title="Maximize" aria-label="Maximize">
                     <span class="game-maximize-icon fa-regular fa-window-maximize" aria-hidden="false"></span>
                   </button>
-                  <span m-auto class="title-bar-text"></span>
+                  <span class="title-bar-text mx-auto"></span>
                   <button type="button" class="ms-auto btn btn-outline-secondary btn-transparent" title="Close" aria-label="Close">
                     <span class="game-close-icon fa-solid fa-xmark" aria-hidden="false"></span>
                   </button>
@@ -530,7 +545,7 @@
               <div class="card-body p-0 noselect" id="board-card">
                 <div class="mw-100 position-relative">
                   <div class="promotion-panel"></div>
-                  <div class="cg-wrap mw-100 board overflow-hidden"></div>
+                  <div class="cg-wrap mw-100 board"></div>
                 </div>
               </div>
               <div class="bottom-panel card-footer p-0">
@@ -551,10 +566,10 @@
             </div>
           </div>
         </div>
-        <div id="right-col" class="col-sm-12 col-md-12 col-lg position-relative align-self-center" style="min-width: 360px">
+        <div id="right-col" class="col-sm-12 col-md-12 col-lg position-relative align-self-center" style="min-width: 374px">
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header" id="right-panel-header" style="visibility: hidden">
-              <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto position-relative" style="max-width: 44%">
+              <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto position-relative" style="max-width: 42%">
                 <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle hide-caret" type="button" id="connectButton" data-bs-toggle="dropdown" aria-label="Connect/Disconnect" aria-expanded="false">
                   <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" title="Connect/Disconnect"></div>
                   <div id="session-status" class="w-100"></div>
@@ -699,7 +714,7 @@
             <div id="inner-right-panels">
               <div id="secondary-board-area" class="pt-1 ps-lg-2 pe-lg-1"></div>
               <div id="collapse-chat" class="collapse show collapse-init">
-                <div id="chat-panel" class="flex-column">
+                <div id="chat-panel" class="d-flex flex-column">
                   <div class="card-body d-flex flex-column flex-grow-1" style="min-height: 0">
                     <div class="d-flex">
                       <ul class="nav nav-tabs d-flex flex-grow-1 flex-wrap justify-content-start user-select-none" role="tablist" id="tabs">

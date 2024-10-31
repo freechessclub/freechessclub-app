@@ -130,10 +130,6 @@ export class Chat {
       chatText.scrollTop(chatText[0].scrollHeight);
     });
 
-    $(window).on('resize', () => {
-      $('.tab-pane.active .chat-text').trigger('scroll'); // Trigger scroll in case scrollbar appears/disappears
-    });
-
     $('#collapse-chat').on('shown.bs.collapse', () => {
       var activeTab = $('#tabs button').filter('.active');
       activeTab.trigger('shown.bs.tab');
@@ -184,13 +180,26 @@ export class Chat {
   public updateGameDescription(tab: any): boolean {
     var game = this.getGameFromTab(tab);
     if(game) {
-      var statusMsg = game.statusElement.find('.game-status').text();
-      var match = statusMsg.match(/\S+ \(\S+\) \S+ \(\S+\)/);
-      if(match) 
-        $(tab.attr('href')).find('.chat-game-description').text(match[0]);
-      else
-        tab.find('.chat-game-description').text('');
-        return true;
+      var tags = game.history.metatags;
+      var wname = tags.White;
+      var bname = tags.Black;
+      var wrating = tags.WhiteElo || '?';
+      var brating = tags.BlackElo || '?';
+      var match = wname.match(/Guest[A-Z]{4}/);
+      if(match)
+        wrating = '++++';
+      else if(wrating === '-')
+        wrating = '----';
+
+      var match = bname.match(/Guest[A-Z]{4}/);
+      if(match)
+        brating = '++++';
+      else if(brating === '-')
+        brating = '----';
+      var description = (wname || game.wname) + ' (' + wrating + ') ' + (bname || game.bname) + ' (' + brating + ')';
+
+      $(tab.attr('href')).find('.chat-game-description').text(description);
+      return true;
     }
     return false;
   }
@@ -293,7 +302,8 @@ export class Chat {
         if(match && match.length > 1) {
           var game = findGame(+match[1]);
           if(game) {
-            var gameDescription = game.wname + ' vs. ' + game.bname;
+            var tags = game.history.metatags;
+            var gameDescription = (tags.White || game.wname) + ' vs. ' + (tags.Black || game.bname);
             tooltip = `data-bs-toggle="tooltip" data-tooltip-hover-only title="` + gameDescription + `" `;
 
             // Show Game chat room info bar
@@ -373,7 +383,6 @@ export class Chat {
       this.scrolledToBottom['content-' + from] = true;
 
       // Scroll event listener for auto scroll to bottom etc
-      var lastWidth, lastHeight;
       $('#content-' + from).find('.chat-text').on('scroll', (e) => {
         var panel = e.target;
         var tab = panel.closest('.tab-pane');
@@ -384,15 +393,10 @@ export class Chat {
             $('#chat-scroll-button').hide();
             this.scrolledToBottom[$(tab).attr('id')] = true; 
           }
-          else if(lastWidth === panel.clientWidth && lastHeight === panel.clientHeight) { // Only assume user rmoved scrollbar if window is not resizing
+          else {
             this.scrolledToBottom[$(tab).attr('id')] = false; 
             $('#chat-scroll-button').show();
           }
-          else if(this.scrolledToBottom[$(tab).attr('id')]) 
-            $(panel).scrollTop(panel.scrollHeight); // Scrollbar moved due to resizing, move it back to the bottom
-
-          lastWidth = panel.clientWidth;
-          lastHeight = panel.clientHeight;
         }
       });
     }
@@ -405,6 +409,16 @@ export class Chat {
     }
 
     return this.tabs[from];
+  }
+
+  public fixScrollPosition() {
+    // If scrollbar moves due to resizing, move it back to the bottom
+    var panel = $('.tab-pane.active .chat-text');
+    var tab = panel.closest('.tab-pane');
+    if(this.scrolledToBottom[tab.attr('id')]) 
+      panel.scrollTop(panel[0].scrollHeight); 
+
+    panel.trigger('scroll');
   }
 
   public deleteTab(name: string) {

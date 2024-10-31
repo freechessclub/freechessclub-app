@@ -52,10 +52,17 @@ export class GameData {
   public isObserving() { return this.role === Role.OBSERVING || this.role === Role.OBS_EXAMINED; }
 }
 
+export const NewVariationMode = {
+  ASK: 0,
+  NEW_VARIATION: 1,
+  OVERWRITE_VARIATION: 2
+};
+
 // An online chess game
 export class Game extends GameData {
   chess: any = null;
   history: any = null;
+  historyList: any = [];
   clock: any = null;
   board: any = null;
   watchers: any = [];
@@ -74,18 +81,24 @@ export class Game extends GameData {
 
   // Store result of promotion dialog to pass to movePiece()
   promotePiece; 
-  promoteSource;
-  promoteTarget;
   promoteIsPremove;
+
+  // Store parameters to movePiece temporarily while handling any intermediate popups, e.g. promotion dialog or new variation menu
+  movePieceSource;
+  movePieceTarget;
+  movePieceMetadata;
 
   // Used to buffer navigation buttons when in examine mode
   bufferedHistoryEntry: any = null;
   bufferedHistoryCount: number = 0;
-  removeSubvariationRequested: boolean = false;
 
+  removeMoveRequested: any = null;     // In examine mode, store a move to be deleted from the move-list until after we have navigated away from it
+  gameStatusRequested: boolean = false;
   lastComputerMoveEval: string = null; // Keeps track of the current eval for a game against the Computer. Used for draw offers
   partnerGameId: number = null;        // bughouse partner's game id
+  newVariationMode: number = NewVariationMode.ASK; 
   preserved: boolean = false;          // if true, prevents a game/board from being overwritten 
   commitingMovelist = false;           // Used when entering examine mode and using 'commit' to submit a move list
   movelistRequested: number = 0;       // Used to keep track of move list requests
+  gameListFilter: string = ''          // Stores the filter text for the game selector menu (when loading a PGN with multiple games)
 }
