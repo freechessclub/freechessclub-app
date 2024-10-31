@@ -175,6 +175,35 @@ $(document).one('click', (event) => {
   }
 });
 
+/**
+ * Load in settings from persistent storage and initialize settings controls.
+ * This must be done after 'storage' is initialised in onDeviceReady
+ */
+function initSettings() {
+  soundToggle = (storage.get('sound') !== 'false');
+  updateDropdownSound();
+
+  autoPromoteToggle = (storage.get('autopromote') === 'true');
+  $('#autopromote-toggle').prop('checked', autoPromoteToggle);
+
+  notificationsToggle = (storage.get('notifications') !== 'false');
+  $('#notifications-toggle').prop('checked', notificationsToggle);
+
+  highlightsToggle = (storage.get('highlights') !== 'false');
+  $('#highlights-toggle').prop('checked', highlightsToggle);
+
+  wakelockToggle = (storage.get('wakelock') !== 'false');
+  $('#wakelock-toggle').prop('checked', wakelockToggle);
+
+  multiboardToggle = (storage.get('multiboard') !== 'false');
+  $('#multiboard-toggle').prop('checked', multiboardToggle);
+
+  lobbyShowComputersToggle = (storage.get('lobbyshowcomputers') === 'true');
+  lobbyShowUnratedToggle = (storage.get('lobbyshowunrated') !== 'false');
+
+  History.initSettings();
+}
+
 function cleanupGame(game: Game) {
   if(playEngine && game.role === Role.PLAYING_COMPUTER) {
     playEngine.terminate();

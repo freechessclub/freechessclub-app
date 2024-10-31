@@ -55,8 +55,8 @@ html, body {
   height: 31px;
   padding-left: 8px;
   padding-right: 8px;
-  background-color: rgba(255, 255, 255, 0.4);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  background-color: rgba(255, 255, 255, 0.125);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
 }
 .chat-info .btn-outline-secondary {
   --bs-btn-color: rgba(80, 80, 120, 0.65);
@@ -405,6 +405,8 @@ html, body {
   padding-top: 3px;
   padding-bottom: 3px;
   padding-right: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 #game-toolbar .btn {
   --bs-btn-active-color: rgba(159, 184, 228, 0.75);
@@ -448,11 +450,19 @@ html, body {
 #move-table th {
   border: 0;
   width: 20%;
-
 }
 #move-table td {
   border: 0;
   width: 40%;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+#move-table a {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-top: 1px;
+  padding-bottom: 1px;
 }
 #move-table .selectable:hover {
   background-color: rgba(0, 0, 0, 0.075);
@@ -498,19 +508,23 @@ html, body {
 }
 #move-table .selected {
   background-color: rgba(0, 0, 0, 0.1);
-  padding-top: 2px; 
-  padding-bottom: 3px; 
-  padding-left: 15px; 
-  padding-right: 15px;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
   font-weight: bold;
+}
+
+.movelist {
+  --movelist-color: var(--bs-body-color);
 }
 
 .movelist .selected {
   background-color: rgba(0, 0, 0, 0.2);
-  color: #000000;
+  --movelist-color: #000000;
+  color: var(--movelist-color);
 }
 .movelist .subvariation {
-  color: #5e4d3b;
+  --movelist-color: #5e4d3b;
+  color: var(--movelist-color);
   display: block;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -536,17 +550,20 @@ html, body {
 }
 .movelist .subvariation .selected {
   background-color: rgba(0, 0, 0, 0.2);
-  color: #2e2418;
+  --movelist-color: #2e2418;
+  color: var(--movelist-color);
 }
 .movelist .move:hover,
 .movelist .move.hovered,
 .movelist .subvariation .move:hover,
 .movelist .subvariation .move.hovered {
-  color: rgb(10, 88, 202);
+  --movelist-color: rgb(10, 88, 202);
+  color: var(--movelist-color);
 }
 .movelist .selected:hover,
 .movelist .subvariation .selected:hover {
-  color: rgb(10, 88, 202);
+  color: var(--movelist-color);
+  --movelist-color: rgb(10, 88, 202);
 }
 
 .comment {
@@ -574,8 +591,31 @@ html, body {
   padding-right: 6px;
 }
 .annotation {
-  font-family: "Segoe UI Symbol", var(--bs-body-font-family), "Noto Sans Math";
+  font-family: "Segoe UI Symbol", var(--bs-body-font-family), "Noto Sans Symbols 2", "Noto Sans Math";
 }
+
+.piece-glyph::before { 
+  font-size: 1.3rem;
+  font-weight: normal;
+  font-family: "Noto Sans Symbols 2", var(--bs-body-font-family);
+  margin-left: -0.2rem;
+  line-height: 1rem; /* Ensure line-height is smaller than for regular text, so that it aligns to regular text's baseline */
+}
+.movelist .piece-glyph.black::before {
+  color: color-mix(in srgb, var(--movelist-color) 70%, white 30%); /* fancy new method for lightening/darkening colors */
+}
+.piece-glyph.white.king::before { content: "\2654"; }
+.piece-glyph.white.queen::before { content: "\2655"; }
+.piece-glyph.white.rook::before { content: "\2656"; }
+.piece-glyph.white.bishop::before { content: "\2657"; }
+.piece-glyph.white.knight::before { content: "\2658"; }
+.piece-glyph.white.pawn::before { content: "\2659"; }
+.piece-glyph.black.king::before { content: "\265A"; }
+.piece-glyph.black.queen::before { content: "\265B"; }
+.piece-glyph.black.rook::before { content: "\265C"; }
+.piece-glyph.black.bishop::before { content: "\265D"; }
+.piece-glyph.black.knight::before { content: "\265E"; }
+.piece-glyph.black.pawn::before { content: "\265F"; }
 
 .flex-line-break {
   flex-basis: 100%;
