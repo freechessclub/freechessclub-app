@@ -392,6 +392,52 @@
                           <ul class="dropdown-menu" id="game-list-dropdown">
                             <li class="px-2 pb-2"><input type="text" class="form-control blur-on-enter" id="game-list-filter" placeholder="Filter games..." aria-label="Game list filter" spellcheck="false"></li>
                           </ul>
+                          <div class="modal fade" id="open-games-modal" tabindex="-1" aria-labelledby="open-games-modal-label" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                              <div class="modal-content">
+                                <form id="open-games-form">
+                                  <div class="modal-header">
+                                    <h5 class="modal-title" id="open-games-modal-label"><span class="fa-solid fa-file-import me-2" aria-hidden="false"></span>Open Games (PGN/FEN)</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                  </div>
+                                  <div class="modal-header center">
+                                    <button type="button" id="open-files" class="btn btn-outline-secondary"><span class="fa-solid fa-floppy-disk me-2" aria-hidden="false"></span>Open File(s)</button>
+                                  </div>
+                                  <div class="modal-body center flex-column">
+                                    <textarea style="resize: none" id="add-games-input" class="form-control mb-3" rows="10" type="text" placeholder="Paste PGNs or FENs here." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+                                    <button type="button" id="add-games-button" class="btn btn-outline-secondary"><span class="fa-solid fa-plus me-2" aria-hidden="false"></span>Add Game(s)</button>
+                                  </div>
+                                </form>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="modal fade" id="save-game-modal" tabindex="-1" aria-labelledby="save-game-modal-label" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                              <div class="modal-content">
+                                <form id="save-game-form">
+                                  <div class="modal-header">
+                                    <h5 class="modal-title" id="save-game-modal-label"><span class="fa-solid fa-file-export me-2" aria-hidden="false"></span>Save Game (PGN/FEN)</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                  </div>
+                                  <div class="modal-body">
+                                    <label class="form-heading" style="margin-bottom: 1px">FEN:</label>
+                                    <div class="mb-3 position-relative">
+                                      <input type="text" class="form-control" id="save-fen-output" style="padding-right: 2.5rem;" spellcheck="false" readonly>
+                                      <button type="button" id="save-fen-copy" class="btn btn-outline-secondary btn-transparent" style="position: absolute; top: 0; right: 0;" data-bs-toggle="tooltip" title="Copy to Clipboard"><span class="fa-regular fa-clone"></span></button>
+                                    </div>
+                                    <label class="form-heading" style="margin-bottom: 1px">PGN:</label>
+                                    <div class="mb-3 position-relative">
+                                      <textarea style="resize: none" id="save-pgn-output" class="form-control" style="padding-right: 2.5rem;" rows="10" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly></textarea>
+                                      <button type="button" id="save-pgn-copy" class="btn btn-outline-secondary btn-transparent" style="position: absolute; top: 0; right: 0;" data-bs-toggle="tooltip" title="Copy to Clipboard"><span class="fa-regular fa-clone"></span></button>
+                                    </div>
+                                    <div class="d-flex justify-content-center">
+                                      <button type="button" id="save-pgn-button" class="btn btn-outline-secondary"><span class="fa-solid fa-floppy-disk me-2" aria-hidden="false"></span>Save PGN</button>
+                                    </div>
+                                  </div>
+                                </form>
+                              </div>
+                            </div>
+                          </div>
                           <div id="game-toolbar" class="d-flex justify-content-end" style="gap: 14px">
                             <div class="btn-group">
                               <input type="radio" checked class="btn-check" name="view-mode" id="game-table-view" autocomplete="off">
@@ -417,24 +463,24 @@
                                 <span class="fa-solid fa-ellipsis-vertical" aria-hidden="false"></span>
                               </button>
                               <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="more-game-tools">
-                                <li><a class="dropdown-item noselect" id="game-tools-new"><span class="fa-solid fa-file-circle-plus dropdown-icon" aria-hidden="false"></span>New Game</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-new"><span class="tools-menu-icon fa-solid fa-file-circle-plus dropdown-icon" aria-hidden="false"></span>New Game</a></li>
                                 <li>
-                                  <a class="dropdown-item dropdown-toggle noselect" id="game-tools-new-variant"><span class="fa-solid fa-file-circle-plus dropdown-icon" aria-hidden="false"></span>New Variant Game</a>
+                                  <a class="dropdown-item dropdown-toggle noselect" id="game-tools-new-variant"><span class="tools-menu-icon fa-solid fa-file-circle-plus dropdown-icon" aria-hidden="false"></span>New Variant Game</a>
                                   <ul class="dropdown-menu dropdown-submenu" id="new-variant-game-submenu" aria-labelledby="game-tools-new-variant">
                                     <li><a class="dropdown-item noselect">Chess960</a></li>
                                     <li><a class="dropdown-item noselect">Crazyhouse</a></li>
                                     <li><a class="dropdown-item noselect">Losers</a></li>
                                   </ul>
                                 </li>
-                                <li><a class="dropdown-item noselect" id="game-tools-open-pgn"><span class="fa-solid fa-file-import dropdown-icon" aria-hidden="false"></span>Open Game PGN</a></li>
-                                <li><a class="dropdown-item noselect" id="game-tools-save-pgn"><span class="fa-solid fa-floppy-disk dropdown-icon" aria-hidden="false"></span>Save Game PGN</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-open-games" data-bs-toggle="modal" data-bs-target="#open-games-modal"><span class="tools-menu-icon fa-solid fa-file-import dropdown-icon" aria-hidden="false"></span>Open Games (PGN/FEN)</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-save-game" data-bs-toggle="modal" data-bs-target="#save-game-modal"><span class="tools-menu-icon fa-solid fa-file-export dropdown-icon" aria-hidden="false"></span>Save Game (PGN/FEN)</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item noselect" id="game-tools-clone"><span class="fa-solid fa-copy dropdown-icon" aria-hidden="false"></span>Duplicate Game</a></li>
-                                <li><a class="dropdown-item noselect" id="game-tools-examine"><span class="fa-brands fa-slideshare dropdown-icon" aria-hidden="false"></span>Examine Mode (Shared)</a></li>
-                                <li><a class="dropdown-item noselect" id="game-tools-setup-board"><span class="fa-solid fa-chess-board dropdown-icon" aria-hidden="false"></span>Setup Board</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-clone"><span class="tools-menu-icon fa-solid fa-copy dropdown-icon" aria-hidden="false"></span>Duplicate Game</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-examine"><span class="tools-menu-icon fa-brands fa-slideshare dropdown-icon" aria-hidden="false"></span>Examine Mode (Shared)</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-setup-board"><span class="tools-menu-icon fa-solid fa-chess-board dropdown-icon" aria-hidden="false"></span>Setup Board</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item noselect" id="game-tools-properties"><span class="fa-solid fa-file-pen dropdown-icon" aria-hidden="false"></span>Game Properties</a></li>
-                                <li style="display: none"><a class="dropdown-item noselect" id="game-tools-close"><span class="fa-solid fa-xmark dropdown-icon" aria-hidden="false"></span>Close Game</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-properties"><span class="tools-menu-icon fa-solid fa-file-pen dropdown-icon" aria-hidden="false"></span>Game Properties</a></li>
+                                <li style="display: none"><a class="dropdown-item noselect" id="game-tools-close"><span class="tools-menu-icon fa-solid fa-xmark dropdown-icon" aria-hidden="false"></span>Close Game</a></li>
                               </ul>
                             </div>
                           </div>

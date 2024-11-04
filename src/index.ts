@@ -134,12 +134,9 @@ function onDeviceReady() {
     $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
   }
 
-  $('input').each(function() {
+  $('input, textarea').each(function() {
     selectOnFocus($(this));
   });
-
-  // Here we create a temporary hidden element in order to measure its scrollbar width.
-  $('body').append(`<div id="scrollbar-measure" style="position: absolute; top: -9999px; overflow: scroll"></div>`);
 
   // Change layout for mobile or desktop and resize panels
   // Split it off into a timeout so that onDeviceReady doesn't take too long.
@@ -227,7 +224,7 @@ function cleanupGame(game: Game) {
   game.element.find('.title-bar-text').text('');
   game.statusElement.find('.game-id').remove();
   $('.board-dialog[data-game-id="' + game.id + '"]').toast('hide');
-  
+
   if(chat)
     chat.closeGameTab(game.id);
   hidePromotionPanel(game);
@@ -1863,7 +1860,7 @@ function adjustCastlingRights(game: Game, fen: string, startFen?: string): strin
 
   var cp = getCastlingPieces(game, 'w', startFen); // Gets the initial locations of the 'castle-able' king and rooks
   if(cp.king) {
-    var piece = chess.get(cp.king); // check that king hasn't moved
+    var piece = chess.get(cp.king);
     if(!piece || piece.type !== 'k' || piece.color !== 'w')
       castlingRights = castlingRights.replace(/[KQ]/g, '');
   }
@@ -2694,7 +2691,7 @@ function messageHandler(data) {
       if(match && match.length > 2) {
         if(!$(`.notification[data-adjourned-arrived="${match[2]}"]`).length) {
           var n = createNotification({type: 'Resume Game', title: match[1], btnSuccess: ['resume ' + match[2], 'Resume Game'], useSessionSend: true});
-          n.attr('data-adjourned-arrived', match[2]);   
+          n.attr('data-adjourned-arrived', match[2]);
         }
         return;
       }
@@ -3118,7 +3115,7 @@ function messageHandler(data) {
 }
 
 /**
- * Remove an adjourned game notification if the players are already attempting to resume their match 
+ * Remove an adjourned game notification if the players are already attempting to resume their match
  */
 function removeAdjournNotification(opponent: string) {
   var n = $(`.notification[data-adjourned-arrived="${opponent}"]`);
@@ -3135,7 +3132,7 @@ function removeAdjournNotification(opponent: string) {
       players = players.filter(item => item !== opponent);
       if(!players.length)
         removeNotification(n);
-      else 
+      else
         bodyTextElement.html(players.length + msg + players.join(' '));
     }
   }
@@ -3328,10 +3325,6 @@ function showCapturedMaterial(game: Game) {
   }
 }
 
-/**
- * Drag a piece from  the current location.
- * Used by crazyhouse/bughouse and setup board mode
- */
 function dragPiece(event: any) {
   var game = gameWithFocus;
   var id = $(event.target).attr('data-drag-piece');
@@ -4714,7 +4707,7 @@ function initGameControls(game: Game) {
     $('#viewing-game-buttons').hide();
 
     // show Adjourn button for standard time controls or slower
-    if(game.isPlayingOnline() && (game.time + game.inc * 2/3 >= 15 || (!game.time && !game.inc))) 
+    if(game.isPlayingOnline() && (game.time + game.inc * 2/3 >= 15 || (!game.time && !game.inc)))
       $('#adjourn').show();
     else
       $('#adjourn').hide();
@@ -4947,10 +4940,7 @@ function setPanelSizes() {
 
   // Make sure the board is smaller than the window height and also leaves room for the other columns' min-widths
   if(!isSmallWindow()) {
-    // Create a temporary hidden element in order to measure its scrollbar width.
-    if(!$('#scrollbar-measure').length)
-      $('body').append(`<div id="scrollbar-measure" style="position: absolute; top: -9999px; overflow: scroll"></div>`);
-    var scrollBarWidth = $('#scrollbar-measure')[0].offsetWidth - $('#scrollbar-measure')[0].clientWidth;
+    var scrollBarWidth = getScrollbarWidth();
 
     // Set board width a bit smaller in order to leave room for a scrollbar on <body>. This is because
     // we don't want to resize all the panels whenever a dropdown or something similar overflows the body.
@@ -5424,7 +5414,7 @@ function backward() {
   var move = bufferedCurrentMove(game).prev;
 
   if(move)
-    gotoMove(move, true)
+    gotoMove(move);
   else if(!SupportedCategories.includes(game.category) && game.isExamining())
     session.send('back');
 
@@ -5441,7 +5431,7 @@ function forward() {
   var move = bufferedCurrentMove(game).next;
 
   if(move)
-    gotoMove(move, true)
+    gotoMove(move, true);
   else if(!SupportedCategories.includes(game.category) && game.isExamining())
     session.send('forward');
 
@@ -5922,6 +5912,9 @@ function safeRemove(element: JQuery<HTMLElement>) {
  * Breaks up a string at the specified maximum line lengths
  */
 function breakAtMaxLength(input: string, maxLength: number) {
+  if(!input)
+    return input;
+
   const regex = new RegExp(`(.{1,${maxLength}})(?:\\s|$)`, 'g');
   return input.match(regex).join('\n');
 }
@@ -5936,6 +5929,44 @@ function debounce(func, wait) {
     clearTimeout(timeout);
     timeout = setTimeout(() => func.apply(this, args), wait);
   };
+}
+
+/**
+ * Get the width of scrollbars in the app by creating an off-screen element with a scrollbar
+ * and returning the scrollbar's width
+ */
+function getScrollbarWidth(): number {
+  if(!$('#scrollbar-measure').length) // For performance reasons only create once
+    $('body').append(`<div id="scrollbar-measure" style="position: absolute; top: -9999px; overflow: scroll"></div>`);
+  return $('#scrollbar-measure')[0].offsetWidth - $('#scrollbar-measure')[0].clientWidth;
+}
+
+/**
+ * Copies the value from the given 'input' or 'textarea' element to the clipboard
+ * @param textElem an 'input' or 'textarea' element
+ * @param triggerElem If a triggerElement like a 'copy' button is provided, temporarily changes
+ * its tooltip to 'Copied!'
+ */
+function copyToClipboard(textElem: JQuery<HTMLInputElement>, triggerElem?: JQuery<HTMLElement>) {
+  if(navigator.clipboard) // Try to use the new method first, only works over HTTPS.
+    navigator.clipboard.writeText(textElem.val() as string);
+  else {
+    textElem[0].select();
+    document.execCommand("copy"); // Obsolete fallback method
+  }
+  textElem[0].setSelectionRange(0, 0);
+
+  // Change trigger element's tooltip to 'Copied!' for a couple of seconds
+  if(triggerElem) {
+    var origTitle = triggerElem.attr('data-bs-original-title');
+    triggerElem.attr('title', 'Copied!');
+    createTooltip(triggerElem);
+    triggerElem.tooltip('show');
+    setTimeout(() => {
+      triggerElem.attr('title', origTitle);
+      createTooltip(triggerElem);
+    }, 2000);
+  }
 }
 
 function getHistory(user: string) {
@@ -6681,42 +6712,62 @@ function newGame(createNewBoard: boolean, category: string = 'untimed', fen?: st
   return game;
 };
 
+/** Triggered when the 'Open Games' modal is shown */
+$('#open-games-modal').on('show.bs.modal', function() {
+  $('#add-games-input').val('');
+});
+
 /**
- * Triggered when 'Open Game PGN' menu option is selected
+ * Triggered when user clicks 'Open Files(s)' button from Open Games modal.
  * Displays an Open File(s) dialog. Then after user selects PGN file(s) to open, displays
  * a dialog asking if they want to overwrite current gmae or open new board.
  */
-$('#game-tools-open-pgn').on('click', (event) => {
+$('#open-files').on('click', (event) => {
+  // Create file selector dialog
   var fileInput = $('<input type="file" style="display: none" multiple/>');
   fileInput.appendTo('body');
   fileInput.trigger('click');
 
-  fileInput.one('change', function(event) {
+  fileInput.one('change', async function(event) {
+    $('#open-games-modal').modal('hide');
     fileInput.remove();
     const target = event.target as HTMLInputElement;
-    openPGNDialog(target.files);
+    var gameFileStrings = await openGameFiles(target.files);
+    openGamesOverwriteDialog(gameFileStrings);
   });
+});
+
+$('#add-games-button').on('click', (event) => {
+  var inputStr = $('#add-games-input').val() as string;
+  inputStr = inputStr.trim();
+  if(inputStr) {
+    $('#open-games-modal').modal('hide');
+    openGamesOverwriteDialog([inputStr]);
+  }
 });
 
 /**
  * When opening PGN file(s), hows a dialog asking if the user wants to Overwrite the
  * current game or open a New Board.
+ *
+ * @param fileStrings an array of strings representing each opened PGN file (or the Add Games textarea)
  */
-function openPGNDialog(files: any) {
+function openGamesOverwriteDialog(fileStrings: string[]) {
   var bodyText = '';
+  var game = gameWithFocus;
 
   var overwriteHandler = function(event) {
-    openPGNFiles(files, false);
+    parseGameFiles(game, fileStrings, false);
   };
 
   var newBoardHandler = function(event) {
-    openPGNFiles(files, true);
+    parseGameFiles(game, fileStrings, true);
   };
 
   var button1: any, button2: any;
   if(gameWithFocus.role === Role.NONE) {
     if(gameWithFocus.history.length()) {
-      var headerTitle = 'Open PGN';
+      var headerTitle = 'Open Games';
       var bodyTitle = '';
       if(gameWithFocus.role === Role.NONE && multiboardToggle) {
         var bodyText = bodyText + 'Overwrite existing game or open new board?';
@@ -6733,84 +6784,109 @@ function openPGNDialog(files: any) {
       showFixedDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons});
     }
     else
-      openPGNFiles(files, false);
+      parseGameFiles(game, fileStrings, false);
   }
   else if(multiboardToggle)
-    openPGNFiles(files, true);
+    parseGameFiles(game, fileStrings, true);
 }
 
 /**
- * Creates a new Game object and loads the games from the given PGN file(s) into it.
- * Each game from the PGN files is stored as a separate History object in game.historyList.
- * For PGNs with multiple games, only the first game is fully parsed. The rest are lazy loaded,
- * i.e. only the PGN metatags are parsed whereas the moves are simply stored as a string in history.pgn
- * and parsed when the game is selected from the game list. PGN files are parsed using @mliebelt/pgn-parser
+ * Open the given files and store their contents in strings
  * @param files FileList object
- * @param createNewBoard If false, overwrites existing game, otherwise opens new board when in multiboard mode
  */
-async function openPGNFiles(files: any, createNewBoard: boolean = false) {
-  var game = newGame(createNewBoard);
+async function openGameFiles(files: any): Promise<string[]> {
+  var fileStrings = [];
 
   // Wait for all selected files to be read before displaying the first game
   for(const file of Array.from<File>(files)) {
-    var readFile = async function(): Promise<void> {
+    var readFile = async function(): Promise<string> {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = async function(e) {
           const fileContent = e.target?.result as string;
-          if(fileContent)
-            await parsePGNFile(game, fileContent);
-          resolve();
+          resolve(fileContent);
         };
         reader.onerror = function(e) {
           const error = e.target?.error;
           let errorMessage = 'An unknown error occurred';
           if (error)
             errorMessage = error.name + ' - ' + error.message;
-          showFixedDialog({type: 'Failed to open PGN file', msg: errorMessage, btnSuccess: ['', 'OK']});
+          showFixedDialog({type: 'Failed to open game file', msg: errorMessage, btnSuccess: ['', 'OK']});
           reject(error);
         };
         reader.readAsText(file);
       });
     };
-    await readFile();
+    var fileStr = await readFile();
+    if(fileStr)
+      fileStrings.push(fileStr);
+  }
+
+  return fileStrings;
+}
+
+/**
+ * Creates a new Game object and loads the games from the given PGN/FEN file strings into it.
+ * Each game from the string is stored as a separate History object in game.historyList.
+ * For PGNs with multiple games, only the first game is fully parsed. The rest are lazy loaded,
+ * i.e. only the PGN metatags are parsed whereas the moves are simply stored as a string in history.pgn
+ * and parsed when the game is selected from the game list. PGNs are parsed using @mliebelt/pgn-parser
+ * For each file string containing one or more PGN games or FEN lines, splits up the games and creates a History
+ * object for each one. Then parses the metatags for each game.
+ *
+ * @param createNewBoard If false, overwrites existing game, otherwise opens new board when in multiboard mode
+ */
+async function parseGameFiles(game: Game, gameFileStrings: string[], createNewBoard: boolean = false) {
+  var game = newGame(createNewBoard);
+
+  for(let gameStr of gameFileStrings) {
+    var regex = /(((?:\s*\[[^\]]+\]\s+)+)([^\[]+?(?=\n\s*(?:[\w]+\/){7}[\w-]+|\[|$))|\s*(?:[\w]+\/){7}[^\n]+)/g; // Splits up the PGN games or FENs in the string (yes there is probably a less ghastly way to do this than a big regex)
+    var match;
+    var chunkSize = 200;
+    var done = false;
+    var fenCount = 1;
+    while(!done) {
+      // Parse games in chunks so as not to tie up the event loop
+      await new Promise<void>(resolve => {
+        setTimeout(() => {
+          for(let i = 0; i < chunkSize; i++) {
+            if((match = regex.exec(gameStr)) === null) {
+              done = true;
+              break;
+            }
+            if(match.length > 3 && match[2] && match[3]) { // match is a PGN
+              var history = new History(game);
+              history.pgn = match[3];
+              var metatags = parsePGNMetadata(match[2]);
+              if(metatags) {
+                history.setMetatags(metatags, true);
+                game.historyList.push(history);
+              }
+            }
+            else { // match is a FEN
+              var fen = match[1].trim();
+              var err = validateFEN(game, fen);
+              if(!err) {
+                var history = new History(game, fen);
+                history.setMetatags({Event: 'FEN ' + fenCount});
+                game.historyList.push(history);
+                fenCount++;
+              }
+              else {
+                showFixedDialog({type: 'Invalid FEN', msg: err, btnSuccess: ['', 'OK']});
+                return;
+              }
+            }
+          }
+          resolve();
+        }, 0);
+      });
+    }
   }
 
   if(game.historyList.length) {
     updateGamePreserved(game, true);
     setCurrentHistory(game, 0); // Display the first game from the PGN file(s)
-  }
-}
-
-/**
- * Takes a string containing one or more PGN games, splits up the games and creates a History
- * object for each one. Then parses the metatags for each game.
- */
-async function parsePGNFile(game: Game, pgnStr: string) {
-  var regex = /((?:\[[^\]]+\]\s+)+)([^\[]+)/g; // Splits up the games in the PGN string
-  var match;
-  var chunkSize = 200;
-  var done = false;
-  while(!done) {
-    // Parse games in chunks so as not to tie up the event loop
-    await new Promise<void>(resolve => {
-      setTimeout(() => {
-        for(let i = 0; i < chunkSize; i++) {
-          if((match = regex.exec(pgnStr)) === null) {
-            done = true;
-            break;
-          }
-          var history = new History(game);
-          history.pgn = match[2];
-          var metatags = parsePGNMetadata(match[1]);
-          if(metatags) {
-            history.setMetatags(metatags, true);
-            game.historyList.push(history);
-          }
-        }
-        resolve();
-      }, 0);
-    });
   }
 }
 
@@ -7029,8 +7105,13 @@ function addGameListItems(game: Game) {
  */
 function getGameListDescription(history: History, longDescription: boolean = false) {
   var tags = history.metatags;
-  if(!tags)
-    return '';
+
+  if(/FEN \d+/.test(tags.Event)) {
+    var description = tags.Event;
+    if(longDescription)
+      description += ', ' + history.first().fen;
+    return description;
+  }
 
   var dateTimeStr = (tags.Date || tags.UTCDate || '');
   if(tags.Time || tags.UTCTime)
@@ -7083,18 +7164,59 @@ $('#game-list-dropdown').on('click', '.dropdown-item', (event) => {
   setCurrentHistory(gameWithFocus, index);
 });
 
-/** Triggered when 'Save Game PGN' menu option is selected */
-$('#game-tools-save-pgn').on('click', (event) => {
-  savePGN(gameWithFocus);
+$('#save-game-modal').on('show.bs.modal', function() {
+  var fenOutput = $('#save-fen-output');
+  fenOutput.val('');
+  fenOutput.val(gameWithFocus.history.current().fen);
+
+  var pgn = gameToPGN(gameWithFocus);
+  var pgnOutput = $('#save-pgn-output');
+  pgnOutput.val('');
+  pgnOutput.val(pgn);
+
+  var numRows = 1;
+  for(let i = 0; i < pgn.length; i++) {
+    if(pgn[i] === '\n')
+      numRows++;
+  }
+  pgnOutput.css('padding-right', '');
+  if(numRows > +pgnOutput.attr('rows')) {
+    var scrollbarWidth = getScrollbarWidth();
+    var padding = pgnOutput.css('padding-right');
+    pgnOutput.css('padding-right', `calc(${padding} + ${scrollbarWidth}px)`);
+    $('#save-pgn-copy').css('right', scrollbarWidth + 'px');
+  }
+});
+
+/** Triggered when user clicks the FEN 'copy to clipboard' button in the 'Save Game' modal */
+$('#save-fen-copy').on('click', (event) => {
+  copyToClipboard($('#save-fen-output'), $(event.currentTarget));
+});
+
+/** Triggered when user clicks the PGN 'copy to clipboard' button in the 'Save Game' modal */
+$('#save-pgn-copy').on('click', (event) => {
+  copyToClipboard($('#save-pgn-output'), $(event.currentTarget));
+});
+
+/**
+ * Takes a game object and returns the game in PGN format
+ */
+function gameToPGN(game: Game): string {
+  var movesStr = breakAtMaxLength(game.history.movesToString(), 80);
+  return game.history.metatagsToString() + '\n\n' + (movesStr ? movesStr + ' ' : '') + game.history.metatags.Result;
+}
+
+/** Triggered when 'Save PGN' menu option is selected */
+$('#save-pgn-button').on('click', (event) => {
+  savePGN(gameWithFocus, $('#save-pgn-output').val() as string);
 });
 
 /**
  * Saves game to a .pgn file
  */
-function savePGN(game: Game) {
+function savePGN(game: Game, pgn: string) {
+  // Construct file name
   var metatags = game.history.metatags;
-  var movesStr = breakAtMaxLength(game.history.movesToString(), 80);
-  var pgnStr = game.history.metatagsToString() + '\n\n' + movesStr + ' ' + metatags.Result;
   var wname = metatags.White;
   var bname = metatags.Black;
   var event = metatags.Event;
@@ -7114,10 +7236,12 @@ function savePGN(game: Game) {
   if(wname || bname)
     var filename = (wname || 'unknown') + '_vs_' + (bname || 'unknown') + (date ? '_' + date : '') + (time ? '_' + time : '') + '.pgn';
   else {
+    event = event.replace(/^FEN (\d+)$/, 'Analysis-$1');
     var filename = (event || 'Analysis') + (date ? '_' + date : '') + (time ? '_' + time : '') + '.pgn';
   }
 
-  const data = new Blob([pgnStr], { type: 'text/plain' });
+  // Save file
+  const data = new Blob([pgn], { type: 'text/plain' });
   const url = window.URL.createObjectURL(data);
   const link = document.createElement('a');
   link.href = url;
@@ -7320,7 +7444,7 @@ function leaveSetupBoard(game: Game, serverIssued: boolean = false) {
  * False if the new FEN is a result of the user moving a piece on the board etc.
  */
 function updateSetupBoard(game: Game, fen?: string, serverIssued: boolean = false) {
-  var oldFen = getSetupBoardFEN(game); // Get the current position on the board
+  var oldFen = getSetupBoardFEN(game);
 
   if(!fen)
     fen = game.history.current().fen;
@@ -7362,7 +7486,7 @@ $(document).on('click', '.clear-board', (event) => {
 $(document).on('change', '.can-kingside-castle-white, .can-queenside-castle-white, .can-kingside-castle-black, .can-queenside-castle-black', (event) => {
   var game = gameWithFocus;
   var castlingRights = splitFEN(getSetupBoardFEN(game)).castlingRights;
-  if(game.isExamining()) { // When examining, transmit the new castling rights to the server
+  if(game.isExamining()) {
     if($(event.target).hasClass('can-queenside-castle-white') || $(event.target).hasClass('can-kingside-castle-white'))
       sendWhiteCastlingRights(castlingRights);
     else
@@ -7522,7 +7646,7 @@ $('#game-tools-properties').on('click', (event) => {
   var headerTitle = 'Game Properties';
   var bodyText = `<textarea style="resize: none" class="form-control game-properties-input" rows="10" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">`
       + gameWithFocus.history.metatagsToString() + `</textarea>`;
-  var button1 = [okHandler, 'OK'];
+  var button1 = [okHandler, 'Keep Changes'];
   var button2 = ['', 'Cancel'];
   showFixedDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, htmlMsg: true});
 });

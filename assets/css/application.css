@@ -396,6 +396,7 @@ html, body {
 .btn-transparent {
   --bs-btn-active-bg: transparent;
   --bs-btn-hover-bg: transparent;
+  --bs-btn-hover-color: #4da6ff;
   --bs-btn-hover-border-color: transparent;
   --bs-btn-border-color: transparent; 
   --bs-btn-active-border-color: transparent;
@@ -411,19 +412,15 @@ html, body {
 #game-toolbar .btn {
   --bs-btn-active-color: rgba(159, 184, 228, 0.75);
 }
-#game-tools-open-pgn .dropdown-icon {
-  margin-left: -0.25rem;
-  padding-right: 0.25rem;
+.tools-menu-icon {
+  display: inline-block;
+  width: 1.25rem;
 }
-#game-tools-save-pgn .dropdown-icon {
-  padding-right: 0.25rem;
-}
-#game-tools-setup-board .dropdown-icon {
-  padding-right: 0.125rem; 
+#game-tools-open-games .dropdown-icon {
+  transform: translateX(-0.25rem);
 }
 #game-tools-close .dropdown-icon {
-  padding-left: 0.125rem; 
-  padding-right: 0.25rem;
+  transform: translateX(0.125rem); 
 }
 
 #game-list-button > .label {
