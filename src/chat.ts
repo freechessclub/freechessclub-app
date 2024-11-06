@@ -2,10 +2,10 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import Cookies from 'js-cookie';
 import { autoLink } from 'autolink-js';
 import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
-import { findGame, setGameWithFocus, maximizeGame, createTooltip, notificationsToggle, scrollToBoard, isSmallWindow, chattabsToggle } from './index';
+import { findGame, setGameWithFocus, maximizeGame, createTooltip, notificationsToggle, scrollToBoard, isSmallWindow } from './index';
+import { storage } from './storage';
 
 // list of channels
 const channels = {
@@ -96,11 +96,13 @@ export class Chat {
   private emojisLoaded: boolean;
   private maximized: boolean;
   private timestampToggle: boolean;
+  private chattabsToggle: boolean; // toggle for creating a window for chat
   private unviewedNum: number;
 
   constructor(user: string) {
     this.unviewedNum = 0;
-    this.timestampToggle = (Cookies.get('timestamp') !== 'false');
+    this.timestampToggle = (storage.get('timestamp') !== 'false');
+    this.chattabsToggle = (storage.get('chattabs') !== 'false');
     // load emojis
     this.emojisLoaded = false;
     loadEmojis().then(() => {
@@ -119,7 +121,7 @@ export class Chat {
       this.updateViewedState(tab);
       var contentPane = $(tab.attr('href'));
       var chatText = contentPane.find('.chat-text');
-      if(this.scrolledToBottom[contentPane.attr('id')]) 
+      if(this.scrolledToBottom[contentPane.attr('id')])
         chatText.scrollTop(chatText[0].scrollHeight);
       chatText.trigger('scroll');
     });
@@ -142,7 +144,13 @@ export class Chat {
     $('#timestamp-toggle').prop('checked', this.timestampToggle);
     $('#timestamp-toggle').on('click', (event) => {
       this.timestampToggle = !this.timestampToggle;
-      Cookies.set('timestamp', String(this.timestampToggle), { expires: 365 })
+      storage.set('timestamp', String(this.timestampToggle));
+    });
+
+    $('#chattabs-toggle').prop('checked', this.chattabsToggle);
+    $('#chattabs-toggle').on('click', (event) => {
+      this.chattabsToggle = !this.chattabsToggle;
+      storage.set('chattabs', String(this.chattabsToggle));
     });
   }
 
@@ -155,7 +163,7 @@ export class Chat {
         if(match[2]) {
           var game2 = findGame(+match[2]);
           if(game2) {
-            // For bughouse chat rooms, add watchers from the other game  
+            // For bughouse chat rooms, add watchers from the other game
             var watchers2 = game2.watchers.map(str => str.replace('#', ''));
             var watchers = watchers.concat(watchers2).filter((item, index, self) => {
               return self.indexOf(item) === index;
@@ -209,14 +217,14 @@ export class Chat {
       var match = $(element).attr('id').match(/tab-game-(\d+)(?:-and-(\d+))?/);
       return match && (+match[1] === id || (match[2] && +match[2] === id));
     });
-    if(tab.length) 
+    if(tab.length)
       return tab;
     return null;
   }
 
   public getGameFromTab(tab: any): any {
     var match = tab.attr('id').match(/tab-game-(\d+)/);
-    if(match) 
+    if(match)
       return findGame(+match[1]);
   }
 
@@ -270,7 +278,7 @@ export class Chat {
   }
 
   public createTab(name: string, showTab = false) {
-    if(!chattabsToggle)
+    if(!this.chattabsToggle)
       var from = "console";
     else
       var from = name.toLowerCase().replace(/\s/g, '-');
@@ -315,15 +323,15 @@ export class Chat {
               <button class="chat-watchers d-flex ms-auto align-items-center btn btn-outline-secondary btn-transparent p-0 chat-info-text" data-bs-placement="left">
                 <span class="chat-watchers-text">0 Watchers</span>
                 <span class="fa-solid fa-users"></span>
-              </button> 
+              </button>
             </div>`);
           }
         }
         var tabElement = $(`<li ` + tooltip + `class="nav-item position-relative">
             <button class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-` +
                 from + `" id="tab-` + from + `" role="tab" style="padding-right: 30px">` + chName + `
-            </button>   
-            <container class="d-flex align-items-center h-100 position-absolute" style="top: 0; right: 12px; z-index: 10">       
+            </button>
+            <container class="d-flex align-items-center h-100 position-absolute" style="top: 0; right: 12px; z-index: 10">
               <span class="closeTab btn btn-default btn-sm">×</span>
             </container>
           </li>`).appendTo('#tabs');
@@ -333,12 +341,12 @@ export class Chat {
             <div class="chat-text flex-grow-1 mt-3" style="min-height: 0"></div>
           </div>
         </div>`).appendTo('#chat-tabContent');
-        
+
         if(infoBar) {
-          tabContent.find('.chat-content-wrapper').prepend(infoBar); 
+          tabContent.find('.chat-content-wrapper').prepend(infoBar);
           this.updateGameDescription(tabElement.find('.nav-link'));
           this.updateNumWatchers(tabElement.find('.nav-link'));
-          
+
           // Display watchers-list tooltip when hovering button in info bar
           tabContent.find('.chat-watchers').on('mouseenter', (e) => {
             var curr = $(e.currentTarget);
@@ -351,13 +359,13 @@ export class Chat {
               if(!watchers.length)
                 var tooltipText = `<b>` + title + `</b>`;
               else
-                var tooltipText = `<b>` + title + `</b><hr class="tooltip-separator"><div>` + description + `</div>`; 
-              
+                var tooltipText = `<b>` + title + `</b><hr class="tooltip-separator"><div>` + description + `</div>`;
+
               curr.tooltip('dispose').tooltip({
-                title: tooltipText, 
+                title: tooltipText,
                 html: true,
                 ...watchers.length && {
-                  popperConfig: { 
+                  popperConfig: {
                     placement: 'left-start',
                   },
                   offset: [-10, 0]
@@ -388,13 +396,13 @@ export class Chat {
         var tab = panel.closest('.tab-pane');
 
         if($(tab).hasClass('active')) {
-          var atBottom = panel.scrollHeight - panel.clientHeight < panel.scrollTop + 1.5;      
+          var atBottom = panel.scrollHeight - panel.clientHeight < panel.scrollTop + 1.5;
           if(atBottom) {
             $('#chat-scroll-button').hide();
-            this.scrolledToBottom[$(tab).attr('id')] = true; 
+            this.scrolledToBottom[$(tab).attr('id')] = true;
           }
           else {
-            this.scrolledToBottom[$(tab).attr('id')] = false; 
+            this.scrolledToBottom[$(tab).attr('id')] = false;
             $('#chat-scroll-button').show();
           }
         }
@@ -415,8 +423,8 @@ export class Chat {
     // If scrollbar moves due to resizing, move it back to the bottom
     var panel = $('.tab-pane.active .chat-text');
     var tab = panel.closest('.tab-pane');
-    if(this.scrolledToBottom[tab.attr('id')]) 
-      panel.scrollTop(panel[0].scrollHeight); 
+    if(this.scrolledToBottom[tab.attr('id')])
+      panel.scrollTop(panel[0].scrollHeight);
 
     panel.trigger('scroll');
   }
@@ -441,7 +449,7 @@ export class Chat {
         '">' + chName + '</a>');
       $('#ch-' + ch).on('click', (event) => {
         event.preventDefault();
-        if (!chattabsToggle) {
+        if (!this.chattabsToggle) {
           ch = 'console';
         }
         this.createTab(ch, true);
@@ -461,7 +469,7 @@ export class Chat {
   }
 
   public newMessage(from: string, data: any, html: boolean = false) {
-    let tabName = chattabsToggle ? from : 'console';
+    let tabName = this.chattabsToggle ? from : 'console';
 
     if(!/^[\w- ]+$/.test(from))
       return;
@@ -474,7 +482,7 @@ export class Chat {
         textclass = ' class="mine"';
       }
       let prompt = data.user;
-      if (!chattabsToggle && data.channel !== undefined) {
+      if (!this.chattabsToggle && data.channel !== undefined) {
         prompt += '(' + data.channel + ')';
       }
       who = '<strong' + textclass + '>' + $('<span/>').text(prompt).html() + '</strong>: ';
@@ -517,8 +525,8 @@ export class Chat {
 
     if(this.user !== data.user)
       this.updateViewedState(tabheader, false, data.type !== 'whisper');
-    
-    if(tab.hasClass('active') && this.scrolledToBottom[tab.attr('id')]) 
+
+    if(tab.hasClass('active') && this.scrolledToBottom[tab.attr('id')])
       chatText.scrollTop(chatText[0].scrollHeight);
   }
 
@@ -531,7 +539,7 @@ export class Chat {
       var currentTab = this.currentTab().toLowerCase().replace(/\s/g, '-');
       msg = '<strong class="chat-notification">' + msg + '</strong>';
     }
-    else 
+    else
       var currentTab = 'console';
 
     this.newMessage(currentTab, {message: msg}, true);

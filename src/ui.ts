@@ -2,31 +2,31 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import Cookies from 'js-cookie';
 import packageInfo from '../package.json';
+import { storage } from './storage';
 
 $('#version').text('Version: ' + packageInfo.version);
 
 // text size controls
-const textSize = Cookies.get('text-size');
-if (textSize !== undefined) {
+const textSize = storage.get('text-size');
+if (textSize != null) {
   $('.tab-content').css('font-size', textSize + 'em');
   $('#textsize-range').val(parseInt(textSize, 10));
 }
 
 $('#textsize-range').on('change', (event) => {
   $('.tab-content').css('font-size', String($(event.target).val()) + 'em');
-  Cookies.set('text-size', String($(event.target).val()), { expires: 365 })
+  storage.set('text-size', String($(event.target).val()));
 });
 
 function setStyle(component: string, name: string) {
   $('#' + component).attr('href', 'assets/css/' + component + 's/' + name + '.css');
-  Cookies.set(component, name, { expires: 365 });
+  storage.set(component, name);
 }
 
 // color theme controls
-const theme = Cookies.get('theme');
-if (theme !== undefined) {
+const theme = storage.get('theme');
+if (theme != null) {
   $('#theme').attr('href', 'assets/css/themes/' + theme + '.css');
 }
 
@@ -39,8 +39,8 @@ $('#theme-ic').on('click', (event) => { setStyle('theme', 'ic') });
 $('#theme-newspaper').on('click', (event) => { setStyle('theme', 'newspaper') });
 
 // board piece controls
-const piece = Cookies.get('piece');
-if (piece !== undefined) {
+const piece = storage.get('piece');
+if (piece != null) {
   $('#piece').attr('href', 'assets/css/pieces/' + piece + '.css');
 }
 

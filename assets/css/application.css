@@ -19,7 +19,7 @@ html, body {
 }
 
 #chat-tabContent .tab-pane {
-  max-height: 100%; 
+  max-height: 100%;
   min-height: 100%;
 }
 
@@ -67,7 +67,7 @@ html, body {
 }
 @media (max-width: 767px) {
   .chat-watchers-text {
-   display: none; 
+   display: none;
   }
 }
 @media (min-width: 768px) {
@@ -143,14 +143,14 @@ html, body {
 
 #chat-scroll-button {
   display: none;
-  position: absolute; 
-  bottom: 10px; 
-  left: 50%; 
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
   transform: translateX(-50%);
 }
 
 #input-text {
-  resize: none;   
+  resize: none;
   overflow-x: hidden;
 }
 
@@ -226,7 +226,7 @@ html, body {
 }
 
 .clock.low-time {
-  color: red; 
+  color: red;
 }
 
 .clock-time {
@@ -241,7 +241,7 @@ html, body {
   height: 56px;
   padding-top: 0;
   padding-bottom: 0;
-  display: flex;  
+  display: flex;
   flex-shrink: 0;
 }
 
@@ -310,8 +310,8 @@ html, body {
 .game-card .title-bar-text {
   font-size: 0.8em;
   line-height: 1;
-  user-select: none; 
-  cursor: default; 
+  user-select: none;
+  cursor: default;
   white-space: nowrap;
   overflow: hidden;
   padding-top: 0.25rem;
@@ -388,7 +388,7 @@ html, body {
 
 #secondary-board-area {
   display: none;
-  gap: 8px; 
+  gap: 8px;
   align-items: flex-start;
   flex-wrap: wrap;
 }
@@ -398,7 +398,7 @@ html, body {
   --bs-btn-hover-bg: transparent;
   --bs-btn-hover-color: #4da6ff;
   --bs-btn-hover-border-color: transparent;
-  --bs-btn-border-color: transparent; 
+  --bs-btn-border-color: transparent;
   --bs-btn-active-border-color: transparent;
 }
 
@@ -420,7 +420,7 @@ html, body {
   transform: translateX(-0.25rem);
 }
 #game-tools-close .dropdown-icon {
-  transform: translateX(0.125rem); 
+  transform: translateX(0.125rem);
 }
 
 #game-list-button > .label {
@@ -499,8 +499,8 @@ html, body {
   background-repeat: no-repeat;
   background-size: 8px 3px;
   background-position: top left, bottom left;
-  border: 1px solid var(--bracket-color); 
-  border-right: none;       
+  border: 1px solid var(--bracket-color);
+  border-right: none;
   border-width: 0 3px;
 }
 #move-table .selected {
@@ -537,7 +537,7 @@ html, body {
   top: 0px;
   bottom: 0px;
   width: 1px;
-  border-left: 1px solid rgb(33, 37, 41); 
+  border-left: 1px solid rgb(33, 37, 41);
 }
 .movelist .subvariation:has(+ .subvariation)::before {
   bottom: 2px;
@@ -571,7 +571,7 @@ html, body {
   caret-color: #212529;
 }
 .comment[data-before-content]:after {
-  content: attr(data-before-content) " "; 
+  content: attr(data-before-content) " ";
   font-style: italic;
 }
 .comment:after {
@@ -591,7 +591,7 @@ html, body {
   font-family: "Segoe UI Symbol", var(--bs-body-font-family), "Noto Sans Symbols 2", "Noto Sans Math";
 }
 
-.piece-glyph::before { 
+.piece-glyph::before {
   font-size: 1.3rem;
   font-weight: normal;
   font-family: "Noto Sans Symbols 2", var(--bs-body-font-family);
@@ -714,12 +714,12 @@ html, body {
   font-size: 2.3em;
 }
 .btn-engine {
-  font-family: monospace; 
+  font-family: monospace;
   font-weight: bold;
 }
 
 .pane-status {
-  margin: 10px; 
+  margin: 10px;
   text-align: center;
 }
 
@@ -750,7 +750,7 @@ html, body {
 /* Turn hover state off for buttons on devices with no mouse (mobile) because it looks stupid */
 /* We achieve this by setting the hover color to match the normal button color */
 @media (hover: none) {
-  .btn-outline-secondary:hover { 
+  .btn-outline-secondary:hover {
     --bs-btn-hover-color: var(--bs-btn-color);
     --bs-btn-hover-bg: var(--bs-btn-bg);
   }
@@ -823,7 +823,7 @@ html, body {
 /* Fix margin collapse glitch */
 #lobby-table .btn:not(:last-child) {
   margin: 0px;
-  border-bottom: none;  
+  border-bottom: none;
 }
 
 .notification-panel {
@@ -848,7 +848,7 @@ html, body {
 }
 
 .notification-panel.slide-up {
-  transition: opacity 0.8s ease, margin-top 0.8s ease;  
+  transition: opacity 0.8s ease, margin-top 0.8s ease;
 }
 
 .notifications-panel.notification .toast-header {
@@ -863,16 +863,20 @@ html, body {
 
 #notifications-header {
   --bs-toast-bg: ghostwhite;
-} 
+}
 
 #notifications-header .toast-body {
   padding-top: 1px;
   padding-bottom: 1px;
 }
 
+.toast-body .body-text {
+  word-break: break-word;
+}
+
 #notifications-close-icon {
-  color: #060600; 
-  font-size: 19px; 
+  color: #060600;
+  font-size: 19px;
   transform: translate(-1.5px, -3.2px);
 }
 
@@ -901,16 +905,16 @@ html, body {
   color: #638FA8;
 }
 
-.dropdown-menu li { 
-  position: relative; 	
+.dropdown-menu li {
+  position: relative;
 }
-.dropdown-submenu{  
+.dropdown-submenu{
   display: none;
   position: absolute;
   left:100%;
   top:-7px;
 }
-.dropdown-submenu-left { 
+.dropdown-submenu-left {
   right:100%; left:auto;
 }
 .dropdown-menu > li:hover > .dropdown-submenu{ display: block; }
@@ -919,7 +923,7 @@ html, body {
     right:100%; left:auto;
     min-width: 0;
   }
-}	
+}
 
 .tooltip-separator {
   margin-top: 4px;

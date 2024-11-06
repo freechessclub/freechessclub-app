@@ -3,7 +3,6 @@
 // license that can be found in the LICENSE file.
 
 import Chess from 'chess.js';
-import Cookies from 'js-cookie';
 import { Chessground } from 'chessground';
 import { Color, Key } from 'chessground/types';
 import { Polyglot } from 'cm-polyglot/src/Polyglot.js';
@@ -16,11 +15,11 @@ import { Game, GameData, Role, NewVariationMode } from './game';
 import { History, HEntry } from './history';
 import { GetMessageType, MessageType, Session } from './session';
 import * as Sounds from './sounds';
+import { storage, CredentialStorage } from './storage';
 import { Reason } from './parser';
 import './ui';
 import packageInfo from '../package.json';
 import { createPopper, Placement } from '@popperjs/core';
-import { move } from 'chessground/drag';
 
 export const enum Layout {
   Desktop = 0,
@@ -45,26 +44,6 @@ let chat: Chat;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
 let playEngine: Engine | null;
-
-// toggle game sounds
-let soundToggle: boolean = (Cookies.get('sound') !== 'false');
-// toggle for auto-promote to queen
-let autoPromoteToggle: boolean = (Cookies.get('autopromote') === 'true');
-// toggle for showing Computer opponents in the lobby
-let lobbyShowComputersToggle: boolean = (Cookies.get('lobbyshowcomputers') === 'true');
-// toggle for showing Rated games in the lobby
-let lobbyShowUnratedToggle: boolean = (Cookies.get('lobbyshowunrated') !== 'false');
-// toggle for automatically showing new slide-down notifications or notifications in chat channels
-export let notificationsToggle: boolean = (Cookies.get('notifications') !== 'false');
-// toggle for showing highlights/graphics on the board
-let highlightsToggle: boolean = (Cookies.get('highlights') !== 'false');
-// toggle for showing highlights/graphics on the board
-let wakelockToggle: boolean = (Cookies.get('wakelock') !== 'false');
-// toggle for multi-board mode / single-board mode
-let multiboardToggle: boolean = (Cookies.get('multiboard') !== 'false');
-// toggle for creating a window for chat
-export let chattabsToggle: boolean = (Cookies.get('chattabs') !== 'false');
-
 let historyRequested = 0;
 let obsRequested = 0;
 let allobsRequested = 0;
@@ -102,9 +81,29 @@ let games: Game[] = [];
 let partnerGameId = null;
 let lastPointerCoords = {x: 0, y: 0}; // Stores the pointer coordinates from the last touch/mouse event
 let touchStarted = false; // Keeps track of whether a touch is in progress
+let credential: CredentialStorage = null; // The persistently stored username/password
 const mainBoard: any = createBoard($('#main-board-area').children().first().find('.board'));
 
-$(document).ready(() => {
+// toggle game sounds
+let soundToggle: boolean;
+// toggle for auto-promote to queen
+let autoPromoteToggle: boolean;
+// toggle for showing Computer opponents in the lobby
+let lobbyShowComputersToggle: boolean;
+// toggle for showing Rated games in the lobby
+let lobbyShowUnratedToggle: boolean;
+// toggle for automatically showing new slide-down notifications or notifications in chat channels
+export let notificationsToggle: boolean;
+// toggle for showing highlights/graphics on the board
+let highlightsToggle: boolean;
+// toggle for showing highlights/graphics on the board
+let wakelockToggle: boolean;
+// toggle for multi-board mode / single-board mode
+let multiboardToggle: boolean;
+// toggle for remembering user's login and password between sessions
+let rememberMeToggle: boolean;
+
+jQuery(() => {
   if ((window as any).cordova !== undefined) {
     document.addEventListener('deviceready', onDeviceReady, false);
   } else {
@@ -112,7 +111,10 @@ $(document).ready(() => {
   }
 });
 
-function onDeviceReady() {
+async function onDeviceReady() {
+  await storage.init();
+  initSettings();
+
   var game = createGame();
   game.role = Role.NONE;
   game.category = 'untimed';
@@ -142,10 +144,16 @@ function onDeviceReady() {
   // Split it off into a timeout so that onDeviceReady doesn't take too long.
   setTimeout(() => { $(window).trigger('resize'); }, 0);
 
-  const user = Cookies.get('user');
-  const pass = Cookies.get('pass');
-  if (user !== undefined && pass !== undefined) {
-    session = new Session(messageHandler, user, atob(pass));
+  credential = new CredentialStorage();
+  if(rememberMeToggle) 
+    await credential.retrieve(); // Get the username/password from secure storage (if the user has previously ticked Remember Me)
+  else {
+    $('#login-user').val('');
+    $('#login-pass').val('');
+  }  
+
+  if(credential.username != null && credential.password != null) {
+    session = new Session(messageHandler, credential.username, credential.password);
   } else {
     session = new Session(messageHandler);
   }
@@ -167,7 +175,7 @@ $(window).on('beforeunload', () => {
 
 // Prevent screen dimming, must be enabled in a user input event handler
 $(document).one('click', (event) => {
-  if (wakelockToggle) {
+  if(wakelockToggle) {
     noSleep.enable();
   }
 });
@@ -194,6 +202,9 @@ function initSettings() {
 
   multiboardToggle = (storage.get('multiboard') !== 'false');
   $('#multiboard-toggle').prop('checked', multiboardToggle);
+
+  rememberMeToggle = (storage.get('rememberme') === 'true');
+  $('#remember-me').prop('checked', rememberMeToggle);
 
   lobbyShowComputersToggle = (storage.get('lobbyshowcomputers') === 'true');
   lobbyShowUnratedToggle = (storage.get('lobbyshowunrated') !== 'false');
@@ -888,7 +899,7 @@ function showBoardDialog(params: DialogParams): any {
   return dialog;
 }
 
-function showFixedDialog(params: DialogParams): any {
+export function showFixedDialog(params: DialogParams): any {
   var dialog = createDialog(params);
   var container = $('<div class="toast-container position-fixed top-50 start-50 translate-middle" style="z-index: 101">');
   container.appendTo('body');
@@ -3385,7 +3396,7 @@ function updateHistory(game: Game, move?: any, fen?: string) {
           newSubvariation = true;
         else if(game.newVariationMode === NewVariationMode.OVERWRITE_VARIATION)
           newSubvariation = false;
-        else { // Either we aren't in edit mode, or the new move was received from the server (i.e. from another examiner)
+        else {
           newSubvariation = (!game.history.scratch() && !game.history.current().isSubvariation()) || // Make new subvariation if new move is on the mainline and we're not in scratch mode
               (game.history.editMode && game.history.current() !== game.history.current().last); // Make new subvariation if we are in edit mode and receive a new move from the server. Note: we never overwrite in edit mode unless the user explicitly requests it.
          }
@@ -4358,13 +4369,7 @@ async function getBookMoves(fen: string): Promise<any[]> {
 
 function createBoard(element: any): any {
   return Chessground(element[0], {
-    highlight: {
-      lastMove: highlightsToggle,
-      check: highlightsToggle
-    },
     movable: {
-      free: false,
-      color: undefined,
       events: {
         after: movePiece,
         afterNewPiece: movePiece,
@@ -5473,11 +5478,10 @@ function currentGameMove(game: Game): HEntry {
   return (game.isPlaying() || game.isObserving() ? game.history?.last() : game.history?.current());
 }
 
-updateDropdownSound();
 $('#sound-toggle').on('click', (event) => {
   soundToggle = !soundToggle;
   updateDropdownSound();
-  Cookies.set('sound', String(soundToggle), { expires: 365 })
+  storage.set('sound', String(soundToggle));
 });
 function updateDropdownSound() {
   const iconClass = 'dropdown-icon fa fa-volume-' + (soundToggle ? 'up' : 'off');
@@ -5485,26 +5489,22 @@ function updateDropdownSound() {
     '" aria-hidden="false"></span>Sounds ' + (soundToggle ? 'ON' : 'OFF'));
 }
 
-$('#notifications-toggle').prop('checked', notificationsToggle);
 $('#notifications-toggle').on('click', (event) => {
   notificationsToggle = !notificationsToggle;
-  Cookies.set('notifications', String(notificationsToggle), { expires: 365 })
+  storage.set('notifications', String(notificationsToggle));
 });
 
-$('#autopromote-toggle').prop('checked', autoPromoteToggle);
 $('#autopromote-toggle').on('click', (event) => {
   autoPromoteToggle = !autoPromoteToggle;
-  Cookies.set('autopromote', String(autoPromoteToggle), { expires: 365 })
+  storage.set('autopromote', String(autoPromoteToggle));
 });
 
-$('#highlights-toggle').prop('checked', highlightsToggle);
 $('#highlights-toggle').on('click', (event) => {
   highlightsToggle = !highlightsToggle;
   updateBoard(gameWithFocus, false, false);
-  Cookies.set('highlights', String(highlightsToggle), { expires: 365 })
+  storage.set('highlights', String(highlightsToggle));
 });
 
-$('#wakelock-toggle').prop('checked', wakelockToggle);
 $('#wakelock-toggle').on('click', (event) => {
   wakelockToggle = !wakelockToggle;
   if (wakelockToggle) {
@@ -5512,10 +5512,9 @@ $('#wakelock-toggle').on('click', (event) => {
   } else {
     noSleep.disable();
   }
-  Cookies.set('wakelock', String(wakelockToggle), { expires: 365 })
+  storage.set('wakelock', String(wakelockToggle));
 });
 
-$('#multiboard-toggle').prop('checked', multiboardToggle);
 $('#multiboard-toggle').on('click', (event) => {
   multiboardToggle = !multiboardToggle;
   if(!multiboardToggle) {
@@ -5531,13 +5530,7 @@ $('#multiboard-toggle').on('click', (event) => {
     }
   }
   initGameTools(gameWithFocus);
-  Cookies.set('multiboard', String(multiboardToggle), { expires: 365 })
-});
-
-$('#chattabs-toggle').prop('checked', chattabsToggle);
-$('#chattabs-toggle').on('click', (event) => {
-  chattabsToggle = !chattabsToggle;
-  Cookies.set('chattabs', String(chattabsToggle), { expires: 365 })
+  storage.set('multiboard', String(multiboardToggle));
 });
 
 $('#disconnect').on('click', (event) => {
@@ -5585,44 +5578,64 @@ $('#play-computer-form').on('submit', (event) => {
   playComputer(params);
 });
 
-$('#login-user').on('change', () => $('#login-user').removeClass('is-invalid'));
+$('#login-user').on('change', () => {
+  $('#login-user').removeClass('is-invalid');
+});
+
+/**
+ * This detects whether the browser's password manager has autofilled the login/password form when it's
+ * invisible. For example, in Firefox after the user enters their Master Password. 
+ */ 
+$('#login-pass').on('change', () => {
+  if(!$('#login-form').is(':visible') && $('#login-pass').val() as string) { 
+    if(rememberMeToggle && credential && credential.password == null) {
+      credential.set($('#login-user').val() as string, $('#login-pass').val() as string);
+      if(session) {
+        session.disconnect();
+        session = new Session(messageHandler, credential.username, credential.password);
+      }
+    }
+    $('#login-user').val('');
+    $('#login-pass').val('');
+  }
+});
 
 $('#login-form').on('submit', (event) => {
   const user: string = getValue('#login-user');
   if(session && session.isConnected() && user === session.getUser()) {
     $('#login-user').addClass('is-invalid');
     event.preventDefault();
-    event.stopPropagation();
     return false;
   }
   const pass: string = getValue('#login-pass');
   if(session)
     session.disconnect();
   session = new Session(messageHandler, user, pass);
-  if ($('#remember-me').prop('checked')) {
-    Cookies.set('user', user, { expires: 365 });
-    Cookies.set('pass', btoa(pass), { expires: 365 });
-  } else {
-    Cookies.remove('user');
-    Cookies.remove('pass');
-  }
+  rememberMeToggle = $('#remember-me').prop('checked');
+  storage.set('rememberme', String(rememberMeToggle));
+  if(rememberMeToggle) 
+    credential.set(user, pass);
+  else 
+    credential.clear();
+
   $('#login-screen').modal('hide');
-  event.stopPropagation();
   event.preventDefault();
   return false;
 });
 
-$('#login-screen').on('show.bs.modal', (e) => {
-  const user = Cookies.get('user');
-  if (user !== undefined) {
-    $('#login-user').val(user);
-  }
-  const pass = Cookies.get('pass');
-  if (pass !== undefined) {
-    $('#login-pass').val(atob(pass));
-    $('#remember-me').prop('checked', true);
-  }
+$('#login-screen').on('show.bs.modal', async (e) => {
+  if(credential.username) 
+    $('#login-user').val(credential.username);
+  if(credential.password) 
+    $('#login-pass').val(credential.password);
+
+  $('#remember-me').prop('checked', rememberMeToggle);
+
   $('#login-user').removeClass('is-invalid');
+});
+
+$('#login-screen').on('hidden.bs.modal', async (e) => {
+  $('#login-pass').val(''); // clear the password field when form not visible
 });
 
 $('#sign-in').on('click', (event) => {
@@ -6253,13 +6266,13 @@ function leaveLobbyPane() {
 
 $('#lobby-show-computers').on('change', function (e) {
   lobbyShowComputersToggle = $(this).is(':checked');
-  Cookies.set('lobbyshowcomputers', String(lobbyShowComputersToggle), { expires: 365 });
+  storage.set('lobbyshowcomputers', String(lobbyShowComputersToggle));
   initLobbyPane();
 });
 
 $('#lobby-show-unrated').on('change', function (e) {
   lobbyShowUnratedToggle = $(this).is(':checked');
-  Cookies.set('lobbyshowunrated', String(lobbyShowUnratedToggle), { expires: 365 });
+  storage.set('lobbyshowunrated', String(lobbyShowUnratedToggle));
   initLobbyPane();
 });
 
