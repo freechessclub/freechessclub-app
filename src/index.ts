@@ -5589,7 +5589,7 @@ $('#login-user').on('change', () => $('#login-user').removeClass('is-invalid'));
 
 $('#login-form').on('submit', (event) => {
   const user: string = getValue('#login-user');
-  if (session && session.isConnected() && user === session.getUser()) {
+  if(session && session.isConnected() && user === session.getUser()) {
     $('#login-user').addClass('is-invalid');
     event.preventDefault();
     event.stopPropagation();

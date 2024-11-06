@@ -42,6 +42,7 @@ export function GetMessageType(msg: any): MessageType {
 export class Session {
   private connected: boolean;
   private user: string;
+  private pass: string;
   private websocket: WebSocket;
   private onRecv: (msg: any) => void;
   private timesealHello = 'TIMESEAL2|freeseal|icsgo|';
@@ -54,13 +55,14 @@ export class Session {
   constructor(onRecv: (msg: any) => void, user?: string, pass?: string) {
     this.connected = false;
     this.user = user;
+    this.pass = pass;
     this.onRecv = onRecv;
-    this.connect(user, pass);
     this.registered = false;
+    this.connect(user, pass);
 
     // Hide popover if user clicks anywhere outside
     this.bodyClickHandler = (e) => {
-      if(!$('#session-status').is(e.target) 
+      if(!$('#session-status').is(e.target)
           && $('#session-status').has(e.target).length === 0
           && $('.popover').has(e.target).length === 0)
         $('#session-status').popover('dispose');
@@ -111,17 +113,6 @@ export class Session {
   public connect(user?: string, pass?: string) {
     $('#game-requests').empty();
     $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
-    const login = (user !== undefined && pass !== undefined);
-    let loginOptions = '';
-    let text = '';
-    if (login) {
-      loginOptions += '?login=1';
-      text = '[' + user;
-      if (pass !== undefined && pass.length > 0) {
-        text += ',' + btoa(pass);
-      }
-      text += ']';
-    }
 
     this.websocket = new WebSocket('wss://www.freechess.org:5001');
     // this.websocket.binaryType = 'arraybuffer';
@@ -134,8 +125,24 @@ export class Session {
         this.onRecv(data);
       }
     };
-    const that = this;
-    this.websocket.onclose = function(e) { that.reset(e); };
+
+    this.websocket.onclose = (e) => {
+      // Reconnect automatically if the connection was dropped unexpectedly, i.e. by mobile power management
+      var reconnect = false;
+      if(this.isConnected() && !e.wasClean) {
+        if(document.visibilityState === 'visible')
+          reconnect = true;
+        else {
+          $(document).one('visibilitychange', (event) => {
+            this.connect(this.user, this.pass);
+          }); 
+        }
+      }
+      this.reset(e);
+      if(reconnect) 
+        this.connect(this.user, this.pass);
+    };
+
     this.websocket.onopen = () => {
       $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
       this.send(this.timesealHello);
@@ -144,6 +151,7 @@ export class Session {
 
   public disconnect() {
     $('#session-status').html('<span class="text-danger"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Disconnecting...</span>');
+    this.connected = false;
     this.websocket.close();
     this.reset(undefined);
   }
@@ -151,7 +159,7 @@ export class Session {
   public reset(_e: any) {
     $('#session-status').html('<span class="text-danger"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;Offline</span>');
     this.connected = false;
-    this.user = '';
+    this.registered = false;
     disableOnlineInputs(true);
     cleanup();
   }
