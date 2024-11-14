@@ -176,10 +176,32 @@ export class Engine {
   public move(hEntry: HEntry) {
     this.currFen = hEntry.fen;
     
-    var movesStr = hEntry.movesToCoordinatesString();
+    var movesStr = this.movesToCoordinatesString(hEntry);
 
     this.uci('position fen ' + this.game.history.first().fen + movesStr);
     this.uci('go ' + this.moveParams);
+  }
+  
+ /**
+  * Returns the list of moves from the start of the game up to this move
+  * in coordinate notation as a string. Used to send the move list to Engine 
+  */
+  public movesToCoordinatesString(hEntry: HEntry): string {
+    var movelist = [];
+    while(hEntry.move) {
+      var move = hEntry.move.from + hEntry.move.to + (hEntry.move.promotion ? hEntry.move.promotion : '');
+      if(!hEntry.move.from) // crazyhouse
+        move = hEntry.move.san.replace(/[+#]/, ''); // Stockfish crazyhouse implementation doesn't like + or # chars for piece placement
+
+      movelist.push(move);
+      hEntry = hEntry.prev;
+    }
+
+    var movesStr = '';
+    if(movelist.length)
+      var movesStr = ' moves ' + movelist.reverse().join(' ');
+
+    return movesStr;
   }
 
   public evaluateFEN(fen: string) {

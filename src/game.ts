@@ -100,6 +100,6 @@ export class Game extends GameData {
   setupBoard: boolean = false;         // in setup-board mode or not
   commitingMovelist = false;           // Used when entering examine mode and using 'commit' to submit a move list
   movelistRequested: number = 0;       // Used to keep track of move list requests
-  mexamineMovelist: string = null;     // Used to restore the current move after retrieving the move list when given mexamine privilages
+  mexamineMovelist: string[] = null;   // Used to restore the current move after retrieving the move list when given mexamine privilages
   gameListFilter: string = ''          // Stores the filter text for the game selector menu (when loading a PGN with multiple games)
 }

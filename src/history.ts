@@ -181,29 +181,6 @@ export class HEntry {
         c = c.prev;
     }
   }
-
-  /**
-   * Returns the list of moves from the start of the game up to this move
-   * in coordinate notation as a string. Used to send the move list to Engine etc
-   */
-  public movesToCoordinatesString(): string {
-    var hEntry: HEntry = this;
-    var movelist = [];
-    while(hEntry.move) {
-      var move = hEntry.move.from + hEntry.move.to + (hEntry.move.promotion ? hEntry.move.promotion : '');
-      if(!hEntry.move.from) // crazyhouse
-        move = hEntry.move.san.replace(/[+#]/, ''); // Stockfish crazyhouse implementation doesn't like + or # chars for piece placement
-
-      movelist.push(move);
-      hEntry = hEntry.prev;
-    }
-
-    var movesStr = '';
-    if(movelist.length)
-      var movesStr = ' moves ' + movelist.reverse().join(' ');
-
-    return movesStr;
-  }
 }
 
 export class History {
@@ -656,6 +633,23 @@ export class History {
         postOrderHandler(entry);
       entry = entry.next;
     }
+  }
+
+ /**
+  * Returns move as a string in coordinate form (e.g a1-d4)
+  */
+  public static moveToCoordinateString(move: any): string {  
+    var moveStr = '';
+    if(move.san && move.san.startsWith('O-O')) // support for variants
+      moveStr = move.san;
+    else if(!move.from)
+      moveStr = move.piece + '@' + move.to; // add piece in crazyhouse or bsetup mode
+    else if(!move.to)
+      moveStr = 'x' + move.from; // remove piece in bsetup mode
+    else
+      moveStr = move.from + '-' + move.to + (move.promotion ? '=' + move.promotion : '');
+
+    return moveStr;
   }
 
   public movesToString(): string {
