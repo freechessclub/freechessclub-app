@@ -14,6 +14,11 @@ html, body {
   overflow-x: hidden;
 }
 
+body {
+  padding-top: var(--safe-area-inset-top);
+  padding-bottom: var(--safe-area-inset-bottom);
+}
+
 .feature3 {
   min-height: 100vh;
 }
@@ -460,6 +465,7 @@ html, body {
   vertical-align: top;
   padding-top: 1px;
   padding-bottom: 1px;
+  text-decoration: none;
 }
 #move-table .selectable:hover {
   background-color: rgba(0, 0, 0, 0.075);
@@ -469,7 +475,6 @@ html, body {
 }
 #move-table .selectable:hover a {
   font-weight: bold;
-  text-decoration: none;
 }
 #move-table > tbody > .subvariation {
   background: rgba(0, 0, 0, 0.15);
