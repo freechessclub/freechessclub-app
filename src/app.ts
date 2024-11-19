@@ -2,7 +2,7 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import { app, BrowserWindow, dialog, Menu, session, screen, shell } from 'electron'
+import { app, BrowserWindow, safeStorage, ipcMain, dialog, Menu, session, screen, shell } from 'electron'
 import * as Electron from 'electron'
 import * as path from 'path'
 import * as url from 'url'
@@ -223,6 +223,20 @@ function findReopenMenuItem() {
   return reopenMenuItem;
 }
 
+/** 
+ * Functions exposed to the renderer 
+ */
+
+// secure encryption and key storage
+ipcMain.handle('encrypt', (event, value) => {
+  var buff = safeStorage.encryptString(value);
+  return buff.toString('base64');
+});
+ipcMain.handle('decrypt', (event, value) => {
+  var buff = Buffer.from(value, 'base64');
+  return safeStorage.decryptString(buff);
+});
+
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
   mainWindow = new BrowserWindow({
@@ -232,6 +246,10 @@ function createWindow() {
     resizable: true,
     title: app.getName(),
     icon: path.join(__dirname, '../assets/img/tfcc-small.png'),
+    webPreferences: {
+      contextIsolation: true,  
+      preload: path.join(__dirname, 'preload.js') 
+    }
   });
 
   const ur = url.format({
@@ -240,9 +258,7 @@ function createWindow() {
     pathname: path.join(__dirname, '../play.html'),
   });
 
-  mainWindow.loadURL(ur, {
-    userAgent: 'Free Chess Club',
-  });
+  mainWindow.loadURL(ur);
 
   mainWindow.on('closed', () => {
     mainWindow = null;

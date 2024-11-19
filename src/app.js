@@ -213,6 +213,18 @@ function findReopenMenuItem() {
     });
     return reopenMenuItem;
 }
+/**
+ * Functions exposed to the renderer
+ */
+// secure encryption and key storage
+electron_1.ipcMain.handle('encrypt', function (event, value) {
+    var buff = electron_1.safeStorage.encryptString(value);
+    return buff.toString('base64');
+});
+electron_1.ipcMain.handle('decrypt', function (event, value) {
+    var buff = Buffer.from(value, 'base64');
+    return electron_1.safeStorage.decryptString(buff);
+});
 function createWindow() {
     var _a = electron_1.screen.getPrimaryDisplay().workAreaSize, width = _a.width, height = _a.height;
     mainWindow = new electron_1.BrowserWindow({
@@ -222,15 +234,17 @@ function createWindow() {
         resizable: true,
         title: electron_1.app.getName(),
         icon: path.join(__dirname, '../assets/img/tfcc-small.png'),
+        webPreferences: {
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload.js')
+        }
     });
     var ur = url.format({
         protocol: 'file',
         slashes: true,
         pathname: path.join(__dirname, '../play.html'),
     });
-    mainWindow.loadURL(ur, {
-        userAgent: 'Free Chess Club',
-    });
+    mainWindow.loadURL(ur);
     mainWindow.on('closed', function () {
         mainWindow = null;
     });

@@ -19,7 +19,7 @@ html, body {
 }
 
 #chat-tabContent .tab-pane {
-  max-height: 100%; 
+  max-height: 100%;
   min-height: 100%;
 }
 
@@ -55,8 +55,8 @@ html, body {
   height: 31px;
   padding-left: 8px;
   padding-right: 8px;
-  background-color: rgba(255, 255, 255, 0.4);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  background-color: rgba(255, 255, 255, 0.125);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
 }
 .chat-info .btn-outline-secondary {
   --bs-btn-color: rgba(80, 80, 120, 0.65);
@@ -67,7 +67,7 @@ html, body {
 }
 @media (max-width: 767px) {
   .chat-watchers-text {
-   display: none; 
+   display: none;
   }
 }
 @media (min-width: 768px) {
@@ -143,14 +143,14 @@ html, body {
 
 #chat-scroll-button {
   display: none;
-  position: absolute; 
-  bottom: 10px; 
-  left: 50%; 
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
   transform: translateX(-50%);
 }
 
 #input-text {
-  resize: none;   
+  resize: none;
   overflow-x: hidden;
 }
 
@@ -226,7 +226,7 @@ html, body {
 }
 
 .clock.low-time {
-  color: red; 
+  color: red;
 }
 
 .clock-time {
@@ -241,8 +241,43 @@ html, body {
   height: 56px;
   padding-top: 0;
   padding-bottom: 0;
-  display: flex;  
+  display: flex;
   flex-shrink: 0;
+}
+
+.setup-board {
+  padding-left: 0.5em;
+  padding-right: 0.5em;
+  font-size: calc(min(var(--panel-width) / 32, var(--panel-height) / 3.5));
+}
+.setup-board-white::after, .setup-board-black::after {
+  all: unset;
+}
+.setup-board-buttons {
+  min-width: 8.25em;
+}
+.setup-board-buttons button {
+  font-size: calc(min(var(--panel-width) / 16, var(--panel-height) / 1.8));
+  padding: 0.25em;
+}
+.color-to-move-button {
+  font-size: calc(min(var(--panel-width) / 32, var(--panel-height) / 3.5));
+  --bs-btn-padding-x: 0.75em;
+  --bs-btn-padding-y: 0.375em;
+}
+.setup-board .can-castle {
+  margin-left: 0.75em;
+  margin-right: 0.75em;
+}
+.setup-board .setup-board-piece {
+  display: inline-block;
+  position: static;
+  flex: 1;
+  max-width: calc(var(--panel-height) - 8px);
+  height: auto;
+  aspect-ratio: 1 / 1;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .game-card {
@@ -275,8 +310,8 @@ html, body {
 .game-card .title-bar-text {
   font-size: 0.8em;
   line-height: 1;
-  user-select: none; 
-  cursor: default; 
+  user-select: none;
+  cursor: default;
   white-space: nowrap;
   overflow: hidden;
   padding-top: 0.25rem;
@@ -353,7 +388,7 @@ html, body {
 
 #secondary-board-area {
   display: none;
-  gap: 8px; 
+  gap: 8px;
   align-items: flex-start;
   flex-wrap: wrap;
 }
@@ -361,8 +396,9 @@ html, body {
 .btn-transparent {
   --bs-btn-active-bg: transparent;
   --bs-btn-hover-bg: transparent;
+  --bs-btn-hover-color: #4da6ff;
   --bs-btn-hover-border-color: transparent;
-  --bs-btn-border-color: transparent; 
+  --bs-btn-border-color: transparent;
   --bs-btn-active-border-color: transparent;
 }
 
@@ -370,20 +406,21 @@ html, body {
   padding-top: 3px;
   padding-bottom: 3px;
   padding-right: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 #game-toolbar .btn {
   --bs-btn-active-color: rgba(159, 184, 228, 0.75);
 }
-#game-tools-open-pgn .dropdown-icon {
-  margin-left: -0.25rem;
-  padding-right: 0.25rem;
+.tools-menu-icon {
+  display: inline-block;
+  width: 1.25rem;
 }
-#game-tools-save-pgn .dropdown-icon {
-  padding-right: 0.25rem;
+#game-tools-open-games .dropdown-icon {
+  transform: translateX(-0.25rem);
 }
 #game-tools-close .dropdown-icon {
-  padding-left: 0.125rem; 
-  padding-right: 0.25rem;
+  transform: translateX(0.125rem);
 }
 
 #game-list-button > .label {
@@ -410,11 +447,19 @@ html, body {
 #move-table th {
   border: 0;
   width: 20%;
-
 }
 #move-table td {
   border: 0;
   width: 40%;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+#move-table a {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-top: 1px;
+  padding-bottom: 1px;
 }
 #move-table .selectable:hover {
   background-color: rgba(0, 0, 0, 0.075);
@@ -454,25 +499,29 @@ html, body {
   background-repeat: no-repeat;
   background-size: 8px 3px;
   background-position: top left, bottom left;
-  border: 1px solid var(--bracket-color); 
-  border-right: none;       
+  border: 1px solid var(--bracket-color);
+  border-right: none;
   border-width: 0 3px;
 }
 #move-table .selected {
   background-color: rgba(0, 0, 0, 0.1);
-  padding-top: 2px; 
-  padding-bottom: 3px; 
-  padding-left: 15px; 
-  padding-right: 15px;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
   font-weight: bold;
+}
+
+.movelist {
+  --movelist-color: var(--bs-body-color);
 }
 
 .movelist .selected {
   background-color: rgba(0, 0, 0, 0.2);
-  color: #000000;
+  --movelist-color: #000000;
+  color: var(--movelist-color);
 }
 .movelist .subvariation {
-  color: #5e4d3b;
+  --movelist-color: #5e4d3b;
+  color: var(--movelist-color);
   display: block;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -488,7 +537,7 @@ html, body {
   top: 0px;
   bottom: 0px;
   width: 1px;
-  border-left: 1px solid rgb(33, 37, 41); 
+  border-left: 1px solid rgb(33, 37, 41);
 }
 .movelist .subvariation:has(+ .subvariation)::before {
   bottom: 2px;
@@ -498,17 +547,20 @@ html, body {
 }
 .movelist .subvariation .selected {
   background-color: rgba(0, 0, 0, 0.2);
-  color: #2e2418;
+  --movelist-color: #2e2418;
+  color: var(--movelist-color);
 }
 .movelist .move:hover,
 .movelist .move.hovered,
 .movelist .subvariation .move:hover,
 .movelist .subvariation .move.hovered {
-  color: rgb(10, 88, 202);
+  --movelist-color: rgb(10, 88, 202);
+  color: var(--movelist-color);
 }
 .movelist .selected:hover,
 .movelist .subvariation .selected:hover {
-  color: rgb(10, 88, 202);
+  color: var(--movelist-color);
+  --movelist-color: rgb(10, 88, 202);
 }
 
 .comment {
@@ -519,7 +571,7 @@ html, body {
   caret-color: #212529;
 }
 .comment[data-before-content]:after {
-  content: attr(data-before-content) " "; 
+  content: attr(data-before-content) " ";
   font-style: italic;
 }
 .comment:after {
@@ -536,8 +588,31 @@ html, body {
   padding-right: 6px;
 }
 .annotation {
-  font-family: "Segoe UI Symbol", var(--bs-body-font-family), "Noto Sans Math";
+  font-family: "Segoe UI Symbol", var(--bs-body-font-family), "Noto Sans Symbols 2", "Noto Sans Math";
 }
+
+.piece-glyph::before {
+  font-size: 1.3rem;
+  font-weight: normal;
+  font-family: "Noto Sans Symbols 2", var(--bs-body-font-family);
+  margin-left: -0.2rem;
+  line-height: 1rem; /* Ensure line-height is smaller than for regular text, so that it aligns to regular text's baseline */
+}
+.movelist .piece-glyph.black::before {
+  color: color-mix(in srgb, var(--movelist-color) 70%, white 30%); /* fancy new method for lightening/darkening colors */
+}
+.piece-glyph.white.king::before { content: "\2654"; }
+.piece-glyph.white.queen::before { content: "\2655"; }
+.piece-glyph.white.rook::before { content: "\2656"; }
+.piece-glyph.white.bishop::before { content: "\2657"; }
+.piece-glyph.white.knight::before { content: "\2658"; }
+.piece-glyph.white.pawn::before { content: "\2659"; }
+.piece-glyph.black.king::before { content: "\265A"; }
+.piece-glyph.black.queen::before { content: "\265B"; }
+.piece-glyph.black.rook::before { content: "\265C"; }
+.piece-glyph.black.bishop::before { content: "\265D"; }
+.piece-glyph.black.knight::before { content: "\265E"; }
+.piece-glyph.black.pawn::before { content: "\265F"; }
 
 .flex-line-break {
   flex-basis: 100%;
@@ -639,12 +714,12 @@ html, body {
   font-size: 2.3em;
 }
 .btn-engine {
-  font-family: monospace; 
+  font-family: monospace;
   font-weight: bold;
 }
 
 .pane-status {
-  margin: 10px; 
+  margin: 10px;
   text-align: center;
 }
 
@@ -675,7 +750,7 @@ html, body {
 /* Turn hover state off for buttons on devices with no mouse (mobile) because it looks stupid */
 /* We achieve this by setting the hover color to match the normal button color */
 @media (hover: none) {
-  .btn-outline-secondary:hover { 
+  .btn-outline-secondary:hover {
     --bs-btn-hover-color: var(--bs-btn-color);
     --bs-btn-hover-bg: var(--bs-btn-bg);
   }
@@ -720,6 +795,7 @@ html, body {
 
 .promotion-panel {
   display: none;
+  flex-direction: column;
   position: absolute;
   z-index: 10;
   height: 50%;
@@ -733,11 +809,21 @@ html, body {
               0 4px 6px -4px rgba(0, 0, 0, 0.2),
               0 -4px 6px -4px rgba(0, 0, 0, 0.2);
 }
+.promotion-panel::after {
+  all: unset;
+}
+.promotion-panel .promotion-piece {
+  flex: 1;
+  position: static;
+  width: 100%;
+  pointer-events: auto;
+  cursor: pointer;
+}
 
 /* Fix margin collapse glitch */
 #lobby-table .btn:not(:last-child) {
   margin: 0px;
-  border-bottom: none;  
+  border-bottom: none;
 }
 
 .notification-panel {
@@ -762,7 +848,7 @@ html, body {
 }
 
 .notification-panel.slide-up {
-  transition: opacity 0.8s ease, margin-top 0.8s ease;  
+  transition: opacity 0.8s ease, margin-top 0.8s ease;
 }
 
 .notifications-panel.notification .toast-header {
@@ -777,16 +863,20 @@ html, body {
 
 #notifications-header {
   --bs-toast-bg: ghostwhite;
-} 
+}
 
 #notifications-header .toast-body {
   padding-top: 1px;
   padding-bottom: 1px;
 }
 
+.toast-body .body-text {
+  word-break: break-word;
+}
+
 #notifications-close-icon {
-  color: #060600; 
-  font-size: 19px; 
+  color: #060600;
+  font-size: 19px;
   transform: translate(-1.5px, -3.2px);
 }
 
@@ -815,16 +905,16 @@ html, body {
   color: #638FA8;
 }
 
-.dropdown-menu li { 
-  position: relative; 	
+.dropdown-menu li {
+  position: relative;
 }
-.dropdown-submenu{  
+.dropdown-submenu{
   display: none;
   position: absolute;
   left:100%;
   top:-7px;
 }
-.dropdown-submenu-left { 
+.dropdown-submenu-left {
   right:100%; left:auto;
 }
 .dropdown-menu > li:hover > .dropdown-submenu{ display: block; }
@@ -833,7 +923,7 @@ html, body {
     right:100%; left:auto;
     min-width: 0;
   }
-}	
+}
 
 .tooltip-separator {
   margin-top: 4px;

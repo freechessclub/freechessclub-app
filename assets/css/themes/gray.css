@@ -78,7 +78,7 @@ cg-board {
 .form-control,
 .form-control:active,
 .form-control:focus {
-  background-color: #555555; 
+  background-color: #555555;
   border-color: #888888;
   color: lightgray;
 }
@@ -121,6 +121,11 @@ cg-board {
   --bs-modal-bg: var(--bg-color);
 }
 
+#game-toolbar {
+  background-color: rgba(0, 0, 0, 0.035);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.035);
+}
+
 #move-table {
   color: rgba(255, 255, 255, 0.4);
 }
@@ -154,33 +159,52 @@ cg-board {
 
 .movelist .selected {
   background-color: rgba(255, 255, 255, 0.3);
-  color: #FFFFFF;
+  --movelist-color: #FFFFFF;
 }
 .movelist .subvariation {
-  color: #BBBBBB;
+  --movelist-color: #BBBBBB;
 }
 .movelist .subvariation::before {
   border-left-color: whitesmoke;
 }
 .movelist .subvariation .selected {
   background-color: rgba(255, 255, 255, 0.2);
-  color: #DDDDDD;
+  --movelist-color: #DDDDDD;
 }
 .movelist .move:hover,
 .movelist .move.hovered,
 .movelist .subvariation .move:hover,
 .movelist .subvariation .move.hovered {
-  color: rgb(10, 88, 202);
+  --movelist-color: rgb(10, 88, 202);
 }
 .movelist .selected:hover,
 .movelist .subvariation .selected:hover {
-  color: rgb(5, 44, 101);
+  --movelist-color: rgb(5, 44, 101);
 }
 
 .comment {
   caret-color: whitesmoke;
   color: #999;
 }
+
+.movelist .piece-glyph.white::before {
+  color: color-mix(in srgb, var(--movelist-color) 90%, black 10%);
+}
+.movelist .piece-glyph.black::before {
+  color: var(--bs-card-color);
+}
+.piece-glyph.white.king::before { content: "\265A"; }
+.piece-glyph.white.queen::before { content: "\265B"; }
+.piece-glyph.white.rook::before { content: "\265C"; }
+.piece-glyph.white.bishop::before { content: "\265D"; }
+.piece-glyph.white.knight::before { content: "\265E"; }
+.piece-glyph.white.pawn::before { content: "\265F"; }
+.piece-glyph.black.king::before { content: "\2654"; }
+.piece-glyph.black.queen::before { content: "\2655"; }
+.piece-glyph.black.rook::before { content: "\2656"; }
+.piece-glyph.black.bishop::before { content: "\2657"; }
+.piece-glyph.black.knight::before { content: "\2658"; }
+.piece-glyph.black.pawn::before { content: "\2659"; }
 
 #engine-pvs > li:nth-of-type(even) {
   background-color: rgba(0, 0, 0, 0.08);
@@ -235,7 +259,7 @@ cg-board {
 }
 #notifications-header {
   --bs-toast-bg: #383838;
-} 
+}
 
 .popover {
   --bs-popover-bg: var(--bg-color);

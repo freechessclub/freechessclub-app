@@ -54,12 +54,14 @@ export class Parser {
 
     msg = msg.replace(/\uFFFD/g, '');
 
-    match = msg.match(/Sorry, names may be at most 17 characters long\.\s+Try again./m);
+    match = msg.match(/Sorry, names may be at most 17 characters long\.\s+Try again\./m);
+    if(!match)
+      match = msg.match(/Sorry, names can only consist of lower and upper case letters\.\s+Try again\./m);
     if (match != null) {
       return {
         command: 2,
         control: match[0],
-      }; 
+      };
     }
 
     match = msg.match(/login:/);
@@ -199,11 +201,11 @@ export class Parser {
 
   public parse(data: any) {
     let msg : string;
-    if (data instanceof ArrayBuffer) 
+    if (data instanceof ArrayBuffer)
       msg = this.ab2str(data);
-    else 
+    else
       msg = data;
-      
+
     return this._parse(msg);
   }
 
@@ -226,7 +228,7 @@ export class Parser {
 
     // FICS uses 'fics%' to separate multiple multi-line messages when sent together
     msgs = this.splitMessage(msg, /fics%/);
-    if(msgs) 
+    if(msgs)
       return msgs;
 
     msg = msg.replace(/fics%/g, '');
@@ -268,24 +270,26 @@ export class Parser {
       // -1 if the previous move was NOT a double pawn push, otherwise the chess board file  (numbered 0--7 for a--h) in which the double push was made
       fen += ' ' + (+match[10] === -1 ? '-' : String.fromCharCode('a'.charCodeAt(0) + +match[10]) + (match[9] === 'W' ? '6' : '3'));
       // the number of moves made since the last irreversible move.
-      // FICS sometimes erroneously sets this to 1 when the starting player is black on move 1. 
+      // FICS sometimes erroneously sets this to 1 when the starting player is black on move 1.
       fen += ' ' + (match[31] === 'none' ? '0' : match[15]);
       // the full move number
       fen += ' ' + match[26];
 
       // Parse move in long format (from, to, promotion)
-      const moveMatches = match[27].match(/\S+\/(\S{2})-(\S{2})=?(\S?)/);
+      const moveMatches = match[27].match(/(\S+)\/(\S{2})-(\S{2})=?(\S?)/);
       let moveVerbose;
       if(moveMatches) {
         moveVerbose = {
-          from: moveMatches[1],
-          to: moveMatches[2],
-          promotion: moveMatches[3],
+          piece: moveMatches[1].toLowerCase(),
+          from: (moveMatches[2] !== '@@' ? moveMatches[2] : null),
+          to: moveMatches[3],
+          promotion: moveMatches[4].toLowerCase(),
           san: match[31]
         };
       }
       else if(match[31] === 'O-O' || match[31] === 'O-O-O') {
         moveVerbose = {
+          piece: 'k',
           from: 'e' + (match[9] === 'W' ? '8' : '1'),
           to: (match[31] === 'O-O' ? 'g' : 'c') + (match[9] === 'W' ? '8' : '1'),
           promotion: undefined,
@@ -295,7 +299,7 @@ export class Parser {
 
       return {
         fen,                                  // game state
-        turn: match[9],                       // color whose turn it is to move ("B" or "W")
+        turn: match[9].toLowerCase(),         // color whose turn it is to move ("b" or "w")
         id: +match[16],                       // The game number
         wname: match[17],                     // White's name
         bname: match[18],                     // Black's name
@@ -319,9 +323,9 @@ export class Parser {
     if (match != null && match.length > 3) {
       var holdings = {P: 0, R: 0, B: 0, N: 0, Q: 0, K: 0, p: 0, r: 0, b: 0, n: 0, q: 0, k: 0};
 
-      for(const piece of match[2]) 
+      for(const piece of match[2])
         holdings[piece.toLowerCase()]++;
-      
+
       for(const piece of match[3])
         holdings[piece.toUpperCase()]++;
 
@@ -392,7 +396,7 @@ export class Parser {
         var type = 'kibitz';
       else
         var type = 'whisper';
-      
+
       return {
         channel: 'Game ' + match[2],
         user: match[1],
@@ -407,7 +411,7 @@ export class Parser {
     if(index !== -1) {
       // if plain text componenet, split into 2 messages
       let plainText = msg.slice(0, index).trim();
-      if(plainText) 
+      if(plainText)
         return [this._parse(plainText), this._parse(msg.slice(index))];
 
       let offers = [];
@@ -436,7 +440,7 @@ export class Parser {
               category: match[15] || match[12],
               initialTime: +match[13],
               increment: +match[14],
-              adjourned: !!match[16] 
+              adjourned: !!match[16]
             });
           }
           else {
@@ -449,7 +453,7 @@ export class Parser {
             });
           }
           continue;
-        }   
+        }
         // parse seekinfo
         if(line === '<sc>') {
           offers.push({ type: 'sc' });
