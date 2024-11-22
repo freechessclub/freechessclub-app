@@ -1982,7 +1982,7 @@ function showCapturedMaterial(game: Game) {
 
 function dragPiece(event: any) {
   var game = gameWithFocus;
-  var id = $(event.currentTarget).attr('data-drag-piece');
+  var id = $(event.target).closest('[data-drag-piece]').attr('data-drag-piece');
   var color = id.charAt(0);
   var type = id.charAt(1);
 
