@@ -44,6 +44,7 @@
     }
   },
   "dependencies": {
+    "@capacitor-community/safe-area": "^6.0.0-alpha.8",
     "@capacitor/android": "^6.2.0",
     "@capacitor/assets": "^3.0.5",
     "@capacitor/core": "^6.2.0",
