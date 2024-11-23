@@ -3,7 +3,6 @@
 // license that can be found in the LICENSE file.
 
 import Parser from './parser';
-import { disableOnlineInputs, cleanup } from './index';
 
 export const enum MessageType {
   Control = 0,
@@ -64,9 +63,10 @@ export class Session {
     this.bodyClickHandler = (e) => {
       if(!$('#session-status').is(e.target)
           && $('#session-status').has(e.target).length === 0
-          && $('.popover').has(e.target).length === 0)
+          && $('.popover').has(e.target).length === 0) {
         $('#session-status').popover('dispose');
         clearTimeout(this.sessionStatusPopoverTimer);
+      }
     };
     $('body').on('click', this.bodyClickHandler);
   }
@@ -92,11 +92,11 @@ export class Session {
   }
 
   public setUser(user: string): void {
-    $('#session-status').html('<span style="overflow: hidden; text-overflow: ellipsis"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;<span class="h6">' + user + '</span></span>');
+    $('#session-status').html(`<span style="overflow: hidden; text-overflow: ellipsis"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;<span class="h6">${user}</span></span>`);
     if(!this.user) { // Only display popover if this is a new user or guest
       $('#session-status').popover({
         animation: true,
-        content: 'Connected as ' + user + '. Click here to connect as a different user!',
+        content: `Connected as ${user}. Click here to connect as a different user!`,
         placement: 'top',
       });
       $('#session-status').popover('show');
@@ -111,6 +111,7 @@ export class Session {
   }
 
   public connect(user?: string, pass?: string) {
+    this.registered = false;
     $('#game-requests').empty();
     $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
 
@@ -128,19 +129,21 @@ export class Session {
 
     this.websocket.onclose = (e) => {
       // Reconnect automatically if the connection was dropped unexpectedly, i.e. by mobile power management
-      var reconnect = false;
-      if(this.isConnected() && !e.wasClean) {
-        if(document.visibilityState === 'visible')
-          reconnect = true;
-        else {
-          $(document).one('visibilitychange', (event) => {
-            this.connect(this.user, this.pass);
-          }); 
+      if(this.isConnected()) {
+        let reconnect = false;
+        this.reset();
+        if(!e.wasClean) {
+          if(document.visibilityState === 'visible')
+            reconnect = true;
+          else {
+            $(document).one('visibilitychange', () => {
+              this.connect(this.user, this.pass);
+            });
+          }
         }
+        if(reconnect)
+          this.connect(this.user, this.pass);
       }
-      this.reset(e);
-      if(reconnect) 
-        this.connect(this.user, this.pass);
     };
 
     this.websocket.onopen = () => {
@@ -153,15 +156,16 @@ export class Session {
     $('#session-status').html('<span class="text-danger"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Disconnecting...</span>');
     this.connected = false;
     this.websocket.close();
-    this.reset(undefined);
+    this.reset();
   }
 
-  public reset(_e: any) {
+  public reset() {
     $('#session-status').html('<span class="text-danger"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;Offline</span>');
     this.connected = false;
-    this.registered = false;
-    disableOnlineInputs(true);
-    cleanup();
+    this.onRecv({
+      command: 3,
+      control: 'Disconnected'
+    }); // Send disconnected command to message handler
   }
 
   public send(command: string) {

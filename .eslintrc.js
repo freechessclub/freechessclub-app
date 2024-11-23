@@ -37,36 +37,10 @@ module.exports = {
                 "default": "array"
             }
         ],
-        "@typescript-eslint/ban-types": [
-            "error",
-            {
-                "types": {
-                    "Object": {
-                        "message": "Avoid using the `Object` type. Did you mean `object`?"
-                    },
-                    "Function": {
-                        "message": "Avoid using the `Function` type. Prefer a specific function type, like `() => void`."
-                    },
-                    "Boolean": {
-                        "message": "Avoid using the `Boolean` type. Did you mean `boolean`?"
-                    },
-                    "Number": {
-                        "message": "Avoid using the `Number` type. Did you mean `number`?"
-                    },
-                    "String": {
-                        "message": "Avoid using the `String` type. Did you mean `string`?"
-                    },
-                    "Symbol": {
-                        "message": "Avoid using the `Symbol` type. Did you mean `symbol`?"
-                    }
-                }
-            }
-        ],
         "@typescript-eslint/consistent-type-assertions": "error",
         "@typescript-eslint/dot-notation": "error",
         "@typescript-eslint/explicit-function-return-type": "off",
         "@typescript-eslint/explicit-module-boundary-types": "off",
-        "@typescript-eslint/indent": ["error", 2],
         "@typescript-eslint/naming-convention": [
             "error",
             {
@@ -98,13 +72,6 @@ module.exports = {
         "@typescript-eslint/prefer-for-of": "error",
         "@typescript-eslint/prefer-function-type": "error",
         "@typescript-eslint/prefer-namespace-keyword": "error",
-        "@typescript-eslint/quotes": [
-            "error",
-            "single",
-            {
-                "avoidEscape": true
-            }
-        ],
         "@typescript-eslint/triple-slash-reference": [
             "error",
             {
@@ -136,13 +103,16 @@ module.exports = {
             "undefined"
         ],
         "id-match": "error",
-        "indent": "off",
+        "indent": [
+            "error", 
+            2,
+            { "SwitchCase": 1 }
+        ],
         "jsdoc/check-alignment": "error",
         "jsdoc/check-indentation": "error",
-        "jsdoc/newline-after-description": "error",
         "max-classes-per-file": [
             "error",
-            1
+            Infinity
         ],
         "new-parens": "error",
         "no-bitwise": "off",
@@ -171,9 +141,18 @@ module.exports = {
             "error",
             "never"
         ],
-        "prefer-arrow/prefer-arrow-functions": "error",
+        "prefer-arrow/prefer-arrow-functions": [ 
+            "error",
+            { "allowStandaloneDeclarations": true }
+        ],
         "prefer-const": "error",
-        "quotes": "off",
+        "quotes": [
+            "error",
+            "single",
+            {
+                "avoidEscape": true
+            }
+        ],
         "radix": "error",
         "spaced-comment": [
             "error",
