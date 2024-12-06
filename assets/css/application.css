@@ -205,10 +205,13 @@ body {
   line-height: 2.6em;
 }
 
-.captured img {
+.captured .captured-piece-img {
   display: inline-block;
+  background-size: cover;
+  vertical-align: middle;
   margin: -15px -5px 0 2px;
   width: 23px;
+  height: 23px;
   opacity: 0.6;
   pointer-events: none;
 }
@@ -381,9 +384,10 @@ body {
   padding-bottom: 0.38em;
 }
 
-.game-card-sm .captured img {
+.game-card-sm .captured .captured-piece-img {
   margin: -13px -6px 0 -1px;
   width: 15px;
+  height: 15px;
 }
 
 .game-card-sm .captured small {
@@ -459,9 +463,9 @@ body {
   padding-top: 3px;
   padding-bottom: 3px;
 }
-#move-table a {
+#move-table .move {
+  color: #0d6efd;
   display: inline-block;
-  overflow: hidden;
   vertical-align: top;
   padding-top: 1px;
   padding-bottom: 1px;
@@ -473,7 +477,8 @@ body {
 #move-table .subvariation .selectable:hover {
   background-color: rgba(255, 255, 255, 0.25);
 }
-#move-table .selectable:hover a {
+#move-table .selectable:hover .move {
+  color: #0a58ca;
   font-weight: bold;
 }
 #move-table > tbody > .subvariation {
@@ -488,9 +493,12 @@ body {
 #move-table .subvariation .selected {
   background-color: rgba(0, 0, 0, 0.15);
 }
-#move-table .subvariation a {
+#move-table .subvariation .move {
   color: #191970;
   font-weight: normal;
+}
+#move-table .subvariation .move .piece-glyph.black::before {
+  color: color-mix(in srgb, currentColor 70%, white 30%); /* fancy new method for lightening/darkening colors */
 }
 #move-table .subvariation td {
   padding-right: 0;
@@ -515,18 +523,12 @@ body {
   font-weight: bold;
 }
 
-.movelist {
-  --movelist-color: var(--bs-body-color);
-}
-
 .movelist .selected {
   background-color: rgba(0, 0, 0, 0.2);
-  --movelist-color: #000000;
-  color: var(--movelist-color);
+  color: #000000;
 }
 .movelist .subvariation {
-  --movelist-color: #5e4d3b;
-  color: var(--movelist-color);
+  color: #5e4d3b;
   display: block;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -534,6 +536,12 @@ body {
   position: relative;
   padding-top: 2px;
   padding-bottom: 2px;
+}
+.movelist .subvariation:not(:has(+ .subvariation)) {
+  padding-bottom: 3px;
+}
+.movelist .subvariation:not(.subvariation + .subvariation) {
+  padding-top: 3px;
 }
 .movelist .subvariation::before {
   content: "";
@@ -552,20 +560,20 @@ body {
 }
 .movelist .subvariation .selected {
   background-color: rgba(0, 0, 0, 0.2);
-  --movelist-color: #2e2418;
-  color: var(--movelist-color);
+  color: #2e2418;
 }
 .movelist .move:hover,
 .movelist .move.hovered,
 .movelist .subvariation .move:hover,
 .movelist .subvariation .move.hovered {
-  --movelist-color: rgb(10, 88, 202);
-  color: var(--movelist-color);
+  color: rgb(10, 88, 202);
 }
 .movelist .selected:hover,
 .movelist .subvariation .selected:hover {
-  color: var(--movelist-color);
-  --movelist-color: rgb(10, 88, 202);
+  color: rgb(10, 88, 202);
+}
+.movelist .piece-glyph.black::before {
+  color: color-mix(in srgb, currentColor 70%, white 30%); /* fancy new method for lightening/darkening colors */
 }
 
 .comment {
@@ -601,10 +609,8 @@ body {
   font-weight: normal;
   font-family: "Noto Sans Symbols 2", var(--bs-body-font-family);
   margin-left: -0.2rem;
+  margin-right: -0.03rem;
   line-height: 1rem; /* Ensure line-height is smaller than for regular text, so that it aligns to regular text's baseline */
-}
-.movelist .piece-glyph.black::before {
-  color: color-mix(in srgb, var(--movelist-color) 70%, white 30%); /* fancy new method for lightening/darkening colors */
 }
 .piece-glyph.white.king::before { content: "\2654"; }
 .piece-glyph.white.queen::before { content: "\2655"; }
@@ -908,26 +914,6 @@ body {
 
 .form-heading {
   color: #638FA8;
-}
-
-.dropdown-menu li {
-  position: relative;
-}
-.dropdown-submenu{
-  display: none;
-  position: absolute;
-  left:100%;
-  top:-7px;
-}
-.dropdown-submenu-left {
-  right:100%; left:auto;
-}
-.dropdown-menu > li:hover > .dropdown-submenu{ display: block; }
-@media (max-width: 767px) {
-  .dropdown-submenu {
-    right:100%; left:auto;
-    min-width: 0;
-  }
 }
 
 .tooltip-separator {

@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import Cookies from 'js-cookie';
+import { logError } from './utils';
 
 /**
  * Cross-platform secure, persistent credential (password) storage.
@@ -39,20 +40,21 @@ export class CredentialStorage {
    * using username and password getters
    */
   public async retrieve() {
-    var username = undefined, password = undefined;
-    var requirePassword = storage.get('require-password');
-    var secureStorageMethod = false;
+    let username: string;
+    let password: string;
+    const requirePassword = storage.get('require-password');
+    let secureStorageMethod = false;
 
     if(requirePassword) {
       if(isElectron()) {
         secureStorageMethod = true;
         username = storage.get('user');
-        var encryptedPassword = storage.get('pass');
+        const encryptedPassword = storage.get('pass');
         if(encryptedPassword) {
           try {
             password = await (window as any).electron.decrypt(encryptedPassword);
           } catch (error) {
-            console.error('Error decrypting password:', error.name, error.message);
+            logError('Error decrypting password:', error.name, error.message);
           }
         }
       }
@@ -65,45 +67,44 @@ export class CredentialStorage {
             secureStorageMethod = true;
           }
           catch(error) {
-            console.error('Error retrieving stored password:', error.name, error.message);
+            logError('Error retrieving stored password:', error.name, error.message);
           }
         }
       }
       else if('PasswordCredential' in window && storage.get('password-credential-api') === 'true') {
         try {
-          // Note mediation: 'silent' stops the browser from prompting the user to enter their
           // login/password when they aren't stored already
-          var credential = await navigator.credentials.get({ password: true } as CredentialRequestOptions);
+          const credential = await navigator.credentials.get({ password: true } as CredentialRequestOptions) as any;
           if(credential instanceof (window as any).PasswordCredential) {
-            username = credential['id'];
-            password = credential['password'];
+            username = credential.id;
+            password = credential.password;
           }
           secureStorageMethod = true;
         }
         catch (error) {
-          console.error('Error retrieving stored password:', error.name, error.message);
+          logError('Error retrieving stored password:', error.name, error.message);
         }
       }
-      else if(isFirefox()) 
+      else if(isFirefox())
         secureStorageMethod = true; // We rely on Firefox's Password Manager to autofill the login/password form on page load
     }
-    
+
     if(password == null) {
       username = storage.get('user');
-      var loginFormUser = $('#login-user').val() as string; // get password from login form autofill (Firefox)
-      if(loginFormUser && loginFormUser === username) 
+      const loginFormUser = $('#login-user').val() as string; // get password from login form autofill (Firefox)
+      if(loginFormUser && loginFormUser === username)
         password = $('#login-pass').val() as string;
       else if(!requirePassword)
         password = '';
     }
 
-    var unsecurePass = storage.get('pass');
+    const unsecurePass = storage.get('pass');
     if(unsecurePass) {
-      if(password == null) 
-        password = atob(unsecurePass);    
+      if(password == null)
+        password = atob(unsecurePass);
 
       if(secureStorageMethod)
-        await this.set(username, password); // Re-store the credential using a secure method 
+        await this.set(username, password); // Re-store the credential using a secure method
     }
 
     $('#login-user').val('');
@@ -129,35 +130,33 @@ export class CredentialStorage {
 
     if(isElectron()) {
       try {
-        var encryptedPassword = await (window as any).electron.encrypt(password);
+        const encryptedPassword = await (window as any).electron.encrypt(password);
         storage.set('pass', encryptedPassword);
         return;
       }
       catch (error) {
-        console.error('Error encrypting password:', error.name, error.message);
+        logError('Error encrypting password:', error.name, error.message);
       }
     }
     else if(isCapacitor()) {
       try {
-        const plugins = (window as any).Capacitor.Plugins;
-        const pluginNames = Object.keys(plugins).map(plugin => plugin);
         await (window as any).Capacitor.Plugins.SecureStoragePlugin.set({ key: 'password', value: password });
         return;
       }
       catch (error) {
-        console.error('Error storing password:', error.name, error.message);
+        logError('Error storing password:', error.name, error.message);
       }
     }
     else if('PasswordCredential' in window) {
       if(password) {
         try {
-          const passwordCredential = new (window as any).PasswordCredential({ id: username, password: password });
+          const passwordCredential = new (window as any).PasswordCredential({ id: username, password });
           await navigator.credentials.store(passwordCredential);
           storage.set('password-credential-api', 'true');
           return;
         }
         catch (error) {
-          console.error('Error storing password:', error.name, error.message);
+          logError('Error storing password:', error.name, error.message);
         }
       }
     }
@@ -185,7 +184,7 @@ export class CredentialStorage {
     if(isCapacitor()) {
       try { await (window as any).Capacitor.Plugins.SecureStoragePlugin.remove({ key: 'password' }); }
       catch (error) {
-        console.error('Error clearing password:', error.name, error.message);
+        logError('Error clearing password:', error.name, error.message);
       }
     }
   }
@@ -207,13 +206,13 @@ export class Storage {
       // Retrieve and cache all the Capacitor Preferences. This so we can make the get() function synchronous
       // even though Preferences is asynchronous.
       const { keys } = await (window as any).Capacitor.Plugins.Preferences.keys();
-      for (const key of keys) {
+      for(const key of keys) {
         try {
           const { value } = await (window as any).Capacitor.Plugins.Preferences.get({ key });
           this.cache[key] = value;
         }
         catch(error) {
-          console.error('Error getting Capacitor Preference:', error.name, error.message);
+          logError('Error getting Capacitor Preference:', error.name, error.message);
           break;
         }
       }
@@ -236,11 +235,11 @@ export class Storage {
     }
     if(isCapacitor()) {
       try {
-        await (window as any).Capacitor.Plugins.Preferences.set({key: name, value: value});
+        await (window as any).Capacitor.Plugins.Preferences.set({key: name, value});
         return;
       }
       catch(error) {
-        console.error('Error setting Capacitor Preference:', error.name, error.message);
+        logError('Error setting Capacitor Preference:', error.name, error.message);
       }
     }
     localStorage.setItem(name, value);
@@ -251,7 +250,7 @@ export class Storage {
    * If still not found checks if there is a matching cookie.
    */
   public get(name: string): string {
-    var value = this.cache[name];
+    let value = this.cache[name];
     if(value == null)
       value = localStorage.getItem(name);
     if(value == null)
@@ -272,7 +271,7 @@ export class Storage {
         await (window as any).Capacitor.Plugins.Preferences.remove({ key: name });
       }
       catch(error) {
-        console.error('Error removing Capacitor Preference:', error.name, error.message);
+        logError('Error removing Capacitor Preference:', error.name, error.message);
       }
     }
     Cookies.remove(name);
@@ -280,7 +279,7 @@ export class Storage {
   }
 }
 
-export var storage = new Storage(); // The main Storage instance, declared here so it can be imported the other modules
+export const storage = new Storage(); // The main Storage instance, declared here so it can be imported the other modules
 
 /**
  * Is this a Capacitor app?
@@ -297,7 +296,7 @@ function isElectron() {
 }
 
 /**
- * Is this a Firefox app 
+ * Is this a Firefox app
  */
 function isFirefox() {
   return navigator.userAgent.toLowerCase().includes('firefox');

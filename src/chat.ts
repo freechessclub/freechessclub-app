@@ -4,8 +4,11 @@
 
 import { autoLink } from 'autolink-js';
 import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
-import { findGame, setGameWithFocus, maximizeGame, createTooltip, notificationsToggle, scrollTo, scrollToBoard, isSmallWindow } from './index';
+import { createTooltip, safeScrollTo, isSmallWindow } from './utils';
+import { setGameWithFocus, maximizeGame, scrollToBoard } from './index';
+import { settings } from './settings';
 import { storage } from './storage';
+import { games } from './game';
 
 // list of channels
 const channels = {
@@ -86,7 +89,6 @@ const channels = {
 };
 
 let maximized = false;
-let windowResizing = false;
 
 export class Chat {
   private user: string;
@@ -95,22 +97,17 @@ export class Chat {
   private scrolledToBottom: object;
   private emojisLoaded: boolean;
   private maximized: boolean;
-  private timestampToggle: boolean;
-  private chattabsToggle: boolean; // toggle for creating a window for chat
   private unviewedNum: number;
 
-  constructor(user: string) {
+  constructor() {
     this.unviewedNum = 0;
-    this.timestampToggle = (storage.get('timestamp') !== 'false');
-    this.chattabsToggle = (storage.get('chattabs') !== 'false');
+    settings.timestampToggle = (storage.get('timestamp') !== 'false');
+    settings.chattabsToggle = (storage.get('chattabs') !== 'false');
     // load emojis
     this.emojisLoaded = false;
     loadEmojis().then(() => {
       this.emojisLoaded = true;
     });
-
-    this.user = user;
-    this.userRE = new RegExp('\\b' + user + '\\b', 'ig');
 
     // initialize tabs
     this.tabs = {};
@@ -119,53 +116,96 @@ export class Chat {
     $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
       this.updateViewedState(tab);
-      var contentPane = $(tab.attr('href'));
-      var chatText = contentPane.find('.chat-text');
+      const contentPane = $(tab.attr('href'));
+      const chatText = contentPane.find('.chat-text');
       if(this.scrolledToBottom[contentPane.attr('id')])
         chatText.scrollTop(chatText[0].scrollHeight);
       chatText.trigger('scroll');
     });
 
-    $('#chat-scroll-button').on('click', (e) => {
-      var chatText = $('.tab-pane.active .chat-text');
+    $('#chat-scroll-button').on('click', () => {
+      const chatText = $('.tab-pane.active .chat-text');
       $('#chat-scroll-button').hide();
       chatText.scrollTop(chatText[0].scrollHeight);
     });
 
+    $('#collapse-chat').on('hidden.bs.collapse', () => {
+      if(!$('#collapse-chat').hasClass('collapse-init'))
+        scrollToBoard();
+      $('#collapse-chat').removeClass('collapse-init');
+    });
+
     $('#collapse-chat').on('shown.bs.collapse', () => {
-      var activeTab = $('#tabs button').filter('.active');
+      const activeTab = $('#tabs button').filter('.active');
       activeTab.trigger('shown.bs.tab');
+      $(window).trigger('resize');
+      this.scrollToChat();
+    });
+
+    $('#collapse-chat').on('show.bs.collapse', () => {
+      $('#chat-toggle-btn').addClass('toggle-btn-selected');
+    });
+
+    $('#collapse-chat').on('hide.bs.collapse', () => {
+      $('#chat-toggle-btn').removeClass('toggle-btn-selected');
+    });
+
+    $('#collapse-chat-arrow').on('click', () => {
+      $('#collapse-chat').collapse('hide');
     });
 
     $(document.body).on('click', '#tabs .closeTab', (event) => {
       this.closeTab($(event.target).parent().siblings('.nav-link'));
     });
 
-    $('#timestamp-toggle').prop('checked', this.timestampToggle);
-    $('#timestamp-toggle').on('click', (event) => {
-      this.timestampToggle = !this.timestampToggle;
-      storage.set('timestamp', String(this.timestampToggle));
+    $('#timestamp-toggle').prop('checked', settings.timestampToggle);
+    $('#timestamp-toggle').on('click', () => {
+      settings.timestampToggle = !settings.timestampToggle;
+      storage.set('timestamp', String(settings.timestampToggle));
     });
 
-    $('#chattabs-toggle').prop('checked', this.chattabsToggle);
-    $('#chattabs-toggle').on('click', (event) => {
-      this.chattabsToggle = !this.chattabsToggle;
-      storage.set('chattabs', String(this.chattabsToggle));
+    $('#chattabs-toggle').prop('checked', settings.chattabsToggle);
+    $('#chattabs-toggle').on('click', () => {
+      settings.chattabsToggle = !settings.chattabsToggle;
+      storage.set('chattabs', String(settings.chattabsToggle));
+    });
+
+    $('#chat-maximize-btn').on('click', () => {
+      if(maximized) {
+        $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
+        $('#chat-maximize-btn').attr('aria-label', 'Maximize Chat');
+        $('#chat-maximize-btn .tooltip-overlay').attr('title', 'Maximize Chat');
+        createTooltip($('#chat-maximize-btn .tooltip-overlay'));
+        if($('#secondary-board-area > .game-card').length)
+          $('#secondary-board-area').css('display', 'flex');
+        maximized = false;
+      } else {
+        $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
+        $('#chat-maximize-btn').attr('aria-label', 'Unmaximize Chat');
+        $('#chat-maximize-btn .tooltip-overlay').attr('title', 'Unmaximize Chat');
+        createTooltip($('#chat-maximize-btn .tooltip-overlay'));
+        $('#collapse-chat').collapse('show');
+        $('#secondary-board-area').hide();
+        maximized = true;
+      }
+      $('#left-col').toggleClass('d-none');
+      $('#mid-col').toggleClass('d-none');
+      $(window).trigger('resize');
     });
   }
 
   public getWatchers(tab: any): string[] {
-    var match = tab.attr('id').match(/tab-game-(\d+)(?:-and-(\d+))?/);
+    const match = tab.attr('id').match(/tab-game-(\d+)(?:-and-(\d+))?/);
     if(match) {
-      var game1 = findGame(+match[1]);
+      const game1 = games.findGame(+match[1]);
       if(game1) {
-        var watchers = game1.watchers.map(str => str.replace('#', ''));
+        let watchers = game1.watchers.map(str => str.replace('#', ''));
         if(match[2]) {
-          var game2 = findGame(+match[2]);
+          const game2 = games.findGame(+match[2]);
           if(game2) {
             // For bughouse chat rooms, add watchers from the other game
-            var watchers2 = game2.watchers.map(str => str.replace('#', ''));
-            var watchers = watchers.concat(watchers2).filter((item, index, self) => {
+            const watchers2 = game2.watchers.map(str => str.replace('#', ''));
+            watchers = watchers.concat(watchers2).filter((item, index, self) => {
               return self.indexOf(item) === index;
             });
           }
@@ -177,34 +217,34 @@ export class Chat {
   }
 
   public updateNumWatchers(tab: any): boolean {
-    var watchers = this.getWatchers(tab);
+    const watchers = this.getWatchers(tab);
     if(watchers != null) {
-      $(tab.attr('href')).find('.chat-watchers-text').text(watchers.length + ' Watchers');
+      $(tab.attr('href')).find('.chat-watchers-text').text(`${watchers.length} Watchers`);
       return true;
     }
     return false;
   }
 
   public updateGameDescription(tab: any): boolean {
-    var game = this.getGameFromTab(tab);
+    const game = this.getGameFromTab(tab);
     if(game) {
-      var tags = game.history.metatags;
-      var wname = tags.White;
-      var bname = tags.Black;
-      var wrating = tags.WhiteElo || '?';
-      var brating = tags.BlackElo || '?';
-      var match = wname.match(/Guest[A-Z]{4}/);
+      const tags = game.history.metatags;
+      const wname = tags.White;
+      const bname = tags.Black;
+      let wrating = tags.WhiteElo || '?';
+      let brating = tags.BlackElo || '?';
+      let match = wname.match(/Guest[A-Z]{4}/);
       if(match)
         wrating = '++++';
       else if(wrating === '-')
         wrating = '----';
 
-      var match = bname.match(/Guest[A-Z]{4}/);
+      match = bname.match(/Guest[A-Z]{4}/);
       if(match)
         brating = '++++';
       else if(brating === '-')
         brating = '----';
-      var description = (wname || game.wname) + ' (' + wrating + ') ' + (bname || game.bname) + ' (' + brating + ')';
+      const description = `${wname || game.wname} (${wrating}) ${bname || game.bname} (${brating})`;
 
       $(tab.attr('href')).find('.chat-game-description').text(description);
       return true;
@@ -213,8 +253,8 @@ export class Chat {
   }
 
   public getTabFromGameID(id: number) {
-    var tab = $('#tabs .nav-link').filter((index, element) => {
-      var match = $(element).attr('id').match(/tab-game-(\d+)(?:-and-(\d+))?/);
+    const tab = $('#tabs .nav-link').filter((index, element) => {
+      const match = $(element).attr('id').match(/tab-game-(\d+)(?:-and-(\d+))?/);
       return match && (+match[1] === id || (match[2] && +match[2] === id));
     });
     if(tab.length)
@@ -223,12 +263,12 @@ export class Chat {
   }
 
   public getGameFromTab(tab: any): any {
-    var match = tab.attr('id').match(/tab-game-(\d+)/);
+    const match = tab.attr('id').match(/tab-game-(\d+)/);
     if(match)
-      return findGame(+match[1]);
+      return games.findGame(+match[1]);
   }
 
-  private updateViewedState(tab: any, closingTab: boolean = false, incrementCounter: boolean = true) {
+  private updateViewedState(tab: any, closingTab = false, incrementCounter = true) {
     if(!tab.hasClass('tab-unviewed') && !closingTab && (!tab.hasClass('active') || !$('#collapse-chat').hasClass('show')) && tab.attr('id') !== 'tab-console') {
       // Add unviewed number to chat-toggle-icon
       if(tab.attr('id') !== undefined && !this.ignoreUnviewed(tab.attr('id').split(/-(.*)/)[1]) && incrementCounter) { // only add if a kibitz or private message
@@ -262,32 +302,32 @@ export class Chat {
     tab.parent().tooltip('dispose');
     tab.parent().remove();
     this.deleteTab(name);
-    $('#content-' + name).remove();
+    $(`#content-${name}`).remove();
   }
 
   public setUser(user: string): void {
     if(this.user !== user) {
-      const that = this;
-      $('#tabs .closeTab').each(function (index) {
-        that.closeTab($(this).parent().siblings('.nav-link'));
+      $('#tabs .closeTab').each((index, element) => {
+        this.closeTab($(element).parent().siblings('.nav-link'));
       });
     }
 
     this.user = user;
-    this.userRE = new RegExp('\\b' + user + '\\b', 'ig');
+    this.userRE = new RegExp(`\\b${user}\\b`, 'ig');
   }
 
   public createTab(name: string, showTab = false) {
-    if(!this.chattabsToggle)
-      var from = "console";
+    let from: string;
+    if(!settings.chattabsToggle)
+      from = 'console';
     else
-      var from = name.toLowerCase().replace(/\s/g, '-');
+      from = name.toLowerCase().replace(/\s/g, '-');
 
     // Check whether this is a bughouse chat tab, e.g. 'Game 23 and 42'
-    var match = from.match(/^game-(\d+)/);
+    let match = from.match(/^game-(\d+)/);
     if(match && match.length > 1) {
-      var gameId = match[1];
-      for(let key in this.tabs) {
+      const gameId = match[1];
+      for(const key in this.tabs) {
         if(this.tabs.hasOwnProperty(key)) {
           match = key.match(/^game-(\d+)-and-(\d+)/)
           if(match && match.length > 2 && (match[1] === gameId || match[2] === gameId)) {
@@ -298,24 +338,24 @@ export class Chat {
       }
     }
 
-    if (!this.tabs.hasOwnProperty(from)) {
+    if(!this.tabs.hasOwnProperty(from)) {
       let chName = name;
-      if (channels[name] !== undefined) {
+      if(channels[name] !== undefined)
         chName = channels[name];
-      }
 
-      if(!$('#tabs').find('#tab-' + from).length) {
-        var match = chName.match(/^Game (\d+)/);
-        var tooltip = '';
+      if(!$('#tabs').find(`#tab-${from}`).length) {
+        match = chName.match(/^Game (\d+)/);
+        let tooltip = '';
+        let infoBar: JQuery<HTMLElement>;
         if(match && match.length > 1) {
-          var game = findGame(+match[1]);
+          const game = games.findGame(+match[1]);
           if(game) {
-            var tags = game.history.metatags;
-            var gameDescription = (tags.White || game.wname) + ' vs. ' + (tags.Black || game.bname);
-            tooltip = `data-bs-toggle="tooltip" data-tooltip-hover-only title="` + gameDescription + `" `;
+            const tags = game.history.metatags;
+            const gameDescription = `${tags.White || game.wname} vs. ${tags.Black || game.bname}`;
+            tooltip = `data-bs-toggle="tooltip" data-tooltip-hover-only title="${gameDescription}" `;
 
             // Show Game chat room info bar
-            var infoBar = $(`
+            infoBar = $(`
             <div class="d-flex flex-shrink-0 w-100 chat-info">
               <div class="d-flex align-items-center flex-grow-1 overflow-hidden me-2" style="min-width: 0">
                 <button class="chat-game-description btn btn-outline-secondary btn-transparent p-0 chat-info-text"></button>
@@ -327,16 +367,15 @@ export class Chat {
             </div>`);
           }
         }
-        var tabElement = $(`<li ` + tooltip + `class="nav-item position-relative">
-            <button class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-` +
-                from + `" id="tab-` + from + `" role="tab" style="padding-right: 30px">` + chName + `
-            </button>
+        const tabElement = $(`<li ${tooltip}class="nav-item position-relative">
+            <button class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-${from}" `
+              + `id="tab-${from}" role="tab" style="padding-right: 30px">${chName}</button>
             <container class="d-flex align-items-center h-100 position-absolute" style="top: 0; right: 12px; z-index: 10">
               <span class="closeTab btn btn-default btn-sm">×</span>
             </container>
           </li>`).appendTo('#tabs');
 
-        var tabContent = $(`<div class="tab-pane" id="content-` + from + `" role="tabpanel">
+        const tabContent = $(`<div class="tab-pane" id="content-${from}" role="tabpanel">
           <div class="d-flex flex-column chat-content-wrapper h-100">
             <div class="chat-text flex-grow-1 mt-3" style="min-height: 0"></div>
           </div>
@@ -349,19 +388,18 @@ export class Chat {
 
           // Display watchers-list tooltip when hovering button in info bar
           tabContent.find('.chat-watchers').on('mouseenter', (e) => {
-            var curr = $(e.currentTarget);
-            var activeTab = $('#tabs button').filter('.active');
-            var watchers = this.getWatchers(activeTab);
+            const curr = $(e.currentTarget);
+            const activeTab = $('#tabs button').filter('.active');
+            const watchers = this.getWatchers(activeTab);
             if(watchers) {
-              var description = watchers.join('<br>');
-              var numWatchers = watchers.length;
-              var title = numWatchers + ' Watchers';
-              if(!watchers.length)
-                var tooltipText = `<b>` + title + `</b>`;
-              else
-                var tooltipText = `<b>` + title + `</b><hr class="tooltip-separator"><div>` + description + `</div>`;
+              const description = watchers.join('<br>');
+              const numWatchers = watchers.length;
+              const title = `${numWatchers} Watchers`;
+              const tooltipText = !watchers.length
+                ? `<b>${title}</b>`
+                : `<b>${title}</b><hr class="tooltip-separator"><div>${description}</div>`;
 
-              curr.tooltip('dispose').tooltip({
+              curr.tooltip({
                 title: tooltipText,
                 html: true,
                 ...watchers.length && {
@@ -372,10 +410,14 @@ export class Chat {
                 }
               }).tooltip('show');
             }
+
+            curr.one('mouseleave', () => {
+              curr.tooltip('dispose');
+            });
           });
 
-          $('.chat-game-description').on('click', (e) => {
-            var game = this.getGameFromTab($('#tabs button.active'));
+          $('.chat-game-description').on('click', () => {
+            const game = this.getGameFromTab($('#tabs button.active'));
             if(game) {
               setGameWithFocus(game);
               maximizeGame(game);
@@ -387,16 +429,16 @@ export class Chat {
           createTooltip(tabElement);
       }
 
-      this.tabs[from] = $('#content-' + from);
-      this.scrolledToBottom['content-' + from] = true;
+      this.tabs[from] = $(`#content-${from}`);
+      this.scrolledToBottom[`content-${from}`] = true;
 
       // Scroll event listener for auto scroll to bottom etc
-      $('#content-' + from).find('.chat-text').on('scroll', (e) => {
-        var panel = e.target;
-        var tab = panel.closest('.tab-pane');
+      $(`#content-${from}`).find('.chat-text').on('scroll', (e) => {
+        const panel = e.target;
+        const tab = panel.closest('.tab-pane');
 
         if($(tab).hasClass('active')) {
-          var atBottom = panel.scrollHeight - panel.clientHeight < panel.scrollTop + 1.5;
+          const atBottom = panel.scrollHeight - panel.clientHeight < panel.scrollTop + 1.5;
           if(atBottom) {
             $('#chat-scroll-button').hide();
             this.scrolledToBottom[$(tab).attr('id')] = true;
@@ -410,8 +452,8 @@ export class Chat {
     }
 
     if(showTab) {
-      const tabs = $('#tabs button').filter(function (index) {
-        return $(this).attr('id') === 'tab-' + from;
+      const tabs = $('#tabs button').filter(function() {
+        return $(this).attr('id') === `tab-${from}`;
       });
       tabs.first().tab('show');
     }
@@ -421,8 +463,8 @@ export class Chat {
 
   public fixScrollPosition() {
     // If scrollbar moves due to resizing, move it back to the bottom
-    var panel = $('.tab-pane.active .chat-text');
-    var tab = panel.closest('.tab-pane');
+    const panel = $('.tab-pane.active .chat-text');
+    const tab = panel.closest('.tab-pane');
     if(this.scrolledToBottom[tab.attr('id')])
       panel.scrollTop(panel[0].scrollHeight);
 
@@ -445,11 +487,10 @@ export class Chat {
         chName = channels[Number(ch)];
       }
       $('#chan-dropdown-menu').append(
-        '<a class="dropdown-item noselect" id="ch-' + ch +
-        '">' + chName + '</a>');
-      $('#ch-' + ch).on('click', (event) => {
+        `<a class="dropdown-item noselect" id="ch-${ch}">${chName}</a>`);
+      $(`#ch-${ch}`).on('click', (event) => {
         event.preventDefault();
-        if (!this.chattabsToggle) {
+        if (!settings.chattabsToggle) {
           ch = 'console';
         }
         this.createTab(ch, true);
@@ -459,17 +500,17 @@ export class Chat {
 
   private escapeHTML(text: string) {
     return text.replace(/[<>"]/g, (tag) => {
-      var charsToReplace = {
-          '<': '&lt;',
-          '>': '&gt;',
-          '"': '&#34;'
+      const charsToReplace = {
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&#34;'
       };
       return charsToReplace[tag] || tag;
     });
   }
 
-  public newMessage(from: string, data: any, html: boolean = false) {
-    let tabName = this.chattabsToggle ? from : 'console';
+  public newMessage(from: string, data: any, html = false) {
+    const tabName = settings.chattabsToggle ? from : 'console';
 
     if(!/^[\w- ]+$/.test(from))
       return;
@@ -482,46 +523,42 @@ export class Chat {
         textclass = ' class="mine"';
       }
       let prompt = data.user;
-      if (!this.chattabsToggle && data.channel !== undefined) {
-        prompt += '(' + data.channel + ')';
+      if (!settings.chattabsToggle && data.channel !== undefined) {
+        prompt += `(${data.channel})`;
       }
-      who = '<strong' + textclass + '>' + $('<span/>').text(prompt).html() + '</strong>: ';
+      who = `<strong${textclass}>${$('<span/>').text(prompt).html()}</strong>: `;
     }
 
     let text = data.message;
     if(!html)
       text = this.escapeHTML(text);
-    if (this.emojisLoaded) {
+    if(this.emojisLoaded)
       text = parseEmojis(text);
-    }
 
-    text = text.replace(this.userRE, '<strong class="mention">' + this.user + '</strong>');
+    text = text.replace(this.userRE, `<strong class="mention">${this.user}</strong>`);
 
     // Suffix for whispers
-    var suffixText = data.suffix;
-    if(data.type === 'whisper' && !suffixText)
-      suffixText = '(whispered)';
-    var suffix = (suffixText ? ' <span class="chat-text-suffix">' + suffixText + '</span>': '');
+    const suffixText = data.type === 'whisper' && !data.suffix ? '(whispered)' : data.suffix;
+    const suffix = (suffixText ? ` <span class="chat-text-suffix">${suffixText}</span>`: '');
 
-    text = autoLink(text, {
+    text = `${autoLink(text, {
       target: '_blank',
       rel: 'nofollow',
       callback: (url) => {
         return /\.(gif|png|jpe?g)$/i.test(url) ?
-          '<a href="' + url + '" target="_blank" rel="nofollow"><img width="60" src="' + url + '"></a>'
+          `<a href="${url}" target="_blank" rel="nofollow"><img width="60" src="' + url + '"></a>`
           : null;
       },
-    }) + suffix + '</br>';
+    })}${suffix}</br>`;
 
-    let timestamp = '';
-    if (this.timestampToggle) {
-      timestamp = '<span class="timestamp">[' + new Date().toLocaleTimeString() + ']</span> ';
-    }
+    const timestamp = settings.timestampToggle
+      ? `<span class="timestamp">[${new Date().toLocaleTimeString()}]</span> `
+      : '';
 
-    var chatText = tab.find('.chat-text');
-    chatText.append(timestamp + who + text);
+    const chatText = tab.find('.chat-text');
+    chatText.append(`${timestamp}${who}${text}`);
 
-    const tabheader = $('#tab-' + from.toLowerCase().replace(/\s/g, '-'));
+    const tabheader = $(`#tab-${from.toLowerCase().replace(/\s/g, '-')}`);
 
     if(this.user !== data.user)
       this.updateViewedState(tabheader, false, data.type !== 'whisper');
@@ -535,21 +572,22 @@ export class Chat {
   }
 
   public newNotification(msg: string) {
-    if(!msg.startsWith('Notification:') || notificationsToggle) {
-      var currentTab = this.currentTab().toLowerCase().replace(/\s/g, '-');
-      msg = '<strong class="chat-notification">' + msg + '</strong>';
+    let currentTab: string;
+    if(!msg.startsWith('Notification:') || settings.notificationsToggle) {
+      currentTab = this.currentTab().toLowerCase().replace(/\s/g, '-');
+      msg = `<strong class="chat-notification">${msg}</strong>`;
     }
     else
-      var currentTab = 'console';
+      currentTab = 'console';
 
     this.newMessage(currentTab, {message: msg}, true);
   }
 
   public closeUnusedPrivateTabs() {
     $('#tabs .nav-link').each((index, element) => {
-      var id = $(element).attr('id');
+      const id = $(element).attr('id');
       if(id !== 'tab-console' && !/^tab-(game-|\d+)/.test(id)) {
-        var chatText = $($(element).attr('href')).find('.chat-text');
+        const chatText = $($(element).attr('href')).find('.chat-text');
         if(chatText.html() === '')
           this.closeTab($(element))
       }
@@ -561,67 +599,22 @@ export class Chat {
       return;
 
     $('#tabs .nav-link').each((index, element) => {
-      var match = $(element).attr('id').match(/^tab-game-(\d+)(?:-|$)/);
+      const match = $(element).attr('id').match(/^tab-game-(\d+)(?:-|$)/);
       if(match && match.length > 1 && +match[1] === gameId) {
         $($(element).attr('href')).find('.chat-watchers').tooltip('dispose');
         this.closeTab($(element));
       }
     });
   }
-}
 
-function scrollToChat() {
-  if(isSmallWindow()) {
-    if($('#secondary-board-area').is(':visible'))
-      scrollTo($('#chat-panel').offset().top);
-    else
-      scrollTo($('#right-panel-header').offset().top);
+  public scrollToChat() {
+    if(isSmallWindow()) {
+      if($('#secondary-board-area').is(':visible'))
+        safeScrollTo($('#chat-panel').offset().top);
+      else
+        safeScrollTo($('#right-panel-header').offset().top);
+    }
   }
 }
-
-$('#chat-maximize-btn').on('click', () => {
-  if (maximized) {
-    $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
-    $('#chat-maximize-btn').attr('aria-label', 'Maximize Chat');
-    $('#chat-maximize-btn .tooltip-overlay').attr('title', 'Maximize Chat');
-    createTooltip($('#chat-maximize-btn .tooltip-overlay'));
-    if($('#secondary-board-area > .game-card').length)
-      $('#secondary-board-area').css('display', 'flex');
-    maximized = false;
-  } else {
-    $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
-    $('#chat-maximize-btn').attr('aria-label', 'Unmaximize Chat');
-    $('#chat-maximize-btn .tooltip-overlay').attr('title', 'Unmaximize Chat');
-    createTooltip($('#chat-maximize-btn .tooltip-overlay'));
-    $('#collapse-chat').collapse('show');
-    $('#secondary-board-area').hide();
-    maximized = true;
-  }
-  $('#left-col').toggleClass('d-none');
-  $('#mid-col').toggleClass('d-none');
-  $(window).trigger('resize');
-});
-
-$('#collapse-chat').on('hidden.bs.collapse', () => {
-  if(!$('#collapse-chat').hasClass('collapse-init'))
-    scrollToBoard();
-  $('#collapse-chat').removeClass('collapse-init');
-});
-
-$('#collapse-chat').on('shown.bs.collapse', () => {
-  scrollToChat();
-});
-
-$('#collapse-chat').on('show.bs.collapse', () => {
-  $('#chat-toggle-btn').addClass('toggle-btn-selected');
-});
-
-$('#collapse-chat').on('hide.bs.collapse', () => {
-  $('#chat-toggle-btn').removeClass('toggle-btn-selected');
-});
-
-$('#collapse-chat-arrow').on('click', () => {
-  $('#collapse-chat').collapse('hide');
-});
 
 export default Chat;

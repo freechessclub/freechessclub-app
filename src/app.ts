@@ -2,8 +2,7 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import { app, BrowserWindow, safeStorage, ipcMain, dialog, Menu, session, screen, shell } from 'electron'
-import * as Electron from 'electron'
+import { app, BrowserWindow, safeStorage, ipcMain, Menu, screen, shell } from 'electron'
 import * as path from 'path'
 import * as url from 'url'
 import { autoUpdater } from 'electron-updater'
@@ -148,7 +147,7 @@ function addUpdateMenuItems(items, position) {
     },
   }];
 
-  items.splice.apply(items, [position, 0].concat(updateItems));
+  items.splice(position, 0, ...updateItems);
 }
 
 if (process.platform === 'darwin') {
@@ -223,32 +222,32 @@ function findReopenMenuItem() {
   return reopenMenuItem;
 }
 
-/** 
- * Functions exposed to the renderer 
+/**
+ * Functions exposed to the renderer
  */
 
 // secure encryption and key storage
 ipcMain.handle('encrypt', (event, value) => {
-  var buff = safeStorage.encryptString(value);
+  const buff = safeStorage.encryptString(value);
   return buff.toString('base64');
 });
 ipcMain.handle('decrypt', (event, value) => {
-  var buff = Buffer.from(value, 'base64');
+  const buff = Buffer.from(value, 'base64');
   return safeStorage.decryptString(buff);
 });
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
   mainWindow = new BrowserWindow({
-    width: width,
-    height: height,
+    width,
+    height,
     center: true,
     resizable: true,
     title: app.getName(),
     icon: path.join(__dirname, '../assets/img/tfcc-small.png'),
     webPreferences: {
-      contextIsolation: true,  
-      preload: path.join(__dirname, 'preload.js') 
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     }
   });
 
@@ -264,7 +263,7 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // Stop 'beforeunload' event (confirmation dialog in browser) from preventing the window closing 
+  // Stop 'beforeunload' event (confirmation dialog in browser) from preventing the window closing
   mainWindow.webContents.on('will-prevent-unload', (event) => {
     event.preventDefault();
   })

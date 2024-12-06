@@ -102,8 +102,11 @@
                   <li class="nav-item" role="presentation">
                     <button class="nav-link py-2" id="pills-history-tab" data-bs-toggle="pill" data-bs-target="#pills-history" type="button" role="tab" aria-controls="pills-history" aria-selected="false">History</button>
                   </li>
-                  <li class="nav-item" role="presentation">
+                  <li class="nav-item active" role="presentation">
                     <button class="nav-link py-2" id="pills-game-tab" data-bs-toggle="pill" data-bs-target="#pills-game" type="button" role="tab" aria-controls="pills-game" aria-selected="false">Game</button>
+                  </li>
+                  <li class="nav-item d-none" role="presentation" aria-hidden="true">
+                    <button class="nav-link active" id="pills-placeholder-tab" type="button" role="tab"></button>
                   </li>
                 </ul>
               </div>
@@ -111,7 +114,7 @@
                 <div class="card-body noselect p-0" id="left-panel">
                   <div class="h-100 d-flex flex-column" id="left-menu">
                     <div class="tab-content flex-grow-1" style="overflow: hidden; min-height: 0">
-                      <div class="tab-pane pt-2 fade show active h-100" id="pills-play" role="tabpanel" aria-labelledby="pills-play-tab">
+                      <div class="tab-pane pt-2 fade h-100" id="pills-play" role="tabpanel" aria-labelledby="pills-play-tab">
                         <div class="d-flex flex-column h-100">
                           <div class="modal fade" id="play-computer-modal" tabindex="-1" aria-labelledby="play-computer-modal-label" aria-hidden="true">
                             <div class="modal-dialog modal-dialog-centered">
@@ -296,8 +299,8 @@
                                     <li><a class="dropdown-item" onclick="setNewGameVariant('Chess960', 'wild fr');">Chess960</a></li>
                                     <li><a class="dropdown-item" onclick="setNewGameVariant('Bughouse', 'bughouse');">Bughouse (4 player)</a></li>
                                     <li><a class="dropdown-item" onclick="setNewGameVariant('Crazyhouse', 'crazyhouse');">Crazyhouse</a></li>
-                                    <li>
-                                      <a class="dropdown-item dropdown-toggle" id="play-variant-wild">Wild</a>
+                                    <li class="dropend">
+                                      <a class="dropdown-item dropdown-toggle" aria-expanded="false" id="play-variant-wild">Wild</a>
                                       <ul class="dropdown-menu dropdown-submenu" aria-labelledby="play-variant-wild">
                                         <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 0', 'wild 0');">Wild 0</a></li>
                                         <li><a class="dropdown-item" onclick="setNewGameVariant('Wild 1', 'wild 1');">Wild 1</a></li>
@@ -467,7 +470,7 @@
                               </button>
                               <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="more-game-tools">
                                 <li><a class="dropdown-item noselect" id="game-tools-new"><span class="tools-menu-icon fa-solid fa-file-circle-plus dropdown-icon" aria-hidden="false"></span>New Game</a></li>
-                                <li>
+                                <li class="dropend">
                                   <a class="dropdown-item dropdown-toggle noselect" id="game-tools-new-variant"><span class="tools-menu-icon fa-solid fa-file-circle-plus dropdown-icon" aria-hidden="false"></span>New Variant Game</a>
                                   <ul class="dropdown-menu dropdown-submenu" id="new-variant-game-submenu" aria-labelledby="game-tools-new-variant">
                                     <li><a class="dropdown-item noselect">Chess960</a></li>
@@ -648,8 +651,7 @@
                 </div>
               </div>
               <div class="card-body p-0 noselect" id="board-card">
-                <div class="mw-100 position-relative">
-                  <div class="cg-wrap promotion-panel"></div>
+                <div class="board-container mw-100 position-relative">
                   <div class="cg-wrap mw-100 board"></div>
                 </div>
               </div>

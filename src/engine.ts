@@ -2,13 +2,13 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import { Chessground } from 'chessground';
-import { History, HEntry } from './history';
-import { gotoMove, parseMove } from './index';
+import { HEntry } from './history';
+import { getTurnColorFromFEN, getMoveNoFromFEN, parseMove } from './chess-helper';
+import { gotoMove } from './index';
 import { Game } from './game';
 import * as d3 from 'd3';
 
-var SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'wild/fr', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
+const SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'wild/fr', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
 
 export class Engine {
   protected stockfish: any;
@@ -43,15 +43,13 @@ export class Engine {
       let depth0 = false;
 
       if (response.data.startsWith('info')) {
-        var fen = this.currFen;
-        
+        const fen = this.currFen;
         const info = response.data.substring(5, response.data.length);
-
         const infoArr: string[] = info.trim().split(/\s+/);
 
         let bPV = false;
         const pvArr = [];
-        let scoreStr;
+        let scoreStr: string;
         let pvNum = 1;
         for(let i = 0; i < infoArr.length; i++) {
           if(infoArr[i] === 'lowerbound' || infoArr[i] === 'upperbound')
@@ -65,17 +63,18 @@ export class Engine {
             if(pvNum > this.numPVs)
               return;
           }
+
           if(infoArr[i] === 'score') {
             let score = +infoArr[i + 2];
             const turn = fen.split(/\s+/)[1];
 
-            if(score > 0 && turn === 'w' || score < 0 && turn === 'b') {
-              var prefix = '+';
-            }
-            else if(score == 0)
-              var prefix = '=';
+            let prefix = '';
+            if(score > 0 && turn === 'w' || score < 0 && turn === 'b')
+              prefix = '+';
+            else if(score === 0)
+              prefix = '=';
             else
-              var prefix = '-';
+              prefix = '-';
             score = (score < 0 ? -score : score);
 
             if(infoArr[i+1] === 'mate') {
@@ -87,48 +86,44 @@ export class Engine {
                 else prefix = '';
               }
 
-              scoreStr = prefix + '#' + score;
+              scoreStr = `${prefix}#${score}`;
             }
             else
-              scoreStr = prefix + (score / 100).toFixed(2);
+              scoreStr = `${prefix}${(score / 100).toFixed(2)}`;
           }
-          else if(infoArr[i] === 'pv') {
+          else if(infoArr[i] === 'pv')
             bPV = true;
-          }
-          else if(bPV) {
+          else if(bPV)
             pvArr.push(infoArr[i]);
-          }
         }
 
         if(pvArr.length) {
-          var pv = '';
-          var currFen = fen;
+          let pv = '';
+          let currFen = fen;
           for(const move of pvArr) {
-            var moveParam;
-            if(move[1] === '@') // Crazyhouse/bughouse
-              moveParam = move;
-            else
-              moveParam = { 
-                from: move.slice(0, 2), 
+            const moveParam = move[1] === '@'
+              ? move
+              : {
+                from: move.slice(0, 2),
                 to: move.slice(2, 4),
                 promotion: (move.length === 5 ? move.charAt(4) : undefined)
               };
-                     
-            var parsedMove = parseMove(this.game, currFen, moveParam);    
+
+            const parsedMove = parseMove(currFen, moveParam, game.history.first().fen, game.category, game.history.holdings);
             if(!parsedMove) {
               // Non-standard or unsupported moves were passed to Engine.
               this.terminate();
               return;
             }
-            
-            var turnColor = History.getTurnColorFromFEN(currFen);
-            var moveNumber = History.getMoveNoFromFEN(currFen);
-            var moveNumStr = '';
+
+            const turnColor = getTurnColorFromFEN(currFen);
+            const moveNumber = getMoveNoFromFEN(currFen);
+            let moveNumStr = '';
             if(turnColor === 'w')
-              moveNumStr = moveNumber + '.';
+              moveNumStr = `${moveNumber}.`;
             else if(fen === currFen && turnColor === 'b')
-              moveNumStr = moveNumber + '...';
-            pv += moveNumStr + parsedMove.move.san + ' ';
+              moveNumStr = `${moveNumber}...`;
+            pv += `${moveNumStr}${parsedMove.move.san} `;
             currFen = parsedMove.fen;
           }
 
@@ -142,11 +137,11 @@ export class Engine {
         }
         this.currEval = scoreStr;
 
-        if(depth0 && this.bestMoveCallback) 
+        if(depth0 && this.bestMoveCallback)
           this.bestMoveCallback(this.game, '', this.currEval);
       }
       else if(response.data.startsWith('bestmove') && this.bestMoveCallback) {
-        var bestMove = response.data.trim().split(/\s+/)[1];
+        const bestMove = response.data.trim().split(/\s+/)[1];
         this.bestMoveCallback(this.game, bestMove, this.currEval);
       }
     };
@@ -154,12 +149,12 @@ export class Engine {
     this.uci('uci');
 
     // Parse options
-    for(const opt in options) {
-      if(opt === 'MultiPV')
-        this.numPVs = options[opt];  
+    Object.entries(options).forEach(([key, value]) => {
+      if(key === 'MultiPV')
+        this.numPVs = value;
 
-      this.uci('setoption name ' + opt + ' value ' + options[opt]);
-    }
+      this.uci(`setoption name ${key} value ${value}`);
+    });
 
     this.uci('ucinewgame');
     this.uci('isready');
@@ -175,44 +170,40 @@ export class Engine {
 
   public move(hEntry: HEntry) {
     this.currFen = hEntry.fen;
-    
-    var movesStr = this.movesToCoordinatesString(hEntry);
 
-    this.uci('position fen ' + this.game.history.first().fen + movesStr);
-    this.uci('go ' + this.moveParams);
+    const movesStr = this.movesToCoordinatesString(hEntry);
+    this.uci(`position fen ${this.game.history.first().fen}${movesStr}`);
+    this.uci(`go ${this.moveParams}`);
   }
-  
- /**
-  * Returns the list of moves from the start of the game up to this move
-  * in coordinate notation as a string. Used to send the move list to Engine 
-  */
+
+  /**
+   * Returns the list of moves from the start of the game up to this move
+   * in coordinate notation as a string. Used to send the move list to Engine
+   */
   public movesToCoordinatesString(hEntry: HEntry): string {
-    var movelist = [];
+    const movelist = [];
     while(hEntry.move) {
-      var move = hEntry.move.from + hEntry.move.to + (hEntry.move.promotion ? hEntry.move.promotion : '');
-      if(!hEntry.move.from) // crazyhouse
-        move = hEntry.move.san.replace(/[+#]/, ''); // Stockfish crazyhouse implementation doesn't like + or # chars for piece placement
+      const move = !hEntry.move.from
+        ? hEntry.move.san.replace(/[+#]/, '')
+        : `${hEntry.move.from}${hEntry.move.to}${hEntry.move.promotion ? hEntry.move.promotion : ''}`;
 
       movelist.push(move);
       hEntry = hEntry.prev;
     }
 
-    var movesStr = '';
-    if(movelist.length)
-      var movesStr = ' moves ' + movelist.reverse().join(' ');
-
+    const movesStr = movelist.length ? ` moves ${movelist.reverse().join(' ')}` : '';
     return movesStr;
   }
 
   public evaluateFEN(fen: string) {
     this.currFen = fen;
-    this.uci('position fen ' + fen);
-    this.uci('go ' + this.moveParams);
+    this.uci(`position fen ${fen}`);
+    this.uci(`go ${this.moveParams}`);
   }
 
   public setNumPVs(num : any = 1) {
     this.numPVs = num;
-    this.uci('setoption name MultiPV value ' + this.numPVs);
+    this.uci(`setoption name MultiPV value ${this.numPVs}`);
   }
 
   private uci(cmd: string, ports?: any) {
@@ -221,15 +212,15 @@ export class Engine {
 }
 
 export class EvalEngine extends Engine {
-  private _redraw: boolean = true;
-  private numGraphMoves: number = 0;
+  private _redraw = true;
+  private numGraphMoves = 0;
   private currMove: any;
 
   constructor(game: Game, options?: any, moveParams?: string) {
     if(!moveParams)
       moveParams = 'movetime 100';
-    
-    super(game, null, null, options, moveParams);   
+
+    super(game, null, null, options, moveParams);
     this.bestMoveCallback = this.bestMove;
   }
 
@@ -251,7 +242,7 @@ export class EvalEngine extends Engine {
       let total = 0; let completed = 0;
       let hEntry = this.game.history.first();
       while(hEntry) {
-        if(!this.currMove && hEntry.eval === undefined) {
+        if(!this.currMove && hEntry.eval == null) {
           this.currMove = hEntry;
           completed = total;
         }
@@ -270,8 +261,8 @@ export class EvalEngine extends Engine {
         const progress = Math.round(100 * completed / total);
         // update progress bar
         $('#eval-progress .progress-bar')
-          .css('width', progress + '%')
-          .text(progress + '%')
+          .css('width', `${progress}%`)
+          .text(`${progress}%`)
           .attr('aria-valuenow', progress);
         if(total > completed + 10) {
           $('#eval-graph-container').hide();
@@ -292,11 +283,12 @@ export class EvalEngine extends Engine {
 
   private drawGraph() {
     const dataset = [];
-    let currIndex;
-    const that = this;
+    let currIndex: number;
+    let moveEval: number;
 
     let hEntry = this.game.history.first();
-    for(let i = 0; hEntry !== undefined; i++) {
+
+    for(let i = 0; hEntry != null; i++) {
       if(hEntry === this.game.history.current())
         currIndex = i;
 
@@ -307,7 +299,7 @@ export class EvalEngine extends Engine {
           moveEval = 5;
       }
       else {
-        var moveEval = +hEntry.eval.replace(/[+=]/g,'');
+        moveEval = +hEntry.eval.replace(/[+=]/g,'');
         if(moveEval > 5)
           moveEval = 5;
         else if(moveEval < -5)
@@ -320,9 +312,9 @@ export class EvalEngine extends Engine {
     const container = $('#eval-graph-container');
     container.show();
 
-    const margin = {top: 6, right: 6, bottom: 6, left: 18}
-      ; const width = container.width() - margin.left - margin.right // Use the window's width
-      ; const height = container.height() - margin.top - margin.bottom; // Use the window's height
+    const margin = {top: 6, right: 6, bottom: 6, left: 18};
+    const width = container.width() - margin.left - margin.right; // Use the window's width
+    const height = container.height() - margin.top - margin.bottom; // Use the window's height
 
     // Prepare data set
     const n = this.numGraphMoves = dataset.length;
@@ -339,15 +331,15 @@ export class EvalEngine extends Engine {
     if(this._redraw) {
       // Fill area generator
       const area = d3.area()
-        .x(function(d, i) { return xScale(i); })
+        .x((d, i) => xScale(i))
         .y0(yScale(0))
-        .y1(function(d) { return yScale(d.y); })
+        .y1((d) => yScale(d.y))
         .curve(d3.curveMonotoneX);
 
       // Line generator
       const line = d3.line()
-        .x(function(d, i) { return xScale(i); })
-        .y(function(d) { return yScale(d.y); })
+        .x((d, i) => xScale(i))
+        .y((d) => yScale(d.y))
         .curve(d3.curveMonotoneX);
 
       // Add SVG to panel
@@ -355,10 +347,9 @@ export class EvalEngine extends Engine {
         .attr('width', '100%')
         .attr('height', '100%')
         .style('cursor', 'pointer')
-        .on('mousemove', function() {
+        .on('mousemove', (event) => {
           const mousePosition = d3.pointer(event);
           const xPos = mousePosition[0] - margin.left;
-          const yPos = mousePosition[1] - margin.top;
           const getDistanceFromPos = (d) => Math.abs(d - xScale.invert(xPos));
           const closestIndex = d3.scan(
             d3.range(n),
@@ -390,13 +381,13 @@ export class EvalEngine extends Engine {
             $('.tooltip').css('pointer-events', 'none');
           }
         })
-        .on('mouseleave', function() {
+        .on('mouseleave', () => {
           hoverLine.style('opacity', 0);
           hoverCircle.style('opacity', 0)
             .attr('cx', -1);
           $('#hover-circle').tooltip('dispose');
         })
-        .on('click', function(event) {
+        .on('click', (event) => {
           const mousePosition = d3.pointer(event);
           const xPos = mousePosition[0] - margin.left;
           const getDistanceFromPos = (d) => Math.abs(d - xScale.invert(xPos));
@@ -405,7 +396,7 @@ export class EvalEngine extends Engine {
             (a, b) => getDistanceFromPos(a) - getDistanceFromPos(b)
           );
 
-          gotoMove(that.game.history.getByIndex(closestIndex));
+          gotoMove(this.game.history.getByIndex(closestIndex));
 
           if(closestIndex) {
             selectCircle
@@ -417,7 +408,7 @@ export class EvalEngine extends Engine {
             selectCircle.style('opacity', 0);
         })
         .append('g')
-        .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+        .attr('transform', `translate(${margin.left},${margin.top})`);
 
       // Render y-axis
       const yAxis = svg.append('g')

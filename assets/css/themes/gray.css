@@ -141,6 +141,9 @@ cg-board {
 #move-table .selected {
   background-color: rgba(255, 255, 255, 0.15);
 }
+#move-table .selectable:hover .selected {
+  color: #3379d1;
+}
 #move-table .subvariation .selectable:hover {
   background-color: rgba(0, 0, 0, 0.2);
 }
@@ -150,8 +153,14 @@ cg-board {
 #move-table > tbody > .subvariation {
   background: rgba(255, 255, 255, 0.15);
 }
-#move-table .subvariation a {
+#move-table .subvariation .move {
   color: #DDDDDD
+}
+#move-table .subvariation .move .piece-glyph.white::before {
+  color: color-mix(in srgb, currentColor 90%, black 10%);
+}
+#move-table .subvariation .move .piece-glyph.black::before {
+  color: currentColor;
 }
 #move-table .subvariation table {
   --bracket-color: #ffb1bb;
@@ -159,27 +168,33 @@ cg-board {
 
 .movelist .selected {
   background-color: rgba(255, 255, 255, 0.3);
-  --movelist-color: #FFFFFF;
+  color: #FFFFFF;
 }
 .movelist .subvariation {
-  --movelist-color: #BBBBBB;
+  color: #BBBBBB;
 }
 .movelist .subvariation::before {
   border-left-color: whitesmoke;
 }
 .movelist .subvariation .selected {
   background-color: rgba(255, 255, 255, 0.2);
-  --movelist-color: #DDDDDD;
+  color: #DDDDDD;
 }
 .movelist .move:hover,
 .movelist .move.hovered,
 .movelist .subvariation .move:hover,
 .movelist .subvariation .move.hovered {
-  --movelist-color: rgb(10, 88, 202);
+  color: rgb(10, 88, 202);
 }
 .movelist .selected:hover,
 .movelist .subvariation .selected:hover {
-  --movelist-color: rgb(5, 44, 101);
+  color: rgb(5, 44, 101);
+}
+.movelist .piece-glyph.white::before {
+  color: color-mix(in srgb, currentColor 90%, black 10%);
+}
+.movelist .piece-glyph.black::before {
+  color: currentColor;
 }
 
 .comment {
@@ -187,12 +202,6 @@ cg-board {
   color: #999;
 }
 
-.movelist .piece-glyph.white::before {
-  color: color-mix(in srgb, var(--movelist-color) 90%, black 10%);
-}
-.movelist .piece-glyph.black::before {
-  color: var(--bs-card-color);
-}
 .piece-glyph.white.king::before { content: "\265A"; }
 .piece-glyph.white.queen::before { content: "\265B"; }
 .piece-glyph.white.rook::before { content: "\265C"; }
