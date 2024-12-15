@@ -149,6 +149,10 @@ export class Session {
     this.websocket.onopen = () => {
       $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
       this.send(this.timesealHello);
+    };   
+
+    this.websocket.onerror = () => {
+      $('#session-status').html('<span class="text-danger"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;Offline</span>');
     };
   }
 

@@ -5,16 +5,16 @@
   "description": "Free Chess Club: A modern web client for FICS.",
   "main": "src/app.js",
   "scripts": {
-    "app": "tsc src/app.ts && node app.js && electron src/app.js",
+    "app": "tsc src/app.ts && node src/copy-app-files.js && electron src/app.js",
     "lint": "eslint -c .eslintrc.js --ext .ts src",
-    "bundle": "webpack --mode production",
+    "bundle": "webpack --mode production && node src/inject-manifest.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
-    "build": "node app.js && electron-builder -mwl --x64 --arm64 -p always",
+    "build": "node src/copy-app-files.js && electron-builder -mwl --x64 --arm64 -p always",
     "release": "yarn build",
     "postinstall": "electron-builder install-app-deps",
-    "android": "node app.js && node copy-app-files.js && npx cap run android",
-    "ios": "node app.js && node copy-app-files.js && npx cap run ios",
+    "android": "node src/copy-app-files.js && npx cap run android",
+    "ios": "node src/copy-app-files.js && npx cap run ios",
     "start": "webpack-dev-server --config webpack.config.js"
   },
   "repository": {
@@ -31,6 +31,15 @@
     "copyright": "Copyright © 2024 Free Chess Club Author(s)",
     "publish": [
       "github"
+    ],
+    "files": [
+      "play.html",
+      "service-worker.js",
+      "manifest.json",
+      "src/app.js",
+      "src/preload.js",
+      "assets/**",
+      "node_modules/**"
     ],
     "mac": {
       "category": "public.app-category.board-games"
@@ -53,6 +62,7 @@
     "@mliebelt/pgn-parser": "^1.4.15",
     "@popperjs/core": "^2.11.6",
     "@uriopass/nosleep.js": "^0.12.2",
+    "android": "^0.0.8",
     "autolink-js": "freechessclub/autolink-js",
     "bootstrap": "5.2.3",
     "builder-util-runtime": "^9.2.10",
@@ -88,11 +98,16 @@
     "style-loader": "^3.3.1",
     "sync-request": "^6.1.0",
     "ts-loader": "^9.3.1",
-    "typescript": "^5.1.6",
+    "typescript": "^5.8.3",
     "url-loader": "^4.1.1",
     "webpack": "^5.76.0",
     "webpack-cli": "^5.0.2",
-    "webpack-dev-server": "^5.0.2"
+    "webpack-dev-server": "^5.0.2",
+    "workbox-build": "^7.3.0",
+    "workbox-core": "^7.3.0",
+    "workbox-precaching": "^7.3.0",
+    "workbox-routing": "^7.3.0",
+    "workbox-strategies": "^7.3.0"
   },
   "packageManager": "yarn@4.5.1"
 }

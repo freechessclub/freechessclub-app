@@ -6,7 +6,6 @@ import { HEntry } from './history';
 import { getTurnColorFromFEN, getMoveNoFromFEN, parseMove } from './chess-helper';
 import { gotoMove } from './index';
 import { Game } from './game';
-import * as d3 from 'd3';
 
 const SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'wild/fr', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
 

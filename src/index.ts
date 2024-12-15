@@ -98,8 +98,8 @@ async function onDeviceReady() {
   await storage.init();
   initSettings();
 
-  if((window as any).Capacitor !== undefined) {
-    (window as any).Capacitor.Plugins.SafeArea.enable({
+  if(Utils.isCapacitor()) {
+    Capacitor.Plugins.SafeArea.enable({
       config: {
         customColorsForSystemBars: false
       },
@@ -157,6 +157,22 @@ async function onDeviceReady() {
 $(window).on('load', () => {
   $('#left-panel-header').css('visibility', 'visible');
   $('#right-panel-header').css('visibility', 'visible');
+
+  if('serviceWorker' in navigator) {
+    navigator.serviceWorker.register(`./service-worker.js?env=${Utils.isCapacitor() || Utils.isElectron() ? 'app' : 'web'}`)
+      .then((registration) => {  
+        if(navigator.serviceWorker.controller) { // Check this is an update and not first time install
+          // If service worker is updated (due to files changing) then refresh the page so new files are loaded.
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            newWorker.addEventListener('statechange', () => {
+              if(newWorker.state === 'activated') 
+                window.location.reload();
+            });
+          });
+        }
+      });
+  }
 });
 
 /** Prompt before unloading page if in a game */

@@ -1,14 +1,17 @@
 const webpack = require('webpack');
 
-module.exports = {
+module.exports = [{
+    name: 'bundle',
     entry: "./src/index.ts",
     output: {
         path: __dirname + "/assets/js/",
         filename: "bundle.js"
     },
     externals: {
-      $: "jquery",
-	    d3: "d3",
+      $: 'jquery',
+	  d3: 'd3',
+      '@popperjs/core': 'Popper',
+      bootstrap: 'Bootstrap'
     },
     resolve: {
         // Add '.ts' and '.tsx' as a resolvable extension.
@@ -61,5 +64,14 @@ module.exports = {
           },
         compress: true,
         port: 8080,
+    }
+},
+{
+    name: 'service-worker',
+    entry: './src/service-worker.js',
+    target: 'webworker',
+    output: {
+        filename: 'service-worker.js',
+        path: __dirname,
     },
-}
+}]
