@@ -2275,9 +2275,10 @@ function preMovePiece(source: any, target: any, metadata: any) {
   if(cgRoles.hasOwnProperty(source) || settings.autoPromoteToggle) // piece drop rather than move
     return;
   const pieces = game.board.state.pieces;
-  const targetPiece = pieces.get(target);
-  const pieceRole = targetPiece ? cgRoles[targetPiece.role] : undefined;
-  const pieceColor = targetPiece ? targetPiece.color : undefined;
+  const sourcePiece = pieces.get(source);
+  const pieceRole = sourcePiece ? cgRoles[sourcePiece.role] : undefined;
+  const pieceColor = sourcePiece ? sourcePiece.color : undefined;
+
   if(pieceRole === 'p' && target.charAt(1) === (pieceColor === 'white' ? '8' : '1')) {
     game.movePieceSource = source;
     game.movePieceTarget = target;
