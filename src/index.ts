@@ -233,6 +233,19 @@ $('.modal').on('hide.bs.modal', () => {
   $(document.activeElement).trigger('blur');
 });
 
+Utils.createContextMenuTrigger((event) => {
+  const target = $(event.target);
+  return settings.multiplePremovesToggle && !!target.closest('.board').length;
+}, (event) => { 
+  const element = $(event.target).closest('.game-card');
+  for(const g of games) {
+    if(g.element.is(element) && g.premoves.length) {
+      cancelMultiplePremoves(g);
+      updateBoard(g, false, true, false);
+    }
+  }
+});
+
 /**
  * Override console.log in order to suppress annoying messages from node modules
  */
@@ -1683,6 +1696,16 @@ function handleMiscMessage(data: any) {
     }
   }
 
+  /** Cancel premoves when illegal move made */
+  match = msg.match(/^Illegal move \(\S+\)\./m);
+  if(match) {
+    const game = games.getPlayingExaminingGame();
+    if(game && game.isPlaying() && game.premoves.length) {
+      cancelMultiplePremoves(game);
+      updateBoard(game, false, true, false);
+    }
+  }
+
   // Enter setup mode when server (other user or us) issues 'bsetup' command
   match = msg.match(/^Entering setup mode\./m);
   if(!match)
@@ -1928,17 +1951,8 @@ function dragPiece(event: any) {
   const color = id.charAt(0);
   const type = id.charAt(1);
 
-  const cgRoles = {
-    p: 'pawn',
-    r: 'rook',
-    n: 'knight',
-    b: 'bishop',
-    q: 'queen',
-    k: 'king',
-  };
-
   const piece = {
-    role: cgRoles[type.toLowerCase()],
+    role: ChessHelper.shortToLongPieceName(type.toLowerCase()),
     color: (color === 'w' ? 'white' : 'black')
   };
 
@@ -2008,6 +2022,7 @@ function hitClock(game: Game, bSetClocks = false) {
 
 function createBoard(element: any): any {
   return Chessground(element[0], {
+    disableContextMenu: true,
     movable: {
       events: {
         after: movePiece,
@@ -2017,27 +2032,54 @@ function createBoard(element: any): any {
     premovable: {
       events: {
         set: preMovePiece,
-        unset: hidePromotionPanel,
+        unset: cancelPremove,
+      }
+    },
+    predroppable: {
+      events: {
+        set: preDropPiece
       }
     },
     events: {
-      change: boardChanged
-    }
+      change: boardChanged,
+      select: squareSelected
+    },
   });
 }
 
-export function updateBoard(game: Game, playSound = false, setBoard = true) {
+export function updateBoard(game: Game, playSound = false, setBoard = true, animate = true) {
   if(!game.history)
     return;
 
   const move = game.history.current().move;
-  const fen = game.history.current().fen;
+  let fen = game.history.current().fen;
   const color = (ChessHelper.getTurnColorFromFEN(fen) === 'w' ? 'white' : 'black');
 
   setClocks(game);
 
-  if(setBoard && !game.setupBoard)
+  const premoveSquares = new Map();
+  if(setBoard && !game.setupBoard) {
+    // Display premoves (when multiple premoves setting enabled)
+    if(game.premoves.length && game.history.current() === game.history.last()) {
+      fen = game.premovesFen;
+
+      for(let i = 0; i < game.premoves.length; i++) {
+        const premove = game.premoves[i];
+        // Set premove square highlighting and numbering classes
+        if(premove.from && !premoveSquares.get(premove.from))
+          premoveSquares.set(premove.from, 'current-premove');
+        premoveSquares.set(premove.to, `current-premove premove-target premove-square-${premove.to}`);
+      }
+    }   
+
+    if(!animate)
+      game.board.set({ animation: { enabled: false }});
+  
     game.board.set({ fen });
+  
+    if(!animate)
+      game.board.set({ animation: { enabled: true }});
+  }
 
   if(game.element.find('.promotion-panel').is(':visible')) {
     game.board.cancelPremove();
@@ -2091,12 +2133,14 @@ export function updateBoard(game: Game, playSound = false, setBoard = true) {
     },
     highlight: {
       lastMove: settings.highlightsToggle,
-      check: settings.highlightsToggle
+      check: settings.highlightsToggle,
+      custom: premoveSquares
     },
     predroppable: { enabled: game.category === 'crazyhouse' || game.category === 'bughouse' },
     check: !game.setupBoard && /[+#]/.test(move?.san) ? color : false,
     blockTouchScroll: (game.isPlaying() ? true : false),
-    autoCastle: !game.setupBoard && (categorySupported || game.category === 'atomic')
+    autoCastle: !game.setupBoard && (categorySupported || game.category === 'atomic'),
+    drawable: { enabled: !game.premoves.length } 
   });
 
   showCapturedMaterial(game);
@@ -2156,6 +2200,34 @@ function boardChanged() {
 }
 
 /**
+ * Triggered when a square is clicked on the board
+ * @param square the square's coordinates
+ */
+function squareSelected(square: string) {
+  const game = games.focused;
+
+  clearPremoveDests(game); // Clear custom premove dests from the previously selected square
+
+  const prevPieceSelected = game.pieceSelected; // was a piece selected prior to this click?
+  game.pieceSelected = game.board.state.selected; // is a piece being selected now?
+
+  const prevPremoveSet = game.premoveSet; // did this click cancel a chessground premove?
+  game.premoveSet = game.board.state.premovable.current; // did this click set a chessground premove?
+
+  if(!game.isPlaying())
+    return;
+
+  const cancellingPremove = (prevPremoveSet && !settings.multiplePremovesToggle) 
+      || game.element.find('.promotion-panel').is(':visible');
+
+  // Don't play smart move if the user is setting/cancelling a previous premove or selecting/unselecting a piece
+  if(!cancellingPremove && !game.premoveSet && !prevPieceSelected && !game.pieceSelected) 
+    playSmartMove(game, square);
+
+  setPremoveDests(game, square); // Set custom dests for premove (correct castling dests for variants)
+}
+
+/**
  * Scroll to the game board which currently has focus
  */
 export function scrollToBoard(game?: Game) {
@@ -2173,7 +2245,7 @@ export function scrollToBoard(game?: Game) {
   }
 }
 
-export function movePiece(source: any, target: any, metadata: any) {
+export function movePiece(source: any, target: any, metadata: any, pieceRole?: string, promotePiece?: string) {
   const game = games.focused;
 
   if(game.isObserving())
@@ -2185,25 +2257,30 @@ export function movePiece(source: any, target: any, metadata: any) {
   if(game.setupBoard)
     return;
 
-  const prevHEntry = currentGameMove(game);
-
-  const cgRoles = {pawn: 'p', rook: 'r', knight: 'n', bishop: 'b', queen: 'q', king: 'k'};
+  const prevHEntry = currentGameMove(game); 
   const pieces = game.board.state.pieces;
   const targetPiece = pieces.get(target);
-  const pieceRole = targetPiece ? cgRoles[targetPiece.role] : undefined;
-  const pieceColor = targetPiece ? targetPiece.color : undefined;
+  
+  if(!pieceRole)
+    pieceRole = targetPiece ? ChessHelper.longToShortPieceName(targetPiece.role) : undefined;
 
-  let promotePiece = '';
-  if(game.promotePiece)
-    promotePiece = game.promotePiece;
-  else if(pieceRole === 'p' && !cgRoles.hasOwnProperty(source) && target.charAt(1) === (pieceColor === 'white' ? '8' : '1'))
-    promotePiece = 'q';
+  let pieceColor: string;
+  if(game.isPlaying())
+    pieceColor = game.color;
+  else
+    pieceColor = targetPiece ? (targetPiece.color === 'white' ? 'w' : 'b') : undefined;
+
+  const isSourcePieceName = !!ChessHelper.longToShortPieceName(source);
+
+  let promote = false;
+  if(pieceRole === 'p' && !isSourcePieceName && target.charAt(1) === (pieceColor === 'w' ? '8' : '1')) 
+    promote = true;
 
   const inMove = {
-    from: (!cgRoles.hasOwnProperty(source) ? source : ''),
+    from: (!isSourcePieceName ? source : ''),
     to: target,
-    promotion: promotePiece,
-    piece: cgRoles.hasOwnProperty(source) ? pieceRole : undefined,
+    promotion: promotePiece || (promote ? 'q' : ''),
+    piece: isSourcePieceName ? pieceRole : undefined,
   };
 
   const parsedMove = parseGameMove(game, prevHEntry.fen, inMove);
@@ -2211,17 +2288,19 @@ export function movePiece(source: any, target: any, metadata: any) {
   const move = parsedMove ? parsedMove.move : inMove;
 
   if(!parsedMove && SupportedCategories.includes(game.category)) {
-    updateBoard(game, false, true);
+    cancelMultiplePremoves(game);
+    updateBoard(game, false, true, false);
     return;
   }
 
   game.movePieceSource = source;
   game.movePieceTarget = target;
   game.movePieceMetadata = metadata;
+  game.movePiecePromotion = promotePiece;
   const nextMove = game.history.next();
 
-  if(promotePiece && !game.promotePiece && !settings.autoPromoteToggle) {
-    showPromotionPanel(game, false);
+  if(promote && !promotePiece && !settings.autoPromoteToggle) {
+    showPromotionPanel(game);
     game.board.set({ movable: { color: undefined } });
     return;
   }
@@ -2262,10 +2341,9 @@ export function movePiece(source: any, target: any, metadata: any) {
   game.wtime = game.clock.getWhiteTime();
   game.btime = game.clock.getBlackTime();
 
-  game.promotePiece = null;
-  if(parsedMove && parsedMove.move)
+  if(parsedMove && parsedMove.move) 
     movePieceAfter(game, move, fen);
-
+ 
   if(game.role === Role.PLAYING_COMPUTER) // Send move to engine in Play Computer mode
     getComputerMove(game);
 
@@ -2277,39 +2355,270 @@ function movePieceAfter(game: Game, move: any, fen?: string) {
   if((game.isPlaying() || game.isObserving()) && game.history.current() !== game.history.last())
     game.history.display(game.history.last());
 
+  if(fen)
+    checkPremoves(game, fen); // For multiple premoves, prunes premoves that are no longer possible (e.g. the piece was captured)
+
   updateHistory(game, move, fen);
-
-  game.board.playPremove();
-  game.board.playPredrop(() => true);
-
+  playPremove(game);
   checkGameEnd(game); // Check whether game is over when playing against computer (offline mode)
+}
+
+function preDropPiece(role: string, key: string) {
+  if(settings.multiplePremovesToggle) {
+    const game = games.focused;   
+    addPremove(game, {to: key, piece: ChessHelper.longToShortPieceName(role)});
+  }
 }
 
 function preMovePiece(source: any, target: any, metadata: any) {
   const game = games.focused;
-  const cgRoles = {pawn: 'p', rook: 'r', knight: 'n', bishop: 'b', queen: 'q', king: 'k'};
-  if(cgRoles.hasOwnProperty(source) || settings.autoPromoteToggle) // piece drop rather than move
+
+  if(ChessHelper.longToShortPieceName(source)) // piece drop rather than move
     return;
+
   const pieces = game.board.state.pieces;
   const sourcePiece = pieces.get(source);
-  const pieceRole = sourcePiece ? cgRoles[sourcePiece.role] : undefined;
+  const pieceRole = sourcePiece ? ChessHelper.longToShortPieceName(sourcePiece.role) : undefined;
   const pieceColor = sourcePiece ? sourcePiece.color : undefined;
+  const promote = (pieceRole === 'p' && target.charAt(1) === (pieceColor === 'white' ? '8' : '1'));
 
-  if(pieceRole === 'p' && target.charAt(1) === (pieceColor === 'white' ? '8' : '1')) {
+  if(promote && !settings.autoPromoteToggle) {  
     game.movePieceSource = source;
     game.movePieceTarget = target;
     game.movePieceMetadata = metadata;
-    showPromotionPanel(game, true);
+    showPromotionPanel(game);
+
+    if(settings.multiplePremovesToggle) {   
+      // Temporarily make premove on the board while waiting for user to select piece from promotion panel
+      game.board.set({ animation: { enabled: false }});
+      game.board.setPieces([
+        [source, null],
+        [target, sourcePiece]
+      ]);
+      game.board.set({ animation: { enabled: true } });
+    }
+  }
+  else if(settings.multiplePremovesToggle) {     
+    const move = {
+      from: source,
+      to: target,
+      promotion: promote && settings.autoPromoteToggle ? 'q' : null
+    }
+    addPremove(game, move);
   }
 }
 
-function showPromotionPanel(game: Game, premove = false) {
+/**
+ * In multiple premoves mode, check if the premove is possible then add it to the premove list
+ * Update the final premove FEN and display it on the board
+ * @move a move object (with to, from, piece, promotion etc)
+ */
+function addPremove(game: Game, move: any) {
+  const fen = game.premoves.length ? game.premovesFen : currentGameMove(game).fen;
+  let moveFen = parseGameMove(game, fen, move, true);
+  if(moveFen) { 
+    if(!game.premoves.length) 
+      createPremovesObserver(game); // Tracks chessground square DOM elements to add premove numbers to the squares
+
+    game.premovesFen = moveFen.fen; // Update final premove FEN position
+    game.premoves.push(move);
+  }
+  updateBoard(game, false, true, false);
+}
+
+/**
+ * Removes any impossible premove and all premoves following it
+ * @fen the starting position that premoves are checked from
+ */
+function checkPremoves(game: Game, fen: string) {
+  if(currentGameMove(game).turnColor !== game.color) // Only check premoves after the opponent moves
+    return;
+
+  for(let i = 0; i < game.premoves.length; i++) {
+    const premove = game.premoves[i];
+    let moveFen = parseGameMove(game, fen, premove, true);
+    if(!moveFen) { // Remove impossible premove and all following premoves
+      game.premoves.splice(i);
+      if(!game.premoves.length)
+        cancelMultiplePremoves(game);
+      break;
+    }
+    fen = moveFen.fen;
+  }
+
+  if(game.premoves.length)
+    game.premovesFen = fen; // Update final premove FEN
+}
+
+/**
+ * Play a premove
+ */
+function playPremove(game: Game) {
+  if(settings.multiplePremovesToggle) {
+    if(currentGameMove(game).turnColor === game.color) {
+      const premove = game.premoves.shift();
+      if(premove) {
+        if(!game.premoves.length) 
+          cancelMultiplePremoves(game);
+        else
+          $('.premove-target').each(function() { 
+            assignPremoveOrder(game, this) // Update premove order numbers on squares
+          });
+          
+        movePiece(premove.from || ChessHelper.shortToLongPieceName(premove.piece), premove.to, null, premove.piece, premove.promotion);
+      }
+    }
+  }
+  else {
+    game.board.playPremove();
+    game.board.playPredrop(() => true);    
+  }
+}
+
+/**
+ * Create a MutationObserver which adds premove data to chessground 'square' HTML elements after they are 
+ * added to the DOM. This allows us to display premove order numbers on the squares.
+ */
+function createPremovesObserver(game: Game) {
+  game.premovesObserver = new MutationObserver((mutations) => {
+    for(const mutation of mutations) {
+      for(const node of mutation.addedNodes) {
+        const elem = node as Element;
+        if(elem.nodeType === 1 && elem.classList.contains('premove-target')) {
+          assignPremoveOrder(game, elem);
+        }
+      }
+    }
+  });
+  game.premovesObserver.observe(game.element.find('.board')[0], { childList: true, subtree: true });
+}
+
+/**
+ * Sets the 'data-order' attribute on a chessground square HTML element to show its premove order
+ * when multiple premoves is enabled. 
+ */
+function assignPremoveOrder(game: Game, elem: any) {
+  for(let i = 0; i < game.premoves.length; i++) {   
+    if(game.premoves[i].to === elem.cgKey) {
+      $(elem).attr('data-order', i + 1);
+      break;  
+    }
+  }
+}
+
+/**
+ * Hides the promotion panel when the premove is cancelled
+ */
+function cancelPremove() {
+  const game = games.focused;
+  const promotionPanel = game.element.find('.promotion-panel');
+  if(promotionPanel.length) {
+    hidePromotionPanel(game);
+    updateBoard(game, false, true, false);
+  } 
+}
+
+/**
+ * Cancels all premoves when multiple premoves mode is enabled 
+ * Triggered by right mouse click or long press on touch screen
+ */
+function cancelMultiplePremoves(game: Game) {
+  game.premoves = [];
+  game.premovesObserver?.disconnect();
+  game.premovesObserver = null;
+  game.board.cancelPremove();
+  game.board.cancelPredrop();
+  game.board.cancelMove();
+}
+
+/**
+ * Show the correct premove dests for castling when the king is selected (wild variants)
+ * @square the square selected 
+ */
+function setPremoveDests(game: Game, square: string) {
+  if(currentGameMove(game).turnColor !== game.color && game.category.startsWith('wild')) {
+    /** Correct castling dests for premove */
+    const pieces = game.board.state.pieces;
+    const piece = pieces.get(square);
+    if(piece && piece.role === 'king' && piece.color[0] === game.color) {
+      // If there are multiple premoves, use the final premove position 
+      let fen = (game.premoves.length ? game.premovesFen : currentGameMove(game).fen);
+      fen = ChessHelper.setFENTurnColor(fen, game.color);
+      let kingDests = game.board.state.premovable.dests;
+      kingDests = ChessHelper.adjustKingDests(kingDests, fen, game.history.first().fen, game.category, true);
+      const dests = new Map<string, string[]>();
+      dests.set(square, kingDests);
+      game.board.set({ 
+        premovable: { customDests: dests }
+      });
+    }
+  }
+}
+
+/**
+ * Clear custom premove dests when a new square is selected
+ * @param game 
+ */
+function clearPremoveDests(game: Game) {
+  if(game.board.state.premovable.customDests)
+    game.board.set({ 
+      premovable: { customDests: null }
+    });
+}
+
+/**
+ * Allows a move to be made by clicking only the destination square. Checks that there is only one piece
+ * which can move to that square, otherwise no move is played. 
+ * @param square the destination square
+ */
+function playSmartMove(game: Game, square: string) {
+  if(!settings.smartmoveToggle)
+    return;
+
+  const pieces = game.board.state.pieces;
+
+  // If there are multiple premoves, check valid premoves from the final premove position
+  // Note the new premoves are checked as regualar moves (full validation) 
+  let fen = (game.premoves.length ? game.premovesFen : currentGameMove(game).fen);
+  if(ChessHelper.getTurnColorFromFEN(fen) !== game.color) {
+    const fenWords = ChessHelper.splitFEN(fen);
+    fenWords.color = game.color; // Check the move from the perspective of the player's color
+    fenWords.enPassant = '-'; // Remove en passant from premove FEN (or chess.js will flag the position as invalid)
+    fen = ChessHelper.joinFEN(fenWords);
+  }
+
+  let validMove = null;
+  for(const [key, value] of pieces) { // Check all pieces to see if they can be moved to the destination square
+    const move = {
+      from: key,
+      to: square,
+      piece: ChessHelper.longToShortPieceName(value.role),
+      promotion: 'q'
+    }
+    
+    if(parseGameMove(game, fen, move, false)) {
+      if(validMove) {
+        validMove = null; // Multiple valid source pieces, cancel smart move
+        break;
+      }             
+      validMove = move;
+    }
+  }
+  if(validMove) {
+    game.board.set({ events: { select: null } }); // Disable squareSelected event to stop potential infinite loop (just in case)
+    game.board.selectSquare(validMove.from); // Play the move/premove by selecting source and destination square
+    game.board.selectSquare(validMove.to);
+    game.board.set({ events: { select: squareSelected } });      
+  }
+}
+
+function showPromotionPanel(game: Game) {
   const source = game.movePieceSource;
   const target = game.movePieceTarget;
   const metadata = game.movePieceMetadata;
   const showKing = !SupportedCategories.includes(game.category) && game.category !== 'atomic';
+  const premove = game.isPlaying() && game.color !== game.turn;
 
-  game.promoteIsPremove = premove;
   const orientation = game.board.state.orientation;
   const color = (target.charAt(1) === '8' ? 'white' : 'black');
   const fileNum = target.toLowerCase().charCodeAt(0) - 97;
@@ -2344,9 +2653,11 @@ function showPromotionPanel(game: Game, premove = false) {
 
   $('.promotion-piece').on('click', (event) => {
     hidePromotionPanel();
-    games.focused.promotePiece = $(event.target).attr('data-piece');
+    const promotePiece = $(event.target).attr('data-piece');
     if(!premove)
-      movePiece(source, target, metadata);
+      movePiece(source, target, metadata, 'p', promotePiece);
+    else if(settings.multiplePremovesToggle) 
+      addPremove(game, {from: source, to: target, promotion: promotePiece});
   });
 }
 
@@ -2354,7 +2665,6 @@ function hidePromotionPanel(game?: Game) {
   if(!game)
     game = games.focused;
 
-  game.promotePiece = null;
   game.element.find('.promotion-panel').remove();
 }
 
@@ -2379,7 +2689,7 @@ function createNewVariationMenu(game: Game) {
       game.newVariationMode = NewVariationMode.NEW_VARIATION;
     else
       game.newVariationMode = NewVariationMode.OVERWRITE_VARIATION;
-    movePiece(game.movePieceSource, game.movePieceTarget, game.movePieceMetadata);
+    movePiece(game.movePieceSource, game.movePieceTarget, game.movePieceMetadata, null, game.movePiecePromotion);
   }
 
   const x = lastPointerCoords.x;
@@ -2393,7 +2703,7 @@ function flipBoard(game: Game) {
 
   // If pawn promotion dialog is open, redraw it in the correct location
   if(game.element.find('.promotion-panel').is(':visible'))
-    showPromotionPanel(game, game.promoteIsPremove);
+    showPromotionPanel(game);
 
   // Swap player and opponent status panels
   if(game.element.find('.player-status').parent().hasClass('top-panel')) {
@@ -2421,8 +2731,11 @@ function flipBoard(game: Game) {
  **************************/
 
 /** Wrapper function for parseMove */
-function parseGameMove(game: Game, fen: string, move: any) {
-  return ChessHelper.parseMove(fen, move, game.history.first().fen, game.category, game.history.current().variantData);
+function parseGameMove(game: Game, fen: string, move: any, premove = false) {
+  if(premove) 
+    fen = ChessHelper.setFENTurnColor(fen, game.color);
+  
+  return ChessHelper.parseMove(fen, move, game.history.first().fen, game.category, game.history.current().variantData, premove);
 }
 
 /** Wrapper function for toDests */
@@ -2555,10 +2868,9 @@ function updateHistory(game: Game, move?: any, fen?: string) {
       sameMove = true;
 
     else if(game.isPlaying() || game.isObserving()) {
-      if(hEntry !== game.history.last()) {
-        game.board.cancelPremove();
-        game.board.cancelPredrop();
-      }
+      if(hEntry !== game.history.last()) 
+        cancelMultiplePremoves(game);
+      
       while(hEntry !== game.history.last())
         game.history.removeLast(); // move is earlier, we need to take-back
     }
@@ -2617,12 +2929,16 @@ function createGame(): Game {
     $('#game-tools-close').parent().show();
   }
 
+  // Event triggered when the game's panel (the board etc) is clicked
   const gameTouchHandler = () => {
     $('#input-text').trigger('blur');
-    setGameWithFocus(game);
+    setGameWithFocus(game); 
+    // Status flags that need to be set prior to squareSelected event being called (used by smart move)
+    game.pieceSelected = game.board.state.selected; // Tracks whether a piece was currently selected prior to another square being clicked
+    game.premoveSet = game.board.state.premovable.current; // Tracks whether the premove was set prior to a square being clicked
   }
-  game.element[0].addEventListener('touchstart', gameTouchHandler, {passive: true});
-  game.element[0].addEventListener('mousedown', gameTouchHandler);
+  game.element[0].addEventListener('touchstart', gameTouchHandler, {capture: true, passive: true});
+  game.element[0].addEventListener('mousedown', gameTouchHandler, {capture: true}); // Use capture to intercept event before chessground does
 
   game.element.on('click', '[title="Close"]', (event) => {
     if(game.preserved || game.history.editMode)
@@ -2867,6 +3183,7 @@ function cleanupGame(game: Game) {
   if(chat)
     chat.closeGameTab(game.id);
   hidePromotionPanel(game);
+  cancelMultiplePremoves(game);
   game.clock.stopClocks();
 
   if(game.watchersInterval)
@@ -5776,6 +6093,12 @@ function initSettings() {
   settings.multiboardToggle = (storage.get('multiboard') !== 'false');
   $('#multiboard-toggle').prop('checked', settings.multiboardToggle);
 
+  settings.multiplePremovesToggle = (storage.get('multiplepremoves') === 'true');
+  $('#multiple-premoves-toggle').prop('checked', settings.multiplePremovesToggle);
+
+  settings.smartmoveToggle = (storage.get('smartmove') === 'true');
+  $('#smartmove-toggle').prop('checked', settings.smartmoveToggle);
+
   settings.rememberMeToggle = (storage.get('rememberme') === 'true');
   $('#remember-me').prop('checked', settings.rememberMeToggle);
 
@@ -5841,6 +6164,24 @@ $('#multiboard-toggle').on('click', () => {
   }
   initGameTools(games.focused);
   storage.set('multiboard', String(settings.multiboardToggle));
+});
+
+$('#multiple-premoves-toggle').on('click', () => {
+  settings.multiplePremovesToggle = !settings.multiplePremovesToggle;
+  if(!settings.multiplePremovesToggle) {
+    for(const g of games) {
+      if(g.premoves.length) {
+        cancelMultiplePremoves(g);
+        updateBoard(g, false, true, false);
+      }
+    }
+  }
+  storage.set('multiplepremoves', String(settings.multiplePremovesToggle));
+});
+
+$('#smartmove-toggle').on('click', () => {
+  settings.smartmoveToggle = !settings.smartmoveToggle;
+  storage.set('smartmove', String(settings.smartmoveToggle));
 });
 
 /** *****************************

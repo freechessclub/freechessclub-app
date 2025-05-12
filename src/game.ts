@@ -67,6 +67,11 @@ export class Game extends GameData {
   board: any = null;
   watchers: any = [];
   watchersInterval: any = null;
+  premoves: any = []; // List of premoves for multiple premoves mode
+  premovesFen: string = ''; // The position after the final premove (multiple premoves)
+  premovesObserver: any; // MutationObserver for adding numbers to premove squares (multiple premoves)
+  premoveSet: string[] = null; // Status flag that keeps track of whether a Chessground premove is currently set (used by smart move)
+  pieceSelected: string = null; // Status flag that keeps track of whether a piece is currently selected (used by smart move)
 
   // HTML elements associated with this Game
   element: any = null; // The main game card including the board
@@ -78,14 +83,11 @@ export class Game extends GameData {
   analyzing = false;
   currentStatusTab: any = null;
 
-  // Store result of promotion dialog to pass to movePiece()
-  promotePiece;
-  promoteIsPremove;
-
   // Store parameters to movePiece temporarily while handling any intermediate popups, e.g. promotion dialog or new variation menu
   movePieceSource;
   movePieceTarget;
   movePieceMetadata;
+  movePiecePromotion;
 
   // Used to buffer navigation buttons when in examine mode
   bufferedHistoryEntry: any = null;
