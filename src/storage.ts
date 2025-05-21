@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import Cookies from 'js-cookie';
-import { logError } from './utils';
+import { logError, isFirefox, isCapacitor, isElectron } from './utils';
 
 /**
  * Cross-platform secure, persistent credential (password) storage.
@@ -52,7 +52,7 @@ export class CredentialStorage {
         const encryptedPassword = storage.get('pass');
         if(encryptedPassword) {
           try {
-            password = await (window as any).electron.decrypt(encryptedPassword);
+            password = await electron.decrypt(encryptedPassword);
           } catch (error) {
             logError('Error decrypting password:', error.name, error.message);
           }
@@ -62,7 +62,7 @@ export class CredentialStorage {
         username = storage.get('user');
         if(username) {
           try {
-            const { value } = await (window as any).Capacitor.Plugins.SecureStoragePlugin.get({ key: 'password' });
+            const { value } = await Capacitor.Plugins.SecureStoragePlugin.get({ key: 'password' });
             password = value;
             secureStorageMethod = true;
           }
@@ -130,7 +130,7 @@ export class CredentialStorage {
 
     if(isElectron()) {
       try {
-        const encryptedPassword = await (window as any).electron.encrypt(password);
+        const encryptedPassword = await electron.encrypt(password);
         storage.set('pass', encryptedPassword);
         return;
       }
@@ -140,7 +140,7 @@ export class CredentialStorage {
     }
     else if(isCapacitor()) {
       try {
-        await (window as any).Capacitor.Plugins.SecureStoragePlugin.set({ key: 'password', value: password });
+        await Capacitor.Plugins.SecureStoragePlugin.set({ key: 'password', value: password });
         return;
       }
       catch (error) {
@@ -182,7 +182,7 @@ export class CredentialStorage {
     storage.remove('password-credential-api');
 
     if(isCapacitor()) {
-      try { await (window as any).Capacitor.Plugins.SecureStoragePlugin.remove({ key: 'password' }); }
+      try { await Capacitor.Plugins.SecureStoragePlugin.remove({ key: 'password' }); }
       catch (error) {
         logError('Error clearing password:', error.name, error.message);
       }
@@ -205,10 +205,10 @@ export class Storage {
     if(isCapacitor()) {
       // Retrieve and cache all the Capacitor Preferences. This so we can make the get() function synchronous
       // even though Preferences is asynchronous.
-      const { keys } = await (window as any).Capacitor.Plugins.Preferences.keys();
+      const { keys } = await Capacitor.Plugins.Preferences.keys();
       for(const key of keys) {
         try {
-          const { value } = await (window as any).Capacitor.Plugins.Preferences.get({ key });
+          const { value } = await Capacitor.Plugins.Preferences.get({ key });
           this.cache[key] = value;
         }
         catch(error) {
@@ -235,7 +235,7 @@ export class Storage {
     }
     if(isCapacitor()) {
       try {
-        await (window as any).Capacitor.Plugins.Preferences.set({key: name, value});
+        await Capacitor.Plugins.Preferences.set({key: name, value});
         return;
       }
       catch(error) {
@@ -268,7 +268,7 @@ export class Storage {
     delete this.cache[name];
     if(isCapacitor()) {
       try {
-        await (window as any).Capacitor.Plugins.Preferences.remove({ key: name });
+        await Capacitor.Plugins.Preferences.remove({ key: name });
       }
       catch(error) {
         logError('Error removing Capacitor Preference:', error.name, error.message);
@@ -280,24 +280,3 @@ export class Storage {
 }
 
 export const storage = new Storage(); // The main Storage instance, declared here so it can be imported the other modules
-
-/**
- * Is this a Capacitor app?
- */
-function isCapacitor() {
-  return typeof window !== 'undefined' && (window as any).Capacitor !== undefined;
-}
-
-/**
- * Is this an Electron app?
- */
-function isElectron() {
-  return navigator.userAgent.toLowerCase().includes(' electron/');
-}
-
-/**
- * Is this a Firefox app
- */
-function isFirefox() {
-  return navigator.userAgent.toLowerCase().includes('firefox');
-}

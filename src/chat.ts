@@ -103,10 +103,18 @@ export class Chat {
     this.unviewedNum = 0;
     settings.timestampToggle = (storage.get('timestamp') !== 'false');
     settings.chattabsToggle = (storage.get('chattabs') !== 'false');
+    
     // load emojis
     this.emojisLoaded = false;
+    const suppressUnhandledRejection = (event) => { 
+      // This is to get around bug in gh-emoji where it throws an 'Uncaught (in promise) Type Error' when 
+      // it fails to fetch the emojis due to being offline etc.
+      event.preventDefault(); 
+    };
+    window.addEventListener('unhandledrejection', suppressUnhandledRejection, { once: true });
     loadEmojis().then(() => {
       this.emojisLoaded = true;
+      window.removeEventListener('unhandledrejection', suppressUnhandledRejection);
     });
 
     // initialize tabs

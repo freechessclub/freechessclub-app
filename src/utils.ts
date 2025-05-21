@@ -2,12 +2,33 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import { createPopper, Placement } from '@popperjs/core';
+import type { Placement } from '@popperjs/core';
 
 export const enum SizeCategory {
   Small = 0,
   Medium,
   Large
+}
+
+/**
+ * Is this a Capacitor app?
+ */
+export function isCapacitor() {
+  return typeof window !== 'undefined' && window.Capacitor !== undefined;
+}
+
+/**
+ * Is this an Electron app?
+ */
+export function isElectron() {
+  return navigator.userAgent.toLowerCase().includes(' electron/');
+}
+
+/**
+ * Is this a Firefox app
+ */
+export function isFirefox() {
+  return navigator.userAgent.toLowerCase().includes('firefox');
 }
 
 // Used by createContextMenu()
@@ -325,7 +346,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
   });
   $('body').append(menu);
 
-  createPopper({
+  Popper.createPopper({
     getBoundingClientRect: () => ({ // Position the menu relative to a virtual element
       x,
       y,
