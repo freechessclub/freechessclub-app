@@ -58,7 +58,6 @@ let prevSizeCategory = null;
 let layout = Layout.Desktop;
 let soundTimer
 let showSentOffersTimer; // Delay showing new offers until the user has finished clicking buttons
-let newSentOffers = []; // New sent offers (match requests and seeks) that are waiting to be displayed
 let activeTab;
 let newTabShown = false;
 let newGameVariant = '';
@@ -123,6 +122,7 @@ async function onDeviceReady() {
   }
   else {
     Utils.createTooltips();
+    showAnalyzeButton();
     $('#pills-play-tab').tab('show');
     $('#collapse-menus').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
@@ -303,15 +303,27 @@ function setPanelSizes() {
   // Make sure the board is smaller than the window height and also leaves room for the other columns' min-widths
   if(!Utils.isSmallWindow()) {
     const scrollBarWidth = Utils.getScrollbarWidth();
+    const scrollBarVisible = (window.innerWidth - window.visualViewport.width) > 1;
+    const scrollBarReservedArea = (scrollBarVisible ? 0 : scrollBarWidth);
+    const viewportWidth = window.visualViewport.width;
 
     // Set board width a bit smaller in order to leave room for a scrollbar on <body>. This is because
     // we don't want to resize all the panels whenever a dropdown or something similar overflows the body.
     const cardMaxWidth = Utils.isMediumWindow() // display 2 columns on md (medium) display
-      ? window.innerWidth - $('#left-col').outerWidth() - scrollBarWidth
-      : window.innerWidth - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')) - scrollBarWidth;
+      ? viewportWidth - $('#left-col').outerWidth() - scrollBarReservedArea
+      : viewportWidth - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')) - scrollBarReservedArea;
 
     const cardMaxHeight = $(window).height() - Utils.getRemainingHeight(maximizedGameCard);
     setGameCardSize(maximizedGame, cardMaxWidth, cardMaxHeight);
+  
+    console.log('cardMaxWidth:', cardMaxWidth);
+    console.log('window.innerWidth:', window.innerWidth);
+    console.log('left-col width:', $('#left-col').outerWidth());
+    console.log('left-col bounding:', $('#left-col')[0].getBoundingClientRect().width);
+    console.log('scrollBarWidth:', scrollBarWidth);
+    console.log('mid-col width:', $('#mid-col').outerWidth());
+    console.log('document width:', document.documentElement.getBoundingClientRect().width);
+    console.log('window.visualViewport.width:', window.visualViewport.width);
   }
   else
     setGameCardSize(maximizedGame);
@@ -377,8 +389,8 @@ function setLeftColumnSizes() {
 
 function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: number) {
   const card = game.element;
-  const roundingCorrection = (card.hasClass('game-card-sm') ? 0.032 : 0.1);
   let cardWidth: number;
+  const roundingCorrection = (card.hasClass('game-card-sm') ? 0.032 : 0.1);
 
   if(cardMaxWidth !== undefined || cardMaxHeight !== undefined) {
     const cardBorderWidth = card.outerWidth() - card.width();
@@ -392,7 +404,7 @@ function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: numb
     if(!cardMaxHeight)
       boardMaxHeight = boardMaxWidth;
 
-    cardWidth = Math.min(boardMaxWidth, boardMaxHeight) - (2 * roundingCorrection); // Subtract small amount for rounding error
+    cardWidth = Math.min(boardMaxWidth, boardMaxHeight) - roundingCorrection;
   }
   else {
     card.css('width', '');
@@ -1015,27 +1027,18 @@ function handleOffers(offers: any[]) {
   }
 
   // Add our own seeks and match requests to the top of the Play pairing pane
-  const sentOffers = offers.filter((item) => item.type === 'sn'
-    || (item.type === 'pt' && (item.subtype === 'partner' || item.subtype === 'match')));
-  if(sentOffers.length) {
-    sentOffers.forEach((item) => {
-      if(!$(`.sent-offer[data-offer-id="${item.id}"]`).length) {
-        if(matchRequested)
-          matchRequested--;
-        newSentOffers.push(item);
-        if(item.adjourned)
-          removeAdjournNotification(item.opponent);
-      }
-    });
-    if(newSentOffers.length) {
-      clearTimeout(showSentOffersTimer);
-      showSentOffersTimer = setTimeout(() => {
-        showSentOffers(newSentOffers);
-        newSentOffers = [];
-      }, 1000);
-    }
-    $('#pairing-pane-status').hide();
-  }
+  const sentOffers = offers.filter((item) => (item.type === 'sn'
+    || (item.type === 'pt' && (item.subtype === 'partner' || item.subtype === 'match')))
+    && !$(`.sent-offer[data-offer-id="${item.id}"]`).length);
+  
+  sentOffers.forEach((item) => {
+    if(matchRequested)
+      matchRequested--;
+    if(item.adjourned)
+      removeAdjournNotification(item.opponent);
+  });
+  showSentOffers(sentOffers);
+  $('#pairing-pane-status').hide();
 
   // Offers received from another player
   const otherOffers = offers.filter((item) => item.type === 'pf');
@@ -1128,9 +1131,12 @@ function handleOffers(offers: any[]) {
 }
 
 function showSentOffers(offers: any) {
+  if(!offers.length)
+    return;
+
   let requestsHtml = '';
   offers.forEach((offer) => {
-    requestsHtml += `<div class="sent-offer" data-offer-type="${offer.type}" data-offer-id="${offer.id}">`;
+    requestsHtml += `<div class="sent-offer" data-offer-type="${offer.type}" data-offer-id="${offer.id}" style="display: none">`;
     requestsHtml += '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>&nbsp;&nbsp;';
 
     let removeCmd: string;
@@ -1177,8 +1183,16 @@ function showSentOffers(offers: any) {
   });
 
   $('#sent-offers-status').append(requestsHtml);
-  $('#sent-offers-status').show();
-  $('#play-pane-subcontent')[0].scrollTop = 0;
+
+  clearTimeout(showSentOffersTimer);
+  showSentOffersTimer = setTimeout(() => {
+    const sentOfferElements = $('.sent-offer');
+    if(sentOfferElements.length) {
+      sentOfferElements.show();
+      $('#sent-offers-status').show();
+      $('#play-pane-subcontent')[0].scrollTop = 0;
+    }
+  }, 1000);
 }
 
 /**
@@ -3421,6 +3435,10 @@ $('#collapse-menus').on('hidden.bs.collapse', () => {
 $('#collapse-menus').on('show.bs.collapse', () => {
   $('#menus-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
   Utils.scrollToTop();
+
+  if(activeTab.attr('id') === 'pills-placeholder-tab')
+    activeTab = $('#pills-play-tab');
+
   activeTab.tab('show');
 });
 
@@ -5337,6 +5355,7 @@ $('#game-tools-setup-board').on('click', () => {
 function setupBoard(game: Game, serverIssued = false) {
   game.setupBoard = true;
   game.element.find('.status').hide(); // Hide the regular player status panels
+  stopEngine();
   if(game.isExamining() && !serverIssued)
     session.send('bsetup');
   updateSetupBoard(game);
@@ -5819,7 +5838,8 @@ function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: str
   if(pvNum === 1 && pvMoves) {
     const words = pvMoves.split(/\s+/);
     const san = words[0].split(/\.+/)[1];
-    const parsed = parseGameMove(game, game.history.current().fen, san);
+    const fen = game.setupBoard ? getSetupBoardFEN(game) : game.history.current().fen; 
+    const parsed = parseGameMove(game, fen, san);
     game.board.setAutoShapes([{
       orig: parsed.move.from || parsed.move.to, // For crazyhouse, just draw a circle on dest square
       dest: parsed.move.to,

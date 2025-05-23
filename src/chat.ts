@@ -554,7 +554,7 @@ export class Chat {
       rel: 'nofollow',
       callback: (url) => {
         return /\.(gif|png|jpe?g)$/i.test(url) ?
-          `<a href="${url}" target="_blank" rel="nofollow"><img width="60" src="' + url + '"></a>`
+          `<a href="${url}" target="_blank" rel="nofollow"><img height="50" src="${url}"></a>`
           : null;
       },
     })}${suffix}</br>`;
