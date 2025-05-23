@@ -1,4 +1,5 @@
 const webpack = require('webpack');
+const { exec } = require('child_process');
 
 module.exports = [{
     name: 'bundle',
@@ -74,4 +75,16 @@ module.exports = [{
         filename: 'service-worker.js',
         path: __dirname,
     },
+    plugins: [
+        {
+            apply: (compiler) => {
+                compiler.hooks.done.tap('RunAfterBuildPlugin', () => {
+                    exec(`node "${__dirname}/src/inject-manifest.js"`, (err, stdout, stderr) => {
+                        if (stdout) console.log(stdout);
+                        if (stderr) console.error(stderr);
+                    });
+                });
+            }
+        }
+    ]
 }]
