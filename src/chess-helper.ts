@@ -159,11 +159,18 @@ export function insufficientMaterial(fen: string, variantData?: VariantData, col
   return (color === 'w' && whiteWeight < 2) || (color === 'b' && blackWeight < 2) || (!color && whiteWeight < 2 && blackWeight < 2);
 }
 
-export function parseMove(fen: string, move: any, startFen: string, category: string, variantData?: Partial<VariantData>) {
-  // Parse variant move
+export function parseMove(fen: string, move: any, startFen: string, category: string, variantData?: Partial<VariantData>, premove=false) {
+  // Check to see if the dest square is reachable from source square  
+  // Basic, fast initial check for performance reasons
+  if(move && typeof move === 'object' && move.from && move.to && move.piece 
+      && !isReachable(move.from, move.to, move.piece, getTurnColorFromFEN(fen)))
+    return null;
+
   const standardCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard'];
-  if(!standardCategories.includes(category))
-    return parseVariantMove(fen, move, startFen, category, variantData);
+
+  // Parse variant move or premove
+  if(!standardCategories.includes(category) || premove)
+    return parseVariantMove(fen, move, startFen, category, variantData, premove);
 
   // Parse standard move
   const chess = new Chess(fen);
@@ -176,10 +183,17 @@ export function parseMove(fen: string, move: any, startFen: string, category: st
   return { fen: outFen, move: outMove };
 }
 
-function parseVariantMove(fen: string, move: any, startFen: string, category: string, variantData?: Partial<VariantData>) {
+function parseVariantMove(fen: string, move: any, startFen: string, category: string, variantData?: Partial<VariantData>, premove=false) {
   const supportedCategories = ['crazyhouse', 'bughouse', 'losers', 'wild/fr', 'wild/0', 'wild/1', 'wild/2', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
-  if(!supportedCategories.includes(category))
+  if(!supportedCategories.includes(category) && !premove)
     return null;
+
+  // clear en passant from FEN for premove since it confuses chess.js (and doesn't make sense for a premove)
+  if(premove) {
+    const fenWords = splitFEN(fen);
+    fenWords.enPassant = '-';
+    fen = joinFEN(fenWords);
+  }
 
   let chess = new Chess(fen);
   let san = '';
@@ -193,18 +207,12 @@ function parseVariantMove(fen: string, move: any, startFen: string, category: st
       san = `${move.piece.toUpperCase()}@${move.to}`; // Crazyhouse/bughouse piece placement
 
     if(fromPiece && fromPiece.type === 'k') {
-      if((toPiece && toPiece.type === 'r' && toPiece.color === chess.turn())) { // Fischer random rook-castling
+      if((toPiece && toPiece.type === 'r' && toPiece.color === chess.turn()) // rook castling
+          || (Math.abs(move.to.charCodeAt(0) - move.from.charCodeAt(0)) > 1)) { // Normal castling (king moved 2 or more squares) 
         if(move.to.charCodeAt(0) - move.from.charCodeAt(0) > 0)
-          san = 'O-O';
+          san = (category === 'wild/fr' || move.from[0] === 'e' ? 'O-O' : 'O-O-O'); // King moved towards the h-file
         else
-          san = 'O-O-O';
-      }
-      else if(Math.abs(move.to.charCodeAt(0) - move.from.charCodeAt(0)) > 1) { // Normal castling (king moved 2 or more squares)
-        if(move.to.charCodeAt(0) - move.from.charCodeAt(0) > 0) { // King moved towards the h-file
-          san = (category === 'wild/fr' || move.from[0] === 'e' ? 'O-O' : 'O-O-O');
-        }
-        else // King moved towards the a-file
-          san = (category === 'wild/fr' || move.from[0] === 'e' ? 'O-O-O' : 'O-O');
+          san = (category === 'wild/fr' || move.from[0] === 'e' ? 'O-O-O' : 'O-O'); // King moved towards the a-file
       }
     }
     if(san)
@@ -242,9 +250,10 @@ function parseVariantMove(fen: string, move: any, startFen: string, category: st
   let outFen = chess.fen();
 
   /** Manually update FEN for non-standard moves **/
-  if(!outMove
+  if(!outMove || premove 
       || (category.startsWith('wild') && san.toUpperCase().startsWith('O-O'))) {
     san = san.replace(/[+#]/, ''); // remove check and checkmate, we'll add it back at the end
+
     chess = new Chess(fen);
 
     const board = afterPre.board;
@@ -254,7 +263,7 @@ function parseVariantMove(fen: string, move: any, startFen: string, category: st
     const moveNo = afterPre.moveNo;
 
     let boardAfter = board;
-    const colorAfter = (color === 'w' ? 'b' : 'w');
+    let colorAfter = (color === 'w' ? 'b' : 'w');
     let castlingRightsAfter = castlingRights;
     const enPassantAfter = '-';
     let plyClockAfter = +plyClock + 1;
@@ -349,40 +358,42 @@ function parseVariantMove(fen: string, move: any, startFen: string, category: st
       }
 
       // Check castling is legal
-      // Can king pass through all squares between start and end squares?
-      let startCode: number;
-      let endCode: number;
-      if(kingFrom.charCodeAt(0) < kingTo.charCodeAt(0)) {
-        startCode = kingFrom.charCodeAt(0);
-        endCode = kingTo.charCodeAt(0);
-      }
-      else {
-        startCode = kingTo.charCodeAt(0);
-        endCode = kingFrom.charCodeAt(0);
-      }
-      for(let code = startCode; code <= endCode; code++) {
-        const square = `${String.fromCharCode(code)}${kingFrom[1]}`;
-        // square blocked?
-        if(square !== kingFrom && square !== rookFrom && chess.get(square))
-          return null;
-        // square under attack?
-        if(isAttacked(fen, square, color))
-          return null;
-      }
-      // Can rook pass through all squares between start and end squares?
-      if(rookFrom.charCodeAt(0) < rookTo.charCodeAt(0)) {
-        startCode = rookFrom.charCodeAt(0);
-        endCode = rookTo.charCodeAt(0);
-      }
-      else {
-        startCode = rookTo.charCodeAt(0);
-        endCode = rookFrom.charCodeAt(0);
-      }
-      for(let code = startCode; code <= endCode; code++) {
-        const square = `${String.fromCharCode(code)}${rookFrom[1]}`;
-        // square blocked?
-        if(square !== rookFrom && square !== kingFrom && chess.get(square))
-          return null;
+      if(!premove) {
+        // Can king pass through all squares between start and end squares?
+        let startCode: number;
+        let endCode: number;
+        if(kingFrom.charCodeAt(0) < kingTo.charCodeAt(0)) {
+          startCode = kingFrom.charCodeAt(0);
+          endCode = kingTo.charCodeAt(0);
+        }
+        else {
+          startCode = kingTo.charCodeAt(0);
+          endCode = kingFrom.charCodeAt(0);
+        }
+        for(let code = startCode; code <= endCode; code++) {
+          const square = `${String.fromCharCode(code)}${kingFrom[1]}`;
+          // square blocked?
+          if(square !== kingFrom && square !== rookFrom && chess.get(square))
+            return null;
+          // square under attack?
+          if(isAttacked(fen, square, color))
+            return null;
+        }
+        // Can rook pass through all squares between start and end squares?
+        if(rookFrom.charCodeAt(0) < rookTo.charCodeAt(0)) {
+          startCode = rookFrom.charCodeAt(0);
+          endCode = rookTo.charCodeAt(0);
+        }
+        else {
+          startCode = rookTo.charCodeAt(0);
+          endCode = rookFrom.charCodeAt(0);
+        }
+        for(let code = startCode; code <= endCode; code++) {
+          const square = `${String.fromCharCode(code)}${rookFrom[1]}`;
+          // square blocked?
+          if(square !== rookFrom && square !== kingFrom && chess.get(square))
+            return null;
+        }
       }
 
       chess.remove(kingFrom);
@@ -415,6 +426,25 @@ function parseVariantMove(fen: string, move: any, startFen: string, category: st
         outMove.to = rookFrom; // Fischer random specifies castling to/from coorindates using 'rook castling'
       else
         outMove.to = kingTo;
+    }
+    else if(premove) {
+      // Perform very limited validation for premove, simply make sure the piece exists
+      const piece = chess.get(move.from);
+      if(!piece || piece.color !== color) 
+        return null;
+
+      if(piece.type === 'k' && !isReachable(move.from, move.to, piece.type, color, false))
+        return null;
+
+      outMove.from = move.from;
+      outMove.to = move.to;
+      outMove.piece = piece.type;
+      outMove.promotion = move.promotion;
+
+      if(move.promotion)
+        piece.type = move.promotion;
+      chess.remove(move.from);
+      chess.put(piece, move.to);
     }
 
     boardAfter = chess.fen().split(/\s+/)[0];
@@ -484,7 +514,7 @@ function parseVariantMove(fen: string, move: any, startFen: string, category: st
       }
     }
   }
-  if(category.startsWith('wild')) {
+  if(category.startsWith('wild') || premove) {
     if(!san.toUpperCase().startsWith('O-O')) {
       // Restore castling rights which chess.js erroneously removes
       afterPost.castlingRights = afterPre.castlingRights;
@@ -562,43 +592,58 @@ function variantToDests(fen: string, startFen: string, category: string, variant
   }
 
   // Add irregular castling moves for wild variants
+  const cPieces = getCastlingPieces(startFen, getTurnColorFromFEN(fen), category);
+  const kingSquare = cPieces.king;
+  const piece = chess.get(kingSquare);
+  if(piece && piece.type === 'k' && piece.color === getTurnColorFromFEN(fen)) {
+    let kingDests = dests.get(kingSquare);
+    if(kingDests)
+      kingDests = adjustKingDests(kingDests, fen, startFen, category);
+    dests.set(kingSquare, kingDests);    
+  }
+  return dests;
+}
+
+/** Correct the castling dests for wild variants 
+ * @dests initial array of dests for the king
+ * @param fen the current position
+ * @param startFen the starting position of the game.
+ * @returns dests modified with correct castling dests
+ * @premove are these dests for a premove or regular move (less castling validation for premove)
+ */
+export function adjustKingDests(dests: string[], fen: string, startFen: string, category: string, premove = false) { 
   if(category.startsWith('wild')) {
-    const cPieces = getCastlingPieces(startFen, chess.turn(), category);
+    if(!dests)
+      dests = [];
+    
+    const cPieces = getCastlingPieces(startFen, getTurnColorFromFEN(fen), category);
     const king = cPieces.king;
     const leftRook = cPieces.leftRook;
     const rightRook = cPieces.rightRook;
-
+  
     // Remove any castling moves already in dests
-    let kingDests = dests.get(king);
-    if(kingDests) {
-      kingDests.filter((dest) => {
+    if(dests) {
+      dests.filter((dest) => {
         return Math.abs(dest.charCodeAt(0) - king.charCodeAt(0)) > 1;
       }).forEach((dest) => {
-        kingDests.splice(kingDests.indexOf(dest), 1);
+        dests.splice(dests.indexOf(dest), 1);
       });
-      if(kingDests.length === 0)
-        dests.delete(king);
     }
 
-    let parsedMove = parseMove(chess.fen(), 'O-O', startFen, category, variantData);
+    let parsedMove = parseMove(fen, 'O-O', startFen, category, null, premove);
     if(parsedMove) {
-      const from = parsedMove.move.from;
       const to = category === 'wild/fr' ? rightRook : parsedMove.move.to;
-      kingDests = dests.get(from);
-      if(kingDests)
-        kingDests.push(to);
-      else dests.set(from, [to]);
+      dests.push(to);
     }
-    parsedMove = parseMove(chess.fen(), 'O-O-O', startFen, category, variantData);
+    parsedMove = parseMove(fen, 'O-O-O', startFen, category, null, premove);
     if(parsedMove) {
-      const from = parsedMove.move.from;
       const to = category === 'wild/fr' ? leftRook : parsedMove.move.to;
-      kingDests = dests.get(from);
-      if(kingDests)
-        kingDests.push(to);
-      else dests.set(from, [to]);
+      dests.push(to);
     }
   }
+
+  if(dests && !dests.length)
+    dests = null;
 
   return dests;
 }
@@ -704,6 +749,20 @@ export function getMoveNoFromFEN(fen: string): number {
 
 export function getTurnColorFromFEN(fen: string): string {
   return fen.split(/\s+/)[1];
+}
+
+export function setFENTurnColor(fen: string, color: string): string {
+  return fen.replace(` ${getTurnColorFromFEN(fen)} `, ` ${color} `);
+}
+
+export function longToShortPieceName(longName: string): string {
+  const names = {pawn: 'p', rook: 'r', knight: 'n', bishop: 'b', queen: 'q', king: 'k'};
+  return names[longName];
+}
+
+export function shortToLongPieceName(shortName: string): string {
+  const names = {p: 'pawn', r: 'rook', n: 'knight', b: 'bishop', q: 'queen', k: 'king'};
+  return names[shortName];
 }
 
 /**
@@ -829,8 +888,7 @@ export function getCastlingPieces(fen: string, color: string, category?: string)
  * the initial positions of the kings and rooks from the starting position. I.e. If the king or
  * rooks are no longer in their starting positions.
  * @param fen the fen being inspected
- * @param startFen the starting position of the game. If not specified, gets the starting position
- * from the Game's move list.
+ * @param startFen the starting position of the game.
  * @returns the fen with some castling rights possibly removed
  */
 export function adjustCastlingRights(fen: string, startFen: string, category?: string): string {
@@ -942,6 +1000,42 @@ export function getAdjacentSquares(square: string) : string[] {
       adjacent.push(`${nextFile}${+rank + 1}`);
   }
   return adjacent;
+}
+
+/** 
+ * Basic check to see if a piece can reach the dest square from the source on
+ * an empty board.
+ * @includeCastling if true the king can reach any back row square from any other square on the same row.
+ * This is to account for all kinds of castling such as fischer random etc. If false, dest square must be 
+ * adjacent to source square.
+ */
+export function isReachable(source: string, dest: string, pieceType: string, pieceColor: string, includeCastling = true): boolean {
+  const sCol = source.charCodeAt(0) - 'a'.charCodeAt(0) + 1; 
+  const sRow = +source[1];
+  const dCol = dest.charCodeAt(0) - 'a'.charCodeAt(0) + 1; 
+  const dRow = +dest[1];
+
+  switch(pieceType) {
+    case 'r': 
+      return sRow === dRow || sCol === dCol;
+    case 'q': 
+      return sRow === dRow || sCol === dCol || Math.abs(sRow - dRow) === Math.abs(sCol - dCol);
+    case 'b':
+      return Math.abs(sRow - dRow) === Math.abs(sCol - dCol);
+    case 'n':
+      return (Math.abs(sRow - dRow) === 2 && Math.abs(sCol - dCol) === 1)
+        || (Math.abs(sRow - dRow) === 1 && Math.abs(sCol - dCol) === 2);
+    case 'p': 
+      return (((pieceColor === 'w' && dRow - sRow === 1) || (pieceColor === 'b' && sRow - dRow === 1))
+          && (dCol === sCol || Math.abs(dCol - sCol) === 1))
+        || (dCol === sCol && ((pieceColor === 'w' && sRow === 2 && dRow === 4) || (pieceColor === 'b' && sRow === 7 && dRow === 5)));
+    case 'k': 
+      return (Math.abs(sCol - dCol) <= 1 && Math.abs(sRow - dRow) <= 1)
+        || (includeCastling && ((pieceColor === 'w' && sRow === 1 && dRow === 1)
+        || (pieceColor === 'b' && sRow === 8 && dRow === 8)));
+  }
+
+  return false;
 }
 
 export function generateChess960FEN(idn?: number): string {

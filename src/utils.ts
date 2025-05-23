@@ -277,15 +277,16 @@ export function lockOverflow() {
  * a context menu.
  * @param isTriggered Callback function which returns true if this event (event.target) should trigger the context menu, otherwise false
  * @param triggerHandler Callback function that creates the context menu
+ * @returns an array of function handlers which can be passed to removeContextMenuTrigger
  */
-export function createContextMenuTrigger(isTriggered: (event: any) => boolean, triggerHandler: (event: any) => void) {
+export function createContextMenuTrigger(isTriggered: (event: any) => boolean, triggerHandler: (event: any) => void): any[] {
   /**
    * Event handler to display context menu when right clicking on an element.
    * Note: We don't use 'contextmenu' for long press on touch devices. This is because for contextmenu
    * events the user has to touch exactly on the element, but for 'touchstart' the browsers are more tolerant
    * and allow the user to press _near_ the element. The browser guesses which element you are trying to press.
    */
-  $(document).on('contextmenu', (event) => {
+  const contextmenuHandler = (event) => {
     if(!isTriggered(event))
       return;
 
@@ -295,14 +296,15 @@ export function createContextMenuTrigger(isTriggered: (event: any) => boolean, t
     event.preventDefault();
     if(!touchStarted) // right click only, we handle long press seperately.
       triggerHandler(event);
-  });
+  };
+  $(document).on('contextmenu', contextmenuHandler);
 
   /**
    * Event handler to display context menu when long-pressing an element (on touch devices).
    * We use 'touchstart' instead of 'contextmenu' because it still triggers even if the user
    * slightly misses the element with their finger.
    */
-  document.addEventListener('touchstart', (tsEvent) => {
+  const touchstartHandler = (tsEvent) => {
     if(!isTriggered(tsEvent))
       return;
 
@@ -325,7 +327,17 @@ export function createContextMenuTrigger(isTriggered: (event: any) => boolean, t
       clearTimeout(longPressTimeout);
       $(document).off('touchmove.longPress');
     });
-  }, {passive: true});
+  }; 
+  document.addEventListener('touchstart', touchstartHandler, {passive: true});
+
+  return [contextmenuHandler, touchstartHandler];
+}
+
+/** Removes the events created by createContextMenuTrigger 
+ * @handlers the array of handlers returned by createContextMenuTrigger
+ */
+export function removeContextMenuTrigger(handlers: any[]) {
+  handlers.forEach((h) => { $(document).off(null, h); });
 }
 
 /**
