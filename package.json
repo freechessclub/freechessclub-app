@@ -7,7 +7,7 @@
   "scripts": {
     "app": "tsc src/app.ts && node src/copy-app-files.js && electron src/app.js",
     "lint": "eslint -c .eslintrc.js --ext .ts src",
-    "bundle": "webpack --mode production && node src/inject-manifest.js",
+    "bundle": "webpack --mode production",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "build": "node src/copy-app-files.js && electron-builder -mwl --x64 --arm64 -p always",
