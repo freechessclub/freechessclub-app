@@ -96,6 +96,8 @@ jQuery(() => {
 });
 
 async function onDeviceReady() {
+  cleanup();
+
   await storage.init();
   initSettings();
 
@@ -114,8 +116,6 @@ async function onDeviceReady() {
   game.category = 'untimed';
   game.history = new History(game);
   setGameWithFocus(game);
-
-  disableOnlineInputs(true);
 
   if(Utils.isSmallWindow()) {
     $('#collapse-chat').collapse('hide');
@@ -555,8 +555,6 @@ function messageHandler(data: any) {
   switch (type) {
     case MessageType.Control:
       if(!session.isConnected() && data.command === 1) { // Connected
-        cleanup();
-        disableOnlineInputs(false);
         session.setUser(data.control);
         chat.setUser(data.control);
         session.send('set seek 0');
@@ -587,6 +585,8 @@ function messageHandler(data: any) {
           pingRequested = true;
           session.send('ping');  
         }, 59 * 60 * 1000);
+
+        session.sendPostConnectCommands();
       }
       else if(data.command === 2) { // Login error
         session.disconnect();
@@ -597,10 +597,8 @@ function messageHandler(data: any) {
         });
         $('#session-status').popover('show');
       }
-      else if(data.command === 3) { // Disconnected
-        disableOnlineInputs(true);
+      else if(data.command === 3) // Disconnected
         cleanup();
-      }
       break;
     case MessageType.ChannelTell:
       chat.newMessage(data.channel, data);
@@ -1865,16 +1863,6 @@ export function cleanup() {
       cleanupGame(game);
   }
   clearInterval(keepAliveTimer);
-}
-
-export function disableOnlineInputs(disable: boolean) {
-  $('#pills-pairing *').prop('disabled', disable);
-  $('#pills-lobby *').prop('disabled', disable);
-  $('#quick-game').prop('disabled', disable);
-  $('#pills-history *').prop('disabled', disable);
-  $('#pills-observe *').prop('disabled', disable);
-  $('#chan-dropdown *').prop('disabled', disable);
-  $('#input-form *').prop('disabled', disable);
 }
 
 /** *******************************************************
@@ -6017,8 +6005,10 @@ $('#login-form').on('submit', (event) => {
     return false;
   }
   const pass: string = Utils.getValue('#login-pass');
-  if(session)
+  if(session) {
     session.disconnect();
+    session.destroy();
+  }
   session = new Session(messageHandler, user, pass);
   settings.rememberMeToggle = $('#remember-me').prop('checked');
   storage.set('rememberme', String(settings.rememberMeToggle));
@@ -6068,6 +6058,7 @@ $('#login-pass').on('change', () => {
       credential.set($('#login-user').val() as string, $('#login-pass').val() as string);
       if(session) {
         session.disconnect();
+        session.destroy();
         session = new Session(messageHandler, credential.username, credential.password);
       }
     }
@@ -6077,8 +6068,10 @@ $('#login-pass').on('change', () => {
 });
 
 $('#connect-guest').on('click', () => {
-  if(session)
+  if(session) {
     session.disconnect();
+    session.destroy();
+  }
   session = new Session(messageHandler);
 });
 

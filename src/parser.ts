@@ -67,14 +67,14 @@ export class Parser {
     match = msg.match(/login:/);
     if (match != null) {
       this.session.setRegistered(false);
-      this.session.send(this.user);
+      this.session.send(this.user, false);
       return null;
     }
 
     match = msg.match(/Press return to enter the server as/);
     if (match != null) {
       this.pass = '';
-      this.session.send('');
+      this.session.send('', false);
       return null;
     }
 
@@ -87,7 +87,7 @@ export class Parser {
         };
       }
       this.session.setRegistered(true);
-      this.session.send(this.pass);
+      this.session.send(this.pass, false);
       return null;
     }
 
@@ -215,7 +215,7 @@ export class Parser {
     }
 
     msg = msg.replace(/\[G\]\0/g, () => {
-      this.session.send(String.fromCharCode(...[0x02, 0x39]));
+      this.session.send(String.fromCharCode(...[0x02, 0x39]), false);
       return '';
     });
     msg = msg.replace(/\((?:told|kibitzed) .+\)/g, '');
