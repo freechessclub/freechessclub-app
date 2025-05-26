@@ -317,15 +317,6 @@ function setPanelSizes() {
 
     const cardMaxHeight = $(window).height() - Utils.getRemainingHeight(maximizedGameCard);
     setGameCardSize(maximizedGame, cardMaxWidth, cardMaxHeight);
-  
-    console.log('cardMaxWidth:', cardMaxWidth);
-    console.log('window.innerWidth:', window.innerWidth);
-    console.log('left-col width:', $('#left-col').outerWidth());
-    console.log('left-col bounding:', $('#left-col')[0].getBoundingClientRect().width);
-    console.log('scrollBarWidth:', scrollBarWidth);
-    console.log('mid-col width:', $('#mid-col').outerWidth());
-    console.log('document width:', document.documentElement.getBoundingClientRect().width);
-    console.log('window.visualViewport.width:', window.visualViewport.width);
   }
   else
     setGameCardSize(maximizedGame);
