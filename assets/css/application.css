@@ -28,10 +28,14 @@ body {
   min-height: 100%;
 }
 
+.chat-scroll-container {
+  overflow-y: auto;
+}
 .chat-text {
   width: 100%;
-  overflow: auto;
   color: rgba(0, 0, 0, 0.65);
+}
+.chat-text .chat-message {
   white-space: pre-wrap;
   word-wrap: break-word;
 }
