@@ -42,7 +42,8 @@
       "node_modules/**"
     ],
     "mac": {
-      "category": "public.app-category.board-games"
+      "category": "public.app-category.board-games",
+      "identity": "Apple Development: tessellate.ai@gmail.com (W893HC69YA)"
     },
     "linux": {
       "target": [
@@ -53,32 +54,31 @@
     }
   },
   "dependencies": {
-    "@capacitor-community/safe-area": "^6.0.0-alpha.8",
-    "@capacitor/android": "^6.2.0",
-    "@capacitor/assets": "^3.0.5",
-    "@capacitor/core": "^6.2.0",
-    "@capacitor/ios": "^6.2.0",
-    "@capacitor/preferences": "^6.0.3",
+    "@capacitor-community/safe-area": "^7.0.0-alpha.1",
+    "@capacitor/android": "^7.2.0",
+    "@capacitor/core": "^7.2.0",
+    "@capacitor/ios": "^7.2.0",
+    "@capacitor/preferences": "^7.0.1",
     "@mliebelt/pgn-parser": "^1.4.15",
     "@popperjs/core": "^2.11.6",
     "@uriopass/nosleep.js": "^0.12.2",
-    "android": "^0.0.8",
     "autolink-js": "freechessclub/autolink-js",
     "bootstrap": "5.2.3",
     "builder-util-runtime": "^9.2.10",
-    "capacitor-secure-storage-plugin": "^0.10.0",
+    "capacitor-secure-storage-plugin": "^0.11.0",
     "chess.js": "^0.12.1",
     "chessground": "^9.0.4",
     "cm-polyglot": "^1.1.0",
     "d3": "^7.8.0",
-    "electron-updater": "^6.3.9",
+    "electron-updater": "6.6.4",
     "gh-emoji": "^0.2.5",
     "jquery": "^3.7.0",
     "js-cookie": "^3.0.1",
     "stockfish.js": "^10.0.2"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.2.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.2.0",
     "@mliebelt/pgn-types": "^1.0.4",
     "@types/bootstrap": "5.2.3",
     "@types/jquery": "^3.5.16",
@@ -87,8 +87,8 @@
     "@typescript-eslint/parser": "^8.17.0",
     "cheerio": "^1.0.0",
     "css-loader": "^6.6.0",
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8",
+    "electron": "^36.3.2",
+    "electron-builder": "26.0.15",
     "eslint": "^8.57.1",
     "eslint-plugin-jsdoc": "^50.6.0",
     "eslint-plugin-prefer-arrow": "^1.2.3",
@@ -100,7 +100,7 @@
     "ts-loader": "^9.3.1",
     "typescript": "^5.8.3",
     "url-loader": "^4.1.1",
-    "webpack": "^5.76.0",
+    "webpack": "^5.99.9",
     "webpack-cli": "^5.0.2",
     "webpack-dev-server": "^5.0.2",
     "workbox-build": "^7.3.0",
@@ -109,5 +109,5 @@
     "workbox-routing": "^7.3.0",
     "workbox-strategies": "^7.3.0"
   },
-  "packageManager": "yarn@4.5.1"
+  "packageManager": "yarn@4.9.1"
 }

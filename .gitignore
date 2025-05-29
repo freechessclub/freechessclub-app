@@ -1,4 +1,7 @@
 node_modules
+src/app.js
+service-worker.js
+app/
 app/assets
 dist
 platforms
