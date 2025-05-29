@@ -807,28 +807,43 @@
                               <label for="textsize-range">Text Size</label>
                             </div>
                           </div>
+                          <div class="form-group row dropdown">
+                            <div class="col">
+                            <legend class="col-form-label">Themes</legend>  
+                            <button id="themes-button" class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" style="width: 200px" aria-expanded="false"></button>
+                            <ul class="dropdown-menu" id="themes-menu">
+                              <li class="dropdown-item noselect" id="theme-default"><div class="color-box" style="border: 1px solid currentColor; background-color: #DDE3E6"></div>Arctic Blue</li>
+                              <li class="dropdown-item noselect" id="theme-green"><div class="color-box" style="border: 1px solid currentColor; background-color: #E6FFEC"></div>Green Bean</li>
+                              <li class="dropdown-item noselect" id="theme-yellow"><div class="color-box" style="border: 1px solid currentColor; background-color: #F5EDE2"></div>Coffee & Cream</li>
+                              <li class="dropdown-item noselect" id="theme-gray"><div class="color-box" style="border: 1px solid currentColor; background-color: #424242"></div>Space Gray</li>
+                              <li class="dropdown-item noselect" id="theme-purple"><div class="color-box" style="border: 1px solid currentColor; background-color: #E1CFED"></div>Purple Haze</li>
+                              <li class="dropdown-item noselect" id="theme-ic"><div class="color-box" style="border: 1px solid currentColor; background-color: #ECECEC"></div>Stonewash</li>
+                              <li class="dropdown-item noselect" id="theme-newspaper"><div class="color-box" style="border: 1px solid currentColor; background-color: #DCDCDC"></div>Pressroom</li>
+                            </ul>
+                            </div>
+                          </div>
                           <div class="form-group row">
-                            <legend class="col-form-label">Themes</legend>
-                            <div class="btn-group" role="group" aria-label="Themes">
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #dee3e6 50%, #8ca2ad 50%)" id="theme-default"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #eaffea 50%, #7aab80 50%)" id="theme-green"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #f4ede1 50%, #c6ab8e 50%)" id="theme-yellow"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #d3d3d3 50%, #555555 50%)" id="theme-gray"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #decfef 50%, #b160ca 50%)" id="theme-purple"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #ececec 50%, #c1c18e 50%)" id="theme-ic"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #dcdcdc 50%, #c9c9c9 50%)" id="theme-newspaper"></button>
+                            <legend class="col-form-label">Boards</legend>
+                            <div id="boards-menu" class="btn-group" role="group" aria-label="Boards">
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #dee3e6 50%, #8ca2ad 50%)" id="board-blue"></button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #eaffea 50%, #7aab80 50%)" id="board-green"></button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #f4ede1 50%, #c6ab8e 50%)" id="board-yellow"></button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #d3d3d3 50%, #555555 50%)" id="board-gray"></button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #decfef 50%, #b160ca 50%)" id="board-purple"></button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #ececec 50%, #c1c18e 50%)" id="board-ic"></button>
+                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #dcdcdc 50%, #c9c9c9 50%)" id="board-newspaper"></button>
                             </div>
                           </div>
                           <div class="form-group row pe-2">
                             <legend class="col-form-label">Pieces</legend>
                             <div>
                               <div class="btn-group w-100 overflow-auto" role="group" aria-label="Pieces">
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-merida"><img src="assets/css/images/pieces/merida/wN.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-cburnett"><img src="assets/css/images/pieces/cburnett/wN.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-alpha"><img src="assets/css/images/pieces/alpha/wN.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-cardinal"><img src="assets/css/images/pieces/cardinal/wN.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-leipzig"><img src="assets/css/images/pieces/leipzig/wN.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-maestro"><img src="assets/css/images/pieces/maestro/wN.svg" width="36"/></button>
+                                <button type="button" class="btn btn-outline-secondary" id="pieces-merida"><img src="assets/css/images/pieces/merida/wK.svg" width="36"/></button>
+                                <button type="button" class="btn btn-outline-secondary" id="pieces-cburnett"><img src="assets/css/images/pieces/cburnett/wK.svg" width="36"/></button>
+                                <button type="button" class="btn btn-outline-secondary" id="pieces-alpha"><img src="assets/css/images/pieces/alpha/wK.svg" width="36"/></button>
+                                <button type="button" class="btn btn-outline-secondary" id="pieces-cardinal"><img src="assets/css/images/pieces/cardinal/wK.svg" width="36"/></button>
+                                <button type="button" class="btn btn-outline-secondary" id="pieces-leipzig"><img src="assets/css/images/pieces/leipzig/wK.svg" width="36"/></button>
+                                <button type="button" class="btn btn-outline-secondary" id="pieces-maestro"><img src="assets/css/images/pieces/maestro/wK.svg" width="36"/></button>
                               </div>
                             </div>
                           </div>

@@ -145,9 +145,11 @@ export class Chat {
         tabData.scroller.start();
         tabData.scroller.setItems(tabData.messages); // Render any new messages that arrived while tab was hidden
         tabData.scrollerStarted = true;
-      }        
+      }
       this.fixScrollPosition();
     });
+
+
 
     $(document).on('hide.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
@@ -155,7 +157,7 @@ export class Chat {
       if(tabData.scrollerStarted) {
         tabData.scroller.stop(); // Stop virtual-scroller before hiding tab so that it doesn't remove all its DO< elements
         tabData.scrollerStarted = false;
-      }   
+      } 
     });
 
     $('#chat-scroll-button').on('click', () => {
