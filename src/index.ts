@@ -39,6 +39,7 @@ let chat: Chat;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
 let playEngine: Engine | null;
+let pingRequested = false;
 let historyRequested = 0;
 let obsRequested = 0;
 let allobsRequested = 0;
@@ -56,7 +57,8 @@ let numPVs = 1;
 let matchRequested = 0;
 let prevSizeCategory = null;
 let layout = Layout.Desktop;
-let soundTimer
+let keepAliveTimer; // Stop FICS auto-logout after 60 minutes idle
+let soundTimer;
 let showSentOffersTimer; // Delay showing new offers until the user has finished clicking buttons
 let activeTab;
 let newTabShown = false;
@@ -589,6 +591,11 @@ function messageHandler(data: any) {
           else if($('#pills-pairing').hasClass('active'))
             initPairingPane();
         }
+
+        keepAliveTimer = setInterval(() => {
+          pingRequested = true;
+          session.send('ping');  
+        }, 59 * 60 * 1000);
       }
       else if(data.command === 2) { // Login error
         session.disconnect();
@@ -636,6 +643,11 @@ function messageHandler(data: any) {
 }
 
 function gameMove(data: any) {
+  if(timeSet)
+    console.timeEnd('premove time');
+  console.time('premove time');
+  timeSet = true;
+
   if(gameExitPending.includes(data.id))
     return;
 
@@ -1816,6 +1828,12 @@ function handleMiscMessage(data: any) {
   if(match)
     return;
 
+  match = msg.match(/^Average ping time for \S+ is \d+ms\./m);
+  if(match && pingRequested) {
+    pingRequested = false;
+    return;
+  }
+
   if (
     msg === 'Style 12 set.' ||
     msg === 'You will not see seek ads.' ||
@@ -1855,6 +1873,7 @@ export function cleanup() {
     if(game.role !== Role.PLAYING_COMPUTER)
       cleanupGame(game);
   }
+  clearInterval(keepAliveTimer);
 }
 
 export function disableOnlineInputs(disable: boolean) {
@@ -2333,8 +2352,12 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     }
   }
 
-  if(game.isPlayingOnline() && prevHEntry.turnColor === game.color)
+  if(game.isPlayingOnline() && prevHEntry.turnColor === game.color) {
     sendMove(move);
+    if(timeSet)
+      console.timeEnd('premove time');
+    timeSet = false;
+  }
 
   if(game.isExamining()) {
     let nextMoveMatches = false;
@@ -2364,6 +2387,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   showTab($('#pills-game-tab'));
 }
 
+let timeSet = false;
 function movePieceAfter(game: Game, move: any, fen?: string) {
   // go to current position if user is looking at earlier move in the move list
   if((game.isPlaying() || game.isObserving()) && game.history.current() !== game.history.last())
