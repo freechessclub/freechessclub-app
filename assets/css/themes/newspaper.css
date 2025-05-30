@@ -1,6 +1,7 @@
-.feature3 {
-  background-color: #dcdcdc;
+:root {
+  --bg-color: #dcdcdc;
 }
+
 cg-board {
   background-image: url('../images/board/newspaper.svg');
 }

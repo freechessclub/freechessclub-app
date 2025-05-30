@@ -149,8 +149,6 @@ export class Chat {
       this.fixScrollPosition();
     });
 
-
-
     $(document).on('hide.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
       const tabData = this.getTabDataFromElement(tab);
