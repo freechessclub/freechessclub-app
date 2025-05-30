@@ -19,7 +19,7 @@ $('#textsize-range').on('change', (event) => {
   storage.set('text-size', String($(event.target).val()));
 });
 
-function setStyle(component: string, name: string) {
+function setStyle(component: string, name: string, directory?: string) {
   $(`#${component}`).attr('href', `assets/css/${component}s/${name}.css`);
   storage.set(component, name);
 }
@@ -28,6 +28,8 @@ function setStyle(component: string, name: string) {
 const theme = storage.get('theme');
 if (theme != null) {
   $('#theme').attr('href', `assets/css/themes/${theme}.css`);
+  if(theme === 'gray')
+    $('#base-theme').attr('href', 'assets/css/themes/base-theme-dark.css');
 }
 
 let themeName: string;
@@ -41,14 +43,15 @@ $('#themes-menu li').on('click', (event) => {
   $('#themes-button').text($(event.target).text());
   $('#board-style').remove();
   storage.remove('board');
+
+  const theme = $(event.target).attr('id').split('theme-')[1];
+  setStyle('theme', theme);
+
+  if(theme === 'gray')
+    $('#base-theme').attr('href', 'assets/css/themes/base-theme-dark.css');
+  else
+    $('#base-theme').attr('href', 'assets/css/themes/base-theme-light.css');
 });
-$('#theme-default').on('click', () => { setStyle('theme', 'default') });
-$('#theme-green').on('click', () => { setStyle('theme', 'green') });
-$('#theme-yellow').on('click', () => { setStyle('theme', 'yellow') });
-$('#theme-gray').on('click', () => { setStyle('theme', 'gray') });
-$('#theme-purple').on('click', () => { setStyle('theme', 'purple') });
-$('#theme-ic').on('click', () => { setStyle('theme', 'ic') });
-$('#theme-newspaper').on('click', () => { setStyle('theme', 'newspaper') });
 
 // board controls
 function injectBoardStyle(board: string) {
