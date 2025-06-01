@@ -74,7 +74,8 @@
     "gh-emoji": "^0.2.5",
     "jquery": "^3.7.0",
     "js-cookie": "^3.0.1",
-    "stockfish.js": "^10.0.2"
+    "stockfish.js": "^10.0.2",
+    "virtual-scroller": "^1.13.1"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

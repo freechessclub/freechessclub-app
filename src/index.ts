@@ -39,6 +39,7 @@ let chat: Chat;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
 let playEngine: Engine | null;
+let pingRequested = false;
 let historyRequested = 0;
 let obsRequested = 0;
 let allobsRequested = 0;
@@ -56,7 +57,8 @@ let numPVs = 1;
 let matchRequested = 0;
 let prevSizeCategory = null;
 let layout = Layout.Desktop;
-let soundTimer
+let keepAliveTimer; // Stop FICS auto-logout after 60 minutes idle
+let soundTimer;
 let showSentOffersTimer; // Delay showing new offers until the user has finished clicking buttons
 let newSentOffers = []; // New sent offers (match requests and seeks) that are waiting to be displayed
 let activeTab;
@@ -123,6 +125,7 @@ async function onDeviceReady() {
   }
   else {
     Utils.createTooltips();
+    showAnalyzeButton();
     $('#pills-play-tab').tab('show');
     $('#collapse-menus').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
@@ -303,12 +306,15 @@ function setPanelSizes() {
   // Make sure the board is smaller than the window height and also leaves room for the other columns' min-widths
   if(!Utils.isSmallWindow()) {
     const scrollBarWidth = Utils.getScrollbarWidth();
+    const scrollBarVisible = (window.innerWidth - window.visualViewport.width) > 1;
+    const scrollBarReservedArea = (scrollBarVisible ? 0 : scrollBarWidth);
+    const viewportWidth = window.visualViewport.width;
 
     // Set board width a bit smaller in order to leave room for a scrollbar on <body>. This is because
     // we don't want to resize all the panels whenever a dropdown or something similar overflows the body.
     const cardMaxWidth = Utils.isMediumWindow() // display 2 columns on md (medium) display
-      ? window.innerWidth - $('#left-col').outerWidth() - scrollBarWidth
-      : window.innerWidth - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')) - scrollBarWidth;
+      ? viewportWidth - $('#left-col').outerWidth() - scrollBarReservedArea
+      : viewportWidth - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')) - scrollBarReservedArea;
 
     const cardMaxHeight = $(window).height() - Utils.getRemainingHeight(maximizedGameCard);
     setGameCardSize(maximizedGame, cardMaxWidth, cardMaxHeight);
@@ -377,8 +383,8 @@ function setLeftColumnSizes() {
 
 function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: number) {
   const card = game.element;
-  const roundingCorrection = (card.hasClass('game-card-sm') ? 0.032 : 0.1);
   let cardWidth: number;
+  const roundingCorrection = (card.hasClass('game-card-sm') ? 0.032 : 0.1);
 
   if(cardMaxWidth !== undefined || cardMaxHeight !== undefined) {
     const cardBorderWidth = card.outerWidth() - card.width();
@@ -392,7 +398,7 @@ function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: numb
     if(!cardMaxHeight)
       boardMaxHeight = boardMaxWidth;
 
-    cardWidth = Math.min(boardMaxWidth, boardMaxHeight) - (2 * roundingCorrection); // Subtract small amount for rounding error
+    cardWidth = Math.min(boardMaxWidth, boardMaxHeight) - roundingCorrection;
   }
   else {
     card.css('width', '');
@@ -577,6 +583,11 @@ function messageHandler(data: any) {
           else if($('#pills-pairing').hasClass('active'))
             initPairingPane();
         }
+
+        keepAliveTimer = setInterval(() => {
+          pingRequested = true;
+          session.send('ping');  
+        }, 59 * 60 * 1000);
       }
       else if(data.command === 2) { // Login error
         session.disconnect();
@@ -624,6 +635,11 @@ function messageHandler(data: any) {
 }
 
 function gameMove(data: any) {
+  if(timeSet)
+    console.timeEnd('premove time');
+  console.time('premove time');
+  timeSet = true;
+
   if(gameExitPending.includes(data.id))
     return;
 
@@ -1802,6 +1818,12 @@ function handleMiscMessage(data: any) {
   if(match)
     return;
 
+  match = msg.match(/^Average ping time for \S+ is \d+ms\./m);
+  if(match && pingRequested) {
+    pingRequested = false;
+    return;
+  }
+
   if (
     msg === 'Style 12 set.' ||
     msg === 'You will not see seek ads.' ||
@@ -1841,6 +1863,7 @@ export function cleanup() {
     if(game.role !== Role.PLAYING_COMPUTER)
       cleanupGame(game);
   }
+  clearInterval(keepAliveTimer);
 }
 
 export function disableOnlineInputs(disable: boolean) {
@@ -2319,8 +2342,12 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     }
   }
 
-  if(game.isPlayingOnline() && prevHEntry.turnColor === game.color)
+  if(game.isPlayingOnline() && prevHEntry.turnColor === game.color) {
     sendMove(move);
+    if(timeSet)
+      console.timeEnd('premove time');
+    timeSet = false;
+  }
 
   if(game.isExamining()) {
     let nextMoveMatches = false;
@@ -2350,6 +2377,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   showTab($('#pills-game-tab'));
 }
 
+let timeSet = false;
 function movePieceAfter(game: Game, move: any, fen?: string) {
   // go to current position if user is looking at earlier move in the move list
   if((game.isPlaying() || game.isObserving()) && game.history.current() !== game.history.last())
@@ -3421,6 +3449,10 @@ $('#collapse-menus').on('hidden.bs.collapse', () => {
 $('#collapse-menus').on('show.bs.collapse', () => {
   $('#menus-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
   Utils.scrollToTop();
+
+  if(activeTab.attr('id') === 'pills-placeholder-tab')
+    activeTab = $('#pills-play-tab');
+
   activeTab.tab('show');
 });
 
@@ -5337,6 +5369,7 @@ $('#game-tools-setup-board').on('click', () => {
 function setupBoard(game: Game, serverIssued = false) {
   game.setupBoard = true;
   game.element.find('.status').hide(); // Hide the regular player status panels
+  stopEngine();
   if(game.isExamining() && !serverIssued)
     session.send('bsetup');
   updateSetupBoard(game);
@@ -5819,7 +5852,8 @@ function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: str
   if(pvNum === 1 && pvMoves) {
     const words = pvMoves.split(/\s+/);
     const san = words[0].split(/\.+/)[1];
-    const parsed = parseGameMove(game, game.history.current().fen, san);
+    const fen = game.setupBoard ? getSetupBoardFEN(game) : game.history.current().fen; 
+    const parsed = parseGameMove(game, fen, san);
     game.board.setAutoShapes([{
       orig: parsed.move.from || parsed.move.to, // For crazyhouse, just draw a circle on dest square
       dest: parsed.move.to,

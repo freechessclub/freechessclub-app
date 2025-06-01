@@ -1,6 +1,7 @@
-.feature3 {
-  background-color: #dee3e6;
+:root {
+  --bg-color: #dee3e6;
 }
+
 cg-board {
   background-image: url('../images/board/blue.svg');
 }
