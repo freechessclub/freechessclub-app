@@ -273,3 +273,8 @@ cg-board {
 .premove-target::before {
   color: white;
 }
+
+#channels-modal table thead {
+  background: color-mix(in srgb, var(--bg-color) 20%, white 80%);
+  --box-shadow-color: color-mix(in srgb, var(--bg-color) 85%, black 15%);
+}

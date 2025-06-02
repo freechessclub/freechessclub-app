@@ -381,3 +381,8 @@ a {
 .premove-target::before {
   color: white;
 }
+
+#channels-modal table thead {
+  background: color-mix(in srgb, var(--bg-color) 85%, white 15%);
+  --box-shadow-color: color-mix(in srgb, var(--bg-color) 85%, white 15%);
+}

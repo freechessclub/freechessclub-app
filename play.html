@@ -901,11 +901,49 @@
                   <div class="card-body d-flex flex-column flex-grow-1" style="min-height: 0">
                     <div class="d-flex">
                       <ul class="nav nav-tabs d-flex flex-grow-1 flex-wrap justify-content-start user-select-none" role="tablist" id="tabs">
-                        <div id="chan-dropdown" class="d-flex dropdown" data-bs-toggle="tooltip" data-bs-placement="top" title="Join Channel">
-                          <button class="btn btn-outline-secondary btn-sm dropdown-toggle hide-caret" type="button" id="chanButton" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Join Channel">
+                        <div id="start-chat-dropdown" class="d-flex dropend">
+                          <button class="btn btn-outline-secondary btn-sm dropdown-toggle hide-caret" type="button" id="start-chat-button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Start Chat">
+                            <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" data-bs-placement="top" title="Start Chat"></div>
                             <span class="fa fa-plus-square" aria-hidden="false"></span>
                           </button>
-                          <div id="chan-dropdown-menu" class="dropdown-menu" aria-labelledby="chanButton">
+                          <div id="start-chat-menu" class="dropdown-menu" aria-labelledby="start-chat-button">
+                            <li class="px-2 pb-2"><input type="text" class="form-control blur-on-enter" id="start-chat-input" placeholder="Start chat with..." aria-label="Start chat with..." spellcheck="false" autocomplete="false"=></li>
+                            <li id="add-remove-channels" class="center"><button class="btn btn-outline-secondary" type="button">Add or remove chat channels</button></li>
+                            <li><ul id="start-chat-users-channels" class="p-0" style="list-style: none; overflow-y: auto; max-height: 500px;">
+                              <li><ul id="subscribed-channels" class="p-0" style="list-style: none;">
+                                <li class="dropdown-header">SUBSCRIBED CHANNELS</li>
+                              </ul><li>
+                              <li><ul id="start-chat-matching-users" class="p-0" style="list-style: none">
+                                <li><h6 class="dropdown-header">USERS</h6></li>
+                              </ul><li>
+                              <li><ul id="start-chat-matching-channels" class="p-0 mt-2" style="list-style: none">
+                                <li><h6 class="dropdown-header">CHANNELS</h6></li>
+                              </ul><li>
+                            </ul></li>
+                          </div>
+                          <div class="modal fade" id="channels-modal" tabindex="-1" aria-labelledby="channels-modal-label" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                              <div class="modal-content">
+                                <div class="modal-header">
+                                  <h5 class="modal-title" id="channels-modal-label">Add or Remove Chat Channels</h5>
+                                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                  <div id="channels-modal-list" class="mb-1" style="height: 500px; overflow-y: scroll;">
+                                    <table class="table table-sm table-borderless table-striped">
+                                      <thead>
+                                        <tr>
+                                          <th scope="col">Channel</th>
+                                          <th scope="col">Subscribed</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                         <li class="nav-item">

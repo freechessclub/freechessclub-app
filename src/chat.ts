@@ -7,7 +7,7 @@ import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
 import { createTooltip, safeScrollTo, isSmallWindow } from './utils';
 import { setGameWithFocus, maximizeGame, scrollToBoard } from './index';
 import { settings } from './settings';
-import { storage } from './storage';
+import { storage, awaiting } from './storage';
 import { games } from './game';
 
 // list of channels
@@ -18,7 +18,7 @@ const channels = {
   3:      'FICS Programmers',
   4:      'Guest Help',
   5:      'Service Representatives',
-  6:      'Help (Interface & Timeseal)',
+  6:      'Interfaces Help',
   7:      'Online Tours',
   20:     'Forming Team games',
   21:     'Playing Team games',
@@ -98,9 +98,13 @@ export class Chat {
   private maximized: boolean;
   private unviewedNum: number;
   private virtualScrollerPromise: Promise<typeof import('virtual-scroller/dom')>;
+  private subscribedChannels: string[];
+  private userList: any[];
+  private userListHasBeenRequested: boolean = false;
 
   constructor() {
     this.unviewedNum = 0;
+    this.subscribedChannels = [];
     settings.timestampToggle = (storage.get('timestamp') !== 'false');
     settings.chattabsToggle = (storage.get('chattabs') !== 'false');
     this.virtualScrollerPromise = import('virtual-scroller/dom');
@@ -212,6 +216,8 @@ export class Chat {
       $('#mid-col').toggleClass('d-none');
       $(window).trigger('resize');
     });
+
+    this.initStartChatMenu();
   }
 
   public getWatchers(tab: any): string[] {
@@ -485,14 +491,11 @@ export class Chat {
       });
     }
 
-    if(showTab) {
-      const tabs = $('#tabs button').filter(function() {
-        return $(this).attr('id') === `tab-${from}`;
-      });
-      tabs.first().tab('show');
-    }
+    const tabElement = $('#tabs').find(`#tab-${from}`);
+    if(showTab) 
+      tabElement.tab('show');
  
-    return $('#tabs').find(`#tab-${from}`);
+    return tabElement;
   }
 
   public fixScrollPosition() {
@@ -547,23 +550,51 @@ export class Chat {
     return $('ul#tabs button.active').attr('id').split(/-(.*)/)[1];
   }
 
-  public addChannels(chans: string[]) {
-    $('#chan-dropdown-menu').empty();
-    chans.forEach((ch) => {
-      let chName = ch;
-      if (channels[Number(ch)] !== undefined) {
-        chName = channels[Number(ch)];
+  public addChannelList(chans: string[]) {
+    $('#subscribed-channels .dropdown-item').closest('li').remove();
+    this.subscribedChannels = [];
+    $(`#channels-modal [type="checkbox"]`).prop('checked', false);
+
+    chans.forEach(ch => this.addChannel(ch));
+  }
+
+  public addChannel(chan: string) {
+    this.subscribedChannels.push(chan);
+
+    let chName = chan;
+    if(channels[Number(chan)] !== undefined) {
+      chName = channels[Number(chan)];
+    }
+
+    // Insert new channel in alphabetical order
+    let followingElement: JQuery<HTMLElement> | null = null;
+    $('#subscribed-channels .dropdown-item').each(function() {
+      const itemText = $(this).text();
+      if(itemText.localeCompare(chName) > 0) {
+        followingElement = $(this).closest('li'); 
+        return false; 
       }
-      $('#chan-dropdown-menu').append(
-        `<a class="dropdown-item noselect" id="ch-${ch}">${chName}</a>`);
-      $(`#ch-${ch}`).on('click', (event) => {
-        event.preventDefault();
-        if (!settings.chattabsToggle) {
-          ch = 'console';
-        }
-        this.createTab(ch, true);
-      });
     });
+
+    const menuItem = $(`<li><a class="dropdown-item noselect" data-tab-name="${chan}">${chName}</a></li>`);
+    if(followingElement)
+      followingElement.before(menuItem)
+    else
+      $('#subscribed-channels').append(menuItem);
+      
+    // Tick the channel's 'subscribed' checkbox in the channels modal
+    $(`#channels-modal [data-channel="${chan}"]`).prop('checked', true);
+
+    $('#subscribed-channels').toggle($('#add-remove-channels').is(':visible'));
+  }
+
+  public removeChannel(chan: string) {
+    this.subscribedChannels = this.subscribedChannels.filter(item => item !== chan);
+    $(`#subscribed-channels [data-tab-name="${chan}"]`).closest('li').remove();
+    $('#subscribed-channels').toggle(!!$('#subscribed-channels .dropdown-item').length);
+
+    // Untick the channel's 'subscribed' checkbox in the channels modal
+    $(`#channels-modal [data-channel="${chan}"]`).prop('checked', false);
   }
 
   private escapeHTML(text: string) {
@@ -704,6 +735,180 @@ export class Chat {
         safeScrollTo($('#chat-panel').offset().top);
       else
         safeScrollTo($('#right-panel-header').offset().top);
+    }
+  }
+ 
+  /**
+   * Creates event listeners for the 'Start Chat' button and menu. This menu allows the user 
+   * to open a new chat tab for a user or channel or add/remove channels from their subscribed list (i.e. +ch, -ch)
+   */
+  public initStartChatMenu() {
+    // Triggered before the menu is shown
+    $('#start-chat-button').on('show.bs.dropdown', () => {
+      this.userList = null;
+      this.userListHasBeenRequested = false;
+      $('#start-chat-input').val('');
+      $('#add-remove-channels').show();
+      $('#subscribed-channels').toggle(!!$('#subscribed-channels .dropdown-item').length);
+      $('#start-chat-matching-users').hide();
+      $('#start-chat-matching-channels').hide();
+    });
+
+    // Triggered when a user or channel is clicked in the list in order to open a tab
+    $('#start-chat-menu').on('click', '[data-tab-name]', (event) => {
+      const chan = $(event.target).attr('data-tab-name') as string;
+
+      if(settings.chattabsToggle) {
+        this.createTab(chan, true);
+        setTimeout(this.scrollToChat, 300);
+      }
+
+      // If user opens a channel tab, also subscribe to that channel (if not already)
+      if(channels.hasOwnProperty(chan) && !this.subscribedChannels.includes(chan))
+        (window as any).sessionSend(`+ch ${chan}`);
+    });
+
+    $('#start-chat-button').on('shown.bs.dropdown', () => {
+      $('#start-chat-users-channels').scrollTop(0);
+      if(!navigator.maxTouchPoints) 
+        $('#start-chat-input').trigger('focus'); // Focus input when not on touch screen
+    });
+
+    // Listen for 'Enter' key and open tab, or listen for 'Tab' key for auto-completion
+    $('#start-chat-input').on('keydown', (event) => {
+      const elem = $(event.target);
+      let val = elem.val() as string;
+      val = val.trim();
+      if(event.key === 'Enter' && val.length) {
+        $('#start-chat-button').dropdown('hide');
+        let channelFound = false;
+        for(const [chNum, chName] of Object.entries(channels)) {
+          if(val.toLowerCase() === chName.toLowerCase()) {
+            val = chNum;
+            channelFound = true;
+            break;
+          }
+        }
+        if(!channelFound && this.userList) {
+          const matchingUser = this.userList.find(user => user.name.toLowerCase() === val.toLowerCase());
+          if(matchingUser)
+            val = matchingUser.name;
+        }
+
+        if(settings.chattabsToggle) {
+          this.createTab(val, true);
+          setTimeout(this.scrollToChat, 300);
+        }
+        elem.val('');
+      } 
+      else if(event.key === 'Tab') { // Tab auto-complete
+        if(val.length) { 
+          let match = val;
+          const matchingUser = $('#start-chat-matching-users [data-tab-name]').first();
+          if(matchingUser.length)
+            match = matchingUser.text();
+          else {
+            const matchingChannel = $('#start-chat-matching-channels [data-tab-name]').first();
+            if(matchingChannel.length)
+              match = matchingChannel.text();
+          }
+          if(val !== match) {
+            $(event.target).val(match);
+            (event.target as HTMLInputElement).select();
+          }
+        }
+        event.preventDefault();
+      }
+    });
+
+    // Filter results after new character typed in the input
+    $('#start-chat-input').on('input', (event) => {
+      const elem = $(event.target);
+      let val = elem.val() as string;
+      $('#start-chat-menu').css('min-width', `${$('#start-chat-menu').width()}px`); // keep menu width the same
+      $('#add-remove-channels').toggle(!val.length);
+      $('#subscribed-channels').toggle(!val.length && !!$('#subscribed-channels .dropdown-item').length);
+      $('#start-chat-matching-users').hide();
+      $('#start-chat-matching-users .dropdown-item').closest('li').remove();
+      $('#start-chat-matching-channels').hide();
+      $('#start-chat-matching-channels .dropdown-item').closest('li').remove();
+      if(!this.userListHasBeenRequested) {
+        this.userList = null;
+        awaiting.set('userlist');
+        (window as any).sessionSend('who');
+        this.userListHasBeenRequested = true; // Only request the user list once for each time the menu is shown
+      }      
+      else if(this.userList)
+        this.updateStartChatMenuFilter();
+    });
+
+    // Initialize subscribed channels
+    const sortedChannels = Object.entries(channels).sort(([, valueA], [, valueB]) =>
+      valueA.localeCompare(valueB)
+    );
+    sortedChannels.forEach(ch => {
+      $('#channels-modal tbody').append(`<tr><td>${ch[1]}</td><td><input type="checkbox" data-channel="${ch[0]}"></td></tr>`);
+    });
+
+    // Triggered when 'Add or remove chat rooms' button is clicked
+    $('#add-remove-channels button').on('click', (event) => {
+      $('#channels-modal').modal('show');
+    });
+
+    // Prevent menu from hiding when 'Add or remove chat rooms' button is clicked 
+    $('#channels-modal').on('hidden.bs.modal', (event) => {
+      $('#start-chat-button').off('hide.bs.dropdown');
+    });
+    $('#channels-modal').on('show.bs.modal', () => {
+      $('#start-chat-button').on('hide.bs.dropdown', (event) => {
+        event.preventDefault();
+      });
+    });
+    $('#channels-modal').on('hide.bs.modal', () => {
+      $('#channels-modal-list').scrollTop(0);
+    });
+
+    // Update subscribed channels when checkbox is clicked
+    $('#channels-modal').on('click', '[type="checkbox"]', (event) => {
+      const elem = $(event.target);
+      if(elem.prop('checked'))
+        (window as any).sessionSend(`+ch ${elem.attr('data-channel')}`);
+      else
+        (window as any).sessionSend(`-ch ${elem.attr('data-channel')}`);
+    });  
+  }
+
+  /**
+   * Called externally when results from a 'who' comamnd are received 
+   */
+  public updateUserList(users: any[]) {
+    this.userList = users;
+    this.updateStartChatMenuFilter();
+  }
+
+  /** Shows users and channels matching the text typed in the 'Start chat with...' input within the 'Start Chat' menu */
+  private updateStartChatMenuFilter() {
+    if($('#start-chat-menu').hasClass('show')) {
+      let inputText = $('#start-chat-input').val() as string;
+      inputText = inputText.trim().toLowerCase();
+      if(inputText.length) {
+        // Only show first 6 results, sorted alphabetically and excluding user's own name
+        let matchingUsers = this.userList.filter(user => user.name.toLowerCase().startsWith(inputText) && user.name !== this.user);
+        if(matchingUsers.length) {
+          matchingUsers = matchingUsers.slice(0,6).sort((a, b) => a.name.localeCompare(b.name));
+          matchingUsers.forEach(m => $('#start-chat-matching-users').append(
+            `<li><a class="dropdown-item noselect" data-tab-name="${m.name}">${m.name}</a></li>`));
+        }
+        $('#start-chat-matching-users').toggle(!!matchingUsers.length);
+
+        let matchingChannels = Object.entries(channels).filter(([key, value]) => value.toLowerCase().startsWith(inputText) || key.startsWith(inputText));
+        if(matchingChannels.length) {
+          matchingChannels = matchingChannels.sort((a, b) => a[1].localeCompare(b[1]));
+          matchingChannels.forEach(m => $('#start-chat-matching-channels').append(
+            `<li><a class="dropdown-item noselect" data-tab-name="${m[0]}">${m[1]}</a></li>`));
+        }
+        $('#start-chat-matching-channels').toggle(!!matchingChannels.length);
+      }
     }
   }
 }
