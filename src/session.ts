@@ -216,7 +216,7 @@ export class Session {
 
   public reconnect() {
     if(!this.isConnecting()) {
-      const user = this.getUser()?.match(/Guest[A-Z]{4}/) ? undefined : this.getUser(); 
+      const user = /^Guest[A-Z]{4}$/.test(this.getUser()) ? undefined : this.getUser(); 
       this.connect(user, this.getPassword());
     }
   }
