@@ -4,7 +4,7 @@
 
 import { autoLink } from 'autolink-js';
 import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
-import { createTooltip, safeScrollTo, isSmallWindow } from './utils';
+import { createTooltip, safeScrollTo, isSmallWindow, convertToLocalDateTime, getMonthShortName } from './utils';
 import { setGameWithFocus, maximizeGame, scrollToBoard } from './index';
 import { settings } from './settings';
 import { storage, awaiting } from './storage';
@@ -21,8 +21,8 @@ const channels = {
   6:      'Interfaces Help',
   7:      'Online Tours',
   20:     'Forming Team games',
-  21:     'Playing Team games',
-  22:     'Playing Team games',
+  21:     'Playing Team games 1',
+  22:     'Playing Team games 2',
   23:     'Forming Simuls',
   30:     'Books & Knowledge',
   31:     'Computer Games',
@@ -93,6 +93,7 @@ let maximized = false;
 export class Chat {
   private user: string;
   private userRE: RegExp;
+  private timezone: string;
   private tabData: object;
   private emojisLoaded: boolean;
   private maximized: boolean;
@@ -259,14 +260,12 @@ export class Chat {
       const bname = tags.Black;
       let wrating = tags.WhiteElo || '?';
       let brating = tags.BlackElo || '?';
-      let match = wname.match(/Guest[A-Z]{4}/);
-      if(match)
+      if(/^Guest[A-Z]{4}$/.test(wname))
         wrating = '++++';
       else if(wrating === '-')
         wrating = '----';
 
-      match = bname.match(/Guest[A-Z]{4}/);
-      if(match)
+      if(/^Guest[A-Z]{4}$/.test(bname))
         brating = '++++';
       else if(brating === '-')
         brating = '----';
@@ -376,9 +375,9 @@ export class Chat {
       if(channels[name] !== undefined)
         chName = channels[name];
      
-      match = chName.match(/^Game (\d+)/);
       let tooltip = '';
       let infoBar: JQuery<HTMLElement>;
+      match = chName.match(/^Game (\d+)/);
       if(match && match.length > 1) {
         const game = games.findGame(+match[1]);
         if(game) {
@@ -496,6 +495,10 @@ export class Chat {
       tabElement.tab('show');
  
     return tabElement;
+  }
+
+  public showTab(name: string) {
+    $(`#tab-${name.toLowerCase().replace(/\s/g, '-')}`).tab('show');
   }
 
   public fixScrollPosition() {
@@ -636,11 +639,13 @@ export class Chat {
 
     text = text.replace(this.userRE, `<strong class="mention">${this.user}</strong>`);
 
-    // Suffix for whispers
-    const suffixText = data.type === 'whisper' && !data.suffix ? '(whispered)' : data.suffix;
-    const suffix = (suffixText ? ` <span class="chat-text-suffix">${suffixText}</span>`: '');
+    let suffixText = data.suffix;
+    if(data.type == 'whisper')
+      suffixText = '(whispered)';
+    else if(data.type === 'kibitz')
+      suffixText = '(kibitzed)';
 
-    text = `${autoLink(text, {
+    text = autoLink(text, {
       target: '_blank',
       rel: 'nofollow',
       callback: (url) => {
@@ -648,11 +653,37 @@ export class Chat {
           `<a href="${url}" target="_blank" rel="nofollow"><img height="50" src="${url}"></a>`
           : null;
       },
-    })}${suffix}</br>`;
+    });
 
-    const timestamp = settings.timestampToggle
-      ? `<span class="timestamp">[${new Date().toLocaleTimeString()}]</span> `
-      : '';
+    let timestamp = settings.timestampToggle 
+        ? `<span class="timestamp">[${new Date().toLocaleTimeString()}]</span> `
+        : '';
+
+    // 'message' instead of tell
+    if(data.datetime) {
+      if(!settings.chattabsToggle)
+        return;
+
+      const dateTime = await convertToLocalDateTime(data.datetime);
+      const now = new Date();
+
+      const dateOptions: any = {
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric'
+      };
+      if(dateTime.getMonth() !== now.getMonth() || dateTime.getDate() !== now.getDate() || dateTime.getFullYear() !== now.getFullYear()) {
+        dateOptions.day = 'numeric';
+        dateOptions.month = 'short';
+        if(dateTime.getFullYear() !== now.getFullYear())
+          dateOptions.year = 'numeric';
+      }
+      timestamp = `<span class="timestamp">[${dateTime.toLocaleString('default', dateOptions)}]</span> `;
+      suffixText = '(message)';
+    }
+    
+    const suffix = (suffixText ? ` <span class="chat-text-suffix">${suffixText}</span>`: '');
+    text += suffix;
 
     const tabData = this.getTabDataFromElement(tabElement); 
     tabData.messages = tabData.messages.concat(`${timestamp}${who}${text}`);

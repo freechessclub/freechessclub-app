@@ -4,7 +4,7 @@
 
 import { Chessground } from 'chessground';
 import { Polyglot } from 'cm-polyglot/src/Polyglot.js';
-import type * as PgnParser from '@mliebelt/pgn-parser';
+import * as PgnParser from '@mliebelt/pgn-parser';
 import NoSleep from '@uriopass/nosleep.js'; // Prevent screen dimming
 import * as Utils from './utils';
 import * as ChessHelper from './chess-helper';
@@ -39,7 +39,9 @@ let chat: Chat;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
 let playEngine: Engine | null;
+let userVariables: any = {};
 let userList: any[];
+let pendingTells: any[] = [];
 let gameExitPending = [];
 let examineModeRequested: Game | null = null;
 let mexamineRequested: Game | null = null;
@@ -596,6 +598,8 @@ function messageHandler(data: any) {
         awaiting.set('channel-list');
         session.send('=computer'); // get Computers list, to augment names in Observe panel
         awaiting.set('computer-list');
+        session.send('variables'); // Get user's variables (mostly for tzone)
+        awaiting.set('user-variables');
 
         if($('#pills-observe').hasClass('active'))
           initObservePane();
@@ -635,6 +639,20 @@ function messageHandler(data: any) {
       break;
     case MessageType.PrivateTell:
       chat.newMessage(data.user, data);
+      break;
+    case MessageType.Messages:
+      if(data.type === 'online') // message received while online, put it immediately into a chat tab 
+        chat.newMessage(data.messages[0].user, data.messages[0]);
+      else if(data.type === 'unread' && awaiting.resolve('unread-messages')) {
+        data.messages.forEach(msg => chat.newMessage(msg.user, msg));
+        chat.showTab(data.messages[0].user);
+        if($('#collapse-chat').hasClass('show'))
+          chat.scrollToChat();
+        else
+          $('#collapse-chat').collapse('show');
+        return;
+      }
+      chat.newMessage('console', { message: data.raw });
       break;
     case MessageType.GameMove:
       gameMove(data);
@@ -1295,6 +1313,71 @@ function handleMiscMessage(data: any) {
     return;
   }
 
+  match = msg.match(/^You have (\d+) messages? \((\d+) unread\)./m);
+  if(match) {
+    const numMessages = +match[1];
+    const numUnread = +match[2];
+    if(numUnread > 0) {
+      if(settings.chattabsToggle) {
+        const okHandler = () => {
+          awaiting.set('unread-messages');
+          session.send('messages u');
+        };
+        const headerTitle = `Unread Message${numUnread > 1 ? 's' : ''}`;
+        const bodyText = `You have ${numUnread} unread message${numUnread > 1 ? 's' : ''}.<br><br>Tip: To send a reply message in a chat tab, prefix it with "m;"`;
+        const button1 = [okHandler, 'View in Chat Tabs'];
+        const button2 = ['', 'Not now'];
+        Dialogs.createNotification({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1});
+      }
+    }
+    else if(numMessages >= 35) { 
+      const button2Handler = () => {
+        storage.set('ignore-message-box-full', 'true');
+      };
+      if(!storage.get('ignore-message-box-full')) {
+        const headerTitle = 'Message Box Alert';
+        const bodyText = `Your message box is ${numMessages < 40 ? 'almost ' : ''} full.<br><br>Clear messages?`;
+        const button1 = ['clearmessages *', 'Clear messages'];
+        const button2 = [button2Handler, 'Not now'];
+        Dialogs.createNotification({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, useSessionSend: true});   
+      }
+    }
+  }
+
+  match = msg.match(/^Messages cleared./m);
+  if(match) {
+    storage.remove('ignore-message-box-full');
+    chat.newMessage('console', data);
+    return;
+  }
+
+  match = msg.match(/^\(told (.+)\)/m);
+  if(match) {
+    const index = pendingTells.findIndex(item => item.recipient.toLowerCase() === match[1].trim().toLowerCase());
+    if(index !== -1) 
+      pendingTells.splice(index, 1);
+    return;
+  }
+
+  match = msg.match(/^(\w+) is not logged in./m);
+  if(match) {
+    const index = pendingTells.findIndex(item => item.recipient.toLowerCase() === match[1].toLowerCase());
+    if(index !== -1) {
+      // User has tried to send a tell to an offline user. Ask if they want to send it as a message isntead
+      const tell = pendingTells.splice(index, 1)[0];
+      const message = Utils.splitText(Utils.unicodeToHTMLEncoding(tell.message), 997)[0]; // HTMLEncode message and truncate to max 997 chars
+      const okHandler = () => {
+        session.send(`message ${tell.recipient} ${message}`);
+      };
+      const headerTitle = 'Send as message';
+      const bodyText = `${tell.recipient} is not logged in. Send as message instead?`;
+      const button1 = [okHandler, 'Yes'];
+      const button2 = ['', 'No'];
+      Dialogs.showFixedDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1});
+      return;
+    }
+  }
+
   match = msg.match(/^Game (\d+): (\S+) has lagged for 30 seconds\./m);
   if(match) {
     const game = games.findGame(+match[1]);
@@ -1402,8 +1485,6 @@ function handleMiscMessage(data: any) {
   if(match && match.length > 2) {
     const n = Dialogs.createNotification({type: 'Resume Game', title: `${match[1]}<br>${match[2]}`, btnSuccess: ['resume', 'Resume Game'], useSessionSend: true});
     n.attr('data-adjourned-list', 'true');
-    chat.newMessage('console', data);
-    return;
   }
   match = msg.match(/^Notification: ((\S+), who has an adjourned game with you, has arrived\.)/m);
   if(match && match.length > 2) {
@@ -1413,20 +1494,40 @@ function handleMiscMessage(data: any) {
     }
     return;
   }
+  
   match = msg.match(/^\w+ is not logged in./m);
   if(!match)
     match = msg.match(/^Player [a-zA-Z\"]+ is censoring you./m);
+  if(!match)
+    match = msg.match(/^There is no player matching the name \S+/m);
   if(!match)
     match = msg.match(/^Sorry the message is too long./m);
   if(!match)
     match = msg.match(/^You are muted./m);
   if(!match)
     match = msg.match(/^Only registered players may whisper to others' games./m);
+  if(!match) 
+    match = msg.match(/^\S+ message box is full./m);
+  if(!match)
+    match = msg.match(/^You cannot send any more messages to \S+ at present \(24hr limit reached\)./m);
+  if(!match)
+    match = msg.match(/^A message cannot be received as your message box is full./m);
+  if(!match)
+    match = msg.match(/^Only registered players can have messages./m);
   if(!match)
     match = msg.match(/^Notification: .*/m);
   if(match && match.length > 0) {
+    if(/^The following message was emailed to/m.test(msg) && chat.currentTab() !== 'console') {
+      chat.newNotification(`${match[0]} Message sent as email.`);
+      return
+    }
     chat.newNotification(match[0]);
     return;
+  }
+
+  match = msg.match(/^The following message was (sent(?: and emailed)?)/m);
+  if(match && chat.currentTab() !== 'console') {
+    chat.newNotification(`Message ${match[1]}.`);
   }
 
   // A match request sent to a player was declined or the player left
@@ -1515,15 +1616,13 @@ function handleMiscMessage(data: any) {
 
         if(wrating === 'UNR') {
           game.wrating = '';
-          match = wname.match(/Guest[A-Z]{4}/);
-          if(match)
+          if(/^Guest[A-Z]{4}$/.test(wname))
             wrating = '++++';
           else wrating = '----';
         }
         if(brating === 'UNR') {
           game.brating = '';
-          match = bname.match(/Guest[A-Z]{4}/);
-          if(match)
+          if(/^Guest[A-Z]{4}$/.test(bname))
             brating = '++++';
           else brating = '----';
         }
@@ -1715,7 +1814,19 @@ function handleMiscMessage(data: any) {
     computerList = match[1].split(/\s+/);
     return;
   }
-
+  
+  match = msg.match(/(?:^|\n)Variable settings of \S+\s+((?:\w+=\w+\s+)+)/);
+  if(match && awaiting.has('user-variables')) {
+    const varStrings = match[1].split(/\s+/);
+    userVariables = Object.fromEntries(varStrings.map(val => val.split('='))); 
+    Utils.setDefaultTimezone(userVariables.tzone);
+    return;
+  }
+  match = msg.match(/^Interface: /m);
+  if(match && awaiting.resolve('user-variables')) {
+    return;
+  }
+  
   // Suppress messages when 'moves' command issued internally
   match = msg.match(/^You're at the (?:beginning|end) of the game\./m);
   if(match) {
@@ -1866,6 +1977,8 @@ function handleMiscMessage(data: any) {
 export function cleanup() {
   awaiting.clearAll();
   partnerGameId = null;
+  userVariables = {};
+  pendingTells = [];
   examineModeRequested = null;
   mexamineRequested = null;
   gameExitPending = [];
@@ -6280,8 +6393,24 @@ $('#input-form').on('submit', (event) => {
       const xcmd = game && game.role === Role.OBSERVING ? 'xwhisper' : 'xkibitz';
       text = `${xcmd} ${gameNum} ${val}`;
     }
-    else
-      text = `t ${tab} ${val}`;
+    else if(val.startsWith('m;') && !/^\d+$/.test(tab)) { // Use "m;" prefix to send message
+      // Display message in chat tab
+      const msg = val.substring(2).trim();
+      chat.newMessage(tab, {
+        type: MessageType.PrivateTell,
+        user: session.getUser(),
+        message: msg,
+      });
+      text = `message ${tab} ${msg}`;
+    }
+    else {
+      if(/^\d+$/.test(tab))
+        text = `t ${tab} ${val}`;
+      else {
+        const name = $(`#tab-${tab}`).text();
+        text = `t ${name} ${val}`;
+      }
+    }
   }
   else
     text = val;
@@ -6311,6 +6440,12 @@ $('#input-form').on('submit', (event) => {
   }
 
   if(chatCmd) {
+    const isPrivateTell = ('xtell'.startsWith(chatCmd) || 'tell'.startsWith(chatCmd)) && !/^\d+$/.test(recipient);
+
+    if(isPrivateTell && session.getUser().toLowerCase() !== recipient.toLowerCase() 
+        && session.isRegistered() && !/^Guest[A-Z]{4}$/i.test(recipient)) 
+      pendingTells.push({ recipient, message });
+
     const maxLength = (session.isRegistered() ? 400 : 200);
     if(message.length > maxLength)
       message = message.slice(0, maxLength);
@@ -6319,7 +6454,7 @@ $('#input-form').on('submit', (event) => {
     const messages = Utils.splitText(message, maxLength); // if message is now bigger than maxLength chars due to html encoding split it
 
     for(const msg of messages) {
-      if(('xtell'.startsWith(chatCmd) || 'tell'.startsWith(chatCmd)) && !/^\d+$/.test(recipient)) {
+      if(isPrivateTell) {
         chat.newMessage(recipient, {
           type: MessageType.PrivateTell,
           user: session.getUser(),
@@ -6370,6 +6505,8 @@ function updateInputText() {
     maxLength = 1024;
   else if(tab === 'console')
     maxLength = 1023;
+  else if(val.startsWith('m;')) // User is sending a 'message' from chat tab
+    maxLength = 999;
   else if(!session.isRegistered()) // Guests are limited to half the tell length
     maxLength = 200;
   else
