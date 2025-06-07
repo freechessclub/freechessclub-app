@@ -40,6 +40,7 @@ export function GetMessageType(msg: any): MessageType {
 
 export class Session {
   private connected: boolean;
+  private connecting: boolean;
   private user: string;
   private pass: string;
   private websocket: WebSocket;
@@ -50,14 +51,17 @@ export class Session {
   private registered: boolean;
   private sessionStatusPopoverTimer; // Hide session status popover after duration
   private bodyClickHandler; // Used to detect when user clicks outside of session status popover
+  private postConnectCommands;
 
   constructor(onRecv: (msg: any) => void, user?: string, pass?: string) {
     this.connected = false;
+    this.connecting = false;
     this.user = user;
     this.pass = pass;
     this.onRecv = onRecv;
     this.registered = false;
     this.connect(user, pass);
+    this.postConnectCommands = [];
 
     // Hide popover if user clicks anywhere outside
     this.bodyClickHandler = (e) => {
@@ -72,7 +76,7 @@ export class Session {
   }
 
   destroy() {
-    $('body').off('click', this.bodyClickHandler());
+    $('body').off('click', this.bodyClickHandler);
   }
 
   public isRegistered(): boolean {
@@ -85,6 +89,10 @@ export class Session {
 
   public getUser(): string {
     return this.user;
+  }
+
+  public getPassword(): string {
+    return this.pass;
   }
 
   public getParser(): Parser {
@@ -102,16 +110,23 @@ export class Session {
       $('#session-status').popover('show');
       this.sessionStatusPopoverTimer = setTimeout(() => $('#session-status').popover('dispose'), 3600);
     }
-    this.connected = true;
     this.user = user;
+
+    this.connected = true;
+    this.connecting = false;
   }
 
   public isConnected(): boolean {
     return this.connected;
   }
 
+  public isConnecting(): boolean {
+    return this.connecting;
+  }
+
   public connect(user?: string, pass?: string) {
     this.registered = false;
+    this.connecting = true;
     $('#game-requests').empty();
     $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
 
@@ -130,29 +145,32 @@ export class Session {
     this.websocket.onclose = (e) => {
       // Reconnect automatically if the connection was dropped unexpectedly, i.e. by mobile power management
       if(this.isConnected()) {
-        let reconnect = false;
         this.reset();
         if(!e.wasClean) {
           if(document.visibilityState === 'visible')
-            reconnect = true;
+            this.connect(this.user, this.pass);
           else {
             $(document).one('visibilitychange', () => {
               this.connect(this.user, this.pass);
             });
           }
         }
-        if(reconnect)
-          this.connect(this.user, this.pass);
       }
     };
 
     this.websocket.onopen = () => {
       $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
-      this.send(this.timesealHello);
+      this.send(this.timesealHello, false);
     };   
 
     this.websocket.onerror = () => {
+      this.connecting = false;
+      this.postConnectCommands = [];
       $('#session-status').html('<span class="text-danger"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;Offline</span>');
+      this.onRecv({
+        command: 3,
+        control: 'Failed to connect'
+      }); 
     };
   }
 
@@ -166,16 +184,40 @@ export class Session {
   public reset() {
     $('#session-status').html('<span class="text-danger"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;Offline</span>');
     this.connected = false;
+    this.connecting = false;
+    this.postConnectCommands = [];
     this.onRecv({
       command: 3,
       control: 'Disconnected'
     }); // Send disconnected command to message handler
   }
 
-  public send(command: string) {
+  /**
+   * Send command to the server 
+   * @param autoConnect auto-connect to the server if command sent when offline/connecting. 
+   * use false if issuing a connection command (i.e. after the socket opens but before fully logged in)
+   */
+  public send(command: string, autoConnect = true) {
+    // If user has tried to send a command while offline or connecting (for example by clicking a button
+    // in the pairing pane) then auto-connect to the server and send the command once connected
+    if(!this.isConnected() && autoConnect) {
+      if(!this.isConnecting()) {
+        const user = this.getUser().match(/Guest[A-Z]{4}/) ? 'guest' : this.getUser(); 
+        this.connect(user, this.getPassword());
+      }
+      this.postConnectCommands.push(command); 
+      return;
+    }
+ 
     this.websocket.send(this.encode(command).buffer);
   }
 
+  /** Call this function after logging in to send queued commands */
+  public sendPostConnectCommands() {
+    this.postConnectCommands.forEach((cmd) => this.send(cmd));
+    this.postConnectCommands = [];
+  }
+  
   public encode(msg: string) {
     let l = msg.length;
     const s = new Uint8Array(l+30);

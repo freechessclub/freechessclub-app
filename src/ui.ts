@@ -19,7 +19,7 @@ $('#textsize-range').on('change', (event) => {
   storage.set('text-size', String($(event.target).val()));
 });
 
-function setStyle(component: string, name: string) {
+function setStyle(component: string, name: string, directory?: string) {
   $(`#${component}`).attr('href', `assets/css/${component}s/${name}.css`);
   storage.set(component, name);
 }
@@ -28,15 +28,55 @@ function setStyle(component: string, name: string) {
 const theme = storage.get('theme');
 if (theme != null) {
   $('#theme').attr('href', `assets/css/themes/${theme}.css`);
+  if(theme === 'gray')
+    $('#base-theme').attr('href', 'assets/css/themes/base-theme-dark.css');
 }
 
-$('#theme-default').on('click', () => { setStyle('theme', 'default') });
-$('#theme-green').on('click', () => { setStyle('theme', 'green') });
-$('#theme-yellow').on('click', () => { setStyle('theme', 'yellow') });
-$('#theme-gray').on('click', () => { setStyle('theme', 'gray') });
-$('#theme-purple').on('click', () => { setStyle('theme', 'purple') });
-$('#theme-ic').on('click', () => { setStyle('theme', 'ic') });
-$('#theme-newspaper').on('click', () => { setStyle('theme', 'newspaper') });
+let themeName: string;
+if(theme)
+  themeName = $('#themes-menu li').filter((index, element) => $(element).attr('id').endsWith(`-${theme}`)).text();
+else
+  themeName = $('#themes-menu li').first().text();
+$('#themes-button').text(themeName);
+
+$('#themes-menu li').on('click', (event) => {
+  $('#themes-button').text($(event.target).text());
+  $('#board-style').remove();
+  storage.remove('board');
+
+  const theme = $(event.target).attr('id').split('theme-')[1];
+  setStyle('theme', theme);
+
+  if(theme === 'gray')
+    $('#base-theme').attr('href', 'assets/css/themes/base-theme-dark.css');
+  else
+    $('#base-theme').attr('href', 'assets/css/themes/base-theme-light.css');
+});
+
+// board controls
+function injectBoardStyle(board: string) {
+  $('#board-style').remove();
+  $('<style>', {
+    id: 'board-style',
+    type: 'text/css',
+    text: `
+      cg-board {
+        background-image: url('assets/css/images/board/${board}.svg')
+      }
+    `
+  }).appendTo('head');
+}
+
+const board = storage.get('board');
+if (board != null) {
+  injectBoardStyle(board);
+}
+
+$('#boards-menu button').on('click', (event) => {
+  const board = $(event.target).attr('id').split('board-')[1];
+  injectBoardStyle(board);
+  storage.set('board', board);
+});
 
 // board piece controls
 const piece = storage.get('piece');

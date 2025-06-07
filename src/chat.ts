@@ -93,17 +93,18 @@ let maximized = false;
 export class Chat {
   private user: string;
   private userRE: RegExp;
-  private tabs: object;
-  private scrolledToBottom: object;
+  private tabData: object;
   private emojisLoaded: boolean;
   private maximized: boolean;
   private unviewedNum: number;
+  private virtualScrollerPromise: Promise<typeof import('virtual-scroller/dom')>;
 
   constructor() {
     this.unviewedNum = 0;
     settings.timestampToggle = (storage.get('timestamp') !== 'false');
     settings.chattabsToggle = (storage.get('chattabs') !== 'false');
-    
+    this.virtualScrollerPromise = import('virtual-scroller/dom');
+
     // load emojis
     this.emojisLoaded = false;
     const suppressUnhandledRejection = (event) => { 
@@ -118,23 +119,54 @@ export class Chat {
     });
 
     // initialize tabs
-    this.tabs = {};
-    this.scrolledToBottom = {};
+    this.tabData = {};
 
-    $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
+    $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', async (e) => {
       const tab = $(e.target);
       this.updateViewedState(tab);
+
       const contentPane = $(tab.attr('href'));
-      const chatText = contentPane.find('.chat-text');
-      if(this.scrolledToBottom[contentPane.attr('id')])
-        chatText.scrollTop(chatText[0].scrollHeight);
-      chatText.trigger('scroll');
+      const scrollContainer = contentPane.find('.chat-scroll-container');
+      if(!scrollContainer.length)
+        return;
+
+      const tabData = this.getTabDataFromElement(tab);
+      if(!tabData.scroller) {
+        tabData.scroller = await this.createVirtualScroller(contentPane, tabData.messages);
+        tabData.scrollerStarted = true;
+      }
+
+      if(!tabData.scrollerStarted) {
+        // In case panel was resized while hidden, recalculate chat message heights so that 
+        // virtual-scroller doesn't complain after restarting
+        const state = tabData.scroller.virtualScroller.getState();
+        for(let i = state.firstShownItemIndex; i <= state.lastShownItemIndex; i++) 
+          tabData.scroller.onItemHeightDidChange(i);
+        tabData.scroller.start();
+        tabData.scroller.setItems(tabData.messages); // Render any new messages that arrived while tab was hidden
+        tabData.scrollerStarted = true;
+      }
+      this.fixScrollPosition();
+    });
+
+    $(document).on('hide.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
+      const tab = $(e.target);
+      const tabData = this.getTabDataFromElement(tab);
+      if(tabData.scrollerStarted) {
+        tabData.scroller.stop(); // Stop virtual-scroller before hiding tab so that it doesn't remove all its DO< elements
+        tabData.scrollerStarted = false;
+      } 
     });
 
     $('#chat-scroll-button').on('click', () => {
-      const chatText = $('.tab-pane.active .chat-text');
+      const scrollContainer = $('.tab-pane.active .chat-scroll-container');
       $('#chat-scroll-button').hide();
-      chatText.scrollTop(chatText[0].scrollHeight);
+      scrollContainer.scrollTop(scrollContainer[0].scrollHeight);
+    });
+
+    $('#collapse-chat').on('hide.bs.collapse', () => {
+      const activeTab = $('#tabs button').filter('.active');
+      activeTab.trigger('hide.bs.tab');
     });
 
     $('#collapse-chat').on('hidden.bs.collapse', () => {
@@ -324,7 +356,7 @@ export class Chat {
     this.userRE = new RegExp(`\\b${user}\\b`, 'ig');
   }
 
-  public createTab(name: string, showTab = false) {
+  public async createTab(name: string, showTab = false) {
     let from: string;
     if(!settings.chattabsToggle)
       from = 'console';
@@ -335,8 +367,8 @@ export class Chat {
     let match = from.match(/^game-(\d+)/);
     if(match && match.length > 1) {
       const gameId = match[1];
-      for(const key in this.tabs) {
-        if(this.tabs.hasOwnProperty(key)) {
+      for(const key in this.tabData) {
+        if(this.tabData.hasOwnProperty(key)) {
           match = key.match(/^game-(\d+)-and-(\d+)/)
           if(match && match.length > 2 && (match[1] === gameId || match[2] === gameId)) {
             from = key;
@@ -346,36 +378,38 @@ export class Chat {
       }
     }
 
-    if(!this.tabs.hasOwnProperty(from)) {
+    if(!this.tabData.hasOwnProperty(from)) {
       let chName = name;
       if(channels[name] !== undefined)
         chName = channels[name];
+     
+      match = chName.match(/^Game (\d+)/);
+      let tooltip = '';
+      let infoBar: JQuery<HTMLElement>;
+      if(match && match.length > 1) {
+        const game = games.findGame(+match[1]);
+        if(game) {
+          const tags = game.history.metatags;
+          const gameDescription = `${tags.White || game.wname} vs. ${tags.Black || game.bname}`;
+          tooltip = `data-bs-toggle="tooltip" data-tooltip-hover-only title="${gameDescription}" `;
 
-      if(!$('#tabs').find(`#tab-${from}`).length) {
-        match = chName.match(/^Game (\d+)/);
-        let tooltip = '';
-        let infoBar: JQuery<HTMLElement>;
-        if(match && match.length > 1) {
-          const game = games.findGame(+match[1]);
-          if(game) {
-            const tags = game.history.metatags;
-            const gameDescription = `${tags.White || game.wname} vs. ${tags.Black || game.bname}`;
-            tooltip = `data-bs-toggle="tooltip" data-tooltip-hover-only title="${gameDescription}" `;
-
-            // Show Game chat room info bar
-            infoBar = $(`
-            <div class="d-flex flex-shrink-0 w-100 chat-info">
-              <div class="d-flex align-items-center flex-grow-1 overflow-hidden me-2" style="min-width: 0">
-                <button class="chat-game-description btn btn-outline-secondary btn-transparent p-0 chat-info-text"></button>
-              </div>
-              <button class="chat-watchers d-flex ms-auto align-items-center btn btn-outline-secondary btn-transparent p-0 chat-info-text" data-bs-placement="left">
-                <span class="chat-watchers-text">0 Watchers</span>
-                <span class="fa-solid fa-users"></span>
-              </button>
-            </div>`);
-          }
+          // Show Game chat room info bar
+          infoBar = $(`
+          <div class="d-flex flex-shrink-0 w-100 chat-info">
+            <div class="d-flex align-items-center flex-grow-1 overflow-hidden me-2" style="min-width: 0">
+              <button class="chat-game-description btn btn-outline-secondary btn-transparent p-0 chat-info-text"></button>
+            </div>
+            <button class="chat-watchers d-flex ms-auto align-items-center btn btn-outline-secondary btn-transparent p-0 chat-info-text" data-bs-placement="left">
+              <span class="chat-watchers-text">0 Watchers</span>
+              <span class="fa-solid fa-users"></span>
+            </button>
+          </div>`);
         }
-        const tabElement = $(`<li ${tooltip}class="nav-item position-relative">
+      }
+
+      let tabElement = $('#tabs').find(`#tab-${from}`);
+      if(!tabElement.length) {
+        tabElement = $(`<li ${tooltip}class="nav-item position-relative">
             <button class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-${from}" `
               + `id="tab-${from}" role="tab" style="padding-right: 30px">${chName}</button>
             <container class="d-flex align-items-center h-100 position-absolute" style="top: 0; right: 12px; z-index: 10">
@@ -383,80 +417,99 @@ export class Chat {
             </container>
           </li>`).appendTo('#tabs');
 
-        const tabContent = $(`<div class="tab-pane" id="content-${from}" role="tabpanel">
-          <div class="d-flex flex-column chat-content-wrapper h-100">
-            <div class="chat-text flex-grow-1 mt-3" style="min-height: 0"></div>
-          </div>
-        </div>`).appendTo('#chat-tabContent');
-
-        if(infoBar) {
-          tabContent.find('.chat-content-wrapper').prepend(infoBar);
-          this.updateGameDescription(tabElement.find('.nav-link'));
-          this.updateNumWatchers(tabElement.find('.nav-link'));
-
-          // Display watchers-list tooltip when hovering button in info bar
-          tabContent.find('.chat-watchers').on('mouseenter', (e) => {
-            const curr = $(e.currentTarget);
-            const activeTab = $('#tabs button').filter('.active');
-            const watchers = this.getWatchers(activeTab);
-            if(watchers) {
-              const description = watchers.join('<br>');
-              const numWatchers = watchers.length;
-              const title = `${numWatchers} Watchers`;
-              const tooltipText = !watchers.length
-                ? `<b>${title}</b>`
-                : `<b>${title}</b><hr class="tooltip-separator"><div>${description}</div>`;
-
-              curr.tooltip({
-                title: tooltipText,
-                html: true,
-                ...watchers.length && {
-                  popperConfig: {
-                    placement: 'left-start',
-                  },
-                  offset: [-10, 0]
-                }
-              }).tooltip('show');
-            }
-
-            curr.one('mouseleave', () => {
-              curr.tooltip('dispose');
-            });
-          });
-
-          $('.chat-game-description').on('click', () => {
-            const game = this.getGameFromTab($('#tabs button.active'));
-            if(game) {
-              setGameWithFocus(game);
-              maximizeGame(game);
-            }
-          });
-        }
-
         if(tooltip)
           createTooltip(tabElement);
       }
 
-      this.tabs[from] = $(`#content-${from}`);
-      this.scrolledToBottom[`content-${from}`] = true;
+      let tabContent = $('#chat-tabContent').find(`#content-${from}`);
+      if(!tabContent.length) {
+        tabContent = $(`<div class="tab-pane" id="content-${from}" role="tabpanel"></div>`);
+        tabContent.appendTo('#chat-tabContent');
+      }
+          
+      $(`<div class="d-flex flex-column chat-content-wrapper h-100">
+          <div class="flex-grow-1 mt-3 chat-scroll-container" style="min-height: 0">
+            <div class="chat-text"></div>
+          </div>
+        </div>
+      </div>`).appendTo(tabContent);
+
+      if(infoBar) {
+        tabContent.find('.chat-content-wrapper').prepend(infoBar);
+        this.updateGameDescription(tabElement.find('.nav-link'));
+        this.updateNumWatchers(tabElement.find('.nav-link'));
+
+        // Display watchers-list tooltip when hovering button in info bar
+        tabContent.find('.chat-watchers').on('mouseenter', (e) => {
+          const curr = $(e.currentTarget);
+          const activeTab = $('#tabs button').filter('.active');
+          const watchers = this.getWatchers(activeTab);
+          if(watchers) {
+            const description = watchers.join('<br>');
+            const numWatchers = watchers.length;
+            const title = `${numWatchers} Watchers`;
+            const tooltipText = !watchers.length
+              ? `<b>${title}</b>`
+              : `<b>${title}</b><hr class="tooltip-separator"><div>${description}</div>`;
+
+            curr.tooltip({
+              title: tooltipText,
+              html: true,
+              ...watchers.length && {
+                popperConfig: {
+                  placement: 'left-start',
+                },
+                offset: [-10, 0]
+              }
+            }).tooltip('show');
+          }
+
+          curr.one('mouseleave', () => {
+            curr.tooltip('dispose');
+          });
+        });
+
+        $('.chat-game-description').on('click', () => {
+          const game = this.getGameFromTab($('#tabs button.active'));
+          if(game) {
+            setGameWithFocus(game);
+            maximizeGame(game);
+          }
+        });
+      }
 
       // Scroll event listener for auto scroll to bottom etc
-      $(`#content-${from}`).find('.chat-text').on('scroll', (e) => {
-        const panel = e.target;
-        const tab = panel.closest('.tab-pane');
+      tabContent.find('.chat-scroll-container').on('scroll', (e) => {
+        const scrollContainer = e.target;
+        const tabContent = $(scrollContainer).closest('.tab-pane');
+        const tabData = this.getTabDataFromElement(tabContent);
 
-        if($(tab).hasClass('active')) {
-          const atBottom = panel.scrollHeight - panel.clientHeight < panel.scrollTop + 1.5;
+        if(tabContent.hasClass('active')) {
+          const atBottom = scrollContainer.scrollHeight - scrollContainer.clientHeight < scrollContainer.scrollTop + 1.5;
           if(atBottom) {
             $('#chat-scroll-button').hide();
-            this.scrolledToBottom[$(tab).attr('id')] = true;
+            tabData.scrolledToBottom = true;
           }
           else {
-            this.scrolledToBottom[$(tab).attr('id')] = false;
+            tabData.scrolledToBottom = false;
             $('#chat-scroll-button').show();
           }
         }
       });
+
+      const messages = [];
+
+      this.tabData[from] = {
+        messages,
+        scroller: null,
+        scrollerStarted: false,
+        scrolledToBottom: true
+      };
+
+      if(tabContent.hasClass('active')) {
+        this.tabData[from].scroller = await this.createVirtualScroller(tabContent, messages);
+        this.tabData[from].scrollerStarted = true;
+      }
     }
 
     if(showTab) {
@@ -465,22 +518,56 @@ export class Chat {
       });
       tabs.first().tab('show');
     }
-
-    return this.tabs[from];
+ 
+    return this.tabData[from];
   }
 
   public fixScrollPosition() {
     // If scrollbar moves due to resizing, move it back to the bottom
-    const panel = $('.tab-pane.active .chat-text');
-    const tab = panel.closest('.tab-pane');
-    if(this.scrolledToBottom[tab.attr('id')])
-      panel.scrollTop(panel[0].scrollHeight);
+    const scrollContainer = $('.tab-pane.active .chat-scroll-container');
+    if(!scrollContainer.length)
+      return;
+    const tabContent = scrollContainer.closest('.tab-pane');
+    const tabData = this.getTabDataFromElement(tabContent);
+    if(tabData.scrolledToBottom) 
+      scrollContainer.scrollTop(scrollContainer[0].scrollHeight);
+    scrollContainer.trigger('scroll');
+  }
 
-    panel.trigger('scroll');
+  /**
+   * Create a virtual-scroller object for a tab's content
+   * @param tabContent The chat tab-pane to use
+   * @param messages The array of chat messages for the tab
+   * @returns VirtualScroller object
+   */
+  public async createVirtualScroller(tabContent, messages) {
+    const { default: VirtualScroller } = await this.virtualScrollerPromise;
+    return new VirtualScroller(tabContent.find('.chat-text')[0], messages, (msg: string) => {
+      const elem = document.createElement('div');
+      elem.classList.add('chat-message');
+      elem.innerHTML = msg;
+      return elem;
+    }, {
+      scrollableContainer: tabContent.find('.chat-scroll-container')[0],
+      onStateChange: () => {
+        this.fixScrollPosition(); // For auto-scrolling to bottom
+      }
+    });
+  }
+
+  public getTabData(name: string) {
+    return this.tabData[name];
+  }
+
+  public getTabDataFromElement(tabElement: any) {
+    return this.getTabData(tabElement.attr('id').toLowerCase().split(/-(.*)/)[1]);
   }
 
   public deleteTab(name: string) {
-    delete this.tabs[name];
+    const tabData = this.tabData[name];
+    if(tabData.scrollerStarted) 
+      tabData.scroller.stop();
+    delete this.tabData[name];
   }
 
   public currentTab(): string {
@@ -517,13 +604,13 @@ export class Chat {
     });
   }
 
-  public newMessage(from: string, data: any, html = false) {
+  public async newMessage(from: string, data: any, html = false) {
     const tabName = settings.chattabsToggle ? from : 'console';
 
     if(!/^[\w- ]+$/.test(from))
       return;
 
-    const tab = this.createTab(tabName);
+    const tab = await this.createTab(tabName);
     let who = '';
     if (data.user !== undefined) {
       let textclass = '';
@@ -554,7 +641,7 @@ export class Chat {
       rel: 'nofollow',
       callback: (url) => {
         return /\.(gif|png|jpe?g)$/i.test(url) ?
-          `<a href="${url}" target="_blank" rel="nofollow"><img width="60" src="' + url + '"></a>`
+          `<a href="${url}" target="_blank" rel="nofollow"><img height="50" src="${url}"></a>`
           : null;
       },
     })}${suffix}</br>`;
@@ -563,16 +650,14 @@ export class Chat {
       ? `<span class="timestamp">[${new Date().toLocaleTimeString()}]</span> `
       : '';
 
-    const chatText = tab.find('.chat-text');
-    chatText.append(`${timestamp}${who}${text}`);
+    tab.messages = tab.messages.concat(`${timestamp}${who}${text}`);
+    if(tab.scrollerStarted)
+      tab.scroller.setItems(tab.messages);
 
     const tabheader = $(`#tab-${from.toLowerCase().replace(/\s/g, '-')}`);
 
     if(this.user !== data.user)
       this.updateViewedState(tabheader, false, data.type !== 'whisper');
-
-    if(tab.hasClass('active') && this.scrolledToBottom[tab.attr('id')])
-      chatText.scrollTop(chatText[0].scrollHeight);
   }
 
   private ignoreUnviewed(from: string) {
