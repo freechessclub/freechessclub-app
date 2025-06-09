@@ -585,7 +585,6 @@ function messageHandler(data: any) {
     case MessageType.Control:
       if(data.command === 1 && !session.isConnected()) { // Connected
         session.setUser(data.control);
-        chat.setUser(data.control);
         session.send('set seek 0');
         session.send('set echo 1');
         session.send('set style 12');
@@ -600,6 +599,7 @@ function messageHandler(data: any) {
         awaiting.set('computer-list');
         session.send('variables'); // Get user's variables (mostly for tzone)
         awaiting.set('user-variables');
+        chat.connected(data.control);
 
         if($('#pills-observe').hasClass('active'))
           initObservePane();
@@ -1285,7 +1285,7 @@ function handleMiscMessage(data: any) {
       game.watchers = watchers.filter(item => item.replace('#', '') !== session.getUser());
       const chatTab = chat.getTabFromGameID(game.id);
       if(chatTab)
-        chat.updateNumWatchers(chatTab);
+        chat.updateWatchers(chatTab);
       let req = '';
       let numWatchers = 0;
       for(let i = 0; i < watchers.length; i++) {
@@ -1304,6 +1304,14 @@ function handleMiscMessage(data: any) {
       return;
     }
     chat.newMessage('console', data);
+    return;
+  }
+
+  match = msg.match(/^Channel (\d+) \S+ (.*)/m);
+  if(match && awaiting.resolve('inchannel')) {
+    const chNum = match[1];
+    const members = match[2].replace(/\(U\)/g, '').split(' ');
+    chat.updateMembers(chNum, members);
     return;
   }
 
@@ -1975,6 +1983,7 @@ function handleMiscMessage(data: any) {
 }
 
 export function cleanup() {
+  chat?.cleanup();
   awaiting.clearAll();
   partnerGameId = null;
   userVariables = {};

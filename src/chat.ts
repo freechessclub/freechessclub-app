@@ -4,7 +4,7 @@
 
 import { autoLink } from 'autolink-js';
 import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
-import { createTooltip, safeScrollTo, isSmallWindow, convertToLocalDateTime, getMonthShortName } from './utils';
+import { createTooltip, safeScrollTo, isSmallWindow, convertToLocalDateTime, getMonthShortName, removeWithTooltips } from './utils';
 import { setGameWithFocus, maximizeGame, scrollToBoard } from './index';
 import { settings } from './settings';
 import { storage, awaiting } from './storage';
@@ -102,6 +102,7 @@ export class Chat {
   private subscribedChannels: string[];
   private userList: any[];
   private userListHasBeenRequested: boolean = false;
+  private inChannelTimer: any = null;
 
   constructor() {
     this.unviewedNum = 0;
@@ -126,6 +127,10 @@ export class Chat {
     // initialize tabs
     this.tabData = {};
 
+    $(document).on('show.bs.tab', '#tabs button[data-bs-toggle="tab"]', async (e) => {
+      this.createInChannelTimer(this.getTabName($(e.target)));
+    });
+
     $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', async (e) => {
       const tab = $(e.target);
       this.updateViewedState(tab);
@@ -140,6 +145,7 @@ export class Chat {
         tabData.scroller.stop(); // Stop virtual-scroller before hiding tab so that it doesn't remove all its DO< elements
         tabData.scrollerStarted = false;
       } 
+      clearInterval(this.inChannelTimer);
     });
 
     $('#chat-scroll-button').on('click', () => {
@@ -221,6 +227,35 @@ export class Chat {
     this.initStartChatMenu();
   }
 
+  public connected(user: string): void {
+    if(this.user !== user) {
+      $('#tabs .closeTab').each((index, element) => {
+        this.closeTab($(element).parent().siblings('.nav-link'));
+      });
+    }
+
+    this.createInChannelTimer(this.currentTab());
+
+    this.user = user;
+    this.userRE = new RegExp(`\\b${user}\\b`, 'ig');
+  }
+
+  public cleanup() {
+    clearInterval(this.inChannelTimer);
+    this.inChannelTimer = null;
+  }
+
+  public createInChannelTimer(tabName: string) {
+    if(/^\d+$/.test(tabName)) {
+      (window as any).sessionSend(`inchannel ${tabName}`);
+      awaiting.set('inchannel');
+      this.inChannelTimer = setInterval(() => {
+        (window as any).sessionSend(`inchannel ${tabName}`);
+        awaiting.set('inchannel');
+      }, 60000);
+    }
+  }
+
   public getWatchers(tab: any): string[] {
     const match = tab.attr('id').match(/tab-game-(\d+)(?:-and-(\d+))?/);
     if(match) {
@@ -243,10 +278,18 @@ export class Chat {
     return null;
   }
 
-  public updateNumWatchers(tab: any): boolean {
+  public updateMembers(tabName: string, members: string[]) {
+    const elem = $(`#content-${tabName} .chat-members-text`); 
+    if(!elem.length)
+      return;
+    elem.text(`${members.length} ${tabName.startsWith('game-') ? 'Watchers' : 'Members'}`);
+    this.getTabData(tabName).members = members;
+  }
+
+  public updateWatchers(tab: any): boolean {
     const watchers = this.getWatchers(tab);
     if(watchers != null) {
-      $(tab.attr('href')).find('.chat-watchers-text').text(`${watchers.length} Watchers`);
+      this.updateMembers(tab.attr('id').replace(/^tab-/, ''), watchers);
       return true;
     }
     return false;
@@ -320,25 +363,16 @@ export class Chat {
 
   public closeTab(tab: any) {
     this.updateViewedState(tab, true);
-    if(tab.hasClass('active'))
+    if(tab.hasClass('active')) {
+      clearInterval(this.inChannelTimer);
       $('#tabs .nav-link:first').tab('show');
+    }
 
     const name: string = tab.attr('id').toLowerCase().split(/-(.*)/)[1];
     tab.parent().tooltip('dispose');
     tab.parent().remove();
     this.deleteTab(name);
-    $(`#content-${name}`).remove();
-  }
-
-  public setUser(user: string): void {
-    if(this.user !== user) {
-      $('#tabs .closeTab').each((index, element) => {
-        this.closeTab($(element).parent().siblings('.nav-link'));
-      });
-    }
-
-    this.user = user;
-    this.userRE = new RegExp(`\\b${user}\\b`, 'ig');
+    removeWithTooltips($(`#content-${name}`));
   }
 
   public async createTab(name: string, showTab = false) {
@@ -372,11 +406,13 @@ export class Chat {
       };
 
       let chName = name;
-      if(channels[name] !== undefined)
+      let isGameTab = false, isChannel = false;
+      if(channels[name] !== undefined) {
         chName = channels[name];
+        isChannel = true;
+      }
      
       let tooltip = '';
-      let infoBar: JQuery<HTMLElement>;
       match = chName.match(/^Game (\d+)/);
       if(match && match.length > 1) {
         const game = games.findGame(+match[1]);
@@ -384,18 +420,7 @@ export class Chat {
           const tags = game.history.metatags;
           const gameDescription = `${tags.White || game.wname} vs. ${tags.Black || game.bname}`;
           tooltip = `data-bs-toggle="tooltip" data-tooltip-hover-only title="${gameDescription}" `;
-
-          // Show Game chat room info bar
-          infoBar = $(`
-          <div class="d-flex flex-shrink-0 w-100 chat-info">
-            <div class="d-flex align-items-center flex-grow-1 overflow-hidden me-2" style="min-width: 0">
-              <button class="chat-game-description btn btn-outline-secondary btn-transparent p-0 chat-info-text"></button>
-            </div>
-            <button class="chat-watchers d-flex ms-auto align-items-center btn btn-outline-secondary btn-transparent p-0 chat-info-text" data-bs-placement="left">
-              <span class="chat-watchers-text">0 Watchers</span>
-              <span class="fa-solid fa-users"></span>
-            </button>
-          </div>`);
+          isGameTab = true;
         }
       }
 
@@ -426,28 +451,60 @@ export class Chat {
         </div>
       </div>`).appendTo(tabContent);
 
-      if(infoBar) {
+      if(isGameTab || isChannel) {
+        // Show Game chat room info bar
+        const infoBar = $(`
+        <div class="d-flex flex-shrink-0 w-100 chat-info">
+          <button class="chat-members d-flex ms-auto align-items-center btn btn-outline-secondary btn-transparent p-0 chat-info-text" data-bs-placement="left">
+            <span class="chat-members-text">0 ${isGameTab ? 'Watchers' : 'Members'}</span>
+            <span class="fa-solid fa-users"></span>
+          </button>
+        </div>`);
         tabContent.find('.chat-content-wrapper').prepend(infoBar);
-        this.updateGameDescription(tabElement.find('.nav-link'));
-        this.updateNumWatchers(tabElement.find('.nav-link'));
 
-        // Display watchers-list tooltip when hovering button in info bar
-        tabContent.find('.chat-watchers').on('mouseenter', (e) => {
+        if(isGameTab) {
+          infoBar.addClass('game-chat-info');
+          infoBar.prepend(`<div class="d-flex align-items-center flex-grow-1 overflow-hidden me-2" style="min-width: 0">
+              <button class="chat-game-description btn btn-outline-secondary btn-transparent p-0 chat-info-text"></button>
+            </div>`);
+          this.updateGameDescription(tabElement.find('.nav-link'));
+          this.updateWatchers(tabElement.find('.nav-link'));
+        }
+
+        // Display members-list tooltip when hovering button in info bar
+        tabContent.find('.chat-members').on('mouseenter', (e) => {
           const curr = $(e.currentTarget);
           const activeTab = $('#tabs button').filter('.active');
-          const watchers = this.getWatchers(activeTab);
-          if(watchers) {
-            const description = watchers.join('<br>');
-            const numWatchers = watchers.length;
-            const title = `${numWatchers} Watchers`;
-            const tooltipText = !watchers.length
+          const members = this.getTabDataFromElement(activeTab).members;
+          if(members) {
+            // Divide members into equal length columns, max 30 in each column
+            let description = '';
+            const numColumns = Math.ceil(members.length / 30);
+            const baseSize = Math.floor(members.length / numColumns); 
+            const remainder = members.length % numColumns;             
+            let index = 0;
+            for (let i = 0; i < numColumns; i++) {
+              const groupSize = i < remainder ? baseSize + 1 : baseSize;
+              description += '<div>';
+              for(let j = 0; j < groupSize; j++) {
+                if(index >= members.length) 
+                  break;
+                description += members[index++] + '<br>';
+              }
+              description += '</div>';
+            }
+
+            const numMembers = members.length;
+            const title = `${numMembers} ${isGameTab ? 'Watchers' : 'Members'}`;
+            const tooltipText = !members.length
               ? `<b>${title}</b>`
-              : `<b>${title}</b><hr class="tooltip-separator"><div>${description}</div>`;
+              : `<b>${title}</b><hr class="tooltip-separator"><div class="chat-members-list">${description}</div>`;
 
             curr.tooltip({
               title: tooltipText,
+              customClass: 'chat-members-tooltip',
               html: true,
-              ...watchers.length && {
+              ...members.length && {
                 popperConfig: {
                   placement: 'left-start',
                 },
@@ -461,13 +518,15 @@ export class Chat {
           });
         });
 
-        $('.chat-game-description').on('click', () => {
-          const game = this.getGameFromTab($('#tabs button.active'));
-          if(game) {
-            setGameWithFocus(game);
-            maximizeGame(game);
-          }
-        });
+        if(isGameTab) {
+          $('.chat-game-description').on('click', () => {
+            const game = this.getGameFromTab($('#tabs button.active'));
+            if(game) {
+              setGameWithFocus(game);
+              maximizeGame(game);
+            }
+          });
+        }
       }
 
       // Scroll event listener for auto scroll to bottom etc
@@ -542,6 +601,10 @@ export class Chat {
     return this.getTabData(tabElement.attr('id').toLowerCase().split(/-(.*)/)[1]);
   }
 
+  public getTabName(tabElement: any) {
+    return tabElement.attr('id').toLowerCase().split(/-(.*)/)[1];
+  }
+
   public deleteTab(name: string) {
     const tabData = this.tabData[name];
     if(tabData.scrollerStarted) 
@@ -550,7 +613,7 @@ export class Chat {
   }
 
   public currentTab(): string {
-    return $('ul#tabs button.active').attr('id').split(/-(.*)/)[1];
+    return $('#tabs button.active').attr('id').split(/-(.*)/)[1];
   }
 
   public addChannelList(chans: string[]) {
@@ -753,10 +816,8 @@ export class Chat {
 
     $('#tabs .nav-link').each((index, element) => {
       const match = $(element).attr('id').match(/^tab-game-(\d+)(?:-|$)/);
-      if(match && match.length > 1 && +match[1] === gameId) {
-        $($(element).attr('href')).find('.chat-watchers').tooltip('dispose');
+      if(match && match.length > 1 && +match[1] === gameId) 
         this.closeTab($(element));
-      }
     });
   }
 
