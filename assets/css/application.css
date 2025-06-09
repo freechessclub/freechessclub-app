@@ -66,16 +66,21 @@ body {
   white-space: nowrap;
 }
 @media (max-width: 767px) {
-  .chat-watchers-text {
-   display: none;
+  .game-chat-info .chat-members-text {
+    display: none;
   }
 }
-@media (min-width: 768px) {
-  .chat-watchers-text {
-    display: block;
-    font-style: italic;
-    margin-right: 6px;
-  }
+.chat-members-text {
+  display: block;
+  font-style: italic;
+  margin-right: 6px;
+}
+.chat-members-tooltip .tooltip-inner {
+  max-width: none;
+}
+.chat-members-list {
+  display: flex;
+  gap: 16px;
 }
 
 #add-remove-channels {
