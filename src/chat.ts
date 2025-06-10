@@ -152,7 +152,7 @@ export class Chat {
     $(document).on('hide.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
       const tabData = this.getTabDataFromElement(tab);
-      if(tabData.scrollerStarted) {
+      if(tabData?.scrollerStarted) {
         tabData.scroller.stop(); // Stop virtual-scroller before hiding tab so that it doesn't remove all its DO< elements
         tabData.scrollerStarted = false;
       } 
@@ -166,7 +166,8 @@ export class Chat {
 
     $('#collapse-chat').on('hide.bs.collapse', () => {
       const activeTab = $('#tabs button').filter('.active');
-      activeTab.trigger('hide.bs.tab');
+      if(activeTab.length)
+        activeTab.trigger('hide.bs.tab');
     });
 
     $('#collapse-chat').on('hidden.bs.collapse', () => {
