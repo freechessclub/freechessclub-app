@@ -32,6 +32,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Math&family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
 </head>
 <body>
+  <svg xmlns="http://www.w3.org/2000/svg" style="display: none">
+    <symbol id="icon-info" fill="currentColor" class="bi bi-info-circle" viewBox="0 0 16 16">
+      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+      <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/>
+    </symbol>
+  </svg>
   <div id="notifications" style="z-index: 2000; position: fixed; top: 0; right: 0; width: 100%">
     <div class="toast notification-panel" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-header">
       <div class="toast-body position-relative d-flex">
@@ -325,6 +331,15 @@
                                     <li><a class="dropdown-item" onclick="setNewGameVariant('Atomic', 'atomic');">Atomic</a></li>
                                     <li><a class="dropdown-item" onclick="setNewGameVariant('Suicide', 'suicide');">Suicide</a></li>
                                   </ul>
+                                </div>
+                                <div class="d-flex center py-2">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="formula-toggle" checked disabled>
+                                    <label class="form-check-label" for="formula-toggle">Use formula when seeking a game</label>
+                                  </div>
+                                  <svg class="ms-3 info-icon" data-bs-placement="top" data-bs-trigger="hover focus" data-bs-toggle="popover" data-bs-content="Setting a formula allows you to filter opponents. For example, you could set a maximum rating difference. For more information on how to set a formula, type 'help formula' in the Console, which is in the Chat Panel." role="button">
+                                    <use href="#icon-info" />
+                                  </svg>
                                 </div>
                                 <div class="btn-group dropdown position-static" role="group" aria-label="Study">
                                   <button type="button" class="btn btn-outline-secondary btn-md" id="puzzlebot">Puzzle</button>

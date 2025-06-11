@@ -278,3 +278,14 @@ cg-board {
   background: color-mix(in srgb, var(--bg-color) 20%, white 80%);
   --box-shadow-color: color-mix(in srgb, var(--bg-color) 85%, black 15%);
 }
+
+.info-icon {
+  color: #6c757d;
+}
+.info-icon:hover, info-icon:focus {
+  color: #0d6efd;
+}
+
+#pills-pairing .form-check-label {
+  color: #6c757d;
+}
