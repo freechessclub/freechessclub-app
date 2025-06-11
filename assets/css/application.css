@@ -130,7 +130,7 @@ body {
 }
 
 #left-panel {
-  height: 460px;
+  height: 502px;
 }
 #left-panel.list-view-showing {
   height: 200px;
@@ -814,4 +814,11 @@ input[type="number"]:focus {
   left: 0.2em;
   font-size: 1.4vh;
   pointer-events: none;
+}
+
+.info-icon {
+  cursor: pointer;
+  vertical-align: middle;
+  width: 1em;
+  height: 1em;
 }

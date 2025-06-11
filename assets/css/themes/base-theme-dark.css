@@ -386,3 +386,17 @@ a {
   background: color-mix(in srgb, var(--bg-color) 85%, white 15%);
   --box-shadow-color: color-mix(in srgb, var(--bg-color) 85%, white 15%);
 }
+
+.info-icon {
+  color: #ced4da; 
+}
+.info-icon:hover, info-icon:focus {
+  color: #f8f9fa; 
+}
+
+#pills-pairing .form-check-label {
+  color: lightgray;
+}
+#pills-pairing .form-check-input {
+  filter: brightness(0.8);
+}
