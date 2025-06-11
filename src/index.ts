@@ -111,6 +111,9 @@ async function onDeviceReady() {
   game.history = new History(game);
   setGameWithFocus(game);
 
+  // Initialize popovers
+  $('[data-bs-toggle="popover"]').popover();
+
   if(Utils.isSmallWindow()) {
     $('#collapse-chat').collapse('hide');
     $('#collapse-menus').collapse('hide');
@@ -1823,17 +1826,26 @@ function handleMiscMessage(data: any) {
     return;
   }
   
+  let variablesReceived = false;
   match = msg.match(/(?:^|\n)Variable settings of \S+\s+((?:\w+=\w+\s+)+)/);
   if(match && awaiting.has('user-variables')) {
     const varStrings = match[1].split(/\s+/);
     userVariables = Object.fromEntries(varStrings.map(val => val.split('='))); 
     Utils.setDefaultTimezone(userVariables.tzone);
-    return;
+    variablesReceived = true;
   }
   match = msg.match(/^Interface: /m);
   if(match && awaiting.resolve('user-variables')) {
+    $('#formula-toggle').prop('disabled', !/^Formula: /m.test(msg));
     return;
   }
+  if(variablesReceived)
+    return;
+
+  if(msg.startsWith('Formula unset.'))
+    $('#formula-toggle').prop('disabled', true);
+  if(msg.startsWith('Formula set to'))
+    $('#formula-toggle').prop('disabled', false);
   
   // Suppress messages when 'moves' command issued internally
   match = msg.match(/^You're at the (?:beginning|end) of the game\./m);
@@ -4038,10 +4050,16 @@ $('#custom-control').on('submit', (event) => {
 
   $('#custom-control-go').trigger('focus');
   const min: string = Utils.getValue('#custom-control-min');
-  const sec: string = Utils.getValue('#custom-control-inc');
-  getGame(+min, +sec);
+  storage.set('pairing-custom-min', min);
+  const inc: string = Utils.getValue('#custom-control-inc');
+  storage.set('pairing-custom-inc', inc)
+  getGame(+min, +inc);
 
   return false;
+});
+
+$('#formula-toggle').on('change', function() {
+  storage.set('seeks-use-formula', String($(this).is(':checked')));
 });
 
 function getGame(min: number, sec: number) {
@@ -4049,6 +4067,7 @@ function getGame(min: number, sec: number) {
   opponent = opponent.trim().split(/\s+/)[0];
   $('#opponent-player-name').val(opponent);
 
+  const useFormula = $('#formula-toggle').is(':checked') ? ' f' : ''; 
   const ratedUnrated = ($('#rated-unrated-button').text() === 'Rated' ? 'r' : 'u');
   const colorName = $('#player-color-button').text();
   let color = '';
@@ -4059,7 +4078,7 @@ function getGame(min: number, sec: number) {
 
   awaiting.set('match');
 
-  const cmd: string = (opponent !== '') ? `match ${opponent}` : 'seek';
+  const cmd: string = (opponent !== '') ? `match ${opponent}` : `seek${useFormula}`;
   const mainGame = games.getPlayingExaminingGame();
   if(mainGame && mainGame.isExamining())
     session.send('unex');
@@ -6297,6 +6316,10 @@ function initSettings() {
 
   settings.lobbyShowComputersToggle = (storage.get('lobbyshowcomputers') === 'true');
   settings.lobbyShowUnratedToggle = (storage.get('lobbyshowunrated') !== 'false');
+
+  $('#formula-toggle').prop('checked', (storage.get('seeks-use-formula') === 'true'));
+  $('#custom-control-min').val(storage.get('pairing-custom-min') || '0');
+  $('#custom-control-inc').val(storage.get('pairing-custom-inc') || '0');
 
   History.initSettings();
 }
