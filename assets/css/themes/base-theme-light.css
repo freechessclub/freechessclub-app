@@ -289,3 +289,8 @@ cg-board {
 #pills-pairing .form-check-label {
   color: #6c757d;
 }
+
+.not-signed-in-notice {
+  background: color-mix(in srgb, var(--bg-color) 90%, black 10%);
+  border-color: #6c757d;
+}

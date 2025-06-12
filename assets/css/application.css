@@ -822,3 +822,36 @@ input[type="number"]:focus {
   width: 1em;
   height: 1em;
 }
+
+.not-signed-in-notice {
+  position: absolute; 
+  top: 50%; 
+  left: 50%; 
+  transform: translate(-50%, -50%);
+  border: 1px solid;
+  z-index: 2;
+  padding: 2rem;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.banner-alert {
+  position: fixed; 
+  width: fit-content; 
+  white-space: nowrap;
+  top: 0; 
+  left: 0; 
+  transform: translateY(-100%);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+  z-index: 1050;
+  background: #000;
+  color: #fff;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  font-weight: bold;
+}
+.banner-alert.show {
+  transform: translateY(0); 
+}
