@@ -279,4 +279,63 @@ export class Storage {
   }
 }
 
+/** ******************************************* 
+ * Awaiting states class. 
+ * Used to keep track of commands sent to the server and their corresponeding responses from the server
+ **********************************************/
+
+export class Awaiting {
+  private states: Map<string, number> = new Map(); 
+
+  /**
+   * Increments the counter for the specified state 
+   */
+  public set(state: string) {
+    const count = this.states.get(state);
+    if(count === undefined)
+      this.states.set(state, 1);
+    else
+      this.states.set(state, count + 1);
+  }
+
+  /** 
+   * Check if we are waiting for a state to be resolved and decrements its counter
+   * @return true if we are awaiting resolution of the specified state
+   */
+  public resolve(state: string): boolean {
+    const count = this.states.get(state);
+    if(count === undefined)
+      return false;
+
+    if(count - 1 === 0)
+      this.states.delete(state);
+    else
+      this.states.set(state, count - 1);
+
+    return true;
+  }
+
+  /**
+   * Check if we are waiting for a state to be resolved (without resolving it)
+   */
+  public has(state: string): boolean {
+    return this.states.has(state);
+  }
+
+  /**
+   * Stop awaiting the specified state. Effectively sets its counter to 0.
+   */
+  public remove(state: string) {
+    this.states.delete(state);
+  }
+
+  /**
+   * Stop awaiting all states
+   */
+  public clearAll() {
+    this.states = new Map();
+  }
+}
+
 export const storage = new Storage(); // The main Storage instance, declared here so it can be imported the other modules
+export const awaiting = new Awaiting();
