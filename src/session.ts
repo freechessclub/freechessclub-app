@@ -134,7 +134,6 @@ export class Session {
     this.onRecv({command: 4, control: 'Connecting'});
 
     this.websocket = new WebSocket('wss://www.freechess.org:5001');
-    // this.websocket.binaryType = 'arraybuffer';
     this.parser = new Parser(this, user, pass);
     this.websocket.onmessage = async (message: any) => {
       const data = this.parser.parse(await message.data.text());
@@ -218,6 +217,7 @@ export class Session {
     if(!this.isConnecting()) {
       const user = /^Guest[A-Z]{4}$/.test(this.getUser()) ? undefined : this.getUser(); 
       this.connect(user, this.getPassword());
+      $('#sign-in-alert').addClass('show');
     }
   }
 

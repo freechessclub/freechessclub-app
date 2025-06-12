@@ -621,6 +621,7 @@ function messageHandler(data: any) {
         }, 59 * 60 * 1000);
 
         session.sendPostConnectCommands();
+        $('#sign-in-alert').removeClass('show');
       }
       else if(data.command === 2) { // Login error
         session.disconnect();
@@ -631,10 +632,19 @@ function messageHandler(data: any) {
         });
         $('#session-status').popover('show');
       }
-      else if(data.command === 3) // Disconnected
+      else if(data.command === 3) { // Disconnected
         cleanup();
+        const panelHtml = `<div class="not-signed-in-notice">Not signed in. <a href="javascript:void(0)">Sign in</a></div>`;
+        $('#chat-panel .nav-tabs').append(panelHtml);
+        $('#pills-lobby').append(panelHtml);
+        $('.not-signed-in-notice a').one('click', () => {
+          session?.reconnect();
+        });
+        $('#sign-in-alert').removeClass('show');
+      }
       else if(data.command === 4) { // Connecting
         $('#game-requests').empty();
+        $('.not-signed-in-notice').remove();
       }
       break;
     case MessageType.ChannelTell:
