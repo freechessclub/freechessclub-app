@@ -400,3 +400,8 @@ a {
 #pills-pairing .form-check-input {
   filter: brightness(0.8);
 }
+
+.not-signed-in-notice {
+  background: color-mix(in srgb, var(--bg-color) 90%, white 10%);
+  border-color: #AAAAAA;
+}
