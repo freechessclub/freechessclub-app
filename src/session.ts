@@ -8,6 +8,7 @@ export const enum MessageType {
   Control = 0,
   ChannelTell,
   PrivateTell,
+  Messages,
   GameMove,
   GameStart,
   GameEnd,
@@ -31,6 +32,8 @@ export function GetMessageType(msg: any): MessageType {
     return MessageType.ChannelTell;
   } else if (msg.user !== undefined && msg.message !== undefined) {
     return MessageType.PrivateTell;
+  } else if (msg.messages !== undefined) {
+    return MessageType.Messages;
   } else if (msg.offers !== undefined) {
     return MessageType.Offers;
   } else {
@@ -127,8 +130,8 @@ export class Session {
   public connect(user?: string, pass?: string) {
     this.registered = false;
     this.connecting = true;
-    $('#game-requests').empty();
     $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
+    this.onRecv({command: 4, control: 'Connecting'});
 
     this.websocket = new WebSocket('wss://www.freechess.org:5001');
     // this.websocket.binaryType = 'arraybuffer';
@@ -143,9 +146,16 @@ export class Session {
     };
 
     this.websocket.onclose = (e) => {
+      if(this.isConnecting() || this.isConnected()) {
+        this.reset();     
+        this.onRecv({
+          command: 3,
+          control: 'Disconnected'
+        }); // Send disconnected command to message handler
+      }
+
       // Reconnect automatically if the connection was dropped unexpectedly, i.e. by mobile power management
       if(this.isConnected()) {
-        this.reset();
         if(!e.wasClean) {
           if(document.visibilityState === 'visible')
             this.connect(this.user, this.pass);
@@ -159,14 +169,11 @@ export class Session {
     };
 
     this.websocket.onopen = () => {
-      $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
       this.send(this.timesealHello, false);
     };   
 
     this.websocket.onerror = () => {
-      this.connecting = false;
-      this.postConnectCommands = [];
-      $('#session-status').html('<span class="text-danger"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;Offline</span>');
+      this.reset();
       this.onRecv({
         command: 3,
         control: 'Failed to connect'
@@ -175,10 +182,12 @@ export class Session {
   }
 
   public disconnect() {
-    $('#session-status').html('<span class="text-danger"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Disconnecting...</span>');
-    this.connected = false;
-    this.websocket.close();
     this.reset();
+    this.websocket.close();
+    this.onRecv({
+      command: 3,
+      control: 'Disconnected'
+    }); // Send disconnected command to message handler
   }
 
   public reset() {
@@ -186,10 +195,6 @@ export class Session {
     this.connected = false;
     this.connecting = false;
     this.postConnectCommands = [];
-    this.onRecv({
-      command: 3,
-      control: 'Disconnected'
-    }); // Send disconnected command to message handler
   }
 
   /**
@@ -201,15 +206,19 @@ export class Session {
     // If user has tried to send a command while offline or connecting (for example by clicking a button
     // in the pairing pane) then auto-connect to the server and send the command once connected
     if(!this.isConnected() && autoConnect) {
-      if(!this.isConnecting()) {
-        const user = this.getUser().match(/Guest[A-Z]{4}/) ? 'guest' : this.getUser(); 
-        this.connect(user, this.getPassword());
-      }
+      this.reconnect();
       this.postConnectCommands.push(command); 
       return;
     }
  
     this.websocket.send(this.encode(command).buffer);
+  }
+
+  public reconnect() {
+    if(!this.isConnecting()) {
+      const user = this.getUser()?.match(/Guest[A-Z]{4}/) ? undefined : this.getUser(); 
+      this.connect(user, this.getPassword());
+    }
   }
 
   /** Call this function after logging in to send queued commands */

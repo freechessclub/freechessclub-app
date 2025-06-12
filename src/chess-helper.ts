@@ -139,7 +139,7 @@ export function insufficientMaterial(fen: string, variantData?: VariantData, col
       if(piece.type === 'b') {
         const fileNum = sq[0].charCodeAt(0) - 'a'.charCodeAt(0) + 1;
         const rankNum = +sq[1];
-        const squareColor = fileNum + rankNum % 2 ? 'w' : 'b';
+        const squareColor = (fileNum + rankNum) % 2 === 0 ? 'b' : 'w';
         material[`${pieceColorType}${squareColor}`] = 1;
       }
       else

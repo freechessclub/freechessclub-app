@@ -126,7 +126,7 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                   </div>
                                   <div class="modal-body">
-                                    <div class="mb-3">
+                                    <div class="mb-3" id="difficulty-selector">
                                       <label class="form-heading">Difficulty Level:</label>
                                       <div>
                                         <div class="form-check form-check-inline">
@@ -149,12 +149,12 @@
                                           <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level5">
                                           <label class="form-check-label" for="play-computer-level5">5</label>
                                         </div>
-                                      </div>
-                                      <div>
                                         <div class="form-check form-check-inline">
                                           <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level6">
                                           <label class="form-check-label" for="play-computer-level6">6</label>
                                         </div>
+                                      </div>
+                                      <div>
                                         <div class="form-check form-check-inline">
                                           <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level7">
                                           <label class="form-check-label" for="play-computer-level7">7</label>
@@ -170,6 +170,14 @@
                                         <div class="form-check form-check-inline">
                                           <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level10">
                                           <label class="form-check-label" for="play-computer-level10">10</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level11">
+                                          <label class="form-check-label" for="play-computer-level11">11</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level12">
+                                          <label class="form-check-label" for="play-computer-level12">12</label>
                                         </div>
                                       </div>
                                     </div>
@@ -398,6 +406,7 @@
                           </button>
                           <ul class="dropdown-menu" id="game-list-dropdown">
                             <li class="px-2 pb-2"><input type="text" class="form-control blur-on-enter" id="game-list-filter" placeholder="Filter games..." aria-label="Game list filter" spellcheck="false"></li>
+                            <li id="game-list-scroll-container"><ul id="game-list-menu"></ul></li>
                           </ul>
                           <div class="modal fade" id="open-games-modal" tabindex="-1" aria-labelledby="open-games-modal-label" aria-hidden="true">
                             <div class="modal-dialog modal-dialog-centered">

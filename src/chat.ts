@@ -124,28 +124,7 @@ export class Chat {
     $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', async (e) => {
       const tab = $(e.target);
       this.updateViewedState(tab);
-
-      const contentPane = $(tab.attr('href'));
-      const scrollContainer = contentPane.find('.chat-scroll-container');
-      if(!scrollContainer.length)
-        return;
-
-      const tabData = this.getTabDataFromElement(tab);
-      if(!tabData.scroller) {
-        tabData.scroller = await this.createVirtualScroller(contentPane, tabData.messages);
-        tabData.scrollerStarted = true;
-      }
-
-      if(!tabData.scrollerStarted) {
-        // In case panel was resized while hidden, recalculate chat message heights so that 
-        // virtual-scroller doesn't complain after restarting
-        const state = tabData.scroller.virtualScroller.getState();
-        for(let i = state.firstShownItemIndex; i <= state.lastShownItemIndex; i++) 
-          tabData.scroller.onItemHeightDidChange(i);
-        tabData.scroller.start();
-        tabData.scroller.setItems(tabData.messages); // Render any new messages that arrived while tab was hidden
-        tabData.scrollerStarted = true;
-      }
+      this.updateVirtualScroller(tab);
       this.fixScrollPosition();
     });
 
@@ -361,8 +340,8 @@ export class Chat {
     let from: string;
     if(!settings.chattabsToggle)
       from = 'console';
-    else
-      from = name.toLowerCase().replace(/\s/g, '-');
+    else 
+      from = name.toLowerCase().trim().replace(/\s+/g, '-');
 
     // Check whether this is a bughouse chat tab, e.g. 'Game 23 and 42'
     let match = from.match(/^game-(\d+)/);
@@ -380,6 +359,13 @@ export class Chat {
     }
 
     if(!this.tabData.hasOwnProperty(from)) {
+      this.tabData[from] = {
+        messages: [],
+        scroller: null,
+        scrollerStarted: false,
+        scrolledToBottom: true
+      };
+
       let chName = name;
       if(channels[name] !== undefined)
         chName = channels[name];
@@ -497,20 +483,6 @@ export class Chat {
           }
         }
       });
-
-      const messages = [];
-
-      this.tabData[from] = {
-        messages,
-        scroller: null,
-        scrollerStarted: false,
-        scrolledToBottom: true
-      };
-
-      if(tabContent.hasClass('active')) {
-        this.tabData[from].scroller = await this.createVirtualScroller(tabContent, messages);
-        this.tabData[from].scrollerStarted = true;
-      }
     }
 
     if(showTab) {
@@ -520,7 +492,7 @@ export class Chat {
       tabs.first().tab('show');
     }
  
-    return this.tabData[from];
+    return $('#tabs').find(`#tab-${from}`);
   }
 
   public fixScrollPosition() {
@@ -611,7 +583,7 @@ export class Chat {
     if(!/^[\w- ]+$/.test(from))
       return;
 
-    const tab = await this.createTab(tabName);
+    const tabElement = await this.createTab(tabName);
     let who = '';
     if (data.user !== undefined) {
       let textclass = '';
@@ -651,14 +623,39 @@ export class Chat {
       ? `<span class="timestamp">[${new Date().toLocaleTimeString()}]</span> `
       : '';
 
-    tab.messages = tab.messages.concat(`${timestamp}${who}${text}`);
-    if(tab.scrollerStarted)
-      tab.scroller.setItems(tab.messages);
+    const tabData = this.getTabDataFromElement(tabElement); 
+    tabData.messages = tabData.messages.concat(`${timestamp}${who}${text}`);
+    if(tabElement.hasClass('active'))
+      this.updateVirtualScroller(tabElement);
 
-    const tabheader = $(`#tab-${from.toLowerCase().replace(/\s/g, '-')}`);
+    if(this.user !== data.user || from.toLowerCase() === this.user.toLowerCase())
+      this.updateViewedState(tabElement, false, data.type !== 'whisper');
+  }
 
-    if(this.user !== data.user)
-      this.updateViewedState(tabheader, false, data.type !== 'whisper');
+  private async updateVirtualScroller(tabElement: any) {
+    const tabContentElement = $(tabElement.attr('href'));
+    const scrollContainer = tabContentElement.find('.chat-scroll-container');
+    if(!scrollContainer.length)
+      return;
+
+    const tabData = this.getTabDataFromElement(tabElement);
+    if(!tabData.scroller) {
+      tabData.scroller = await this.createVirtualScroller(tabContentElement, tabData.messages);
+      tabData.scrollerStarted = true;
+      return;
+    }
+
+    if(!tabData.scrollerStarted) {
+      // In case panel was resized while hidden, recalculate chat message heights so that 
+      // virtual-scroller doesn't complain after restarting
+      const state = tabData.scroller.virtualScroller.getState();
+      for(let i = state.firstShownItemIndex; i <= state.lastShownItemIndex; i++) 
+        tabData.scroller.onItemHeightDidChange(i);
+      tabData.scroller.start();
+      tabData.scrollerStarted = true;
+    }
+
+    tabData.scroller.setItems(tabData.messages);
   }
 
   private ignoreUnviewed(from: string) {
