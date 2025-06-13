@@ -1,4 +1,6 @@
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
+import { registerRoute } from 'workbox-routing';
+import { StaleWhileRevalidate } from 'workbox-strategies';
 
 // pre-cache external resources
 const externals = [
@@ -23,6 +25,11 @@ if(urlParams.get('env') === 'app') // Capacitor or Electron app, don't cache sta
   precacheAndRoute(externals);
 else 
   precacheAndRoute([...self.__WB_MANIFEST, ...externals]); // __WB_MANIFEST is injected by inject-manifest.js
+
+registerRoute(
+  ({ url }) => url.origin === 'https://cdn.jsdelivr.net',
+      new StaleWhileRevalidate({ cacheName: 'stalewhile-cache' })
+);
 
 cleanupOutdatedCaches();
 

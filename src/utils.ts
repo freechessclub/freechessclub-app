@@ -317,6 +317,18 @@ export function setCaretToEnd(element: JQuery<HTMLElement>) {
 }
 
 /**
+ * Insert text into textarea element at cursor
+ */
+export function insertAtCursor(element: JQuery<HTMLElement>, text: string) {
+  const el = element[0] as HTMLTextAreaElement;
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  el.value = el.value.slice(0, start) + text + el.value.slice(end);
+  el.setSelectionRange(start + text.length, start + text.length);
+  element.trigger('input');
+}
+
+/**
  * Wrapper function for showing hidden button in btn-toolbar
  * Hidden buttons were causing visible buttons to not center properly in toolbar
  * Set the margin of the last visible button to 0
@@ -603,13 +615,13 @@ export function removeLine(text: string, searchString: string): string {
 
 /**
  * Splits a string into an array of strings each with the given maxLength.
- * Ensures that splits never occur in the middle of HTML entities.
+ * Ensures that splits never occur in the middle of HTML entities or emoji shortcodes.
  */
 export function splitText(text: string, maxLength: number): string[] {
   const result = [];
   let currentMessage = '';
   let currentLength = 0;
-  const regex = /&#\d+;|./g; // Match HTML entities or any character
+  const regex = /\:[^\:]+\:(?:\:skin-tone-\d\:)?|&#\d+;|./g; // Emoji shortcodes or HTML entities or any character
 
   text.replace(regex, (match) => {
     const matchLength = match.length;

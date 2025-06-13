@@ -1,12 +1,12 @@
 interface Window {
-  Bootstrap: any;
+  bootstrap: any;
   Popper: any;
   d3: any;
   Capacitor: any;
   electron: any;
 }
 
-declare const Bootstrap: any;
+declare const bootstrap: any;
 declare const Popper: any;
 declare const d3: any;
 declare const Capacitor: any;

@@ -436,7 +436,7 @@
                                     <button type="button" id="open-files" class="btn btn-outline-secondary"><span class="fa-solid fa-floppy-disk me-2" aria-hidden="false"></span>Open File(s)</button>
                                   </div>
                                   <div class="modal-body center flex-column">
-                                    <textarea style="resize: none" id="add-games-input" class="form-control mb-3" rows="10" type="text" placeholder="Paste PGNs or FENs here." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+                                    <textarea style="resize: none" id="add-games-input" class="form-control mb-3" data-select-on-focus="true" rows="10" type="text" placeholder="Paste PGNs or FENs here." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
                                     <button type="button" id="add-games-button" class="btn btn-outline-secondary"><span class="fa-solid fa-plus me-2" aria-hidden="false"></span>Add Game(s)</button>
                                   </div>
                                 </form>
@@ -459,7 +459,7 @@
                                     </div>
                                     <label class="form-heading" style="margin-bottom: 1px">PGN:</label>
                                     <div class="mb-3 position-relative">
-                                      <textarea style="resize: none" id="save-pgn-output" class="form-control" style="padding-right: 2.5rem;" rows="10" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly></textarea>
+                                      <textarea style="resize: none" id="save-pgn-output" class="form-control" data-select-on-focus="true" style="padding-right: 2.5rem;" rows="10" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly></textarea>
                                       <button type="button" id="save-pgn-copy" class="btn btn-outline-secondary btn-transparent" style="position: absolute; top: 0; right: 0;" data-bs-toggle="tooltip" title="Copy to Clipboard"><span class="fa-regular fa-clone"></span></button>
                                     </div>
                                     <div class="d-flex justify-content-center">
@@ -981,7 +981,17 @@
                   <div id="right-panel-footer" class="bottom-panel card-footer widget">
                     <form id="input-form" class="form-inline d-flex h-100 w-100">
                       <div class="input-group input-group-md m-auto">
-                        <textarea id="input-text" rows="1" type="text" class="form-control" placeholder="Type message here and press Enter to send!" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+                        <div id="fake-input-text" class="form-control p-0 d-flex">
+                          <textarea id="input-text" class="form-control" rows="1" type="text" placeholder="Type message here and press Enter to send!" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+                          <div id="emoji-button-container">
+                            <button type="button" id="emoji-button" class="btn btn-outline-secondary btn-transparent" data-tooltip-hover-only data-bs-toggle="tooltip" title="Choose an emoji">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM164.1 325.5C182 346.2 212.6 368 256 368s74-21.8 91.9-42.5c5.8-6.7 15.9-7.4 22.6-1.6s7.4 15.9 1.6 22.6C349.8 372.1 311.1 400 256 400s-93.8-27.9-116.1-53.5c-5.8-6.7-5.1-16.8 1.6-22.6s16.8-5.1 22.6 1.6zM144.4 208a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm192-32a32 32 0 1 1 0 64 32 32 0 1 1 0-64z"/></svg>
+                            </button>
+                            <div id="emoji-panel">
+                              <div class="emoji-panel-arrow"></div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </form>
                   </div>
