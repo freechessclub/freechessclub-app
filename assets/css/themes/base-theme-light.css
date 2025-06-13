@@ -1,9 +1,12 @@
 :root {
   color-scheme: light;
+  --color-scheme: light;
   --bg-color: #dee3e6;
   --fg-color: #212529;
   --bs-body-bg: var(--bg-color);
   --bs-body-color: var(--fg-color);
+  --form-control-bg: #white;
+  --flash-color: #ffcccc;
   /* --bs-border-color: #dee2e6; */
   /* --bs-border-color-translucent: rgba(0, 0, 0, 0.175); */
 }
@@ -294,3 +297,12 @@ cg-board {
   background: color-mix(in srgb, var(--bg-color) 90%, black 10%);
   border-color: #6c757d;
 }
+
+#emoji-button {
+  --bs-btn-color: dodgerblue;
+}
+.emoji-panel-arrow {
+  border-top-color: #ffffff;
+}
+
+

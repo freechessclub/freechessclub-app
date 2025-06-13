@@ -128,7 +128,7 @@ async function onDeviceReady() {
     $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
   }
 
-  $('input, textarea').each(function() {
+  $('input, [data-select-on-focus]').each(function() {
     Utils.selectOnFocus($(this));
   });
 
@@ -153,7 +153,7 @@ async function onDeviceReady() {
   Utils.initDropdownSubmenus();
 }
 
-$(window).on('load', () => {
+$(window).on('load', async () => {
   $('#left-panel-header').css('visibility', 'visible');
   $('#right-panel-header').css('visibility', 'visible');
 
@@ -172,6 +172,9 @@ $(window).on('load', () => {
         }
       });
   }
+
+  // Stuff to fetch and cache after the service worker is activated
+  chat.initEmojis();
 });
 
 /** Prompt before unloading page if in a game */
@@ -535,6 +538,7 @@ function useMobileLayout() {
   $('#stop-examining').appendTo($('#viewing-game-buttons').last());
   $('#viewing-games-buttons:visible:last').addClass('me-0'); // This is so visible buttons in the btn-toolbar center properly
   hidePanel('#left-panel-header-2');
+  $('#input-text').attr('placeholder', 'Type message here and press Enter');
 
   Utils.createTooltips();
   layout = Layout.Mobile;
@@ -548,6 +552,7 @@ function useDesktopLayout() {
   $('#stop-examining').appendTo($('#left-panel-header-2').last());
   if(games.focused.isObserving() || games.focused.isExamining())
     showPanel('#left-panel-header-2');
+  $('#input-text').attr('placeholder', 'Type message here and press Enter to send!');
 
   Utils.createTooltips();
   layout = Layout.Desktop;
@@ -1386,7 +1391,7 @@ function handleMiscMessage(data: any) {
     if(index !== -1) {
       // User has tried to send a tell to an offline user. Ask if they want to send it as a message isntead
       const tell = pendingTells.splice(index, 1)[0];
-      const message = Utils.splitText(Utils.unicodeToHTMLEncoding(tell.message), 997)[0]; // HTMLEncode message and truncate to max 997 chars
+      const message = tell.message; 
       const okHandler = () => {
         session.send(`message ${tell.recipient} ${message}`);
       };
@@ -6486,13 +6491,13 @@ $('#input-form').on('submit', (event) => {
 
     if(isPrivateTell && session.getUser().toLowerCase() !== recipient.toLowerCase() 
         && session.isRegistered() && !/^Guest[A-Z]{4}$/i.test(recipient)) 
-      pendingTells.push({ recipient, message });
+      pendingTells.push({ recipient, message: Utils.splitText(plainText(message), 997)[0] });
 
     const maxLength = (session.isRegistered() ? 400 : 200);
     if(message.length > maxLength)
       message = message.slice(0, maxLength);
 
-    message = Utils.unicodeToHTMLEncoding(message);
+    message = plainText(message);
     const messages = Utils.splitText(message, maxLength); // if message is now bigger than maxLength chars due to html encoding split it
 
     for(const msg of messages) {
@@ -6508,7 +6513,7 @@ $('#input-form').on('submit', (event) => {
   }
   else {
     if(/^[\x00-\x7F]/.test(text)) 
-      session.send(Utils.unicodeToHTMLEncoding(text));
+      session.send(plainText(text));
     else 
       chat.newNotification('Invalid command.');
   }
@@ -6516,6 +6521,11 @@ $('#input-form').on('submit', (event) => {
   $('#input-text').val('');
   updateInputText();
 });
+
+function plainText(text: string) {
+  text = chat.unemojify(text);
+  return Utils.unicodeToHTMLEncoding(text);
+}
 
 $('#input-text').on('input', () => {
   updateInputText();
@@ -6554,8 +6564,18 @@ function updateInputText() {
   else
     maxLength = 400;
 
-  if(val.length > maxLength)
-    val = val.substring(0, maxLength);
+  // Convert emoji unicode chars to shortcodes in order to test the length then convert them back
+  // Note: as a side effect of this, it will convert shortcodes typed in the input in real time
+  val = chat.unemojify(val);
+  if(val.length > maxLength) {
+    val = Utils.splitText(val, maxLength)[0];
+    // Flash text area when max characters reached
+    $('#fake-input-text').addClass('flash');
+    $('#fake-input-text').one('animationend', () => {
+      $('#fake-input-text').removeClass('flash');
+    });
+  }
+  val = chat.emojify(val);
 
   if(val !== element.value as string) {
     element.value = val;

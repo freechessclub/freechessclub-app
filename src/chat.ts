@@ -3,8 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import { autoLink } from 'autolink-js';
-import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
-import { createTooltip, safeScrollTo, isSmallWindow, convertToLocalDateTime, getMonthShortName, removeWithTooltips } from './utils';
+import { createTooltip, safeScrollTo, isSmallWindow, convertToLocalDateTime, getMonthShortName, removeWithTooltips, insertAtCursor } from './utils';
 import { setGameWithFocus, maximizeGame, scrollToBoard } from './index';
 import { settings } from './settings';
 import { storage, awaiting } from './storage';
@@ -88,6 +87,51 @@ const channels = {
   100:    'Trivia',
 };
 
+const emoticons = {
+  ':)': '😊',
+  ':-)': '😊',
+  ':D': '😄',
+  ':-D': '😄',
+  ':(': '☹️',
+  ':-(': '☹️',
+  ';)': '😉',
+  ';-)': '😉',
+  ':P': '😛',
+  ':-P': '😛',
+  ':p': '😛',
+  ':-p': '😛',
+  ':/': '😕',
+  ':-/': '😕',
+  ':\\': '😕',
+  ':-\\': '😕',
+  ':O': '😲',
+  ':-O': '😲',
+  ':o': '😲',
+  ':-o': '😲',
+  'B)': '😎',
+  'B-)': '😎',
+  '>:(': '😠',
+  '>:-(': '😠',
+  ':|': '😐',
+  ':-|': '😐',
+  '<3': '❤️',
+  '</3': '💔',
+  'O:)': '😇',
+  'O:-)': '😇',
+  ':-*': '😘',
+  ':*': '😘',
+  ':-X': '🤐',
+  ':-x': '🤐',
+  'XD': '😆',
+  'xD': '😆',
+  '-_-': '😑',
+  ':3': '😺',
+  ':$': '😳',
+  ':-$': '😳',
+  ':\'(': '😭',
+  ':\'-(': '😭'
+};
+
 let maximized = false;
 
 export class Chat {
@@ -95,7 +139,6 @@ export class Chat {
   private userRE: RegExp;
   private timezone: string;
   private tabData: object;
-  private emojisLoaded: boolean;
   private maximized: boolean;
   private unviewedNum: number;
   private virtualScrollerPromise: Promise<typeof import('virtual-scroller/dom')>;
@@ -103,6 +146,8 @@ export class Chat {
   private userList: any[];
   private userListHasBeenRequested: boolean = false;
   private inChannelTimer: any = null;
+  private emojiUnicodeToShortcodes = new Map(); // Mapping from emoji unicodes to ids (shortcodes)
+  private emoji: typeof import('emoji-mart'); // Emoji picker and database
 
   constructor() {
     this.unviewedNum = 0;
@@ -110,19 +155,6 @@ export class Chat {
     settings.timestampToggle = (storage.get('timestamp') !== 'false');
     settings.chattabsToggle = (storage.get('chattabs') !== 'false');
     this.virtualScrollerPromise = import('virtual-scroller/dom');
-
-    // load emojis
-    this.emojisLoaded = false;
-    const suppressUnhandledRejection = (event) => { 
-      // This is to get around bug in gh-emoji where it throws an 'Uncaught (in promise) Type Error' when 
-      // it fails to fetch the emojis due to being offline etc.
-      event.preventDefault(); 
-    };
-    window.addEventListener('unhandledrejection', suppressUnhandledRejection, { once: true });
-    loadEmojis().then(() => {
-      this.emojisLoaded = true;
-      window.removeEventListener('unhandledrejection', suppressUnhandledRejection);
-    });
 
     // initialize tabs
     this.tabData = {};
@@ -225,6 +257,7 @@ export class Chat {
     });
 
     this.initStartChatMenu();
+    this.initEmojis();
   }
 
   public connected(user: string): void {
@@ -697,8 +730,8 @@ export class Chat {
     let text = data.message;
     if(!html)
       text = this.escapeHTML(text);
-    if(this.emojisLoaded)
-      text = parseEmojis(text);
+
+    text = this.emojify(text);
 
     text = text.replace(this.userRE, `<strong class="mention">${this.user}</strong>`);
 
@@ -1002,6 +1035,138 @@ export class Chat {
         $('#start-chat-matching-channels').toggle(!!matchingChannels.length);
       }
     }
+  }
+
+  /**
+   * Converts unicode emojis in the given text to shortcodes (and sometimes emoticons :-))
+   */
+  public unemojify(text: string): string {
+    if(!this.emoji)
+      return text;
+
+    // Convert basic emojis to emoticons (only if they are a stand-alone word surrounded by whitespace)
+    const unicodeToEmoticon = Object.entries(emoticons).reduce((acc, [k, v]) => {
+      acc[v] = k;
+      return acc;
+    }, {});
+
+    const regex = new RegExp(
+      Object.keys(unicodeToEmoticon)
+        .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .map(k => `(?<!\\S)${k}(?!\\S)`) 
+        .join('|'),
+      'g'
+    );
+    text = text.replace(regex, match => unicodeToEmoticon[match] || match);
+
+    // Convert other emojis to shortcodes
+    const parts: string[] = [];
+    const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+    const graphemes = Array.from(segmenter.segment(text), s => s.segment);
+
+    for(const char of graphemes) 
+      parts.push(this.emojiUnicodeToShortcodes.get(char) || char);  
+    return parts.join('');
+  }
+
+  /**
+  * Converts emoji shortcodes and ascii emoticons in the given text to unicode emojis
+  */
+  public emojify(text: string): string {
+    if(!this.emoji)
+      return text;
+
+    // Convert shortcodes to emojis
+    const parts: string[] = [];
+    let lastIndex = 0;
+    let regex = /(?:\:([^\:]+)\:)(?:\:skin-tone-(\d)\:)?/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      const start = match.index;
+      const shortcode = match[1];
+      const skinsIndex = match[2] ? +match[2] - 1 : 0;
+      parts.push(text.slice(lastIndex, start));
+      const emoji = (this.emoji.SearchIndex as any).get(shortcode);
+      if(emoji) 
+        parts.push(emoji.skins[skinsIndex].native);
+      else {
+        parts.push(match[0].slice(0, -1));
+        regex.lastIndex--;
+      }
+      lastIndex = regex.lastIndex;
+    }
+    parts.push(text.slice(lastIndex));
+    text = parts.join('');
+
+    // Convert basic emoticons to emojis (only if they are stand-alone words surrounded by whitesppace)
+    regex = new RegExp(
+      Object.keys(emoticons)
+        .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .map(k => `(?<!\\S)${k}(?!\\S)`)
+        .join('|'),
+      'g'
+    );
+    return text.replace(regex, match => emoticons[match] || match);
+  }
+
+  /**
+   * Show the emoji picker 
+   */
+  public showEmojiPicker() {
+    if(!this.emoji)
+      return;
+
+    const picker = new this.emoji.Picker({
+      theme: getComputedStyle(document.documentElement).getPropertyValue('--color-scheme').trim(),
+      onClickOutside: () => this.hideEmojiPicker(),
+      onEmojiSelect: (emoji) => {
+        $('#input-text').trigger('focus');
+        insertAtCursor($('#input-text'), emoji.native);
+        $('#input-text').trigger('blur');
+      }
+    }) as any;
+    $('#emoji-panel')[0].prepend(picker);
+    $('#emoji-panel').css('visibility', 'visible');
+  }
+
+  /**
+   * Hide the emoji picker
+   */
+  public hideEmojiPicker() {
+    $('#emoji-panel').css('visibility', 'hidden');
+    $('em-emoji-picker').remove();
+  }
+
+  /** 
+   * Ininitalize the emoji database and emoji picker element) 
+   */
+  public async initEmojis() {
+    let data = null;
+    
+    try {
+      const response = await fetch('https://cdn.jsdelivr.net/npm/@emoji-mart/data');
+      data = await response.json();
+    }
+    catch(e) { return; } 
+
+    const emojiMart = await import('emoji-mart');
+    await emojiMart.init({ data });
+    this.emoji = emojiMart;
+
+    // Build mapping from emoji unicodes to shortcodes for fast synchornous lookup
+    for(const em of Object.values(data.emojis) as any[]) {
+      for(const skin of em.skins) 
+        this.emojiUnicodeToShortcodes.set(skin.native, skin.shortcodes);
+    }
+
+    $('#emoji-button').on('click', (e) => {
+      if($('#emoji-panel').css('visibility') === 'hidden') {
+        e.stopPropagation();
+        this.showEmojiPicker();
+      }
+      $('#emoji-button').trigger('blur'); // So the "fake" text input loses focus styling
+      $('#emoji-button').tooltip('hide');
+    });
   }
 }
 

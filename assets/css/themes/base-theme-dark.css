@@ -1,11 +1,14 @@
 :root {
   color-scheme: dark;
+  --color-scheme: dark;
   --bg-color: #424242;
   --fg-color: whitesmoke;
   --bs-body-color: var(--fg-color);
   --bs-body-bg: var(--bg-color);
   --bs-border-color: #555555;
   --bs-border-color-translucent: rgba(255, 255, 255, 0.175);
+  --form-control-bg: #555555;
+  --flash-color: #cc6666;
 }
 
 cg-board {
@@ -150,8 +153,8 @@ a {
 }
 .form-control,
 .form-control:active,
-.form-control:focus {
-  background-color: #555555;
+.form-control:focus, #fake-input-text:focus-within {
+  background-color: var(--form-control-bg);
   border-color: #888888;
   color: lightgray;
 }
@@ -404,4 +407,11 @@ a {
 .not-signed-in-notice {
   background: color-mix(in srgb, var(--bg-color) 90%, white 10%);
   border-color: #AAAAAA;
+}
+
+#emoji-button {
+  --bs-btn-color: dodgerblue;
+}
+.emoji-panel-arrow {
+  border-top-color: #151617;
 }
