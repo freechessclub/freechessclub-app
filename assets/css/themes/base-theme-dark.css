@@ -1,5 +1,6 @@
 :root {
   color-scheme: dark;
+  --color-scheme: dark;
   --bg-color: #424242;
   --fg-color: whitesmoke;
   --bs-body-color: var(--fg-color);
@@ -404,4 +405,11 @@ a {
 .not-signed-in-notice {
   background: color-mix(in srgb, var(--bg-color) 90%, white 10%);
   border-color: #AAAAAA;
+}
+
+#emoji-button {
+  color: dodgerblue;
+}
+.emoji-panel-arrow {
+  border-top-color: #151617;
 }

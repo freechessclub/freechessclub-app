@@ -128,7 +128,7 @@ async function onDeviceReady() {
     $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
   }
 
-  $('input, textarea').each(function() {
+  $('input, [data-select-on-focus]').each(function() {
     Utils.selectOnFocus($(this));
   });
 
@@ -1353,7 +1353,7 @@ function handleMiscMessage(data: any) {
     if(index !== -1) {
       // User has tried to send a tell to an offline user. Ask if they want to send it as a message isntead
       const tell = pendingTells.splice(index, 1)[0];
-      const message = Utils.splitText(Utils.unicodeToHTMLEncoding(tell.message), 997)[0]; // HTMLEncode message and truncate to max 997 chars
+      const message = tell.message; 
       const okHandler = () => {
         session.send(`message ${tell.recipient} ${message}`);
       };
@@ -6450,13 +6450,13 @@ $('#input-form').on('submit', (event) => {
 
     if(isPrivateTell && session.getUser().toLowerCase() !== recipient.toLowerCase() 
         && session.isRegistered() && !/^Guest[A-Z]{4}$/i.test(recipient)) 
-      pendingTells.push({ recipient, message });
+      pendingTells.push({ recipient, message: Utils.splitText(plainText(message), 997)[0] });
 
     const maxLength = (session.isRegistered() ? 400 : 200);
     if(message.length > maxLength)
       message = message.slice(0, maxLength);
 
-    message = Utils.unicodeToHTMLEncoding(message);
+    message = plainText(message);
     const messages = Utils.splitText(message, maxLength); // if message is now bigger than maxLength chars due to html encoding split it
 
     for(const msg of messages) {
@@ -6471,11 +6471,16 @@ $('#input-form').on('submit', (event) => {
     }
   }
   else
-    session.send(Utils.unicodeToHTMLEncoding(text));
+    session.send(plainText(text));
 
   $('#input-text').val('');
   updateInputText();
 });
+
+function plainText(text: string) {
+  text = chat.unemojify(text);
+  return Utils.unicodeToHTMLEncoding(text);
+}
 
 $('#input-text').on('input', () => {
   updateInputText();
@@ -6514,8 +6519,12 @@ function updateInputText() {
   else
     maxLength = 400;
 
+  // Convert emoji unicode chars to shortcodes in order to test the length then convert them back
+  // Note: as a side effect of this, it will convert shortcodes typed in the input in real time
+  val = chat.unemojify(val);
   if(val.length > maxLength)
-    val = val.substring(0, maxLength);
+    val = Utils.splitText(val, maxLength)[0];
+  val = chat.emojify(val);
 
   if(val !== element.value as string) {
     element.value = val;

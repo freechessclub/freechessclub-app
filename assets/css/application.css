@@ -168,6 +168,43 @@ body {
 #input-text {
   resize: none;
   overflow-x: hidden;
+  padding-right: 2.3rem;
+}
+#emoji-button-container {
+  position: absolute; 
+  top: 0;
+  right: 0;
+  height: 100%;
+  z-index: 5;
+}
+#emoji-button {
+  position: relative;
+  bottom: 0;
+  font-size: 1.3rem;
+  line-height: 1.5rem;
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+#emoji-panel {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  align-items: end;
+  justify-content: end;
+  right: 0;
+  bottom: 100%;
+  z-index: 6;
+  visibility: hidden;
+}
+.emoji-panel-arrow {
+  position: relative;
+  width: 0;
+  height: 0;
+  right: 0.5rem;
+  bottom: 1px;
+  border-left: 16px solid transparent;
+  border-right: 16px solid transparent;
+  border-top: 16px solid; 
 }
 
 .counter-number {
@@ -596,12 +633,6 @@ body {
   height: 10px;
   display: inline-block;
   position: relative;
-}
-
-.gh-emoji {
-  margin-top: -5px;
-  width: 18px;
-  height: 18px;
 }
 
 #textsize-range {
