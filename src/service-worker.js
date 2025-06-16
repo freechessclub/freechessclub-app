@@ -24,6 +24,12 @@ if(urlParams.get('env') === 'app') // Capacitor or Electron app, don't cache sta
 else 
   precacheAndRoute([...self.__WB_MANIFEST, ...externals]); // __WB_MANIFEST is injected by inject-manifest.js
 
+registerRoute(
+  ({ url }) =>
+    url.origin === 'https://cdn.jsdelivr.net',
+  new StaleWhileRevalidate({ cacheName: 'stalewhile-cache' })
+);
+
 cleanupOutdatedCaches();
 
 self.addEventListener('install', (event) => {

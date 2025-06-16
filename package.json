@@ -71,9 +71,10 @@
     "cm-polyglot": "^1.1.0",
     "d3": "^7.8.0",
     "electron-updater": "6.6.4",
-    "gh-emoji": "^0.2.5",
+    "emoji-mart": "^5.6.0",
     "jquery": "^3.7.0",
     "js-cookie": "^3.0.1",
+    "luxon": "^3.6.1",
     "stockfish.js": "^10.0.2",
     "virtual-scroller": "^1.13.1"
   },

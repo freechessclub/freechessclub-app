@@ -2,6 +2,27 @@ const webpack = require('webpack');
 const { exec } = require('child_process');
 
 module.exports = [{
+    name: 'service-worker',
+    entry: './src/service-worker.js',
+    target: 'webworker',
+    output: {
+        filename: 'service-worker.js',
+        path: __dirname,
+    },
+    plugins: [
+        {
+            apply: (compiler) => {
+                compiler.hooks.done.tap('RunAfterBuildPlugin', () => {
+                    exec(`node "${__dirname}/src/inject-manifest.js"`, (err, stdout, stderr) => {
+                        if (stdout) console.log(stdout);
+                        if (stderr) console.error(stderr);
+                    });
+                });
+            }
+        }
+    ]
+},
+{
     name: 'bundle',
     entry: "./src/index.ts",
     output: {
@@ -66,25 +87,4 @@ module.exports = [{
         compress: true,
         port: 8080,
     }
-},
-{
-    name: 'service-worker',
-    entry: './src/service-worker.js',
-    target: 'webworker',
-    output: {
-        filename: 'service-worker.js',
-        path: __dirname,
-    },
-    plugins: [
-        {
-            apply: (compiler) => {
-                compiler.hooks.done.tap('RunAfterBuildPlugin', () => {
-                    exec(`node "${__dirname}/src/inject-manifest.js"`, (err, stdout, stderr) => {
-                        if (stdout) console.log(stdout);
-                        if (stderr) console.error(stderr);
-                    });
-                });
-            }
-        }
-    ]
 }]

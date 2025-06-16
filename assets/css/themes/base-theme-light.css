@@ -1,5 +1,6 @@
 :root {
   color-scheme: light;
+  --color-scheme: light;
   --bg-color: #dee3e6;
   --fg-color: #212529;
   --bs-body-bg: var(--bg-color);
@@ -273,3 +274,32 @@ cg-board {
 .premove-target::before {
   color: white;
 }
+
+#channels-modal table thead {
+  background: color-mix(in srgb, var(--bg-color) 20%, white 80%);
+  --box-shadow-color: color-mix(in srgb, var(--bg-color) 85%, black 15%);
+}
+
+.info-icon {
+  color: #6c757d;
+}
+.info-icon:hover, info-icon:focus {
+  color: #0d6efd;
+}
+
+#pills-pairing .form-check-label {
+  color: #6c757d;
+}
+
+.not-signed-in-notice {
+  background: color-mix(in srgb, var(--bg-color) 90%, black 10%);
+  border-color: #6c757d;
+}
+
+#emoji-button {
+  color: dodgerblue;
+}
+.emoji-panel-arrow {
+  border-top-color: #ffffff;
+}
+
