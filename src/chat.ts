@@ -3,11 +3,10 @@
 // license that can be found in the LICENSE file.
 
 import { autoLink } from 'autolink-js';
-import { load as loadEmojis, parse as parseEmojis } from 'gh-emoji';
-import { createTooltip, safeScrollTo, isSmallWindow } from './utils';
+import { createTooltip, safeScrollTo, isSmallWindow, convertToLocalDateTime, getMonthShortName, removeWithTooltips, insertAtCursor } from './utils';
 import { setGameWithFocus, maximizeGame, scrollToBoard } from './index';
 import { settings } from './settings';
-import { storage } from './storage';
+import { storage, awaiting } from './storage';
 import { games } from './game';
 
 // list of channels
@@ -18,11 +17,11 @@ const channels = {
   3:      'FICS Programmers',
   4:      'Guest Help',
   5:      'Service Representatives',
-  6:      'Help (Interface & Timeseal)',
+  6:      'Interfaces Help',
   7:      'Online Tours',
   20:     'Forming Team games',
-  21:     'Playing Team games',
-  22:     'Playing Team games',
+  21:     'Playing Team games 1',
+  22:     'Playing Team games 2',
   23:     'Forming Simuls',
   30:     'Books & Knowledge',
   31:     'Computer Games',
@@ -88,64 +87,86 @@ const channels = {
   100:    'Trivia',
 };
 
+const emoticons = {
+  ':)': '😊',
+  ':-)': '😊',
+  ':D': '😄',
+  ':-D': '😄',
+  ':(': '☹️',
+  ':-(': '☹️',
+  ';)': '😉',
+  ';-)': '😉',
+  ':P': '😛',
+  ':-P': '😛',
+  ':p': '😛',
+  ':-p': '😛',
+  ':/': '😕',
+  ':-/': '😕',
+  ':\\': '😕',
+  ':-\\': '😕',
+  ':O': '😲',
+  ':-O': '😲',
+  ':o': '😲',
+  ':-o': '😲',
+  'B)': '😎',
+  'B-)': '😎',
+  '>:(': '😠',
+  '>:-(': '😠',
+  ':|': '😐',
+  ':-|': '😐',
+  '<3': '❤️',
+  '</3': '💔',
+  'O:)': '😇',
+  'O:-)': '😇',
+  ':-*': '😘',
+  ':*': '😘',
+  ':-X': '🤐',
+  ':-x': '🤐',
+  'XD': '😆',
+  'xD': '😆',
+  '-_-': '😑',
+  ':3': '😺',
+  ':$': '😳',
+  ':-$': '😳',
+  ':\'(': '😭',
+  ':\'-(': '😭'
+};
+
 let maximized = false;
 
 export class Chat {
   private user: string;
   private userRE: RegExp;
+  private timezone: string;
   private tabData: object;
-  private emojisLoaded: boolean;
   private maximized: boolean;
   private unviewedNum: number;
   private virtualScrollerPromise: Promise<typeof import('virtual-scroller/dom')>;
+  private subscribedChannels: string[];
+  private userList: any[];
+  private userListHasBeenRequested: boolean = false;
+  private inChannelTimer: any = null;
+  private emojiUnicodeToShortcodes = new Map(); // Mapping from emoji unicodes to ids (shortcodes)
+  private emoji: typeof import('emoji-mart'); // Emoji picker and database
 
   constructor() {
     this.unviewedNum = 0;
+    this.subscribedChannels = [];
     settings.timestampToggle = (storage.get('timestamp') !== 'false');
     settings.chattabsToggle = (storage.get('chattabs') !== 'false');
     this.virtualScrollerPromise = import('virtual-scroller/dom');
 
-    // load emojis
-    this.emojisLoaded = false;
-    const suppressUnhandledRejection = (event) => { 
-      // This is to get around bug in gh-emoji where it throws an 'Uncaught (in promise) Type Error' when 
-      // it fails to fetch the emojis due to being offline etc.
-      event.preventDefault(); 
-    };
-    window.addEventListener('unhandledrejection', suppressUnhandledRejection, { once: true });
-    loadEmojis().then(() => {
-      this.emojisLoaded = true;
-      window.removeEventListener('unhandledrejection', suppressUnhandledRejection);
-    });
-
     // initialize tabs
     this.tabData = {};
+
+    $(document).on('show.bs.tab', '#tabs button[data-bs-toggle="tab"]', async (e) => {
+      this.createInChannelTimer(this.getTabName($(e.target)));
+    });
 
     $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', async (e) => {
       const tab = $(e.target);
       this.updateViewedState(tab);
-
-      const contentPane = $(tab.attr('href'));
-      const scrollContainer = contentPane.find('.chat-scroll-container');
-      if(!scrollContainer.length)
-        return;
-
-      const tabData = this.getTabDataFromElement(tab);
-      if(!tabData.scroller) {
-        tabData.scroller = await this.createVirtualScroller(contentPane, tabData.messages);
-        tabData.scrollerStarted = true;
-      }
-
-      if(!tabData.scrollerStarted) {
-        // In case panel was resized while hidden, recalculate chat message heights so that 
-        // virtual-scroller doesn't complain after restarting
-        const state = tabData.scroller.virtualScroller.getState();
-        for(let i = state.firstShownItemIndex; i <= state.lastShownItemIndex; i++) 
-          tabData.scroller.onItemHeightDidChange(i);
-        tabData.scroller.start();
-        tabData.scroller.setItems(tabData.messages); // Render any new messages that arrived while tab was hidden
-        tabData.scrollerStarted = true;
-      }
+      this.updateVirtualScroller(tab);
       this.fixScrollPosition();
     });
 
@@ -156,6 +177,7 @@ export class Chat {
         tabData.scroller.stop(); // Stop virtual-scroller before hiding tab so that it doesn't remove all its DO< elements
         tabData.scrollerStarted = false;
       } 
+      clearInterval(this.inChannelTimer);
     });
 
     $('#chat-scroll-button').on('click', () => {
@@ -233,6 +255,38 @@ export class Chat {
       $('#mid-col').toggleClass('d-none');
       $(window).trigger('resize');
     });
+
+    this.initStartChatMenu();
+    this.initEmojis();
+  }
+
+  public connected(user: string): void {
+    if(this.user !== user) {
+      $('#tabs .closeTab').each((index, element) => {
+        this.closeTab($(element).parent().siblings('.nav-link'));
+      });
+    }
+
+    this.createInChannelTimer(this.currentTab());
+
+    this.user = user;
+    this.userRE = new RegExp(`\\b${user}\\b`, 'ig');
+  }
+
+  public cleanup() {
+    clearInterval(this.inChannelTimer);
+    this.inChannelTimer = null;
+  }
+
+  public createInChannelTimer(tabName: string) {
+    if(/^\d+$/.test(tabName)) {
+      (window as any).sessionSend(`inchannel ${tabName}`);
+      awaiting.set('inchannel');
+      this.inChannelTimer = setInterval(() => {
+        (window as any).sessionSend(`inchannel ${tabName}`);
+        awaiting.set('inchannel');
+      }, 60000);
+    }
   }
 
   public getWatchers(tab: any): string[] {
@@ -257,10 +311,18 @@ export class Chat {
     return null;
   }
 
-  public updateNumWatchers(tab: any): boolean {
+  public updateMembers(tabName: string, members: string[]) {
+    const elem = $(`#content-${tabName} .chat-members-text`); 
+    if(!elem.length)
+      return;
+    elem.text(`${members.length} ${tabName.startsWith('game-') ? 'Watchers' : 'Members'}`);
+    this.getTabData(tabName).members = members;
+  }
+
+  public updateWatchers(tab: any): boolean {
     const watchers = this.getWatchers(tab);
     if(watchers != null) {
-      $(tab.attr('href')).find('.chat-watchers-text').text(`${watchers.length} Watchers`);
+      this.updateMembers(tab.attr('id').replace(/^tab-/, ''), watchers);
       return true;
     }
     return false;
@@ -274,14 +336,12 @@ export class Chat {
       const bname = tags.Black;
       let wrating = tags.WhiteElo || '?';
       let brating = tags.BlackElo || '?';
-      let match = wname.match(/Guest[A-Z]{4}/);
-      if(match)
+      if(/^Guest[A-Z]{4}$/.test(wname))
         wrating = '++++';
       else if(wrating === '-')
         wrating = '----';
 
-      match = bname.match(/Guest[A-Z]{4}/);
-      if(match)
+      if(/^Guest[A-Z]{4}$/.test(bname))
         brating = '++++';
       else if(brating === '-')
         brating = '----';
@@ -336,33 +396,24 @@ export class Chat {
 
   public closeTab(tab: any) {
     this.updateViewedState(tab, true);
-    if(tab.hasClass('active'))
+    if(tab.hasClass('active')) {
+      clearInterval(this.inChannelTimer);
       $('#tabs .nav-link:first').tab('show');
+    }
 
     const name: string = tab.attr('id').toLowerCase().split(/-(.*)/)[1];
     tab.parent().tooltip('dispose');
     tab.parent().remove();
     this.deleteTab(name);
-    $(`#content-${name}`).remove();
-  }
-
-  public setUser(user: string): void {
-    if(this.user !== user) {
-      $('#tabs .closeTab').each((index, element) => {
-        this.closeTab($(element).parent().siblings('.nav-link'));
-      });
-    }
-
-    this.user = user;
-    this.userRE = new RegExp(`\\b${user}\\b`, 'ig');
+    removeWithTooltips($(`#content-${name}`));
   }
 
   public async createTab(name: string, showTab = false) {
     let from: string;
     if(!settings.chattabsToggle)
       from = 'console';
-    else
-      from = name.toLowerCase().replace(/\s/g, '-');
+    else 
+      from = name.toLowerCase().trim().replace(/\s+/g, '-');
 
     // Check whether this is a bughouse chat tab, e.g. 'Game 23 and 42'
     let match = from.match(/^game-(\d+)/);
@@ -380,31 +431,29 @@ export class Chat {
     }
 
     if(!this.tabData.hasOwnProperty(from)) {
+      this.tabData[from] = {
+        messages: [],
+        scroller: null,
+        scrollerStarted: false,
+        scrolledToBottom: true
+      };
+
       let chName = name;
-      if(channels[name] !== undefined)
+      let isGameTab = false, isChannel = false;
+      if(channels[name] !== undefined) {
         chName = channels[name];
+        isChannel = true;
+      }
      
-      match = chName.match(/^Game (\d+)/);
       let tooltip = '';
-      let infoBar: JQuery<HTMLElement>;
+      match = chName.match(/^Game (\d+)/);
       if(match && match.length > 1) {
         const game = games.findGame(+match[1]);
         if(game) {
           const tags = game.history.metatags;
           const gameDescription = `${tags.White || game.wname} vs. ${tags.Black || game.bname}`;
           tooltip = `data-bs-toggle="tooltip" data-tooltip-hover-only title="${gameDescription}" `;
-
-          // Show Game chat room info bar
-          infoBar = $(`
-          <div class="d-flex flex-shrink-0 w-100 chat-info">
-            <div class="d-flex align-items-center flex-grow-1 overflow-hidden me-2" style="min-width: 0">
-              <button class="chat-game-description btn btn-outline-secondary btn-transparent p-0 chat-info-text"></button>
-            </div>
-            <button class="chat-watchers d-flex ms-auto align-items-center btn btn-outline-secondary btn-transparent p-0 chat-info-text" data-bs-placement="left">
-              <span class="chat-watchers-text">0 Watchers</span>
-              <span class="fa-solid fa-users"></span>
-            </button>
-          </div>`);
+          isGameTab = true;
         }
       }
 
@@ -435,28 +484,60 @@ export class Chat {
         </div>
       </div>`).appendTo(tabContent);
 
-      if(infoBar) {
+      if(isGameTab || isChannel) {
+        // Show Game chat room info bar
+        const infoBar = $(`
+        <div class="d-flex flex-shrink-0 w-100 chat-info">
+          <button class="chat-members d-flex ms-auto align-items-center btn btn-outline-secondary btn-transparent p-0 chat-info-text" data-bs-placement="left">
+            <span class="chat-members-text">0 ${isGameTab ? 'Watchers' : 'Members'}</span>
+            <span class="fa-solid fa-users"></span>
+          </button>
+        </div>`);
         tabContent.find('.chat-content-wrapper').prepend(infoBar);
-        this.updateGameDescription(tabElement.find('.nav-link'));
-        this.updateNumWatchers(tabElement.find('.nav-link'));
 
-        // Display watchers-list tooltip when hovering button in info bar
-        tabContent.find('.chat-watchers').on('mouseenter', (e) => {
+        if(isGameTab) {
+          infoBar.addClass('game-chat-info');
+          infoBar.prepend(`<div class="d-flex align-items-center flex-grow-1 overflow-hidden me-2" style="min-width: 0">
+              <button class="chat-game-description btn btn-outline-secondary btn-transparent p-0 chat-info-text"></button>
+            </div>`);
+          this.updateGameDescription(tabElement.find('.nav-link'));
+          this.updateWatchers(tabElement.find('.nav-link'));
+        }
+
+        // Display members-list tooltip when hovering button in info bar
+        tabContent.find('.chat-members').on('mouseenter', (e) => {
           const curr = $(e.currentTarget);
           const activeTab = $('#tabs button').filter('.active');
-          const watchers = this.getWatchers(activeTab);
-          if(watchers) {
-            const description = watchers.join('<br>');
-            const numWatchers = watchers.length;
-            const title = `${numWatchers} Watchers`;
-            const tooltipText = !watchers.length
+          const members = this.getTabDataFromElement(activeTab).members;
+          if(members) {
+            // Divide members into equal length columns, max 30 in each column
+            let description = '';
+            const numColumns = Math.ceil(members.length / 30);
+            const baseSize = Math.floor(members.length / numColumns); 
+            const remainder = members.length % numColumns;             
+            let index = 0;
+            for (let i = 0; i < numColumns; i++) {
+              const groupSize = i < remainder ? baseSize + 1 : baseSize;
+              description += '<div>';
+              for(let j = 0; j < groupSize; j++) {
+                if(index >= members.length) 
+                  break;
+                description += members[index++] + '<br>';
+              }
+              description += '</div>';
+            }
+
+            const numMembers = members.length;
+            const title = `${numMembers} ${isGameTab ? 'Watchers' : 'Members'}`;
+            const tooltipText = !members.length
               ? `<b>${title}</b>`
-              : `<b>${title}</b><hr class="tooltip-separator"><div>${description}</div>`;
+              : `<b>${title}</b><hr class="tooltip-separator"><div class="chat-members-list">${description}</div>`;
 
             curr.tooltip({
               title: tooltipText,
+              customClass: 'chat-members-tooltip',
               html: true,
-              ...watchers.length && {
+              ...members.length && {
                 popperConfig: {
                   placement: 'left-start',
                 },
@@ -470,13 +551,15 @@ export class Chat {
           });
         });
 
-        $('.chat-game-description').on('click', () => {
-          const game = this.getGameFromTab($('#tabs button.active'));
-          if(game) {
-            setGameWithFocus(game);
-            maximizeGame(game);
-          }
-        });
+        if(isGameTab) {
+          $('.chat-game-description').on('click', () => {
+            const game = this.getGameFromTab($('#tabs button.active'));
+            if(game) {
+              setGameWithFocus(game);
+              maximizeGame(game);
+            }
+          });
+        }
       }
 
       // Scroll event listener for auto scroll to bottom etc
@@ -497,30 +580,17 @@ export class Chat {
           }
         }
       });
-
-      const messages = [];
-
-      this.tabData[from] = {
-        messages,
-        scroller: null,
-        scrollerStarted: false,
-        scrolledToBottom: true
-      };
-
-      if(tabContent.hasClass('active')) {
-        this.tabData[from].scroller = await this.createVirtualScroller(tabContent, messages);
-        this.tabData[from].scrollerStarted = true;
-      }
     }
 
-    if(showTab) {
-      const tabs = $('#tabs button').filter(function() {
-        return $(this).attr('id') === `tab-${from}`;
-      });
-      tabs.first().tab('show');
-    }
+    const tabElement = $('#tabs').find(`#tab-${from}`);
+    if(showTab) 
+      tabElement.tab('show');
  
-    return this.tabData[from];
+    return tabElement;
+  }
+
+  public showTab(name: string) {
+    $(`#tab-${name.toLowerCase().replace(/\s/g, '-')}`).tab('show');
   }
 
   public fixScrollPosition() {
@@ -564,6 +634,10 @@ export class Chat {
     return this.getTabData(tabElement.attr('id').toLowerCase().split(/-(.*)/)[1]);
   }
 
+  public getTabName(tabElement: any) {
+    return tabElement.attr('id').toLowerCase().split(/-(.*)/)[1];
+  }
+
   public deleteTab(name: string) {
     const tabData = this.tabData[name];
     if(tabData.scrollerStarted) 
@@ -572,26 +646,54 @@ export class Chat {
   }
 
   public currentTab(): string {
-    return $('ul#tabs button.active').attr('id').split(/-(.*)/)[1];
+    return $('#tabs button.active').attr('id').split(/-(.*)/)[1];
   }
 
-  public addChannels(chans: string[]) {
-    $('#chan-dropdown-menu').empty();
-    chans.forEach((ch) => {
-      let chName = ch;
-      if (channels[Number(ch)] !== undefined) {
-        chName = channels[Number(ch)];
+  public addChannelList(chans: string[]) {
+    $('#subscribed-channels .dropdown-item').closest('li').remove();
+    this.subscribedChannels = [];
+    $(`#channels-modal [type="checkbox"]`).prop('checked', false);
+
+    chans.forEach(ch => this.addChannel(ch));
+  }
+
+  public addChannel(chan: string) {
+    this.subscribedChannels.push(chan);
+
+    let chName = chan;
+    if(channels[Number(chan)] !== undefined) {
+      chName = channels[Number(chan)];
+    }
+
+    // Insert new channel in alphabetical order
+    let followingElement: JQuery<HTMLElement> | null = null;
+    $('#subscribed-channels .dropdown-item').each(function() {
+      const itemText = $(this).text();
+      if(itemText.localeCompare(chName) > 0) {
+        followingElement = $(this).closest('li'); 
+        return false; 
       }
-      $('#chan-dropdown-menu').append(
-        `<a class="dropdown-item noselect" id="ch-${ch}">${chName}</a>`);
-      $(`#ch-${ch}`).on('click', (event) => {
-        event.preventDefault();
-        if (!settings.chattabsToggle) {
-          ch = 'console';
-        }
-        this.createTab(ch, true);
-      });
     });
+
+    const menuItem = $(`<li><a class="dropdown-item noselect" data-tab-name="${chan}">${chName}</a></li>`);
+    if(followingElement)
+      followingElement.before(menuItem)
+    else
+      $('#subscribed-channels').append(menuItem);
+      
+    // Tick the channel's 'subscribed' checkbox in the channels modal
+    $(`#channels-modal [data-channel="${chan}"]`).prop('checked', true);
+
+    $('#subscribed-channels').toggle($('#add-remove-channels').is(':visible'));
+  }
+
+  public removeChannel(chan: string) {
+    this.subscribedChannels = this.subscribedChannels.filter(item => item !== chan);
+    $(`#subscribed-channels [data-tab-name="${chan}"]`).closest('li').remove();
+    $('#subscribed-channels').toggle(!!$('#subscribed-channels .dropdown-item').length);
+
+    // Untick the channel's 'subscribed' checkbox in the channels modal
+    $(`#channels-modal [data-channel="${chan}"]`).prop('checked', false);
   }
 
   private escapeHTML(text: string) {
@@ -611,7 +713,7 @@ export class Chat {
     if(!/^[\w- ]+$/.test(from))
       return;
 
-    const tab = await this.createTab(tabName);
+    const tabElement = await this.createTab(tabName);
     let who = '';
     if (data.user !== undefined) {
       let textclass = '';
@@ -628,16 +730,18 @@ export class Chat {
     let text = data.message;
     if(!html)
       text = this.escapeHTML(text);
-    if(this.emojisLoaded)
-      text = parseEmojis(text);
+
+    text = this.emojify(text);
 
     text = text.replace(this.userRE, `<strong class="mention">${this.user}</strong>`);
 
-    // Suffix for whispers
-    const suffixText = data.type === 'whisper' && !data.suffix ? '(whispered)' : data.suffix;
-    const suffix = (suffixText ? ` <span class="chat-text-suffix">${suffixText}</span>`: '');
+    let suffixText = data.suffix;
+    if(data.type == 'whisper')
+      suffixText = '(whispered)';
+    else if(data.type === 'kibitz')
+      suffixText = '(kibitzed)';
 
-    text = `${autoLink(text, {
+    text = autoLink(text, {
       target: '_blank',
       rel: 'nofollow',
       callback: (url) => {
@@ -645,20 +749,71 @@ export class Chat {
           `<a href="${url}" target="_blank" rel="nofollow"><img height="50" src="${url}"></a>`
           : null;
       },
-    })}${suffix}</br>`;
+    });
 
-    const timestamp = settings.timestampToggle
-      ? `<span class="timestamp">[${new Date().toLocaleTimeString()}]</span> `
-      : '';
+    let timestamp = settings.timestampToggle 
+        ? `<span class="timestamp">[${new Date().toLocaleTimeString()}]</span> `
+        : '';
 
-    tab.messages = tab.messages.concat(`${timestamp}${who}${text}`);
-    if(tab.scrollerStarted)
-      tab.scroller.setItems(tab.messages);
+    // 'message' instead of tell
+    if(data.datetime) {
+      if(!settings.chattabsToggle)
+        return;
 
-    const tabheader = $(`#tab-${from.toLowerCase().replace(/\s/g, '-')}`);
+      const dateTime = await convertToLocalDateTime(data.datetime);
+      const now = new Date();
 
-    if(this.user !== data.user)
-      this.updateViewedState(tabheader, false, data.type !== 'whisper');
+      const dateOptions: any = {
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric'
+      };
+      if(dateTime.getMonth() !== now.getMonth() || dateTime.getDate() !== now.getDate() || dateTime.getFullYear() !== now.getFullYear()) {
+        dateOptions.day = 'numeric';
+        dateOptions.month = 'short';
+        if(dateTime.getFullYear() !== now.getFullYear())
+          dateOptions.year = 'numeric';
+      }
+      timestamp = `<span class="timestamp">[${dateTime.toLocaleString('default', dateOptions)}]</span> `;
+      suffixText = '(message)';
+    }
+    
+    const suffix = (suffixText ? ` <span class="chat-text-suffix">${suffixText}</span>`: '');
+    text += suffix;
+
+    const tabData = this.getTabDataFromElement(tabElement); 
+    tabData.messages = tabData.messages.concat(`${timestamp}${who}${text}`);
+    if(tabElement.hasClass('active'))
+      this.updateVirtualScroller(tabElement);
+
+    if(this.user !== data.user || from.toLowerCase() === this.user.toLowerCase())
+      this.updateViewedState(tabElement, false, data.type !== 'whisper');
+  }
+
+  private async updateVirtualScroller(tabElement: any) {
+    const tabContentElement = $(tabElement.attr('href'));
+    const scrollContainer = tabContentElement.find('.chat-scroll-container');
+    if(!scrollContainer.length)
+      return;
+
+    const tabData = this.getTabDataFromElement(tabElement);
+    if(!tabData.scroller) {
+      tabData.scroller = await this.createVirtualScroller(tabContentElement, tabData.messages);
+      tabData.scrollerStarted = true;
+      return;
+    }
+
+    if(!tabData.scrollerStarted) {
+      // In case panel was resized while hidden, recalculate chat message heights so that 
+      // virtual-scroller doesn't complain after restarting
+      const state = tabData.scroller.virtualScroller.getState();
+      for(let i = state.firstShownItemIndex; i <= state.lastShownItemIndex; i++) 
+        tabData.scroller.onItemHeightDidChange(i);
+      tabData.scroller.start();
+      tabData.scrollerStarted = true;
+    }
+
+    tabData.scroller.setItems(tabData.messages);
   }
 
   private ignoreUnviewed(from: string) {
@@ -694,10 +849,8 @@ export class Chat {
 
     $('#tabs .nav-link').each((index, element) => {
       const match = $(element).attr('id').match(/^tab-game-(\d+)(?:-|$)/);
-      if(match && match.length > 1 && +match[1] === gameId) {
-        $($(element).attr('href')).find('.chat-watchers').tooltip('dispose');
+      if(match && match.length > 1 && +match[1] === gameId) 
         this.closeTab($(element));
-      }
     });
   }
 
@@ -708,6 +861,312 @@ export class Chat {
       else
         safeScrollTo($('#right-panel-header').offset().top);
     }
+  }
+ 
+  /**
+   * Creates event listeners for the 'Start Chat' button and menu. This menu allows the user 
+   * to open a new chat tab for a user or channel or add/remove channels from their subscribed list (i.e. +ch, -ch)
+   */
+  public initStartChatMenu() {
+    // Triggered before the menu is shown
+    $('#start-chat-button').on('show.bs.dropdown', () => {
+      this.userList = null;
+      this.userListHasBeenRequested = false;
+      $('#start-chat-input').val('');
+      $('#add-remove-channels').show();
+      $('#subscribed-channels').toggle(!!$('#subscribed-channels .dropdown-item').length);
+      $('#start-chat-matching-users').hide();
+      $('#start-chat-matching-channels').hide();
+    });
+
+    // Triggered when a user or channel is clicked in the list in order to open a tab
+    $('#start-chat-menu').on('click', '[data-tab-name]', (event) => {
+      const chan = $(event.target).attr('data-tab-name') as string;
+
+      if(settings.chattabsToggle) {
+        this.createTab(chan, true);
+        setTimeout(this.scrollToChat, 300);
+      }
+
+      // If user opens a channel tab, also subscribe to that channel (if not already)
+      if(channels.hasOwnProperty(chan) && !this.subscribedChannels.includes(chan))
+        (window as any).sessionSend(`+ch ${chan}`);
+    });
+
+    $('#start-chat-button').on('shown.bs.dropdown', () => {
+      $('#start-chat-users-channels').scrollTop(0);
+      if(!navigator.maxTouchPoints) 
+        $('#start-chat-input').trigger('focus'); // Focus input when not on touch screen
+    });
+
+    // Listen for 'Enter' key and open tab, or listen for 'Tab' key for auto-completion
+    $('#start-chat-input').on('keydown', (event) => {
+      const elem = $(event.target);
+      let val = elem.val() as string;
+      val = val.trim();
+      if(event.key === 'Enter' && val.length) {
+        $('#start-chat-button').dropdown('hide');
+        let channelFound = false;
+        for(const [chNum, chName] of Object.entries(channels)) {
+          if(val.toLowerCase() === chName.toLowerCase()) {
+            val = chNum;
+            channelFound = true;
+            break;
+          }
+        }
+        if(!channelFound && this.userList) {
+          const matchingUser = this.userList.find(user => user.name.toLowerCase() === val.toLowerCase());
+          if(matchingUser)
+            val = matchingUser.name;
+        }
+
+        if(settings.chattabsToggle) {
+          this.createTab(val, true);
+          setTimeout(this.scrollToChat, 300);
+        }
+        elem.val('');
+      } 
+      else if(event.key === 'Tab') { // Tab auto-complete
+        if(val.length) { 
+          let match = val;
+          const matchingUser = $('#start-chat-matching-users [data-tab-name]').first();
+          if(matchingUser.length)
+            match = matchingUser.text();
+          else {
+            const matchingChannel = $('#start-chat-matching-channels [data-tab-name]').first();
+            if(matchingChannel.length)
+              match = matchingChannel.text();
+          }
+          if(val !== match) {
+            $(event.target).val(match);
+            (event.target as HTMLInputElement).select();
+          }
+        }
+        event.preventDefault();
+      }
+    });
+
+    // Filter results after new character typed in the input
+    $('#start-chat-input').on('input', (event) => {
+      const elem = $(event.target);
+      let val = elem.val() as string;
+      $('#start-chat-menu').css('min-width', `${$('#start-chat-menu').width()}px`); // keep menu width the same
+      $('#add-remove-channels').toggle(!val.length);
+      $('#subscribed-channels').toggle(!val.length && !!$('#subscribed-channels .dropdown-item').length);
+      $('#start-chat-matching-users').hide();
+      $('#start-chat-matching-users .dropdown-item').closest('li').remove();
+      $('#start-chat-matching-channels').hide();
+      $('#start-chat-matching-channels .dropdown-item').closest('li').remove();
+      if(!this.userListHasBeenRequested) {
+        this.userList = null;
+        awaiting.set('userlist');
+        (window as any).sessionSend('who');
+        this.userListHasBeenRequested = true; // Only request the user list once for each time the menu is shown
+      }      
+      else if(this.userList)
+        this.updateStartChatMenuFilter();
+    });
+
+    // Initialize subscribed channels
+    const sortedChannels = Object.entries(channels).sort(([, valueA], [, valueB]) =>
+      valueA.localeCompare(valueB)
+    );
+    sortedChannels.forEach(ch => {
+      $('#channels-modal tbody').append(`<tr><td>${ch[1]}</td><td><input type="checkbox" data-channel="${ch[0]}"></td></tr>`);
+    });
+
+    // Triggered when 'Add or remove chat rooms' button is clicked
+    $('#add-remove-channels button').on('click', (event) => {
+      $('#channels-modal').modal('show');
+    });
+
+    // Prevent menu from hiding when 'Add or remove chat rooms' button is clicked 
+    $('#channels-modal').on('hidden.bs.modal', (event) => {
+      $('#start-chat-button').off('hide.bs.dropdown');
+    });
+    $('#channels-modal').on('show.bs.modal', () => {
+      $('#start-chat-button').on('hide.bs.dropdown', (event) => {
+        event.preventDefault();
+      });
+    });
+    $('#channels-modal').on('hide.bs.modal', () => {
+      $('#channels-modal-list').scrollTop(0);
+    });
+
+    // Update subscribed channels when checkbox is clicked
+    $('#channels-modal').on('click', '[type="checkbox"]', (event) => {
+      const elem = $(event.target);
+      if(elem.prop('checked'))
+        (window as any).sessionSend(`+ch ${elem.attr('data-channel')}`);
+      else
+        (window as any).sessionSend(`-ch ${elem.attr('data-channel')}`);
+    });  
+  }
+
+  /**
+   * Called externally when results from a 'who' comamnd are received 
+   */
+  public updateUserList(users: any[]) {
+    this.userList = users;
+    this.updateStartChatMenuFilter();
+  }
+
+  /** Shows users and channels matching the text typed in the 'Start chat with...' input within the 'Start Chat' menu */
+  private updateStartChatMenuFilter() {
+    if($('#start-chat-menu').hasClass('show')) {
+      let inputText = $('#start-chat-input').val() as string;
+      inputText = inputText.trim().toLowerCase();
+      if(inputText.length) {
+        // Only show first 6 results, sorted alphabetically and excluding user's own name
+        let matchingUsers = this.userList.filter(user => user.name.toLowerCase().startsWith(inputText) && user.name !== this.user);
+        if(matchingUsers.length) {
+          matchingUsers = matchingUsers.slice(0,6).sort((a, b) => a.name.localeCompare(b.name));
+          matchingUsers.forEach(m => $('#start-chat-matching-users').append(
+            `<li><a class="dropdown-item noselect" data-tab-name="${m.name}">${m.name}</a></li>`));
+        }
+        $('#start-chat-matching-users').toggle(!!matchingUsers.length);
+
+        let matchingChannels = Object.entries(channels).filter(([key, value]) => value.toLowerCase().startsWith(inputText) || key.startsWith(inputText));
+        if(matchingChannels.length) {
+          matchingChannels = matchingChannels.sort((a, b) => a[1].localeCompare(b[1]));
+          matchingChannels.forEach(m => $('#start-chat-matching-channels').append(
+            `<li><a class="dropdown-item noselect" data-tab-name="${m[0]}">${m[1]}</a></li>`));
+        }
+        $('#start-chat-matching-channels').toggle(!!matchingChannels.length);
+      }
+    }
+  }
+
+  /**
+   * Converts unicode emojis in the given text to shortcodes (and sometimes emoticons :-))
+   */
+  public unemojify(text: string): string {
+    if(!this.emoji)
+      return text;
+
+    // Convert basic emojis to emoticons (only if they are a stand-alone word surrounded by whitespace)
+    const unicodeToEmoticon = Object.entries(emoticons).reduce((acc, [k, v]) => {
+      acc[v] = k;
+      return acc;
+    }, {});
+
+    const regex = new RegExp(
+      Object.keys(unicodeToEmoticon)
+        .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .map(k => `(?<!\\S)${k}(?!\\S)`) 
+        .join('|'),
+      'g'
+    );
+    text = text.replace(regex, match => unicodeToEmoticon[match] || match);
+
+    // Convert other emojis to shortcodes
+    const parts: string[] = [];
+    const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+    const graphemes = Array.from(segmenter.segment(text), s => s.segment);
+
+    for(const char of graphemes) 
+      parts.push(this.emojiUnicodeToShortcodes.get(char) || char);  
+    return parts.join('');
+  }
+
+  /**
+  * Converts emoji shortcodes and ascii emoticons in the given text to unicode emojis
+  */
+  public emojify(text: string): string {
+    if(!this.emoji)
+      return text;
+
+    // Convert shortcodes to emojis
+    const parts: string[] = [];
+    let lastIndex = 0;
+    let regex = /(?:\:([^\:]+)\:)(?:\:skin-tone-(\d)\:)?/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      const start = match.index;
+      const shortcode = match[1];
+      const skinsIndex = match[2] ? +match[2] - 1 : 0;
+      parts.push(text.slice(lastIndex, start));
+      const emoji = (this.emoji.SearchIndex as any).get(shortcode);
+      if(emoji) 
+        parts.push(emoji.skins[skinsIndex].native);
+      else {
+        parts.push(match[0].slice(0, -1));
+        regex.lastIndex--;
+      }
+      lastIndex = regex.lastIndex;
+    }
+    parts.push(text.slice(lastIndex));
+    text = parts.join('');
+
+    // Convert basic emoticons to emojis (only if they are stand-alone words surrounded by whitesppace)
+    regex = new RegExp(
+      Object.keys(emoticons)
+        .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .map(k => `(?<!\\S)${k}(?!\\S)`)
+        .join('|'),
+      'g'
+    );
+    return text.replace(regex, match => emoticons[match] || match);
+  }
+
+  /**
+   * Show the emoji picker 
+   */
+  public showEmojiPicker() {
+    if(!this.emoji)
+      return;
+
+    const picker = new this.emoji.Picker({
+      theme: getComputedStyle(document.documentElement).getPropertyValue('--color-scheme').trim(),
+      onClickOutside: () => this.hideEmojiPicker(),
+      onEmojiSelect: (emoji) => {
+        $('#input-text').trigger('focus');
+        insertAtCursor($('#input-text'), emoji.native);
+        $('#input-text').trigger('blur');
+      }
+    }) as any;
+    $('#emoji-panel')[0].prepend(picker);
+    $('#emoji-panel').css('visibility', 'visible');
+  }
+
+  /**
+   * Hide the emoji picker
+   */
+  public hideEmojiPicker() {
+    $('#emoji-panel').css('visibility', 'hidden');
+    $('em-emoji-picker').remove();
+  }
+
+  /** 
+   * Ininitalize the emoji database and emoji picker element) 
+   */
+  public async initEmojis() {
+    let data = null;
+    
+    try {
+      const response = await fetch('https://cdn.jsdelivr.net/npm/@emoji-mart/data');
+      data = await response.json();
+    }
+    catch(e) { return; } 
+
+    const emojiMart = await import('emoji-mart');
+    await emojiMart.init({ data });
+    this.emoji = emojiMart;
+
+    // Build mapping from emoji unicodes to shortcodes for fast synchornous lookup
+    for(const em of Object.values(data.emojis) as any[]) {
+      for(const skin of em.skins) 
+        this.emojiUnicodeToShortcodes.set(skin.native, skin.shortcodes);
+    }
+
+    $('#emoji-button').on('click', (e) => {
+      if($('#emoji-panel').css('visibility') === 'hidden') {
+        e.stopPropagation();
+        this.showEmojiPicker();
+      }
+      $('#emoji-button').trigger('blur'); // So the "fake" text input loses focus styling
+      $('#emoji-button').tooltip('hide');
+    });
   }
 }
 

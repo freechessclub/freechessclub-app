@@ -218,7 +218,6 @@ export class Parser {
       this.session.send(String.fromCharCode(...[0x02, 0x39]), false);
       return '';
     });
-    msg = msg.replace(/\((?:told|kibitzed) .+\)/g, '');
     msg = msg.replace(/\u0007/g, '');
     msg = msg.replace(/\x00/g, '');
     msg = msg.replace(/\x01/g, '');
@@ -371,21 +370,21 @@ export class Parser {
     }
 
     // channel tell
-    match = msg.match(/(?:^|\n)([a-zA-Z]+)(?:\([A-Z\*]+\))*\(([0-9]+)\):\s+([\s\S]*)/s);
+    match = msg.match(/(?:^|\n)([a-zA-Z]+)(?:\([A-Z\*]+\))*\(([0-9]+)\):\s+(.*)/);
     if (match != null && match.length > 3) {
       return {
         channel: match[2],
         user: match[1],
-        message: match[3].replace(/\n/g, ''),
+        message: match[3],
       };
     }
 
     // private tell
-    match = msg.match(/(?:^|\n)([a-zA-Z]+)(?:[\(\[][A-Z0-9\*\-]+[\)\]])* (?:tells you|says):\s+([\s\S]*)/s);
+    match = msg.match(/(?:^|\n)([a-zA-Z]+)(?:[\(\[][A-Z0-9\*\-]+[\)\]])* (?:tells you|says):\s+(.*)/);
     if (match != null && match.length > 2) {
       return {
         user: match[1],
-        message: match[2].replace(/\n/g, ''),
+        message: match[2],
       };
     }
 
@@ -400,6 +399,49 @@ export class Parser {
         message: match[4].replace(/\n/g, ''),
         suffix: match[5]
       };
+    }
+
+    // messages (from 'message' command etc)
+    match = msg.match(/^(Messages:|Messages from \w+:|Unread messages:|The following message was received|The following message was emailed:)[\s\S]+/m);
+    if(match) {
+      const lines = match[0].split('\n').slice(1);
+      const messages = lines.map(line => {
+        const lineMatch = line.match(/(?:(\d+)\. )?(\w+) at (\w+) (\w+)\s+(\d+), (\d{2}):(\d{2}) ([\w\?]+) (\d+): (.+)/); 
+        if(lineMatch) {
+          return {
+            type: 'message',
+            id: lineMatch[1],
+            user: lineMatch[2],
+            datetime: {
+              weekday: lineMatch[3],
+              month: lineMatch[4],
+              day: lineMatch[5],
+              hour: lineMatch[6],
+              minute: lineMatch[7],
+              timezone: lineMatch[8],
+              year: lineMatch[9]
+            },
+            message: lineMatch[10],
+            raw: msg
+          };
+        }
+      });
+
+      let type = '';
+      if(match[1] === 'Messages:')
+        type = 'all';
+      else if(match[1] === 'Unread messages:')
+        type = 'unread';
+      else if(match[1].startsWith('Messages from'))
+        type = 'sender';
+      else if(match[1] === 'The following message was received' || match[1] === 'The following message was emailed:')
+        type = 'online';
+
+      return {
+        type,
+        messages,
+        raw: msg
+      }
     }
 
     // offers info (seekinfo and pendinfo)

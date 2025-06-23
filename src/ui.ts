@@ -28,7 +28,7 @@ function setStyle(component: string, name: string, directory?: string) {
 const theme = storage.get('theme');
 if (theme != null) {
   $('#theme').attr('href', `assets/css/themes/${theme}.css`);
-  if(theme === 'gray')
+  if(theme === 'gray') 
     $('#base-theme').attr('href', 'assets/css/themes/base-theme-dark.css');
 }
 
