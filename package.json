@@ -62,7 +62,7 @@
     "@mliebelt/pgn-parser": "^1.4.15",
     "@popperjs/core": "^2.11.6",
     "@uriopass/nosleep.js": "^0.12.2",
-    "autolink-js": "freechessclub/autolink-js",
+    "autolink-js": "https://github.com/freechessclub/autolink-js",
     "bootstrap": "5.2.3",
     "builder-util-runtime": "^9.2.10",
     "capacitor-secure-storage-plugin": "^0.11.0",
