@@ -118,8 +118,10 @@ async function onDeviceReady() {
     $('#collapse-chat').collapse('hide');
     $('#collapse-menus').collapse('hide');
     setViewModeList();
-    if(settings.chatHideColumnToggle && $('#secondary-board-area').children().length === 0)
+    if(settings.chatHideColumnToggle && $('#secondary-board-area').children().length === 0) {
       $('#right-col').addClass('d-none');
+      $('#chat-restore-btn').show();
+    }
   }
   else {
     Utils.createTooltips();
@@ -129,11 +131,15 @@ async function onDeviceReady() {
     $('#collapse-chat').removeClass('collapse-init');
     if(settings.chatOverlayToggle) {
       $('#collapse-chat').collapse('hide');
-      if(settings.chatHideColumnToggle && $('#secondary-board-area').children().length === 0)
+      if(settings.chatHideColumnToggle && $('#secondary-board-area').children().length === 0) {
         $('#right-col').addClass('d-none');
+        $('#chat-restore-btn').show();
+      }
     }
-    else
+    else {
       $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
+      $('#chat-restore-btn').hide();
+    }
     $('#right-col').removeClass('d-none');
   }
 
@@ -3280,8 +3286,10 @@ function makeSecondaryBoard(game: Game) {
   game.element.find('.title-bar').css('display', 'block');
   game.element.appendTo('#secondary-board-area');
   game.board.set({ coordinates: false });
-  if(settings.chatHideColumnToggle && !Utils.isSmallWindow())
+  if(settings.chatHideColumnToggle && !Utils.isSmallWindow()) {
     $('#right-col').removeClass('d-none');
+    $('#chat-restore-btn').hide();
+  }
   $(window).trigger('resize');
 }
 
@@ -3362,6 +3370,7 @@ function removeGame(game: Game) {
     $('#collapse-chat-arrow').hide();
     if(settings.chatHideColumnToggle && !$('#collapse-chat').hasClass('show') && !Utils.isSmallWindow()) {
       $('#right-col').addClass('d-none');
+      $('#chat-restore-btn').show();
       $(window).trigger('resize');
     }
   }

@@ -165,6 +165,14 @@ body {
   transform: translateX(-50%);
 }
 
+#chat-restore-btn {
+  display: none;
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1040;
+}
+
 #fake-input-text:focus-within {
   color: #212529;
   background-color: #fff;
