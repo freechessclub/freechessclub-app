@@ -118,10 +118,8 @@ async function onDeviceReady() {
     $('#collapse-chat').collapse('hide');
     $('#collapse-menus').collapse('hide');
     setViewModeList();
-    if($('#secondary-board-area').children().length === 0) {
+    if($('#secondary-board-area').children().length === 0)
       $('#right-col').addClass('chat-collapsed');
-      $('#chat-restore-btn').show();
-    }
   }
   else {
     Utils.createTooltips();
@@ -130,7 +128,6 @@ async function onDeviceReady() {
     $('#collapse-menus').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
     $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
-    $('#chat-restore-btn').hide();
     $('#right-col').removeClass('chat-collapsed');
     $('body').removeClass('chat-hidden');
   }
@@ -353,7 +350,8 @@ function setPanelSizes() {
 
     // Set board width a bit smaller in order to leave room for a scrollbar on <body>. This is because
     // we don't want to resize all the panels whenever a dropdown or something similar overflows the body.
-    const rightColWidth = $('#right-col').is(':visible') ? parseFloat($('#right-col').css('min-width')) : 0;
+    const rightColWidth = ($('#right-col').is(':visible') && !$('#right-col').hasClass('chat-collapsed'))
+      ? parseFloat($('#right-col').css('min-width')) : 0;
     const cardMaxWidth = Utils.isMediumWindow() // display 2 columns on md (medium) display
       ? viewportWidth - $('#left-col').outerWidth() - scrollBarReservedArea
       : viewportWidth - $('#left-col').outerWidth() - rightColWidth - scrollBarReservedArea;
@@ -457,7 +455,7 @@ function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: numb
 }
 
 function setRightColumnSizes() {
-  if(!$('#right-col').is(':visible'))
+  if(!$('#right-col').is(':visible') || $('#right-col').hasClass('chat-collapsed'))
     return;
   const boardHeight = $('#main-board-area .board').innerHeight();
   // Set chat panel height to 0 before resizing everything so as to remove scrollbar on window caused by chat overflowing
@@ -3281,7 +3279,6 @@ function makeSecondaryBoard(game: Game) {
   if(!Utils.isSmallWindow()) {
     $('#right-col').removeClass('chat-collapsed');
     $('body').removeClass('chat-hidden');
-    $('#chat-restore-btn').hide();
   }
   $(window).trigger('resize');
 }
@@ -3364,7 +3361,6 @@ function removeGame(game: Game) {
     if(!$('#collapse-chat').hasClass('show') && !Utils.isSmallWindow()) {
       $('#right-col').addClass('chat-collapsed');
       $('body').addClass('chat-hidden');
-      $('#chat-restore-btn').show();
       $(window).trigger('resize');
     }
   }

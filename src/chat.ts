@@ -196,7 +196,6 @@ export class Chat {
       if(!isSmallWindow() && $('#secondary-board-area').children().length === 0) {
         $('#right-col').addClass('chat-collapsed');
         $('body').addClass('chat-hidden');
-        $('#chat-restore-btn').show();
         $(window).trigger('resize');
       }
       if(!$('#collapse-chat').hasClass('collapse-init'))
@@ -216,7 +215,6 @@ export class Chat {
       if(!isSmallWindow()) {
         $('#right-col').removeClass('chat-collapsed');
         $('body').removeClass('chat-hidden');
-        $('#chat-restore-btn').hide();
         $(window).trigger('resize');
       }
     });
@@ -287,7 +285,6 @@ export class Chat {
             $('#right-col').addClass('d-none');
           $('#collapse-chat').collapse('hide');
           offcanvas.show();
-          $('#chat-restore-btn').hide();
           $(window).trigger('resize');
         } else {
           offcanvas.hide();
@@ -307,26 +304,6 @@ export class Chat {
       if(!isSmallWindow() && $('#secondary-board-area').children().length === 0) {
         $('#right-col').addClass('chat-collapsed');
         $('body').addClass('chat-hidden');
-        $('#chat-restore-btn').show();
-      }
-      $(window).trigger('resize');
-    });
-
-    $('#chat-restore-btn').on('click', () => {
-      $('#chat-restore-btn').hide();
-      $('#right-col').removeClass('chat-collapsed');
-      $('body').removeClass('chat-hidden');
-      if(isSmallWindow()) {
-        const offcanvasElem = document.getElementById('chat-offcanvas');
-        if(!offcanvasElem)
-          return;
-        let offcanvas = bootstrap.Offcanvas.getInstance(offcanvasElem);
-        if(!offcanvas)
-          offcanvas = new bootstrap.Offcanvas(offcanvasElem);
-        $('#chat-panel').appendTo('#chat-offcanvas .offcanvas-body');
-        offcanvas.show();
-      } else {
-        $('#collapse-chat').collapse('show');
       }
       $(window).trigger('resize');
     });
