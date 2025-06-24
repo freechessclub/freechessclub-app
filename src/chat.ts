@@ -134,6 +134,12 @@ const emoticons = {
 
 let maximized = false;
 
+// Option toggles for experimenting with chat display
+// When true, the right column will be hidden when chat is collapsed
+const HIDE_CHAT_COLUMN_ON_COLLAPSE = false;
+// When true, chat is shown as an overlay instead of occupying a column
+const USE_CHAT_OVERLAY = false;
+
 export class Chat {
   private user: string;
   private userRE: RegExp;
@@ -155,6 +161,11 @@ export class Chat {
     settings.timestampToggle = (storage.get('timestamp') !== 'false');
     settings.chattabsToggle = (storage.get('chattabs') !== 'false');
     this.virtualScrollerPromise = import('virtual-scroller/dom');
+
+    if(USE_CHAT_OVERLAY) {
+      $('#collapse-chat').addClass('chat-overlay');
+      $('#right-col').addClass('chat-hidden');
+    }
 
     // initialize tabs
     this.tabData = {};
@@ -196,6 +207,10 @@ export class Chat {
       if(!$('#collapse-chat').hasClass('collapse-init'))
         scrollToBoard();
       $('#collapse-chat').removeClass('collapse-init');
+      if(HIDE_CHAT_COLUMN_ON_COLLAPSE && !$('#secondary-board-area').children().length)
+        $('#right-col').addClass('chat-hidden');
+      if(USE_CHAT_OVERLAY)
+        $('#chat-overlay-backdrop').remove();
     });
 
     $('#collapse-chat').on('shown.bs.collapse', () => {
@@ -203,6 +218,14 @@ export class Chat {
       activeTab.trigger('shown.bs.tab');
       $(window).trigger('resize');
       this.scrollToChat();
+      if(HIDE_CHAT_COLUMN_ON_COLLAPSE || USE_CHAT_OVERLAY)
+        $('#right-col').removeClass('chat-hidden');
+      if(USE_CHAT_OVERLAY) {
+        if(!$('#chat-overlay-backdrop').length)
+          $('<div id="chat-overlay-backdrop" class="chat-overlay-backdrop"></div>')
+            .appendTo('body')
+            .on('click', () => $('#collapse-chat').collapse('hide'));
+      }
     });
 
     $('#collapse-chat').on('show.bs.collapse', () => {
@@ -211,6 +234,8 @@ export class Chat {
 
     $('#collapse-chat').on('hide.bs.collapse', () => {
       $('#chat-toggle-btn').removeClass('toggle-btn-selected');
+      if(USE_CHAT_OVERLAY)
+        $('#chat-overlay-backdrop').remove();
     });
 
     $('#collapse-chat-arrow').on('click', () => {

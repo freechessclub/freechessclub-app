@@ -906,5 +906,42 @@ input[type="number"]:focus {
   font-weight: bold;
 }
 .banner-alert.show {
-  transform: translateY(0); 
+  transform: translateY(0);
+}
+
+/* Option 1: hide right column when chat is collapsed */
+@media (min-width: 992px) {
+  #right-col.chat-hidden {
+    display: none !important;
+  }
+}
+
+/* Option 2: overlay chat panel */
+.chat-overlay {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 374px;
+  max-width: 100%;
+  overflow-y: auto;
+  background-color: var(--bs-body-bg);
+  z-index: 1055;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 767px) {
+  .chat-overlay {
+    width: 100%;
+  }
+}
+
+.chat-overlay-backdrop {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1050;
 }
