@@ -194,7 +194,7 @@ export class Chat {
 
     $('#collapse-chat').on('hidden.bs.collapse', () => {
       if(!isSmallWindow() && $('#secondary-board-area').children().length === 0) {
-        $('#right-col').addClass('d-none');
+        $('#right-col').addClass('chat-collapsed');
         $('body').addClass('chat-hidden');
         $('#chat-restore-btn').show();
         $(window).trigger('resize');
@@ -214,7 +214,7 @@ export class Chat {
     $('#collapse-chat').on('show.bs.collapse', () => {
       $('#chat-toggle-btn').addClass('toggle-btn-selected');
       if(!isSmallWindow()) {
-        $('#right-col').removeClass('d-none');
+        $('#right-col').removeClass('chat-collapsed');
         $('body').removeClass('chat-hidden');
         $('#chat-restore-btn').hide();
         $(window).trigger('resize');
@@ -305,7 +305,7 @@ export class Chat {
       $('#chat-panel').appendTo('#collapse-chat');
       $('#chat-toggle-btn').removeClass('toggle-btn-selected');
       if(!isSmallWindow() && $('#secondary-board-area').children().length === 0) {
-        $('#right-col').addClass('d-none');
+        $('#right-col').addClass('chat-collapsed');
         $('body').addClass('chat-hidden');
         $('#chat-restore-btn').show();
       }
@@ -314,7 +314,7 @@ export class Chat {
 
     $('#chat-restore-btn').on('click', () => {
       $('#chat-restore-btn').hide();
-      $('#right-col').removeClass('d-none');
+      $('#right-col').removeClass('chat-collapsed');
       $('body').removeClass('chat-hidden');
       if(isSmallWindow()) {
         const offcanvasElem = document.getElementById('chat-offcanvas');

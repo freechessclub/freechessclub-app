@@ -168,9 +168,33 @@ body {
 #chat-restore-btn {
   display: none;
   position: fixed;
-  right: 12px;
-  bottom: 12px;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 1040;
+}
+
+body.chat-hidden #right-col {
+  min-width: 40px !important;
+  width: 40px;
+}
+
+body.chat-hidden #chat-restore-btn {
+  display: flex;
+  width: 40px;
+  height: 80px;
+  justify-content: center;
+  align-items: center;
+  border-radius: 0.375rem 0 0 0.375rem;
+}
+
+body.chat-hidden #chat-restore-btn .fa {
+  transform: rotate(-90deg);
+}
+
+#right-col.chat-collapsed {
+  min-width: 40px !important;
+  width: 40px;
 }
 
 @media (min-width: 768px) {
