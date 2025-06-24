@@ -269,44 +269,6 @@ export class Chat {
     this.initStartChatMenu();
     this.initEmojis();
 
-    // Chat overlay support
-    $('#chat-toggle-btn').on('click', (event) => {
-      if(isSmallWindow()) {
-        event.preventDefault();
-        const offcanvasElem = document.getElementById('chat-offcanvas');
-        if(!offcanvasElem)
-          return;
-        let offcanvas = bootstrap.Offcanvas.getInstance(offcanvasElem);
-        if(!offcanvas)
-          offcanvas = new bootstrap.Offcanvas(offcanvasElem);
-        if(!offcanvasElem.classList.contains('show')) {
-          $('#chat-panel').appendTo('#chat-offcanvas .offcanvas-body');
-          if($('#secondary-board-area').children().length === 0)
-            $('#right-col').addClass('d-none');
-          $('#collapse-chat').collapse('hide');
-          offcanvas.show();
-          $(window).trigger('resize');
-        } else {
-          offcanvas.hide();
-        }
-      }
-    });
-
-    $('#chat-offcanvas').on('shown.bs.offcanvas', () => {
-      $('#chat-toggle-btn').addClass('toggle-btn-selected');
-      $(window).trigger('resize');
-      this.scrollToChat();
-    });
-
-    $('#chat-offcanvas').on('hidden.bs.offcanvas', () => {
-      $('#chat-panel').appendTo('#collapse-chat');
-      $('#chat-toggle-btn').removeClass('toggle-btn-selected');
-      if(!isSmallWindow() && $('#secondary-board-area').children().length === 0) {
-        $('#right-col').addClass('chat-collapsed');
-        $('body').addClass('chat-hidden');
-      }
-      $(window).trigger('resize');
-    });
   }
 
   public connected(user: string): void {

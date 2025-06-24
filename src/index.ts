@@ -118,8 +118,6 @@ async function onDeviceReady() {
     $('#collapse-chat').collapse('hide');
     $('#collapse-menus').collapse('hide');
     setViewModeList();
-    if($('#secondary-board-area').children().length === 0)
-      $('#right-col').addClass('chat-collapsed');
   }
   else {
     Utils.createTooltips();
