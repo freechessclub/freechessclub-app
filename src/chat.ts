@@ -193,8 +193,9 @@ export class Chat {
     });
 
     $('#collapse-chat').on('hidden.bs.collapse', () => {
-      if(settings.chatHideColumnToggle && !isSmallWindow() && $('#secondary-board-area').children().length === 0) {
+      if(!isSmallWindow() && $('#secondary-board-area').children().length === 0) {
         $('#right-col').addClass('d-none');
+        $('body').addClass('chat-hidden');
         $('#chat-restore-btn').show();
         $(window).trigger('resize');
       }
@@ -212,8 +213,9 @@ export class Chat {
 
     $('#collapse-chat').on('show.bs.collapse', () => {
       $('#chat-toggle-btn').addClass('toggle-btn-selected');
-      if(settings.chatHideColumnToggle && !isSmallWindow()) {
+      if(!isSmallWindow()) {
         $('#right-col').removeClass('d-none');
+        $('body').removeClass('chat-hidden');
         $('#chat-restore-btn').hide();
         $(window).trigger('resize');
       }
@@ -271,18 +273,17 @@ export class Chat {
 
     // Chat overlay support
     $('#chat-toggle-btn').on('click', (event) => {
-      if(settings.chatOverlayToggle) {
+      if(isSmallWindow()) {
         event.preventDefault();
         const offcanvasElem = document.getElementById('chat-offcanvas');
         if(!offcanvasElem)
           return;
         let offcanvas = bootstrap.Offcanvas.getInstance(offcanvasElem);
-        if(!offcanvas) {
+        if(!offcanvas)
           offcanvas = new bootstrap.Offcanvas(offcanvasElem);
-        }
         if(!offcanvasElem.classList.contains('show')) {
           $('#chat-panel').appendTo('#chat-offcanvas .offcanvas-body');
-          if(settings.chatHideColumnToggle && !isSmallWindow() && $('#secondary-board-area').children().length === 0)
+          if($('#secondary-board-area').children().length === 0)
             $('#right-col').addClass('d-none');
           $('#collapse-chat').collapse('hide');
           offcanvas.show();
@@ -303,17 +304,19 @@ export class Chat {
     $('#chat-offcanvas').on('hidden.bs.offcanvas', () => {
       $('#chat-panel').appendTo('#collapse-chat');
       $('#chat-toggle-btn').removeClass('toggle-btn-selected');
-      if(settings.chatHideColumnToggle && !isSmallWindow() && $('#secondary-board-area').children().length === 0)
+      if(!isSmallWindow() && $('#secondary-board-area').children().length === 0) {
         $('#right-col').addClass('d-none');
-      if(settings.chatHideColumnToggle && !isSmallWindow() && $('#secondary-board-area').children().length === 0)
+        $('body').addClass('chat-hidden');
         $('#chat-restore-btn').show();
+      }
       $(window).trigger('resize');
     });
 
     $('#chat-restore-btn').on('click', () => {
       $('#chat-restore-btn').hide();
       $('#right-col').removeClass('d-none');
-      if(settings.chatOverlayToggle) {
+      $('body').removeClass('chat-hidden');
+      if(isSmallWindow()) {
         const offcanvasElem = document.getElementById('chat-offcanvas');
         if(!offcanvasElem)
           return;

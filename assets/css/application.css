@@ -173,6 +173,13 @@ body {
   z-index: 1040;
 }
 
+@media (min-width: 768px) {
+  body.chat-hidden #left-col {
+    width: 33%;
+    margin-right: 1rem;
+  }
+}
+
 #fake-input-text:focus-within {
   color: #212529;
   background-color: #fff;

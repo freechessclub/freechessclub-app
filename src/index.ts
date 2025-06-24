@@ -118,7 +118,7 @@ async function onDeviceReady() {
     $('#collapse-chat').collapse('hide');
     $('#collapse-menus').collapse('hide');
     setViewModeList();
-    if(settings.chatHideColumnToggle && $('#secondary-board-area').children().length === 0) {
+    if($('#secondary-board-area').children().length === 0) {
       $('#right-col').addClass('d-none');
       $('#chat-restore-btn').show();
     }
@@ -129,18 +129,10 @@ async function onDeviceReady() {
     $('#pills-play-tab').tab('show');
     $('#collapse-menus').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
-    if(settings.chatOverlayToggle) {
-      $('#collapse-chat').collapse('hide');
-      if(settings.chatHideColumnToggle && $('#secondary-board-area').children().length === 0) {
-        $('#right-col').addClass('d-none');
-        $('#chat-restore-btn').show();
-      }
-    }
-    else {
-      $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
-      $('#chat-restore-btn').hide();
-    }
+    $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
+    $('#chat-restore-btn').hide();
     $('#right-col').removeClass('d-none');
+    $('body').removeClass('chat-hidden');
   }
 
   $('input, [data-select-on-focus]').each(function() {
@@ -3286,8 +3278,9 @@ function makeSecondaryBoard(game: Game) {
   game.element.find('.title-bar').css('display', 'block');
   game.element.appendTo('#secondary-board-area');
   game.board.set({ coordinates: false });
-  if(settings.chatHideColumnToggle && !Utils.isSmallWindow()) {
+  if(!Utils.isSmallWindow()) {
     $('#right-col').removeClass('d-none');
+    $('body').removeClass('chat-hidden');
     $('#chat-restore-btn').hide();
   }
   $(window).trigger('resize');
@@ -3368,8 +3361,9 @@ function removeGame(game: Game) {
   if(!$('#secondary-board-area').children().length) {
     $('#secondary-board-area').hide();
     $('#collapse-chat-arrow').hide();
-    if(settings.chatHideColumnToggle && !$('#collapse-chat').hasClass('show') && !Utils.isSmallWindow()) {
+    if(!$('#collapse-chat').hasClass('show') && !Utils.isSmallWindow()) {
       $('#right-col').addClass('d-none');
+      $('body').addClass('chat-hidden');
       $('#chat-restore-btn').show();
       $(window).trigger('resize');
     }
@@ -6354,11 +6348,6 @@ function initSettings() {
   settings.smartmoveToggle = (storage.get('smartmove') === 'true');
   $('#smartmove-toggle').prop('checked', settings.smartmoveToggle);
 
-  settings.chatHideColumnToggle = (storage.get('chat-hide-column') !== 'false');
-  $('#chat-hide-column-toggle').prop('checked', settings.chatHideColumnToggle);
-
-  settings.chatOverlayToggle = (storage.get('chat-overlay') === 'true');
-  $('#chat-overlay-toggle').prop('checked', settings.chatOverlayToggle);
 
   settings.rememberMeToggle = (storage.get('rememberme') === 'true');
   $('#remember-me').prop('checked', settings.rememberMeToggle);
@@ -6449,15 +6438,6 @@ $('#smartmove-toggle').on('click', () => {
   storage.set('smartmove', String(settings.smartmoveToggle));
 });
 
-$('#chat-hide-column-toggle').on('click', () => {
-  settings.chatHideColumnToggle = !settings.chatHideColumnToggle;
-  storage.set('chat-hide-column', String(settings.chatHideColumnToggle));
-});
-
-$('#chat-overlay-toggle').on('click', () => {
-  settings.chatOverlayToggle = !settings.chatOverlayToggle;
-  storage.set('chat-overlay', String(settings.chatOverlayToggle));
-});
 
 /** *****************************
  * CONSOLE/CHAT INPUT FUNCTIONS *
