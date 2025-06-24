@@ -90,3 +90,5 @@ $('#pieces-alpha').on('click', () => { setStyle('piece', 'alpha') });
 $('#pieces-cardinal').on('click', () => { setStyle('piece', 'cardinal') });
 $('#pieces-leipzig').on('click', () => { setStyle('piece', 'leipzig') });
 $('#pieces-maestro').on('click', () => { setStyle('piece', 'maestro') });
+$('#pieces-pirouetti').on('click', () => { setStyle('piece', 'pirouetti') });
+$('#pieces-spatial').on('click', () => { setStyle('piece', 'spatial') });
