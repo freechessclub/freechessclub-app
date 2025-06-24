@@ -118,6 +118,8 @@ async function onDeviceReady() {
     $('#collapse-chat').collapse('hide');
     $('#collapse-menus').collapse('hide');
     setViewModeList();
+    if(settings.chatHideColumnToggle && $('#secondary-board-area').children().length === 0)
+      $('#right-col').addClass('d-none');
   }
   else {
     Utils.createTooltips();
@@ -125,7 +127,14 @@ async function onDeviceReady() {
     $('#pills-play-tab').tab('show');
     $('#collapse-menus').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
-    $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
+    if(settings.chatOverlayToggle) {
+      $('#collapse-chat').collapse('hide');
+      if(settings.chatHideColumnToggle && $('#secondary-board-area').children().length === 0)
+        $('#right-col').addClass('d-none');
+    }
+    else
+      $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
+    $('#right-col').removeClass('d-none');
   }
 
   $('input, [data-select-on-focus]').each(function() {
@@ -346,9 +355,10 @@ function setPanelSizes() {
 
     // Set board width a bit smaller in order to leave room for a scrollbar on <body>. This is because
     // we don't want to resize all the panels whenever a dropdown or something similar overflows the body.
+    const rightColWidth = $('#right-col').is(':visible') ? parseFloat($('#right-col').css('min-width')) : 0;
     const cardMaxWidth = Utils.isMediumWindow() // display 2 columns on md (medium) display
       ? viewportWidth - $('#left-col').outerWidth() - scrollBarReservedArea
-      : viewportWidth - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')) - scrollBarReservedArea;
+      : viewportWidth - $('#left-col').outerWidth() - rightColWidth - scrollBarReservedArea;
 
     const cardMaxHeight = $(window).height() - Utils.getRemainingHeight(maximizedGameCard);
     setGameCardSize(maximizedGame, cardMaxWidth, cardMaxHeight);
@@ -449,6 +459,8 @@ function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: numb
 }
 
 function setRightColumnSizes() {
+  if(!$('#right-col').is(':visible'))
+    return;
   const boardHeight = $('#main-board-area .board').innerHeight();
   // Set chat panel height to 0 before resizing everything so as to remove scrollbar on window caused by chat overflowing
   if(Utils.isLargeWindow())
@@ -3268,6 +3280,9 @@ function makeSecondaryBoard(game: Game) {
   game.element.find('.title-bar').css('display', 'block');
   game.element.appendTo('#secondary-board-area');
   game.board.set({ coordinates: false });
+  if(settings.chatHideColumnToggle && !Utils.isSmallWindow())
+    $('#right-col').removeClass('d-none');
+  $(window).trigger('resize');
 }
 
 export function maximizeGame(game: Game) {
@@ -3345,6 +3360,10 @@ function removeGame(game: Game) {
   if(!$('#secondary-board-area').children().length) {
     $('#secondary-board-area').hide();
     $('#collapse-chat-arrow').hide();
+    if(settings.chatHideColumnToggle && !$('#collapse-chat').hasClass('show') && !Utils.isSmallWindow()) {
+      $('#right-col').addClass('d-none');
+      $(window).trigger('resize');
+    }
   }
   setRightColumnSizes();
 
@@ -6326,6 +6345,12 @@ function initSettings() {
   settings.smartmoveToggle = (storage.get('smartmove') === 'true');
   $('#smartmove-toggle').prop('checked', settings.smartmoveToggle);
 
+  settings.chatHideColumnToggle = (storage.get('chat-hide-column') !== 'false');
+  $('#chat-hide-column-toggle').prop('checked', settings.chatHideColumnToggle);
+
+  settings.chatOverlayToggle = (storage.get('chat-overlay') === 'true');
+  $('#chat-overlay-toggle').prop('checked', settings.chatOverlayToggle);
+
   settings.rememberMeToggle = (storage.get('rememberme') === 'true');
   $('#remember-me').prop('checked', settings.rememberMeToggle);
 
@@ -6413,6 +6438,16 @@ $('#multiple-premoves-toggle').on('click', () => {
 $('#smartmove-toggle').on('click', () => {
   settings.smartmoveToggle = !settings.smartmoveToggle;
   storage.set('smartmove', String(settings.smartmoveToggle));
+});
+
+$('#chat-hide-column-toggle').on('click', () => {
+  settings.chatHideColumnToggle = !settings.chatHideColumnToggle;
+  storage.set('chat-hide-column', String(settings.chatHideColumnToggle));
+});
+
+$('#chat-overlay-toggle').on('click', () => {
+  settings.chatOverlayToggle = !settings.chatOverlayToggle;
+  storage.set('chat-overlay', String(settings.chatOverlayToggle));
 });
 
 /** *****************************

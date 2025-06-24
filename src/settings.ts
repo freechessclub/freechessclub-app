@@ -30,6 +30,10 @@ export const settings = {
   timestampToggle: true,
   // toggle for creating separate chat tabs instead of displaying messages in the console
   chattabsToggle: true,
+  // toggle for hiding chat column when collapsed
+  chatHideColumnToggle: true,
+  // toggle for using an overlay for chat instead of collapsing
+  chatOverlayToggle: false,
 
   /** History settings */
 

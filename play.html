@@ -792,9 +792,23 @@
                               </div>
                             </div>
                             <div class="col">
-                              <div class="form-check form-switch">
+                          <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" role="switch" id="multiboard-toggle" checked>
                                 <label class="form-check-label" for="multiboard-toggle"><span id="multiboard-toggle-icon" class="fa fa-window-restore dropdown-icon" aria-hidden="false"></span>Multi-board Mode</label>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="form-group row">
+                            <div class="col">
+                              <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="chat-hide-column-toggle" checked>
+                                <label class="form-check-label" for="chat-hide-column-toggle"><span class="fa-solid fa-arrows-left-right-to-line dropdown-icon" aria-hidden="false"></span>Hide Chat Column</label>
+                              </div>
+                            </div>
+                            <div class="col">
+                              <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="chat-overlay-toggle">
+                                <label class="form-check-label" for="chat-overlay-toggle"><span class="fa-solid fa-window-maximize dropdown-icon" aria-hidden="false"></span>Chat Overlay</label>
                               </div>
                             </div>
                           </div>
@@ -1043,6 +1057,14 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="chat-offcanvas" aria-labelledby="chat-offcanvas-label">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="chat-offcanvas-label">Chat</h5>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body p-0">
     </div>
   </div>
   <script src="https://code.jquery.com/jquery-3.7.0.slim.min.js" integrity="sha256-tG5mcZUtJsZvyKAxYLVXrmjKBVLd6VpVccqz/r4ypFE=" crossorigin="anonymous"></script>
