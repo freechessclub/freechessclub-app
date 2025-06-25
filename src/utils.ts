@@ -75,36 +75,47 @@ const timezoneOffsets = {
   WETDST: 1
 };
 
-let defaultTimezone = 'UTC';
-export function setDefaultTimezone(timezone: string) {
-  const offset = Number.isInteger(+timezone)
-      ? +timezone
-      : timezoneOffsets[timezone] || 0;
-
-  defaultTimezone = `UTC${offset > 0 ? '+' : ''}${offset !== 0 ? offset : ''}`;
+export function monthShortNameToNumber(month: string) {
+  const cleanedMonth = month.trim().charAt(0).toUpperCase() + month.slice(1, 3).toLowerCase();
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const index = monthNames.indexOf(cleanedMonth);
+  return index === -1 ? undefined : index + 1;
 }
 
-let luxonPromise = import('luxon');
-export async function convertToLocalDateTime(dateTime: any) {
-  const { DateTime } = await luxonPromise;
-
-  const offset = timezoneOffsets[dateTime.timezone];
-  const timezone = offset !== undefined ? `UTC${offset > 0 ? '+' : ''}${offset}` : defaultTimezone;
-
-  const inDateTime = DateTime.fromObject({
-      year: dateTime.year,
-      month: Number.isInteger(Number(dateTime.month)) ? dateTime.month : DateTime.fromFormat(dateTime.month, 'MMM').month,
-      day: dateTime.day,
-      hour: dateTime.hour,
-      minute: dateTime.minute,
-    }, { zone: timezone });
-
-  return inDateTime.setZone('local').toJSDate();
-}
-
-export function getMonthShortName(month: number) {
+export function monthNumberToShortName(month: number) {
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return monthNames[month]; 
+}
+
+function timezoneOffsetToHHMM(offset: number) {
+  if(offset === 0)
+    return 'Z';
+
+  const sign = offset >= 0 ? "+" : "-";
+  const absOffset = Math.abs(offset);
+  const hours = Math.floor(absOffset);
+  const minutes = Math.round((absOffset - hours) * 60);
+  const hh = String(hours).padStart(2, "0");
+  const mm = String(minutes).padStart(2, "0");
+  return `${sign}${hh}:${mm}`;
+}
+
+let defaultTimezone = 0;
+export function setDefaultTimezone(timezone: string) {
+  defaultTimezone = Number.isInteger(+timezone)
+      ? +timezone
+      : timezoneOffsets[timezone] || 0;
+}
+
+export async function convertToLocalDateTime(dateTime: any) {
+  const offset = timezoneOffsets[dateTime.timezone] !== undefined
+      ? timezoneOffsets[dateTime.timezone] 
+      : defaultTimezone; 
+
+  const timezone = timezoneOffsetToHHMM(offset);
+  const month = Number.isInteger(Number(dateTime.month)) ? dateTime.month : monthShortNameToNumber(dateTime.month)?.toString().padStart(2, "0");
+  const dateTimeStr = `${dateTime.year}-${month}-${dateTime.day}T${dateTime.hour}:${dateTime.minute}:${dateTime.second || '00'}${timezone}`;
+  return new Date(dateTimeStr);
 }
 
 /**

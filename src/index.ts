@@ -172,9 +172,6 @@ $(window).on('load', async () => {
         }
       });
   }
-
-  // Stuff to fetch and cache after the service worker is activated
-  chat.initEmojis();
 });
 
 /** Prompt before unloading page if in a game */
@@ -1362,8 +1359,8 @@ function handleMiscMessage(data: any) {
       };
       if(!storage.get('ignore-message-box-full')) {
         const headerTitle = 'Message Box Alert';
-        const bodyText = `Your message box is ${numMessages < 40 ? 'almost ' : ''} full.<br><br>Clear messages?`;
-        const button1 = ['clearmessages *', 'Clear messages'];
+        const bodyText = `Your message box is ${numMessages < 40 ? 'almost ' : ''} full.<br><br>Would you like to clear your message box? (clearmessages *)`;
+        const button1 = ['clearmessages *', 'Clear ENTIRE message box'];
         const button2 = [button2Handler, 'Not now'];
         Dialogs.createNotification({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, useSessionSend: true});   
       }

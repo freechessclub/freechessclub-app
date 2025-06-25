@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import { autoLink } from 'autolink-js';
-import { createTooltip, safeScrollTo, isSmallWindow, convertToLocalDateTime, getMonthShortName, removeWithTooltips, insertAtCursor } from './utils';
+import { createTooltip, safeScrollTo, isSmallWindow, convertToLocalDateTime, removeWithTooltips, insertAtCursor } from './utils';
 import { setGameWithFocus, maximizeGame, scrollToBoard } from './index';
 import { settings } from './settings';
 import { storage, awaiting } from './storage';
