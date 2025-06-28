@@ -194,7 +194,6 @@ export class Chat {
 
     $('#collapse-chat').on('hidden.bs.collapse', () => {
       if(!isSmallWindow() && $('#secondary-board-area').children().length === 0) {
-        $('#right-col').addClass('chat-collapsed');
         $('body').addClass('chat-hidden');
         $(window).trigger('resize');
       }
@@ -213,7 +212,6 @@ export class Chat {
     $('#collapse-chat').on('show.bs.collapse', () => {
       $('#chat-toggle-btn').addClass('toggle-btn-selected');
       if(!isSmallWindow()) {
-        $('#right-col').removeClass('chat-collapsed');
         $('body').removeClass('chat-hidden');
         $(window).trigger('resize');
       }
@@ -268,7 +266,6 @@ export class Chat {
 
     this.initStartChatMenu();
     this.initEmojis();
-
   }
 
   public connected(user: string): void {

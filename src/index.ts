@@ -126,7 +126,6 @@ async function onDeviceReady() {
     $('#collapse-menus').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
     $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
-    $('#right-col').removeClass('chat-collapsed');
     $('body').removeClass('chat-hidden');
   }
 
@@ -348,7 +347,7 @@ function setPanelSizes() {
 
     // Set board width a bit smaller in order to leave room for a scrollbar on <body>. This is because
     // we don't want to resize all the panels whenever a dropdown or something similar overflows the body.
-    const rightColWidth = ($('#right-col').is(':visible') && !$('#right-col').hasClass('chat-collapsed'))
+    const rightColWidth = ($('#right-col').is(':visible') && !$('body').hasClass('chat-hidden'))
       ? parseFloat($('#right-col').css('min-width')) : 0;
     const cardMaxWidth = Utils.isMediumWindow() // display 2 columns on md (medium) display
       ? viewportWidth - $('#left-col').outerWidth() - scrollBarReservedArea
@@ -453,7 +452,7 @@ function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: numb
 }
 
 function setRightColumnSizes() {
-  if(!$('#right-col').is(':visible') || $('#right-col').hasClass('chat-collapsed'))
+  if(!$('#right-col').is(':visible') || $('body').hasClass('chat-hidden'))
     return;
   const boardHeight = $('#main-board-area .board').innerHeight();
   // Set chat panel height to 0 before resizing everything so as to remove scrollbar on window caused by chat overflowing
@@ -3275,7 +3274,6 @@ function makeSecondaryBoard(game: Game) {
   game.element.appendTo('#secondary-board-area');
   game.board.set({ coordinates: false });
   if(!Utils.isSmallWindow()) {
-    $('#right-col').removeClass('chat-collapsed');
     $('body').removeClass('chat-hidden');
   }
   $(window).trigger('resize');
@@ -3357,7 +3355,6 @@ function removeGame(game: Game) {
     $('#secondary-board-area').hide();
     $('#collapse-chat-arrow').hide();
     if(!$('#collapse-chat').hasClass('show') && !Utils.isSmallWindow()) {
-      $('#right-col').addClass('chat-collapsed');
       $('body').addClass('chat-hidden');
       $(window).trigger('resize');
     }
@@ -6342,7 +6339,6 @@ function initSettings() {
   settings.smartmoveToggle = (storage.get('smartmove') === 'true');
   $('#smartmove-toggle').prop('checked', settings.smartmoveToggle);
 
-
   settings.rememberMeToggle = (storage.get('rememberme') === 'true');
   $('#remember-me').prop('checked', settings.rememberMeToggle);
 
@@ -6431,7 +6427,6 @@ $('#smartmove-toggle').on('click', () => {
   settings.smartmoveToggle = !settings.smartmoveToggle;
   storage.set('smartmove', String(settings.smartmoveToggle));
 });
-
 
 /** *****************************
  * CONSOLE/CHAT INPUT FUNCTIONS *
