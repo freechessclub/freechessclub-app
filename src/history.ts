@@ -9,6 +9,7 @@ import { storage } from './storage';
 import { settings } from './settings';
 import { setCaretToEnd } from './utils';
 import { getPlyFromFEN, getMoveNoFromFEN, getTurnColorFromFEN, VariantData } from './chess-helper';
+import { Clock } from './clock';
 
 export class HEntry {
   public move: any;
@@ -264,6 +265,13 @@ export class History {
 
     entry.wtime = wtime;
     entry.btime = btime;
+
+    if(entry.moveListCellElement) {
+      const time = entry.turnColor === 'b' ? entry.wtime : entry.btime;
+      const span = entry.moveListCellElement.find('.movetime');
+      if(span.length)
+        span.text(Clock.MSToHHMMSS(time));
+    }
   }
 
   public add(move: any, fen: string, newSubvariation = false, wtime = 0, btime = 0): HEntry {
@@ -776,6 +784,12 @@ export class History {
     }
 
     const cell = $(`<span class="outer-move d-inline-flex"><span class="move annotation px-1" data-color="${color}" aria-label="${san}">${glyphedSan}</span></span>`);
+
+    const showTime = !this.game.isExamining() && (this.game.isPlaying() || this.game.isObserving()) && this.game.time > 0;
+    if(showTime) {
+      const time = entry.turnColor === 'b' ? entry.wtime : entry.btime;
+      cell.children('.move').after(`<span class="movetime text-muted small ms-1">${Clock.MSToHHMMSS(time)}</span>`);
+    }
     if(color === 'w')
       cell.prepend(`<span class="moveno ms-1">${moveNo}.</span>`); // Prepend move number for white move
 
