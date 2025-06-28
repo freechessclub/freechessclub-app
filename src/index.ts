@@ -126,6 +126,7 @@ async function onDeviceReady() {
     $('#collapse-menus').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
     $('#chat-toggle-btn').toggleClass('toggle-btn-selected');
+    $('body').removeClass('chat-hidden');
   }
 
   $('input, [data-select-on-focus]').each(function() {
@@ -343,9 +344,11 @@ function setPanelSizes() {
 
     // Set board width a bit smaller in order to leave room for a scrollbar on <body>. This is because
     // we don't want to resize all the panels whenever a dropdown or something similar overflows the body.
+    const rightColWidth = ($('#right-col').is(':visible') && !$('body').hasClass('chat-hidden'))
+      ? parseFloat($('#right-col').css('min-width')) : 0;
     const cardMaxWidth = Utils.isMediumWindow() // display 2 columns on md (medium) display
       ? viewportWidth - $('#left-col').outerWidth() - scrollBarReservedArea
-      : viewportWidth - $('#left-col').outerWidth() - parseFloat($('#right-col').css('min-width')) - scrollBarReservedArea;
+      : viewportWidth - $('#left-col').outerWidth() - rightColWidth - scrollBarReservedArea;
 
     const cardMaxHeight = $(window).height() - Utils.getRemainingHeight(maximizedGameCard);
     setGameCardSize(maximizedGame, cardMaxWidth, cardMaxHeight);
@@ -446,6 +449,8 @@ function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: numb
 }
 
 function setRightColumnSizes() {
+  if(!$('#right-col').is(':visible') || $('body').hasClass('chat-hidden'))
+    return;
   const boardHeight = $('#main-board-area .board').innerHeight();
   // Set chat panel height to 0 before resizing everything so as to remove scrollbar on window caused by chat overflowing
   if(Utils.isLargeWindow())
@@ -3265,6 +3270,10 @@ function makeSecondaryBoard(game: Game) {
   game.element.find('.title-bar').css('display', 'block');
   game.element.appendTo('#secondary-board-area');
   game.board.set({ coordinates: false });
+  if(!Utils.isSmallWindow()) {
+    $('body').removeClass('chat-hidden');
+  }
+  $(window).trigger('resize');
 }
 
 export function maximizeGame(game: Game) {
@@ -3342,6 +3351,10 @@ function removeGame(game: Game) {
   if(!$('#secondary-board-area').children().length) {
     $('#secondary-board-area').hide();
     $('#collapse-chat-arrow').hide();
+    if(!$('#collapse-chat').hasClass('show') && !Utils.isSmallWindow()) {
+      $('body').addClass('chat-hidden');
+      $(window).trigger('resize');
+    }
   }
   setRightColumnSizes();
 

@@ -193,6 +193,10 @@ export class Chat {
     });
 
     $('#collapse-chat').on('hidden.bs.collapse', () => {
+      if(!isSmallWindow() && $('#secondary-board-area').children().length === 0) {
+        $('body').addClass('chat-hidden');
+        $(window).trigger('resize');
+      }
       if(!$('#collapse-chat').hasClass('collapse-init'))
         scrollToBoard();
       $('#collapse-chat').removeClass('collapse-init');
@@ -207,6 +211,10 @@ export class Chat {
 
     $('#collapse-chat').on('show.bs.collapse', () => {
       $('#chat-toggle-btn').addClass('toggle-btn-selected');
+      if(!isSmallWindow()) {
+        $('body').removeClass('chat-hidden');
+        $(window).trigger('resize');
+      }
     });
 
     $('#collapse-chat').on('hide.bs.collapse', () => {

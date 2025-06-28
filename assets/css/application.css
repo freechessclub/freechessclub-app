@@ -165,6 +165,37 @@ body {
   transform: translateX(-50%);
 }
 
+#right-col {
+  min-width: 374px;
+}
+
+@media (min-width: 768px) {
+  body.chat-hidden #right-col {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: auto;
+    z-index: 1000;
+  }
+  body.chat-hidden #main-row {
+    padding-top: var(--right-col-height, 3.5rem);
+  }
+  body.chat-hidden #left-col {
+    width: 50%;
+    flex-shrink: 0;
+    padding-left: 2rem;
+    padding-right: 1rem;
+  }
+  body.chat-hidden #mid-col {
+    width: 50%;
+    flex-shrink: 0;
+    padding-left: 1rem;
+    padding-right: 2rem;
+  }
+}
+
 #fake-input-text:focus-within {
   color: #212529;
   background-color: #fff;
