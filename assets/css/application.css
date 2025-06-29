@@ -664,7 +664,7 @@ body {
   color: var(--bs-secondary-color, #6c757d);
 }
 
-#left-panel.list-view-showing .movetime {
+#left-panel:not(.list-view-showing) .movetime {
   display: inline;
 }
 

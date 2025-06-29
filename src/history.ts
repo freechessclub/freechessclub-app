@@ -16,6 +16,7 @@ export class HEntry {
   public fen: string;
   public wtime: number;
   public btime: number;
+  public elapsed: number;
   public commentBefore: string;
   public commentAfter: string;
   public nags: string[];
@@ -35,6 +36,7 @@ export class HEntry {
     this.fen = fen;
     this.wtime = wtime;
     this.btime = btime;
+    this.elapsed = 0;
     this.score = score;
     this._subvariations = [];
     this.nags = [];
@@ -263,14 +265,30 @@ export class History {
     if(this.scratch())
       wtime = btime = 0;
 
+    const prev = entry.prev;
+    const incMs = this.game.inc * 1000;
+    let elapsed = 0;
+    if(prev && prev.move) {
+      if(entry.turnColor === 'b')
+        elapsed = prev.elapsed + prev.wtime - wtime + incMs;
+      else
+        elapsed = prev.elapsed + prev.btime - btime + incMs;
+    }
+
+    entry.elapsed = elapsed;
     entry.wtime = wtime;
     entry.btime = btime;
 
+    if(entry.moveTableCellElement) {
+      const span = entry.moveTableCellElement.find('.movetime');
+      if(span.length)
+        span.text(Clock.MSToHHMMSS(entry.elapsed));
+    }
+
     if(entry.moveListCellElement) {
-      const time = entry.turnColor === 'b' ? entry.wtime : entry.btime;
       const span = entry.moveListCellElement.find('.movetime');
       if(span.length)
-        span.text(Clock.MSToHHMMSS(time));
+        span.text(Clock.MSToHHMMSS(entry.elapsed));
     }
   }
 
@@ -785,11 +803,7 @@ export class History {
 
     const cell = $(`<span class="outer-move d-inline-flex"><span class="move annotation px-1" data-color="${color}" aria-label="${san}">${glyphedSan}</span></span>`);
 
-    const showTime = !this.game.isExamining() && (this.game.isPlaying() || this.game.isObserving()) && this.game.time > 0;
-    if(showTime) {
-      const time = entry.turnColor === 'b' ? entry.wtime : entry.btime;
-      cell.children('.move').after(`<span class="movetime text-muted small ms-1">${Clock.MSToHHMMSS(time)}</span>`);
-    }
+    // move times are displayed only in table view
     if(color === 'w')
       cell.prepend(`<span class="moveno ms-1">${moveNo}.</span>`); // Prepend move number for white move
 
@@ -874,7 +888,10 @@ export class History {
     const color = entry.turnColor === 'w' ? 'b' : 'w';
     const moveNo = Math.floor(entry.ply / 2);
 
-    const cellBody = `<span class="move" class="annotation" data-color="${color}" aria-label="${san}">${glyphedSan}</a>`;
+    let cellBody = `<span class="move" class="annotation" data-color="${color}" aria-label="${san}">${glyphedSan}</span>`;
+    const showTime = !this.game.isExamining() && (this.game.isPlaying() || this.game.isObserving()) && this.game.time > 0;
+    if(showTime)
+      cellBody += `<span class="movetime text-muted small ms-1">${Clock.MSToHHMMSS(entry.elapsed)}</span>`;
 
     const prevEntry = entry === entry.first ? entry.parent : entry.prev;
     let prevCell: JQuery<HTMLElement>;
