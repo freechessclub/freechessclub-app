@@ -891,7 +891,7 @@ export class History {
     let cellBody = `<span class="move" class="annotation" data-color="${color}" aria-label="${san}">${glyphedSan}</span>`;
     const showTime = !this.game.isExamining() && (this.game.isPlaying() || this.game.isObserving()) && this.game.time > 0;
     if(showTime)
-      cellBody += `<span class="movetime text-muted small ms-1">${Clock.MSToHHMMSS(entry.elapsed)}</span>`;
+      cellBody += `<span class="movetime text-muted small ms-3">(${Clock.MSToHHMMSS(entry.elapsed)})</span>`;
 
     const prevEntry = entry === entry.first ? entry.parent : entry.prev;
     let prevCell: JQuery<HTMLElement>;

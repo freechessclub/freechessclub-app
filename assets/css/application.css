@@ -491,11 +491,11 @@ body {
 #move-table {
   padding: 0;
   text-align: center;
-  font-weight: bold;
 }
 #move-table th {
   border: 0;
   width: 20%;
+  opacity: 0.5;
 }
 #move-table td {
   border: 0;
@@ -660,14 +660,11 @@ body {
 .movetime {
   display: none;
   font-size: 0.75em;
-  margin-left: 0.25rem;
   color: var(--bs-secondary-color, #6c757d);
 }
-
 #left-panel:not(.list-view-showing) .movetime {
   display: inline;
 }
-
 #textsize-range {
   width: 60px;
   height: auto;
