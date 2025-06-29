@@ -449,7 +449,7 @@ function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: numb
 }
 
 function setRightColumnSizes() {
-  if(!$('#right-col').is(':visible') || $('body').hasClass('chat-hidden'))
+  if($('body').hasClass('chat-hidden') || !$('#collapse-chat').hasClass('show'))
     return;
   const boardHeight = $('#main-board-area .board').innerHeight();
   // Set chat panel height to 0 before resizing everything so as to remove scrollbar on window caused by chat overflowing
