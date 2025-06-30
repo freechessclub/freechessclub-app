@@ -539,6 +539,8 @@ body {
   vertical-align: top;
   padding-top: 1px;
   padding-bottom: 1px;
+  padding-left: 15px;
+  padding-right: 15px;
   text-decoration: none;
 }
 #move-table .selectable:hover .move {
@@ -563,8 +565,6 @@ body {
   border-width: 0 3px;
 }
 #move-table .selected {
-  border-left: 15px solid transparent;
-  border-right: 15px solid transparent;
   font-weight: bold;
 }
 
@@ -689,13 +689,13 @@ body {
 }
 
 .movetime {
-  display: none;
+  display: inline-block;
+  text-align: left;
+  margin-left: 1rem;
   font-size: 0.75em;
-  color: var(--bs-secondary-color, #6c757d);
+  min-width: 10ch;
 }
-#left-panel:not(.list-view-showing) .movetime {
-  display: inline;
-}
+
 #textsize-range {
   width: 60px;
   height: auto;
