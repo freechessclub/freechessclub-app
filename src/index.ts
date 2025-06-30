@@ -3104,6 +3104,7 @@ function createGame(): Game {
     game.board = createBoard(game.element.find('.board'));
     leaveSetupBoard(game);
     makeSecondaryBoard(game);
+    $(window).trigger('resize');
     game.element.find($('[title="Close"]')).css('visibility', 'visible');
     $('#secondary-board-area').css('display', 'flex');
     $('#collapse-chat-arrow').show();
@@ -3273,7 +3274,6 @@ function makeSecondaryBoard(game: Game) {
   if(!Utils.isSmallWindow()) {
     $('body').removeClass('chat-hidden');
   }
-  $(window).trigger('resize');
 }
 
 export function maximizeGame(game: Game) {
