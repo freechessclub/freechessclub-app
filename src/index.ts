@@ -665,11 +665,11 @@ function messageHandler(data: any) {
         chat.newMessage(data.messages[0].user, data.messages[0]);
       else if(data.type === 'unread' && awaiting.resolve('unread-messages')) {
         data.messages.forEach(msg => chat.newMessage(msg.user, msg));
-        chat.showTab(data.messages[0].user);
         if($('#collapse-chat').hasClass('show'))
           chat.scrollToChat();
         else
           $('#collapse-chat').collapse('show');
+        chat.showTab(data.messages[0].user);
         return;
       }
       chat.newMessage('console', { message: data.raw });

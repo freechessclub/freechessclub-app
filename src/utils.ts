@@ -107,14 +107,15 @@ export function setDefaultTimezone(timezone: string) {
       : timezoneOffsets[timezone] || 0;
 }
 
-export async function convertToLocalDateTime(dateTime: any) {
+export function convertToLocalDateTime(dateTime: any) {
   const offset = timezoneOffsets[dateTime.timezone] !== undefined
       ? timezoneOffsets[dateTime.timezone] 
       : defaultTimezone; 
 
   const timezone = timezoneOffsetToHHMM(offset);
   const month = Number.isInteger(Number(dateTime.month)) ? dateTime.month : monthShortNameToNumber(dateTime.month)?.toString().padStart(2, "0");
-  const dateTimeStr = `${dateTime.year}-${month}-${dateTime.day}T${dateTime.hour}:${dateTime.minute}:${dateTime.second || '00'}${timezone}`;
+  const day = dateTime.day.padStart(2, '0');
+  const dateTimeStr = `${dateTime.year}-${month}-${day}T${dateTime.hour}:${dateTime.minute}:${dateTime.second || '00'}${timezone}`;
   return new Date(dateTimeStr);
 }
 
