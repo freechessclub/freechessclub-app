@@ -665,11 +665,11 @@ function messageHandler(data: any) {
         chat.newMessage(data.messages[0].user, data.messages[0]);
       else if(data.type === 'unread' && awaiting.resolve('unread-messages')) {
         data.messages.forEach(msg => chat.newMessage(msg.user, msg));
-        chat.showTab(data.messages[0].user);
         if($('#collapse-chat').hasClass('show'))
           chat.scrollToChat();
         else
           $('#collapse-chat').collapse('show');
+        chat.showTab(data.messages[0].user);
         return;
       }
       chat.newMessage('console', { message: data.raw });
@@ -2186,34 +2186,41 @@ function setClocks(game: Game) {
 
 // Start clock after a move, switch from white to black's clock etc
 function hitClock(game: Game, bSetClocks = false) {
-  if(game.isPlaying() || game.role === Role.OBSERVING) {
-    const ply = game.history.last().ply;
-    const turnColor = game.history.last().turnColor;
+  if(!game.isPlaying && game.role !== Role.OBSERVING)
+    return;
 
-    // If a move was received from the server, set the clocks to the updated times
-    // Note: When in examine mode this is handled by setClocks() instead
-    if(bSetClocks) { // Get remaining time from server message
-      if(game.category === 'untimed') {
-        game.clock.setWhiteClock(null);
-        game.clock.setBlackClock(null);
-      }
-      else {
-        game.clock.setWhiteClock();
-        game.clock.setBlackClock();
-      }
-    }
-    else if(game.inc !== 0) { // Manually add time increment
-      if(turnColor === 'w' && ply >= 5)
-        game.clock.setBlackClock(game.clock.getBlackTime() + game.inc * 1000);
-      else if(turnColor === 'b' && ply >= 4)
-        game.clock.setWhiteClock(game.clock.getWhiteTime() + game.inc * 1000);
-    }
-
-    if((ply >= 3 || game.category === 'bughouse') && turnColor === 'w')
-      game.clock.startWhiteClock();
-    else if((ply >= 4 || game.category === 'bughouse') && turnColor === 'b')
-      game.clock.startBlackClock();
+  let ply = game.history.last().ply;
+  let turnColor = game.history.last().turnColor;
+  if(!bSetClocks) { 
+    // Note if hitClock() is called from movePiece() then we haven't yet added the move 
+    // to the history yet.
+    ply++;
+    turnColor = turnColor === 'w' ? 'b' : 'w';
   }
+
+  // If a move was received from the server, set the clocks to the updated times
+  // Note: When in examine mode this is handled by setClocks() instead
+  if(bSetClocks) { // Get remaining time from server message
+    if(game.category === 'untimed') {
+      game.clock.setWhiteClock(null);
+      game.clock.setBlackClock(null);
+    }
+    else {
+      game.clock.setWhiteClock();
+      game.clock.setBlackClock();
+    }
+  }
+  else if(game.inc !== 0) { // Manually add time increment
+    if(turnColor === 'w' && ply >= 5) 
+      game.clock.setBlackClock(game.clock.getBlackTime() + game.inc * 1000);
+    else if(turnColor === 'b' && ply >= 4) 
+      game.clock.setWhiteClock(game.clock.getWhiteTime() + game.inc * 1000);
+  }
+
+  if((ply >= 3 || game.category === 'bughouse') && turnColor === 'w')
+    game.clock.startWhiteClock();
+  else if((ply >= 4 || game.category === 'bughouse') && turnColor === 'b')
+    game.clock.startBlackClock();
 }
 
 /** GAME BOARD FUNCTIONS **/
@@ -3104,6 +3111,7 @@ function createGame(): Game {
     game.board = createBoard(game.element.find('.board'));
     leaveSetupBoard(game);
     makeSecondaryBoard(game);
+    $(window).trigger('resize');
     game.element.find($('[title="Close"]')).css('visibility', 'visible');
     $('#secondary-board-area').css('display', 'flex');
     $('#collapse-chat-arrow').show();
@@ -3273,7 +3281,6 @@ function makeSecondaryBoard(game: Game) {
   if(!Utils.isSmallWindow()) {
     $('body').removeClass('chat-hidden');
   }
-  $(window).trigger('resize');
 }
 
 export function maximizeGame(game: Game) {

@@ -159,6 +159,10 @@ cg-board {
   color: color-mix(in srgb, currentColor 70%, white 30%); /* fancy new method for lightening/darkening colors */
 }
 
+.movetime {
+  color: var(--bs-secondary-color, #6c757d);
+}
+
 .movelist .selected {
   background-color: rgba(0, 0, 0, 0.2);
   color: #000000;

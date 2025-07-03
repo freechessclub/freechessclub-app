@@ -249,6 +249,10 @@ a {
   color: currentColor;
 }
 
+.movetime {
+  color: #999999;
+}
+
 .movelist .selected {
   background-color: rgba(255, 255, 255, 0.3);
   color: #FFFFFF;

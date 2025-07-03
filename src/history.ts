@@ -16,7 +16,7 @@ export class HEntry {
   public fen: string;
   public wtime: number;
   public btime: number;
-  public elapsed: number;
+  public elapsed: number | null;
   public commentBefore: string;
   public commentAfter: string;
   public nags: string[];
@@ -36,7 +36,7 @@ export class HEntry {
     this.fen = fen;
     this.wtime = wtime;
     this.btime = btime;
-    this.elapsed = 0;
+    this.elapsed = null;
     this.score = score;
     this._subvariations = [];
     this.nags = [];
@@ -248,10 +248,24 @@ export class History {
     this.resetMetatags();
   }
 
+  private formatElapsed(ms: number) {
+    if(ms === 0) 
+      return '0s';
+
+    const totalSeconds = ms / 1000;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    if(minutes >= 1) 
+      return `${minutes}m ${seconds.toFixed(0)}s`;
+    else 
+      return `${seconds.toFixed(1)}s`;
+  }
+
   public updateClockTimes(entry: HEntry, wtime?: number, btime?: number) {
-    if(wtime == null)
+    if(wtime === undefined)
       wtime = entry.wtime;
-    if(btime == null)
+    if(btime === undefined)
       btime = entry.btime;
 
     // if subvariation, use clock times from last mainline move
@@ -265,34 +279,34 @@ export class History {
     if(this.scratch())
       wtime = btime = 0;
 
-    const prev = entry.prev;
-    const incMs = this.game.inc * 1000;
-    let elapsed = 0;
-    if(prev && prev.move) {
-      if(entry.turnColor === 'b')
-        elapsed = prev.elapsed + prev.wtime - wtime + incMs;
-      else
-        elapsed = prev.elapsed + prev.btime - btime + incMs;
-    }
-
-    entry.elapsed = elapsed;
     entry.wtime = wtime;
     entry.btime = btime;
 
-    if(entry.moveTableCellElement) {
-      const span = entry.moveTableCellElement.find('.movetime');
-      if(span.length)
-        span.text(Clock.MSToHHMMSS(entry.elapsed));
+    // update move time in move table
+    if(wtime !== 0 || btime !== 0) {
+      const incMs = this.game.inc * 1000;    
+      if(!entry.parent && entry.prev) {   
+        if(entry.turnColor === 'b' && wtime != null) 
+          entry.elapsed = Math.max(entry.prev.wtime - wtime + (entry.ply >= 4 ? incMs : 0), 0);
+        else if(entry.turnColor === 'w' && btime != null)
+          entry.elapsed = Math.max(entry.prev.btime - btime + (entry.ply >= 5 ? incMs : 0), 0);
+      }
     }
-
-    if(entry.moveListCellElement) {
-      const span = entry.moveListCellElement.find('.movetime');
-      if(span.length)
-        span.text(Clock.MSToHHMMSS(entry.elapsed));
+    if(entry.elapsed != null) {
+      if(entry.moveTableCellElement) {
+        const span = entry.moveTableCellElement.find('.movetime');
+        if(span.length) 
+          span.text(`(${this.formatElapsed(entry.elapsed)})`);
+      }
+      if(entry.moveListCellElement) {
+        const span = entry.moveListCellElement.find('.movetime');
+        if(span.length) 
+          span.text(`(${this.formatElapsed(entry.elapsed)})`);
+      }
     }
   }
 
-  public add(move: any, fen: string, newSubvariation = false, wtime = 0, btime = 0): HEntry {
+  public add(move: any, fen: string, newSubvariation = false, wtime?: number, btime?: number): HEntry {
     const newEntry = new HEntry(move, fen);
 
     if(newSubvariation) {
@@ -887,11 +901,15 @@ export class History {
     const glyphedSan = History.glyphifyHEntry(entry);
     const color = entry.turnColor === 'w' ? 'b' : 'w';
     const moveNo = Math.floor(entry.ply / 2);
+     
+    let cellBody = `<span class="move annotation" data-color="${color}" aria-label="${san}">${glyphedSan}</span>`;
+ 
+    const moveTime = entry.elapsed != null && !entry.parent
+        ? `(${this.formatElapsed(entry.elapsed)})`
+        : '';
+    cellBody += `<span class="movetime">${moveTime}</span>`;
 
-    let cellBody = `<span class="move" class="annotation" data-color="${color}" aria-label="${san}">${glyphedSan}</span>`;
-    const showTime = !this.game.isExamining() && (this.game.isPlaying() || this.game.isObserving()) && this.game.time > 0;
-    if(showTime)
-      cellBody += `<span class="movetime text-muted small ms-3">(${Clock.MSToHHMMSS(entry.elapsed)})</span>`;
+    const emptyCell = '...<span class="movetime"></span>';
 
     const prevEntry = entry === entry.first ? entry.parent : entry.prev;
     let prevCell: JQuery<HTMLElement>;
@@ -917,7 +935,7 @@ export class History {
         cell = moveTable.find('td:eq(0)');
       }
       else {
-        moveTable.append(`<tr><th scope="row">${moveNo}</th><td>...</td><td class="selectable">${cellBody}</td></tr>`);
+        moveTable.append(`<tr><th scope="row">${moveNo}</th><td>${emptyCell}</td><td class="selectable">${cellBody}</td></tr>`);
         cell = moveTable.find('td:eq(1)');
       }
     }
@@ -943,7 +961,7 @@ export class History {
             const row2Cell2 = row2Cell1.next();
 
             // Remove first cell from row 2
-            row2Cell1.html('...');
+            row2Cell1.html(emptyCell);
             row2Cell1.removeClass('selectable');
             row2Cell1.removeData();
 
@@ -960,7 +978,7 @@ export class History {
           prevCell.parent().after(newRow);
       }
       else { // new move is a black move (column 2)
-        const newRow = $(`<tr><th scope="row">${moveNo}</th><td>...</td><td class="selectable">${cellBody}</td></tr>`);
+        const newRow = $(`<tr><th scope="row">${moveNo}</th><td>${emptyCell}</td><td class="selectable">${cellBody}</td></tr>`);
         cell = newRow.find('td:eq(1)');
 
         if(entry === entry.first) { // first move in subvariation

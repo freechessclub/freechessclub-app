@@ -159,11 +159,11 @@ export class Chat {
     // initialize tabs
     this.tabData = {};
 
-    $(document).on('show.bs.tab', '#tabs button[data-bs-toggle="tab"]', async (e) => {
+    $(document).on('show.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       this.createInChannelTimer(this.getTabName($(e.target)));
     });
 
-    $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', async (e) => {
+    $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
       this.updateViewedState(tab);
       this.updateVirtualScroller(tab);
@@ -416,7 +416,7 @@ export class Chat {
     removeWithTooltips($(`#content-${name}`));
   }
 
-  public async createTab(name: string, showTab = false) {
+  public createTab(name: string, showTab = false) {
     let from: string;
     if(!settings.chattabsToggle)
       from = 'console';
@@ -715,13 +715,13 @@ export class Chat {
     });
   }
 
-  public async newMessage(from: string, data: any, html = false) {
+  public newMessage(from: string, data: any, html = false) {
     const tabName = settings.chattabsToggle ? from : 'console';
 
     if(!/^[\w- ]+$/.test(from))
       return;
 
-    const tabElement = await this.createTab(tabName);
+    const tabElement = this.createTab(tabName);
     let who = '';
     if (data.user !== undefined) {
       let textclass = '';
@@ -768,7 +768,7 @@ export class Chat {
       if(!settings.chattabsToggle)
         return;
 
-      const dateTime = await convertToLocalDateTime(data.datetime);
+      const dateTime = convertToLocalDateTime(data.datetime);
       const now = new Date();
 
       const dateOptions: any = {
