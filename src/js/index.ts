@@ -2,6 +2,9 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
+// style sheets that need webpack file hashing and HMR 
+import 'assets/css/application.css'; 
+
 import { Chessground } from 'chessground';
 import { Polyglot } from 'cm-polyglot/src/Polyglot.js';
 import * as PgnParser from '@mliebelt/pgn-parser';
@@ -20,7 +23,7 @@ import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
 import { Reason } from './parser';
 import './ui';
-import packageInfo from '../package.json';
+import packageInfo from '../../package.json';
 
 export const enum Layout {
   Desktop = 0,
@@ -158,7 +161,7 @@ $(window).on('load', async () => {
   $('#left-panel-header').css('visibility', 'visible');
   $('#right-panel-header').css('visibility', 'visible');
 
-  if('serviceWorker' in navigator) {
+  if('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
     navigator.serviceWorker.register(`./service-worker.js?env=${Utils.isCapacitor() || Utils.isElectron() ? 'app' : 'web'}`)
       .then((registration) => {  
         if(navigator.serviceWorker.controller) { // Check this is an update and not first time install

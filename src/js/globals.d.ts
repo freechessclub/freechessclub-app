@@ -11,3 +11,4 @@ declare const Popper: any;
 declare const d3: any;
 declare const Capacitor: any;
 declare const electron: any;
+declare module '*.css';

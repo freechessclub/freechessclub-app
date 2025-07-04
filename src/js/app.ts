@@ -9,7 +9,7 @@ import { autoUpdater } from 'electron-updater'
 
 let mainWindow = null;
 
-const template = [{
+const template: any = [{
   label: 'Edit',
   submenu: [{
     label: 'Undo',
@@ -117,6 +117,59 @@ const template = [{
   }],
 }];
 
+function setupAutoUpdater() {
+  autoUpdater.on('checking-for-update', () => {
+    updateMenuLabel('checkingForUpdate', 'Checking for Update...');
+  });
+
+  autoUpdater.on('update-available', () => {
+    updateMenuLabel('checkingForUpdate', 'Update available...');
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    updateMenuLabel('checkingForUpdate', 'No update available');
+  });
+
+  autoUpdater.on('error', (error) => {
+    updateMenuLabel('checkingForUpdate', `Update error: ${error == null ? "unknown" : (error.message || error.toString())}`);
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    updateMenuLabel('checkingForUpdate', 'Update ready to install');
+    updateMenuVisibility('restartToUpdate', true);
+  });
+}
+
+function updateMenuVisibility(key, visible) {
+  const match = findMenuItem(key);
+  if (match) {
+    match.visible = visible;
+    refreshMenu();
+  }
+}
+
+function updateMenuLabel(key, newLabel) {
+  const match = findMenuItem(key);
+  if (match) {
+    match.label = newLabel;
+    refreshMenu();
+  }
+}
+
+function findMenuItem(key) {
+  for (const item of template) {
+    const match = item.submenu?.find(i => i.key === key);
+    if (match)
+      return match;
+  }
+  return null;
+}
+
+function refreshMenu() {
+  const updatedMenu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(updatedMenu);
+}
+
 function addUpdateMenuItems(items, position) {
   if (process.mas) {
     return;
@@ -129,6 +182,7 @@ function addUpdateMenuItems(items, position) {
   }, {
     label: 'Checking for Update',
     enabled: false,
+    visible: true,
     key: 'checkingForUpdate',
   }, {
     label: 'Check for Update',
@@ -244,7 +298,7 @@ function createWindow() {
     center: true,
     resizable: true,
     title: app.getName(),
-    icon: path.join(__dirname, '../assets/img/tfcc-small.png'),
+    icon: path.join(__dirname, '../../www/assets/img/tfcc-small.png'),
     webPreferences: {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
@@ -254,7 +308,7 @@ function createWindow() {
   const ur = url.format({
     protocol: 'file',
     slashes: true,
-    pathname: path.join(__dirname, '../play.html'),
+    pathname: path.join(__dirname, '../../www/play.html'),
   });
 
   mainWindow.loadURL(ur);
@@ -271,6 +325,7 @@ function createWindow() {
   const menu = Menu.buildFromTemplate(template as any);
   Menu.setApplicationMenu(menu);
   mainWindow.show();
+  setupAutoUpdater();
 }
 
 app.on('browser-window-created', () => {
@@ -291,7 +346,10 @@ if (process.platform === 'darwin') {
   });
 }
 
-app.on('ready', createWindow);
+app.on('ready', () => {
+  createWindow();
+  autoUpdater.checkForUpdatesAndNotify();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

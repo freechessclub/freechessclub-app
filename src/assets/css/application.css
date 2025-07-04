@@ -539,8 +539,6 @@ body {
   vertical-align: top;
   padding-top: 1px;
   padding-bottom: 1px;
-  padding-left: 15px;
-  padding-right: 15px;
   text-decoration: none;
 }
 #move-table .selectable:hover .move {
@@ -565,6 +563,8 @@ body {
   border-width: 0 3px;
 }
 #move-table .selected {
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
   font-weight: bold;
 }
 

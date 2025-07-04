@@ -2,7 +2,7 @@
     "compilerOptions": {
 //        "noImplicitAny": true,
 //        "strictNullChecks": true,
-        "removeComments": true,
+        "removeComments": false, // Don't enable this, we need webpack magic comments and comments are later removed by the minimizer
         "preserveConstEnums": true,
         "sourceMap": true,
         "esModuleInterop": true,

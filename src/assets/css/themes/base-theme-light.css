@@ -52,7 +52,8 @@ cg-board {
 }
 
 .tab-unviewed {
-  color: tomato !important;
+  --bs-nav-link-color: tomato;
+  --bs-nav-link-hover-color: tomato;
 }
 
 .counter-bubble {
@@ -108,6 +109,12 @@ cg-board {
 
 .form-heading {
   color: #638FA8;
+}
+#fake-input-text:focus-within {
+  color: #212529;
+  background-color: #fff;
+  border-color: #86b7fe;
+  --box-shadow-color: rgba(13, 110, 253, .25);
 }
 
 #game-toolbar {
@@ -296,11 +303,14 @@ cg-board {
   border-color: #6c757d;
 }
 
+.banner-alert {
+  background: #000;
+  color: #fff;
+}
+
 #emoji-button {
   --bs-btn-color: dodgerblue;
 }
 .emoji-panel-arrow {
   border-top-color: #ffffff;
 }
-
-
