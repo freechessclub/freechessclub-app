@@ -37,7 +37,7 @@
   </svg>
   <div id="sign-in-alert" class="banner-alert fade" role="alert">Signing in...</div>
   <div id="notifications" style="z-index: 2000; position: fixed; top: 0; right: 0; width: 100%">
-    <div class="toast notification-panel" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-header">
+    <div class="toast notification-panel" data-bs-animation="false" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-header">
       <div class="toast-body position-relative d-flex">
         <span class="mx-auto">Notifications</span>
         <button type="button" class="btn-close" style="background: transparent; position: absolute; right: 6px; top: 50%; transform: translateY(-50%);" aria-label="Hide">
@@ -45,7 +45,7 @@
         </button>
       </div>
     </div>
-    <div class="toast notification-panel" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-footer">
+    <div class="toast notification-panel" data-bs-animation="false" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-footer">
       <div class="toast-body">
         <div class="d-flex">
           <a class="me-auto" id="notifications-clear-all" style="cursor: pointer; text-decoration: none; font-style: italic">Clear all</a>
@@ -55,9 +55,9 @@
     </div>
   </div>
   <div class="feature3 p-0 position-relative">
-    <div class="row justify-content-md-center m-0" id="main-row">
+    <div class="row m-0" id="main-row">
       <div class="card-group p-0">
-        <div id="left-col" class="col-sm-12 col-md-3 col-lg-3 col-xl-3 align-self-center" style="min-width: 340px">
+        <div id="left-col" class="col-sm-12 col-md-3 col-lg-3 col-xl-3" style="min-width: 340px">
           <div class="card bg-transparent" id="left-card">
             <div class="card-header top-panel d-flex" id="left-panel-header" style="visibility: hidden">
               <div id="navigation-toolbar" class="btn-toolbar m-auto">
@@ -725,7 +725,7 @@
             </div>
           </div>
         </div>
-        <div id="right-col" class="col-sm-12 col-md-12 col-lg position-relative align-self-center">
+        <div id="right-col" class="col-sm-12 col-md-12 col-lg position-relative">
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header" id="right-panel-header" style="visibility: hidden">
               <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto position-relative" style="max-width: 42%">
@@ -893,7 +893,7 @@
                     <div class="dropdown-item disabled noselect" id="version"></div>
                   </div>
                 </div>
-                <span tabindex="0" data-bs-toggle="tooltip" data-bs-placement="left" title="No notifications">
+                <span tabindex="0" data-bs-toggle="tooltip" data-bs-placement="left" data-tooltip-hover-only title="No notifications">
                   <button id="notifications-btn" style="position: relative" class="btn btn-outline-secondary btn-md" type="button" aria-label="Notifications" data-bs-toggle="button" disabled>
                     <span id="notifications-icon" class="fa fa-bell" aria-hidden="false"></span>
                     <svg id="notifications-bubble" class="counter-bubble h-100 w-100" style="display: none; position: absolute; top: 0; left: 0">

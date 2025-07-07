@@ -84,6 +84,11 @@ const mainBoard: any = createBoard($('#main-board-area').children().first().find
  * INITIALIZATION AND TOP LEVEL EVENT LISTENERS *
  ************************************************/
 
+// Stop browser trying to restore scroll position after refresh
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+
 jQuery(() => {
   if ((window as any).cordova !== undefined) {
     document.addEventListener('deviceready', onDeviceReady, false);
@@ -138,7 +143,11 @@ async function onDeviceReady() {
 
   // Change layout for mobile or desktop and resize panels
   // Split it off into a timeout so that onDeviceReady doesn't take too long.
-  setTimeout(() => { $(window).trigger('resize'); }, 0);
+  setTimeout(() => { 
+    $(window).trigger('resize'); 
+    $('#left-panel-header').css('visibility', 'visible');
+    $('#right-panel-header').css('visibility', 'visible');
+  }, 0);
 
   credential = new CredentialStorage();
   if(settings.rememberMeToggle)
@@ -158,9 +167,6 @@ async function onDeviceReady() {
 }
 
 $(window).on('load', async () => {
-  $('#left-panel-header').css('visibility', 'visible');
-  $('#right-panel-header').css('visibility', 'visible');
-
   if('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
     navigator.serviceWorker.register(`./service-worker.js?env=${Utils.isCapacitor() || Utils.isElectron() ? 'app' : 'web'}`)
       .then((registration) => {  
@@ -387,9 +393,9 @@ function setPanelSizes() {
   setRightColumnSizes();
 
   // Adjust Notifications drop-down width
-  if(Utils.isSmallWindow() && prevSizeCategory !== Utils.SizeCategory.Small)
+  if(Utils.isSmallWindow())
     $('#notifications').css('width', '100%');
-  else if(Utils.isMediumWindow() && prevSizeCategory !== Utils.SizeCategory.Medium)
+  else if(Utils.isMediumWindow() || !$('#chat-collapse').hasClass('show'))
     $('#notifications').css('width', '50%');
   else if(Utils.isLargeWindow())
     $('#notifications').width($(document).outerWidth(true) - $('#left-col').outerWidth(true) - $('#mid-col').outerWidth(true));
@@ -1020,6 +1026,7 @@ function gameEnd(data: any) {
   if(!game)
     return;
 
+  game.clock.stopClocks();
   // Set clock time to the time that the player resigns/aborts etc.
   game.history.updateClockTimes(game.history.last(), game.clock.getWhiteTime(), game.clock.getBlackTime());
 
@@ -1060,10 +1067,10 @@ function gameEnd(data: any) {
       analyze = ['analyze();', 'Analyze'];
     }
     Dialogs.showBoardDialog({type: 'Match Result', msg: data.message, btnFailure: rematch, btnSuccess: analyze, icons: false});
+    cleanupGame(game);
   }
+  
   game.history.setMetatags({Result: data.score, Termination: data.reason});
-
-  cleanupGame(game);
 }
 
 function handleOffers(offers: any[]) {
@@ -1219,7 +1226,7 @@ function showSentOffers(offers: any) {
           color = ' W';
 
         // Display 'u' if we are a registered user playing an unrated game.
-        const unrated = session.isRegistered() && offer.ratedUnrated === 'unrated' && offer.category !== 'untimed' ? 'u' : '';
+        const unrated = session.isRegistered() && offer.ratedUnrated === 'unrated' && offer.category !== 'untimed' ? 'u ' : '';
         const time = offer.category !== 'untimed' ? `${offer.initialTime} ${offer.increment} ` : '';
 
         const adjourned = (offer.adjourned ? ' (adjourned)' : '');
@@ -1231,7 +1238,7 @@ function showSentOffers(offers: any) {
     }
     else if(offer.type === 'sn') {
       // Display 'u' if we are a registered user playing an unrated game.
-      const unrated = session.isRegistered() && offer.ratedUnrated === 'u' && offer.category !== 'untimed' ? 'u' : '';
+      const unrated = session.isRegistered() && offer.ratedUnrated === 'u' && offer.category !== 'untimed' ? 'u ' : '';
       // Change 0 0 to 'untimed'
       const time = offer.category !== 'untimed' ? `${offer.initialTime} ${offer.increment} ` : '';
       const color = (offer.color !== '?' ? offer.color : '');
@@ -1338,7 +1345,7 @@ function handleMiscMessage(data: any) {
     return;
   }
 
-  match = msg.match(/(?:^|\n)\s*\d+\s+(\(Exam\.\s+)?[0-9\+]+\s\w+\s+[0-9\+]+\s\w+\s*(\)\s+)?\[[\w\s]+\]\s+[\d:]+\s*\-\s*[\d:]+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games displayed/);
+  match = msg.match(/(?:^|\n)\s*\d+\s+(\(Exam\.\s+)?[0-9\+\-]+\s\w+\s+[0-9\+\-]+\s\w+\s*(\)\s+)?\[[\w\s]+\]\s+[\d:]+\s*\-\s*[\d:]+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games? displayed/);
   if(match != null && match.length > 0 && awaiting.resolve('games')) {
     showGames(msg);
     return;
