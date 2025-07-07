@@ -84,6 +84,11 @@ const mainBoard: any = createBoard($('#main-board-area').children().first().find
  * INITIALIZATION AND TOP LEVEL EVENT LISTENERS *
  ************************************************/
 
+// Stop browser trying to restore scroll position after refresh
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+
 jQuery(() => {
   if ((window as any).cordova !== undefined) {
     document.addEventListener('deviceready', onDeviceReady, false);
@@ -138,7 +143,11 @@ async function onDeviceReady() {
 
   // Change layout for mobile or desktop and resize panels
   // Split it off into a timeout so that onDeviceReady doesn't take too long.
-  setTimeout(() => { $(window).trigger('resize'); }, 0);
+  setTimeout(() => { 
+    $(window).trigger('resize'); 
+    $('#left-panel-header').css('visibility', 'visible');
+    $('#right-panel-header').css('visibility', 'visible');
+  }, 0);
 
   credential = new CredentialStorage();
   if(settings.rememberMeToggle)
@@ -158,9 +167,6 @@ async function onDeviceReady() {
 }
 
 $(window).on('load', async () => {
-  $('#left-panel-header').css('visibility', 'visible');
-  $('#right-panel-header').css('visibility', 'visible');
-
   if('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
     navigator.serviceWorker.register(`./service-worker.js?env=${Utils.isCapacitor() || Utils.isElectron() ? 'app' : 'web'}`)
       .then((registration) => {  
@@ -387,9 +393,9 @@ function setPanelSizes() {
   setRightColumnSizes();
 
   // Adjust Notifications drop-down width
-  if(Utils.isSmallWindow() && prevSizeCategory !== Utils.SizeCategory.Small)
+  if(Utils.isSmallWindow())
     $('#notifications').css('width', '100%');
-  else if(Utils.isMediumWindow() && prevSizeCategory !== Utils.SizeCategory.Medium)
+  else if(Utils.isMediumWindow() || !$('#chat-collapse').hasClass('show'))
     $('#notifications').css('width', '50%');
   else if(Utils.isLargeWindow())
     $('#notifications').width($(document).outerWidth(true) - $('#left-col').outerWidth(true) - $('#mid-col').outerWidth(true));

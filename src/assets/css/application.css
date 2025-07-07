@@ -171,13 +171,12 @@ body {
 
 @media (min-width: 768px) {
   body.chat-hidden #right-col {
-    position: fixed !important;
+    position: absolute !important;
     top: 0;
     left: 0;
     right: 0;
     width: 100%;
     height: auto;
-    z-index: 1000;
   }
   body.chat-hidden #main-row {
     padding-top: var(--right-col-height, 3.5rem);
