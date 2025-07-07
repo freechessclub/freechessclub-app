@@ -580,6 +580,10 @@ export function debounce(func, wait) {
   };
 }
 
+export function wait(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export function getTouchClickCoordinates(event: any, relativeToPage = false) {
   event = (event.originalEvent || event);
   let x: number;

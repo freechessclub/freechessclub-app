@@ -136,6 +136,7 @@ export function createNotification(params: DialogParams): any {
   const dialog = createDialog(params);
   dialog.insertBefore($('#notifications-footer'));
   dialog.find('[data-bs-dismiss="toast"]').removeAttr('data-bs-dismiss');
+  dialog.attr('data-bs-animation', 'false');
   dialog.on('click', 'button', () => {
     removeNotification(dialog);
   });
@@ -207,23 +208,23 @@ export function showNotifications(dialogs: any) {
     $('#notifications-show-all').show();
 
   if(!$('#notifications-header').attr('data-show')) {
+    slideNotification($('#notifications-header'), 'down');
     $('#notifications-header').attr('data-show', 'true');
     $('#notifications-header').toast('show');
-    slideNotification($('#notifications-header'), 'down');
   }
 
   dialogs.each((index, element) => {
     if(!$(element).attr('data-show')) {
+      slideNotification($(element), 'down');
       $(element).attr('data-show', 'true');
       $(element).toast('show');
-      slideNotification($(element), 'down');
     }
   });
 
   if($('.notification:not([data-remove="true"])').length > 1 && !$('#notifications-footer').attr('data-show')) {
+    slideNotification($('#notifications-footer'), 'down');
     $('#notifications-footer').attr('data-show', 'true');
     $('#notifications-footer').toast('show');
-    slideNotification($('#notifications-footer'), 'down');
   }
 }
 
@@ -285,47 +286,45 @@ function slideNotification(element: any, direction: 'down' | 'up' | 'left' | 'ri
     $('#notifications').css('opacity', '');
     $('#notifications').css('transform', '');
     $('#notifications').show();
-    element.css('margin-top', -element[0].getBoundingClientRect().height);
     element.css('z-index', '-1');
     element.css('opacity', '0');
     // Trigger transition after toast is shown
-    element.one('shown.bs.toast', (event) => {
+    element.one('shown.bs.toast', () => {
       // Add transition (animation)
-      $(event.target).addClass('slide-down');
-      $(event.target).css('margin-top', '');
-      $(event.target).css('z-index', '');
-      $(event.target).css('opacity', '');
-      $(event.target).one('transitionend', (teEvent) => {
-        $(teEvent.target).removeClass('slide-down');
-        $(teEvent.target).height($(teEvent.target).height()); // Fixes a layout glitch from the transition
+      element.css('margin-top', -element[0].getBoundingClientRect().height);
+      element[0].offsetWidth;
+      element.addClass('slide-down');
+      element.css('margin-top', '');
+      element.css('z-index', '');
+      element.css('opacity', '');
+      element.one('transitionend', () => {
+        element.removeClass('slide-down');
       });
     });
   }
   else if(direction === 'up') {
-    // Set initial state before transition
     element.addClass('slide-up');
     element.css('margin-top', -element[0].getBoundingClientRect().height);
     element.css('opacity', '0');
-    element.one('transitionend', (event) => {
-      if(!$(event.target).attr('data-show'))
-        $(event.target).toast('hide');
-      $(event.target).removeClass('slide-up');
-      $(event.target).css('opacity', '');
-      $(event.target).css('margin-top', '');
+    element.one('transitionend', () => {
+      if(!element.attr('data-show'))
+        element.toast('hide');
+      element.removeClass('slide-up');
+      element.css('opacity', '');
+      element.css('margin-top', '');
     });
   }
   else if(direction === 'left' || direction === 'right') {
-    // Set initial state before transition
     element.css('z-index', '-1');
     element.addClass('slide-sideways');
     element.css('transform', `translateX(${direction === 'left' ? '-' : ''}100%)`);
     element.css('opacity', '0');
-    element.one('transitionend', (event) => {
-      $(event.target).removeClass('slide-sideways');
-      $(event.target).toast('hide');
-      $(event.target).css('z-index', '');
-      $(event.target).css('transform', '');
-      $(event.target).css('opacity', '');
+    element.one('transitionend', () => {
+      element.removeClass('slide-sideways');
+      element.toast('hide');
+      element.css('z-index', '');
+      element.css('transform', '');
+      element.css('opacity', '');
     });
   }
 }
@@ -364,7 +363,7 @@ function resetSlide(element: any) {
 $('#notifications')[0].addEventListener('mousedown', notificationMouseDown);
 $('#notifications')[0].addEventListener('touchstart', notificationMouseDown, {passive: false});
 function notificationMouseDown(mdEvent) {
-  if(!$(mdEvent.target).is('div'))
+  if(mdEvent.target.closest('button, input, a, select, textarea, label')) 
     return;
 
   if($(':focus').length > 0)
