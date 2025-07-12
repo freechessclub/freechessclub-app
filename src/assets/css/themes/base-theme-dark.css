@@ -56,7 +56,8 @@ a {
 }
 
 .tab-unviewed {
-  color: tomato !important;
+  --bs-nav-link-color: tomato;
+  --bs-nav-link-hover-color: tomato;
 }
 
 .counter-bubble {
@@ -157,6 +158,7 @@ a {
   background-color: var(--form-control-bg);
   border-color: #888888;
   color: lightgray;
+  --box-shadow-color: rgba(13, 110, 253, .25);
 }
 .form-control:disabled {
   background-color: #777777;
@@ -408,6 +410,11 @@ a {
 .not-signed-in-notice {
   background: color-mix(in srgb, var(--bg-color) 90%, white 10%);
   border-color: #AAAAAA;
+}
+
+.banner-alert {
+  background: #000;
+  color: #fff;
 }
 
 #emoji-button {
