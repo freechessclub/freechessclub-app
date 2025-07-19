@@ -171,13 +171,12 @@ body {
 
 @media (min-width: 768px) {
   body.chat-hidden #right-col {
-    position: fixed !important;
+    position: absolute !important;
     top: 0;
     left: 0;
     right: 0;
     width: 100%;
     height: auto;
-    z-index: 1000;
   }
   body.chat-hidden #main-row {
     padding-top: var(--right-col-height, 3.5rem);
@@ -691,7 +690,7 @@ body {
 .movetime {
   display: inline-block;
   text-align: left;
-  margin-left: 1rem;
+  margin-left: 0.75rem;
   font-size: 0.75em;
   min-width: 10ch;
 }
@@ -946,4 +945,21 @@ input[type="number"]:focus {
 }
 .banner-alert.show {
   transform: translateY(0); 
+}
+
+@media (max-width: 767px) {
+  #advanced-settings-link {
+    display: none;
+  }
+}
+
+.settings-back {
+  font-size: 1.5rem;
+}
+
+#shortcuts-list {
+  position: static;
+  flex-grow: 1;
+  overflow-y: auto; 
+  overflow-x: hidden;
 }

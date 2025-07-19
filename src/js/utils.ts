@@ -140,6 +140,14 @@ export function isFirefox() {
   return navigator.userAgent.toLowerCase().includes('firefox');
 }
 
+/** 
+ * Is Mac 
+ */
+export function isMac() {
+  return (navigator as any).userAgentData?.platform === "macOS" ||
+      navigator.userAgent.includes("Mac");
+}
+
 // Used by createContextMenu()
 let touchStarted = false; // Keeps track of whether a touch is in progress
 // Keeps track of whether a touch is currently in progress. Used by createContextMenu.
@@ -578,6 +586,10 @@ export function debounce(func, wait) {
     clearTimeout(timeout);
     timeout = setTimeout(() => func.apply(this, args), wait);
   };
+}
+
+export function wait(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export function getTouchClickCoordinates(event: any, relativeToPage = false) {
