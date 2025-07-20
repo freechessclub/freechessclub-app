@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import { autoLink } from 'autolink-js';
-import { createTooltip, safeScrollTo, isSmallWindow, convertToLocalDateTime, removeWithTooltips, insertAtCursor } from './utils';
+import { createTooltip, safeScrollTo, isSmallWindow, removeWithTooltips, insertAtCursor } from './utils';
 import { setGameWithFocus, maximizeGame, scrollToBoard } from './index';
 import { settings } from './settings';
 import { storage, awaiting } from './storage';
@@ -769,10 +769,11 @@ export class Chat {
 
     // 'message' instead of tell
     if(data.datetime) {
+      const dateTime = data.datetime;
+
       if(!settings.chattabsToggle)
         return;
 
-      const dateTime = convertToLocalDateTime(data.datetime);
       const now = new Date();
 
       const dateOptions: any = {

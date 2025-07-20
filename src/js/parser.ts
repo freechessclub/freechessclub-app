@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import Session from './session';
+import { parseDate } from './utils';
 
 export enum Reason {
   Unknown = 0,
@@ -408,19 +409,21 @@ export class Parser {
       const messages = lines.map(line => {
         const lineMatch = line.match(/(?:(\d+)\. )?(\w+) at (\w+) (\w+)\s+(\d+), (\d{2}):(\d{2}) ([\w\?]+) (\d+): (.+)/); 
         if(lineMatch) {
+          const dateTime = {
+            weekday: lineMatch[3],
+            month: lineMatch[4],
+            day: lineMatch[5],
+            hour: lineMatch[6],
+            minute: lineMatch[7],
+            timezone: lineMatch[8],
+            year: lineMatch[9]
+          }
+
           return {
             type: 'message',
             id: lineMatch[1],
             user: lineMatch[2],
-            datetime: {
-              weekday: lineMatch[3],
-              month: lineMatch[4],
-              day: lineMatch[5],
-              hour: lineMatch[6],
-              minute: lineMatch[7],
-              timezone: lineMatch[8],
-              year: lineMatch[9]
-            },
+            datetime: parseDate(dateTime),
             message: lineMatch[10],
             raw: msg
           };
@@ -527,6 +530,20 @@ export class Parser {
       return {
         offers,
       }
+    }
+
+    match = msg.match(/^Your seeks have been removed\./m);
+    if(!match)
+      match = msg.match(/^Your seek (\d+) has been removed\./m);
+    if(match) {
+      const ids = match.length > 1 ? [match[1]] : [];
+      return {
+        offers: [{
+          type: 'sr',
+          ids: ids,
+        }],
+        raw: msg
+      };
     }
 
     return { message: msg };
