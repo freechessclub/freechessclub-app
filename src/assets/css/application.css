@@ -171,13 +171,12 @@ body {
 
 @media (min-width: 768px) {
   body.chat-hidden #right-col {
-    position: fixed !important;
+    position: absolute !important;
     top: 0;
     left: 0;
     right: 0;
     width: 100%;
     height: auto;
-    z-index: 1000;
   }
   body.chat-hidden #main-row {
     padding-top: var(--right-col-height, 3.5rem);
@@ -522,6 +521,7 @@ body {
 #move-table {
   padding: 0;
   text-align: center;
+  table-layout: fixed;
 }
 #move-table th {
   border: 0;
@@ -533,6 +533,8 @@ body {
   width: 40%;
   padding-top: 3px;
   padding-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 #move-table .move {
   display: inline-block;
@@ -691,7 +693,7 @@ body {
 .movetime {
   display: inline-block;
   text-align: left;
-  margin-left: 1rem;
+  margin-left: 0.75rem;
   font-size: 0.75em;
   min-width: 10ch;
 }

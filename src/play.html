@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en">
 <head>
   <title>Free Chess Club: Play Online Chess on the Free Internet Chess Server</title>
   <meta charset="utf-8">
@@ -23,9 +23,6 @@
   <link href="assets/css/chessground.css" rel="stylesheet">
   <link href="assets/css/pieces/default.css" rel="stylesheet" id="piece">
   <link href="assets/css/main.css" rel="stylesheet">
-  <link href="assets/css/application.css" rel="stylesheet">
-  <link href="assets/css/themes/base-theme-light.css" rel="stylesheet" id="base-theme">  
-  <link href="assets/css/themes/default.css" rel="stylesheet" id="theme">
   <link rel="shortcut icon" href="assets/img/favicon.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,7 +37,7 @@
   </svg>
   <div id="sign-in-alert" class="banner-alert fade" role="alert">Signing in...</div>
   <div id="notifications" style="z-index: 2000; position: fixed; top: 0; right: 0; width: 100%">
-    <div class="toast notification-panel" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-header">
+    <div class="toast notification-panel" data-bs-animation="false" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-header">
       <div class="toast-body position-relative d-flex">
         <span class="mx-auto">Notifications</span>
         <button type="button" class="btn-close" style="background: transparent; position: absolute; right: 6px; top: 50%; transform: translateY(-50%);" aria-label="Hide">
@@ -48,7 +45,7 @@
         </button>
       </div>
     </div>
-    <div class="toast notification-panel" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-footer">
+    <div class="toast notification-panel" data-bs-animation="false" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-footer">
       <div class="toast-body">
         <div class="d-flex">
           <a class="me-auto" id="notifications-clear-all" style="cursor: pointer; text-decoration: none; font-style: italic">Clear all</a>
@@ -58,9 +55,9 @@
     </div>
   </div>
   <div class="feature3 p-0 position-relative">
-    <div class="row justify-content-md-center m-0" id="main-row">
+    <div class="row m-0" id="main-row">
       <div class="card-group p-0">
-        <div id="left-col" class="col-sm-12 col-md-3 col-lg-3 col-xl-3 align-self-center" style="min-width: 340px">
+        <div id="left-col" class="col-sm-12 col-md-3 col-lg-3 col-xl-3" style="min-width: 340px">
           <div class="card bg-transparent" id="left-card">
             <div class="card-header top-panel d-flex" id="left-panel-header" style="visibility: hidden">
               <div id="navigation-toolbar" class="btn-toolbar m-auto">
@@ -728,7 +725,7 @@
             </div>
           </div>
         </div>
-        <div id="right-col" class="col-sm-12 col-md-12 col-lg position-relative align-self-center">
+        <div id="right-col" class="col-sm-12 col-md-12 col-lg position-relative">
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header" id="right-panel-header" style="visibility: hidden">
               <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto position-relative" style="max-width: 42%">
@@ -896,7 +893,7 @@
                     <div class="dropdown-item disabled noselect" id="version"></div>
                   </div>
                 </div>
-                <span tabindex="0" data-bs-toggle="tooltip" data-bs-placement="left" title="No notifications">
+                <span tabindex="0" data-bs-toggle="tooltip" data-bs-placement="left" data-tooltip-hover-only title="No notifications">
                   <button id="notifications-btn" style="position: relative" class="btn btn-outline-secondary btn-md" type="button" aria-label="Notifications" data-bs-toggle="button" disabled>
                     <span id="notifications-icon" class="fa fa-bell" aria-hidden="false"></span>
                     <svg id="notifications-bubble" class="counter-bubble h-100 w-100" style="display: none; position: absolute; top: 0; left: 0">
@@ -929,18 +926,18 @@
                             <span class="fa fa-plus-square" aria-hidden="false"></span>
                           </button>
                           <div id="start-chat-menu" class="dropdown-menu" aria-labelledby="start-chat-button">
-                            <li class="px-2 pb-2"><input type="text" class="form-control blur-on-enter" id="start-chat-input" placeholder="Start chat with..." aria-label="Start chat with..." spellcheck="false" autocomplete="false"=></li>
+                            <li class="px-2 pb-2"><input type="text" class="form-control blur-on-enter" id="start-chat-input" placeholder="Start chat with..." aria-label="Start chat with..." spellcheck="false" autocomplete="false"></li>
                             <li id="add-remove-channels" class="center"><button class="btn btn-outline-secondary" type="button">Add or remove chat channels</button></li>
                             <li><ul id="start-chat-users-channels" class="p-0" style="list-style: none; overflow-y: auto; max-height: 500px;">
                               <li><ul id="subscribed-channels" class="p-0" style="list-style: none;">
                                 <li class="dropdown-header">SUBSCRIBED CHANNELS</li>
-                              </ul><li>
+                              </ul></li>
                               <li><ul id="start-chat-matching-users" class="p-0" style="list-style: none">
                                 <li><h6 class="dropdown-header">USERS</h6></li>
-                              </ul><li>
+                              </ul></li>
                               <li><ul id="start-chat-matching-channels" class="p-0 mt-2" style="list-style: none">
                                 <li><h6 class="dropdown-header">CHANNELS</h6></li>
-                              </ul><li>
+                              </ul></li>
                             </ul></li>
                           </div>
                           <div class="modal fade" id="channels-modal" tabindex="-1" aria-labelledby="channels-modal-label" aria-hidden="true">
@@ -1055,12 +1052,5 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.min.js" integrity="sha384-cuYeSxntonz0PPNlHhBs68uyIAVpIIOZZ5JqeqvYYIcEL727kskC66kF92t6Xl2V" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3@7.8.0/dist/d3.min.js" integrity="sha384-BfdMhEKmGjfIcPlLK2EXeY8IW+8aVgSwDo8P3DHR4+iceT2QW/ygYkMeZ2dZ77j4" crossorigin="anonymous"></script>
-  <script defer type="text/javascript" src="assets/js/bundle.js"></script>
-  <script>
-    window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
-    ga('create', 'UA-93678919-1', 'auto');
-    ga('send', 'pageview');
-  </script>
-  <script async src='https://www.google-analytics.com/analytics.js'></script>
 </body>
 </html>

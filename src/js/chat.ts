@@ -140,6 +140,7 @@ export class Chat {
   private timezone: string;
   private tabData: object;
   private maximized: boolean;
+  private isConnected: boolean;
   private unviewedNum: number;
   private virtualScrollerPromise: Promise<typeof import('virtual-scroller/dom')>;
   private subscribedChannels: string[];
@@ -148,10 +149,11 @@ export class Chat {
   private inChannelTimer: any = null;
   private emojiUnicodeToShortcodes = new Map(); // Mapping from emoji unicodes to ids (shortcodes)
   private emoji: typeof import('emoji-mart'); // Emoji picker and database
-
+  
   constructor() {
     this.unviewedNum = 0;
     this.subscribedChannels = [];
+    this.isConnected = false;
     settings.timestampToggle = (storage.get('timestamp') !== 'false');
     settings.chattabsToggle = (storage.get('chattabs') !== 'false');
     this.virtualScrollerPromise = import('virtual-scroller/dom');
@@ -160,7 +162,8 @@ export class Chat {
     this.tabData = {};
 
     $(document).on('show.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
-      this.createInChannelTimer(this.getTabName($(e.target)));
+      if(this.isConnected)
+        this.createInChannelTimer(this.getTabName($(e.target)));
     });
 
     $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
@@ -172,11 +175,7 @@ export class Chat {
 
     $(document).on('hide.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
-      const tabData = this.getTabDataFromElement(tab);
-      if(tabData?.scrollerStarted) {
-        tabData.scroller.stop(); // Stop virtual-scroller before hiding tab so that it doesn't remove all its DO< elements
-        tabData.scrollerStarted = false;
-      } 
+      this.stopVirtualScroller(tab);
       clearInterval(this.inChannelTimer);
     });
 
@@ -269,6 +268,8 @@ export class Chat {
   }
 
   public connected(user: string): void {
+    this.isConnected = true;
+
     if(this.user !== user) {
       $('#tabs .closeTab').each((index, element) => {
         this.closeTab($(element).parent().siblings('.nav-link'));
@@ -282,6 +283,7 @@ export class Chat {
   }
 
   public cleanup() {
+    this.isConnected = false;
     clearInterval(this.inChannelTimer);
     this.inChannelTimer = null;
   }
@@ -412,7 +414,7 @@ export class Chat {
     const name: string = tab.attr('id').toLowerCase().split(/-(.*)/)[1];
     tab.parent().tooltip('dispose');
     tab.parent().remove();
-    this.deleteTab(name);
+    this.deleteTab(tab);
     removeWithTooltips($(`#content-${name}`));
   }
 
@@ -441,7 +443,8 @@ export class Chat {
     if(!this.tabData.hasOwnProperty(from)) {
       this.tabData[from] = {
         messages: [],
-        scroller: null,
+        scrollerPromise: null,
+        scrollerUpdateCount: 0,
         scrollerStarted: false,
         scrolledToBottom: true
       };
@@ -629,7 +632,7 @@ export class Chat {
     }, {
       scrollableContainer: tabContent.find('.chat-scroll-container')[0],
       onStateChange: () => {
-        this.fixScrollPosition(); // For auto-scrolling to bottom
+        this.fixScrollPosition(); 
       }
     });
   }
@@ -646,10 +649,9 @@ export class Chat {
     return tabElement.attr('id').toLowerCase().split(/-(.*)/)[1];
   }
 
-  public deleteTab(name: string) {
-    const tabData = this.tabData[name];
-    if(tabData.scrollerStarted) 
-      tabData.scroller.stop();
+  public deleteTab(tab: any) {
+    const name = this.getTabName(tab);
+    this.stopVirtualScroller(tab)
     delete this.tabData[name];
   }
 
@@ -739,7 +741,7 @@ export class Chat {
     if(!html)
       text = this.escapeHTML(text);
 
-    text = this.emojify(text);
+    text = this.emojify(text, tabName === 'console');
 
     text = text.replace(this.userRE, `<strong class="mention">${this.user}</strong>`);
 
@@ -805,23 +807,51 @@ export class Chat {
       return;
 
     const tabData = this.getTabDataFromElement(tabElement);
-    if(!tabData.scroller) {
-      tabData.scroller = await this.createVirtualScroller(tabContentElement, tabData.messages);
+
+    // Throttle updates
+    if(!tabData.scrollerUpdateCount) {
+      tabData.scrollerUpdateCount = 1;
+      setTimeout(() => {
+        const count = tabData.scrollerUpdateCount;
+        tabData.scrollerUpdateCount = 0;
+        if(count > 1 && tabData.scrollerStarted) 
+          this.updateVirtualScroller(tabElement);
+      }, 250);
+    } 
+    else {
+      tabData.scrollerUpdateCount++;
+      return;
+    }
+
+    if(!tabData.scrollerPromise) {
+      tabData.scrollerPromise = this.createVirtualScroller(tabContentElement, tabData.messages);
       tabData.scrollerStarted = true;
       return;
     }
 
+    const scroller = await tabData.scrollerPromise;
     if(!tabData.scrollerStarted) {
       // In case panel was resized while hidden, recalculate chat message heights so that 
       // virtual-scroller doesn't complain after restarting
-      const state = tabData.scroller.virtualScroller.getState();
+      const state = scroller.virtualScroller.getState();
       for(let i = state.firstShownItemIndex; i <= state.lastShownItemIndex; i++) 
-        tabData.scroller.onItemHeightDidChange(i);
-      tabData.scroller.start();
+        scroller.onItemHeightDidChange(i);
+      scroller.start();
       tabData.scrollerStarted = true;
     }
 
-    tabData.scroller.setItems(tabData.messages);
+    scroller.setItems(tabData.messages);
+  }
+
+  private async stopVirtualScroller(tabElement: any) {
+    const tabData = this.getTabDataFromElement(tabElement);
+    if(!tabData)
+      return;
+    const scroller = await tabData.scrollerPromise;
+    if(tabData.scrollerStarted) {
+      tabData.scrollerStarted = false;
+      scroller.stop(); 
+    } 
   }
 
   private ignoreUnviewed(from: string) {
@@ -1061,7 +1091,7 @@ export class Chat {
     const regex = new RegExp(
       Object.keys(unicodeToEmoticon)
         .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-        .map(k => `(?<!\\S)${k}(?!\\S)`) 
+        .map(k => `(?<=[ \\t]|^)${k}(?!\\S)`) 
         .join('|'),
       'g'
     );
@@ -1080,7 +1110,7 @@ export class Chat {
   /**
   * Converts emoji shortcodes and ascii emoticons in the given text to unicode emojis
   */
-  public emojify(text: string): string {
+  public emojify(text: string, console = false): string {
     if(!this.emoji)
       return text;
 
@@ -1110,7 +1140,7 @@ export class Chat {
     regex = new RegExp(
       Object.keys(emoticons)
         .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-        .map(k => `(?<!\\S)${k}(?!\\S)`)
+        .map(k => `(?<=[ \\t]${!console ? '|^' : ''})${k}(?!\\S)`)
         .join('|'),
       'g'
     );
