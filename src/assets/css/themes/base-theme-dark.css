@@ -423,3 +423,7 @@ a {
 .emoji-panel-arrow {
   border-top-color: #151617;
 }
+
+.invalid-feedback {
+  color: #ff6b6b;
+}
