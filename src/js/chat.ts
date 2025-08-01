@@ -85,6 +85,7 @@ const channels = {
   98:     'Losers Chess',
   99:     'Atomic Chess',
   100:    'Trivia',
+  101:    'Team League',
 };
 
 const emoticons = {
@@ -451,8 +452,9 @@ export class Chat {
 
       let chName = name;
       let isGameTab = false, isChannel = false;
-      if(channels[name] !== undefined) {
-        chName = channels[name];
+      if(Number.isInteger(+name) && +name <= 255) {
+        if(channels[name] !== undefined)
+          chName = channels[name];
         isChannel = true;
       }
      
@@ -927,7 +929,7 @@ export class Chat {
       }
 
       // If user opens a channel tab, also subscribe to that channel (if not already)
-      if(channels.hasOwnProperty(chan) && !this.subscribedChannels.includes(chan))
+      if(Number.isInteger(+chan) && +chan <= 255 && !this.subscribedChannels.includes(chan))
         (window as any).sessionSend(`+ch ${chan}`);
     });
 
@@ -957,6 +959,9 @@ export class Chat {
           if(matchingUser)
             val = matchingUser.name;
         }
+
+        if(Number.isInteger(+val) && +val <= 255 && !this.subscribedChannels.includes(val))
+          (window as any).sessionSend(`+ch ${val}`);
 
         if(settings.chattabsToggle) {
           this.createTab(val, true);

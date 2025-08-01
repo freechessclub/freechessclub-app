@@ -1337,7 +1337,7 @@ function handleMiscMessage(data: any) {
     return;
   }
 
-  match = msg.match(/^Channel (\d+) \S+ (.*)/m);
+  match = msg.match(/^Channel (\d+).*?: (.*)/m);
   if(match && awaiting.resolve('inchannel')) {
     const chNum = match[1];
     const members = match[2].replace(/\(U\)/g, '').split(' ');
@@ -1555,9 +1555,11 @@ function handleMiscMessage(data: any) {
   if(!match)
     match = msg.match(/^Notification: .*/m);
   if(match && match.length > 0) {
-    if(/^The following message was emailed to/m.test(msg) && chat.currentTab() !== 'console') {
-      chat.newNotification(`${match[0]} Message sent as email.`);
-      return
+    if(/^The following message was emailed to/m.test(msg)) {
+      if(chat.currentTab() !== 'console')
+        chat.newNotification(`${match[0]} Message sent as email.`);
+      chat.newMessage('console', data);
+      return;
     }
     chat.newNotification(match[0]);
     return;
