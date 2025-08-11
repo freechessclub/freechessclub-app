@@ -949,3 +949,21 @@ input[type="number"]:focus {
 .banner-alert.show {
   transform: translateY(0); 
 }
+
+@media (max-width: 767px) {
+  #advanced-settings-link {
+    display: none;
+  }
+}
+
+.settings-back {
+  font-size: 1.5rem;
+}
+
+#shortcuts-list {
+  position: static;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto; 
+  overflow-x: hidden;
+}

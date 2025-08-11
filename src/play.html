@@ -748,11 +748,11 @@
                   <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
                       <div class="modal-header">
-                        <h5 class="modal-title" id="settings-modal-label"><span class="fa fa-gear me-2" aria-hidden="false"></span>Settings</h5>
+                        <h5 class="modal-title" id="settings-modal-label"><span class="fa fa-gear me-2" aria-hidden="false"></span><span id="settings-title-text">Settings</span></h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                       </div>
                       <div class="modal-body">
-                        <form>
+                        <form id="basic-settings" class="settings-pane">
                           <div class="form-group row">
                             <div class="col">
                               <div class="form-check form-switch">
@@ -808,6 +808,9 @@
                                 <label class="form-check-label" for="smartmove-toggle"><span id="smartmove-toggle-icon" class="fa-solid fa-brain dropdown-icon" aria-hidden="false"></span>Smart Move</label>
                               </div>
                             </div>
+                          </div>
+                          <div id="advanced-settings-link" class="form-group pt-1">
+                            <a href="javascript:void(0)">Advanced >></a>
                           </div>
                           <hr/>
                           <div class="form-group row">
@@ -873,6 +876,38 @@
                                 <button type="button" class="btn btn-outline-secondary" id="pieces-maestro" data-bs-toggle="tooltip" title="Maestro"><img src="assets/css/images/pieces/maestro/wK.svg" width="36"/></button>
                                 <button type="button" class="btn btn-outline-secondary" id="pieces-pirouetti" data-bs-toggle="tooltip" title="Pirouetti"><img src="assets/css/images/pieces/pirouetti/wK.svg" width="36"/></button>
                                 <button type="button" class="btn btn-outline-secondary" id="pieces-spatial" data-bs-toggle="tooltip" title="Spatial"><img src="assets/css/images/pieces/spatial/wK.svg" width="36"/></button>
+                              </div>
+                            </div>
+                          </div>
+                        </form>
+                        <form id="advanced-settings" class="settings-pane" style="display: none;">
+                          <div class="mb-5">
+                            <button type="button" id="advanced-settings-back" class="settings-back btn btn-outline-secondary btn-transparent p-0" data-tooltip-hover-only data-bs-toggle="tooltip" title="Back to Basic Settings"><i class="fa-solid fa-arrow-left"></i></button>
+                          </div>
+                          <div class="d-flex justify-content-center">
+                            <button type="button" id="custom-shortcuts-button" class="btn btn-outline-secondary" title="Custom Keyboard Shortcuts">Custom Keyboard Shortcuts</button>
+                          </div>
+                        </form>
+                        <form id="custom-shortcuts-settings" class="settings-pane" style="display: none;">
+                          <div class="d-flex flex-column h-100">
+                            <div class="mb-2">
+                              <button type="button" id="custom-shortcuts-back" class="settings-back btn btn-outline-secondary btn-transparent p-0" data-tooltip-hover-only data-bs-toggle="tooltip" title="Back to Advanced Settings"><i class="fa-solid fa-arrow-left"></i></button>
+                            </div>
+                            <label class="form-heading mb-1">Shortcuts:</label>
+                            <div class="d-flex flex-grow-1" style="min-height: 0; gap: 20px;">
+                              <ul id="shortcuts-list" class="dropdown-menu show">
+                              </ul>
+                              <div id="shortcut-settings-right-col" style="flex-shrink: 0;">
+                                <div id="shortcut-buttons" class="mb-3" style="display: inline-block;">
+                                  <button type="button" id="new-shortcut" class="btn btn-outline-secondary btn-sm" title="New Shortcut">New Shortcut</button>
+                                  <button type="button" id="remove-shortcut" class="btn btn-outline-secondary btn-sm" title="Remove Shortcut">Remove Shortcut</button>
+                                </div>
+                                <div id="shortcut-input-group" class="input-group" style="margin-bottom: 0.75rem;">
+                                  <label id="shortcut-modifier-label" class="input-group-text">Ctrl + Shift + </label>
+                                  <input type="text" id="shortcut-key" class="form-control text-center" autocomplete="off" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="shortcut key">
+                                  <div id="shortcut-key-feedback" class="invalid-feedback"></div>
+                                </div>
+                                <textarea style="resize: none;" rows="10" id="shortcut-commands" class="form-control" type="text" placeholder="Enter server commands here" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
                               </div>
                             </div>
                           </div>
