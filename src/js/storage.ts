@@ -287,6 +287,13 @@ export class Storage {
 export class Awaiting {
   private states: Map<string, number> = new Map(); 
 
+  /** 
+   * Return the counter for the specified state 
+   */
+  public count(state: string) {
+    return this.states.get(state) || 0;
+  }
+
   /**
    * Increments the counter for the specified state 
    */

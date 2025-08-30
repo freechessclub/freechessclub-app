@@ -75,6 +75,7 @@ const timezoneOffsets = {
   WETDST: 1
 };
 
+/** Convert a month from a 3 letter name to a number [1-12] */
 export function monthShortNameToNumber(month: string) {
   const cleanedMonth = month.trim().charAt(0).toUpperCase() + month.slice(1, 3).toLowerCase();
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -82,11 +83,19 @@ export function monthShortNameToNumber(month: string) {
   return index === -1 ? undefined : index + 1;
 }
 
+/**
+ * Convert a month from a number [1-12] to a 3 letter name
+ */
 export function monthNumberToShortName(month: number) {
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return monthNames[month]; 
+  return monthNames[month] + 1; 
 }
 
+/** 
+ * Convert a numerical timezone offset, e.g. -10.5 to a string in the form
+ * <sign>HH:MM, e.g. '-10:30'. This format is needed when creating an
+ * ISO 8601 datetime string.
+ */
 function timezoneOffsetToHHMM(offset: number) {
   if(offset === 0)
     return 'Z';
@@ -100,6 +109,7 @@ function timezoneOffsetToHHMM(offset: number) {
   return `${sign}${hh}:${mm}`;
 }
 
+/** The user's timezone as returned by their tzone user variable on FICS */
 let defaultTimezone = 0;
 export function setDefaultTimezone(timezone: string) {
   defaultTimezone = Number.isInteger(+timezone)
@@ -107,16 +117,117 @@ export function setDefaultTimezone(timezone: string) {
       : timezoneOffsets[timezone] || 0;
 }
 
-export function convertToLocalDateTime(dateTime: any) {
-  const offset = timezoneOffsets[dateTime.timezone] !== undefined
+/** 
+ * Convert an object representing a date time in a specified timezone to a
+ * Date object (representing a local date time).
+ * @param dateTime The date time to be converted, represented as a basic object.
+ * The object is in the following format --
+ *  weekday: // e.g. "Tue"
+ *  month: // e.g. "Jul"
+ *  day: // e.g. "30"
+ *  hour: // e.g. "22"
+ *  minute: // e.g. "15"
+ *  timezone: // e.g. "-10.5"
+ *  year: // e.g. "2025"
+ * @param serverTime If true, dateTime is treated as if it's in the FICS server's timezone,
+ * if false, then timeZone must be specified as a property (as a numerical offset in hours)
+ * @returns A Date object representing a local date time
+ */
+export function parseDate(dateTime: any, serverTime = false) {
+  let offset = defaultTimezone;
+  if(serverTime)
+    offset = serverTimezone;
+  else if(Number.isInteger(dateTime.timezone))
+    offset = dateTime.timezone;
+  else {
+    offset = timezoneOffsets[dateTime.timezone] !== undefined
       ? timezoneOffsets[dateTime.timezone] 
       : defaultTimezone; 
+  }
 
   const timezone = timezoneOffsetToHHMM(offset);
   const month = Number.isInteger(Number(dateTime.month)) ? dateTime.month : monthShortNameToNumber(dateTime.month)?.toString().padStart(2, "0");
   const day = dateTime.day.padStart(2, '0');
   const dateTimeStr = `${dateTime.year}-${month}-${day}T${dateTime.hour}:${dateTime.minute}:${dateTime.second || '00'}${timezone}`;
   return new Date(dateTimeStr);
+}
+
+/** The FICS server's timezone (obtained from the 'date' command) */
+let serverTimezone = -5; // Default to EST
+export function setServerTimezone(timezone: string) {
+  serverTimezone = Number.isInteger(+timezone)
+    ? +timezone
+    : timezoneOffsets[timezone] || -5;
+}
+
+/**
+ * Converts a date time given by a Date object to a date time in
+ * FICS server's timezone.   
+ * @param localDT the Date object to be converted
+ * @returns The converted server date-time as a Date object.
+ */
+export function convertToServerDate(localDT: any) { 
+  // Adjust current date/time to get server time
+  const localOffset = -localDT.getTimezoneOffset() / 60;
+  const tzDiff = serverTimezone - localOffset;   // Difference between server's timezone and local timezone
+  const serverTime = new Date(localDT.getTime() + tzDiff * 60 * 60 * 1000);
+  return serverTime;
+}
+
+/** 
+ * Converts a Date object which is simulating a different timezone, back
+ * to local time.
+ * @param dateTime the Date object to convert
+ * @param timezone The timezone offset in hours of the Date object, if null
+ * the server's timezone is used
+ */
+export function convertToLocalDate(dateTime: any, timezone?: number) {
+  if(timezone == null)
+    timezone = serverTimezone;
+
+  const localOffset = -new Date().getTimezoneOffset() / 60; // local offset in hours
+  const tzDiff = localOffset - timezone; // difference between local timezone and server timezone
+
+  const localTime = new Date(dateTime.getTime() + tzDiff * 60 * 60 * 1000);
+  return localTime;
+}
+
+/**
+ * Get the date of the next specified week day relative to the given date
+ * @param date The starting date
+ * @param nextWeekDay The next week day as a 3 letter name, e.g. 'Tue'
+ * @returns The new date
+ */
+export function getNextWeekDayDate(date: Date, nextWeekDay: string) {
+  const outDate = new Date(date);
+
+  const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const targetDay = weekdayMap[nextWeekDay];
+  if(targetDay !== undefined) {
+    const currentDay = date.getDay(); 
+    let daysToAdd = (targetDay - date.getDay() + 7) % 7;
+    outDate.setDate(date.getDate() + daysToAdd);
+  }
+  return outDate;
+}
+
+/**
+ * Get the difference in days between the specified Date and now as an integer
+ * e.g. 1 would mean that the Date is 1 day later than now,
+ * whereas -1 would be 1 day earlier.
+ * @param date The Date object to compare
+ * @param now A Date object representing now
+ * @returns date - now in days
+ */
+export function getDiffDays(date: Date, now = new Date()) {
+  // Normalize times for comparison (midnight)
+  const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const d1 = startOfDay(now);
+  const d2 = startOfDay(date);
+
+  const diffDays = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+  return diffDays;
 }
 
 /**

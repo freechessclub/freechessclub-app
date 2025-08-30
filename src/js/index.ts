@@ -12,6 +12,7 @@ import NoSleep from '@uriopass/nosleep.js'; // Prevent screen dimming
 import * as Utils from './utils';
 import * as ChessHelper from './chess-helper';
 import * as Dialogs from './dialogs';
+import Tournaments from './tournaments';
 import Chat from './chat';
 import { Clock } from './clock';
 import { Engine, EvalEngine } from './engine';
@@ -39,6 +40,7 @@ const SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonst
 
 let session: Session;
 let chat: Chat;
+let tournaments: Tournaments;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
 let playEngine: Engine | null;
@@ -112,6 +114,7 @@ async function onDeviceReady() {
   }
 
   chat = new Chat();
+  tournaments = new Tournaments();
 
   const game = createGame();
   game.role = Role.NONE;
@@ -273,7 +276,7 @@ window.visualViewport.addEventListener('resize', () => {
  * Temporary fix for a bug in bootstrap when closing modals. Bootstrap sets aria-hidden on the modal
  * before removing focus from it, which causes warnings in Dev tools
  */
-$('.modal').on('hide.bs.modal', () => {
+$(document).on('hide.bs.modal', '.modal', () => {
   $(document.activeElement).trigger('blur');
 });
 
@@ -618,7 +621,10 @@ function messageHandler(data: any) {
         awaiting.set('computer-list');
         session.send('variables'); // Get user's variables (mostly for tzone)
         awaiting.set('user-variables');
+        session.send('date'); // Get the server's timezone for time conversions
+        awaiting.set('date');
         chat.connected(data.control);
+        tournaments.connected(session);
 
         if($('#pills-observe').hasClass('active'))
           initObservePane();
@@ -700,6 +706,8 @@ function messageHandler(data: any) {
       break;
     case MessageType.Offers:
       handleOffers(data.offers);
+      if(data.raw) 
+        chat.newMessage('console', { message: data.raw });
       break;
     case MessageType.Unknown:
     default:
@@ -1074,6 +1082,8 @@ function gameEnd(data: any) {
 }
 
 function handleOffers(offers: any[]) {
+  tournaments?.handleOffers(offers);
+
   // Clear the lobby
   if(offers[0].type === 'sc')
     $('#lobby-table').html('');
@@ -1197,6 +1207,14 @@ function handleOffers(offers: any[]) {
       $(`.sent-offer[data-offer-id="${id}"]`).remove(); // If offer, match request or seek was sent by us, remove it from the Play pane
       $(`.lobby-entry[data-offer-id="${id}"]`).remove(); // Remove seek from lobby
     });
+    
+    if(item.type === 'sr' && !item.ids.length) // remove all seeks
+      $('.sent-offer[data-offer-type="sn"]').remove();
+    else if(item.type === 'pr' && !item.ids.length) { // remove all our sent match requests
+      awaiting.remove('match');
+      $('.sent-offer[data-offer-type="pt"]').remove();
+    }
+      
     if(!$('#sent-offers-status').children().length)
       $('#sent-offers-status').hide();
   });
@@ -1337,7 +1355,7 @@ function handleMiscMessage(data: any) {
     return;
   }
 
-  match = msg.match(/^Channel (\d+) \S+ (.*)/m);
+  match = msg.match(/^Channel (\d+).*?: (.*)/m);
   if(match && awaiting.resolve('inchannel')) {
     const chNum = match[1];
     const members = match[2].replace(/\(U\)/g, '').split(' ');
@@ -1555,9 +1573,11 @@ function handleMiscMessage(data: any) {
   if(!match)
     match = msg.match(/^Notification: .*/m);
   if(match && match.length > 0) {
-    if(/^The following message was emailed to/m.test(msg) && chat.currentTab() !== 'console') {
-      chat.newNotification(`${match[0]} Message sent as email.`);
-      return
+    if(/^The following message was emailed to/m.test(msg)) {
+      if(chat.currentTab() !== 'console')
+        chat.newNotification(`${match[0]} Message sent as email.`);
+      chat.newMessage('console', data);
+      return;
     }
     chat.newNotification(match[0]);
     return;
@@ -1620,20 +1640,7 @@ function handleMiscMessage(data: any) {
     session.send('iset seekinfo 1');
     session.send('iset seekinfo 0');
     session.send('iset showownseek 0');
-    return;
-  }
-
-  match = msg.match(/^Your seeks have been removed\./m);
-  if(!match)
-    match = msg.match(/^Your seek (\d+) has been removed\./m);
-  if(match) {
-    if(match.length > 1) // delete seek by id
-      $(`.sent-offer[data-offer-id="${match[1]}"]`).remove();
-    else  // Remove all seeks
-      $('.sent-offer[data-offer-type="sn"]').remove();
-
-    if(!$('#sent-offers-status').children().length)
-      $('#sent-offers-status').hide();
+    chat.newMessage('console', data);
     return;
   }
 
@@ -1869,6 +1876,12 @@ function handleMiscMessage(data: any) {
   if(variablesReceived)
     return;
 
+  match = msg.match(/^Server time[^:]+:\d+\s+(\w+)/m);
+  if(match && awaiting.resolve('date')) {
+    Utils.setServerTimezone(match[1]);
+    return;
+  }
+
   if(msg.startsWith('Formula unset.'))
     $('#formula-toggle').prop('disabled', true);
   if(msg.startsWith('Formula set to'))
@@ -2017,6 +2030,9 @@ function handleMiscMessage(data: any) {
   ) {
     return;
   }
+
+  if(tournaments.handleMessage(msg))
+    return;
 
   chat.newMessage('console', data);
 }
@@ -4082,9 +4098,13 @@ function initPairingPane() {
 }
 
 function clearMatchRequests() {
-  awaiting.remove('match');
-  $('#sent-offers-status').html('');
-  $('#sent-offers-status').hide();
+  handleOffers([{
+    type: 'sr',
+    ids: [],
+  },
+  { type: 'pt',
+    ids: [],
+  }]);
 }
 
 $('#custom-control').on('submit', (event) => {

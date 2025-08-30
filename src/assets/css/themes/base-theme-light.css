@@ -282,7 +282,7 @@ cg-board {
   color: white;
 }
 
-#channels-modal table thead {
+.modal-table thead {
   background: color-mix(in srgb, var(--bg-color) 20%, white 80%);
   --box-shadow-color: color-mix(in srgb, var(--bg-color) 85%, black 15%);
 }
@@ -314,3 +314,38 @@ cg-board {
 .emoji-panel-arrow {
   border-top-color: #ffffff;
 }
+
+.tournaments-unviewed {
+  --bs-nav-link-color: tomato;
+}
+.tournament-group-title {
+  color: 	#3E5866;
+}
+#pills-tournaments > .tournament-group:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+#pills-tournaments > .tournament-group:nth-of-type(even) {
+  background-color: rgba(0, 0, 0, 0.075);
+}
+.card.tournament-card {
+  --bs-card-bg: var(--bg-color);
+  --bs-card-border-color: #B0B0B0;
+}
+.card.tournament-card-active {
+  --bs-card-bg: #F6E2E2;
+  --bs-card-border-color: #C28D8D;
+}
+.tournament-card-label {
+  color: #4A5A6A;
+}
+
+.tournament-table-pos { color: var(--fg-color); }
+.tournament-table-name { color: var(--fg-color); }
+.tournament-table-rating { color: #555a66 }           
+.tournament-table-score { color: var(--fg-color); }
+.tournament-table-seed { color: #888; }             
+.tournament-table-win { color: #b8860b; }           
+.tournament-table-lose { color: #004080; }          
+.tournament-table-draw { color: #cc7000; }          
+.tournament-table-other-result { color: #7a42c1; }   
+.tournament-table-color { color: var(--fg-color); }

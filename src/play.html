@@ -255,12 +255,15 @@
                             <li class="nav-item" role="presentation">
                               <button class="nav-link" id="pills-lobby-tab" data-bs-toggle="tab" data-bs-target="#pills-lobby" type="button" role="tab" aria-controls="pills-lobby" aria-selected="false">Lobby</button>
                             </li>
+                            <li class="nav-item" role="presentation">
+                              <button class="nav-link" id="pills-tournaments-tab" data-bs-toggle="tab" data-bs-target="#pills-tournaments" type="button" role="tab" aria-controls="pills-tournaments" aria-selected="false">Tournaments</button>
+                            </li>
                           </ul>
                           <div id="play-pane-subcontent" class="tab-content flex-grow-1 overflow-auto" style="min-height: 0">
                             <div class="tab-pane fade show active" id="pills-pairing" role="tabpanel" aria-labelledby="pills-pairing-tab">
                               <div class="btn-group-vertical btn-block center position-static" role="group" aria-label="New Game Menu">
                                 <div class="pane-status" id="sent-offers-status" style="display: none"></div>
-                                <div class="center pane-status" id="pairing-pane-status" style="display: none"></div>
+                                <div class="pane-status" id="pairing-pane-status" style="display: none"></div>
                                 <div class="input-group">
                                   <span class="input-group-text" id="opponent-player-label">Play against</span>
                                   <input type="text" class="form-control blur-on-enter" id="opponent-player-name" placeholder="Anyone" aria-describedby="opponent-player-label" spellcheck="false">
@@ -383,12 +386,15 @@
                                 </div>
                               </div>
                             </div>
+                            <div class="tab-pane fade h-100" id="pills-tournaments" role="tabpanel" aria-labelledby="pills-tournaments-tab">
+                              <div class="pane-status" id="tournaments-pane-status" style="display: none;"></div>
+                            </div>
                           </div>
                         </div>
                       </div>
                       <div class="tab-pane pt-2 fade h-100" id="pills-observe" role="tabpanel" aria-labelledby="pills-observe-tab">
                         <div class="d-flex flex-column h-100">
-                          <div class="center pane-status" id="observe-pane-status" style="display: none"></div>
+                          <div class="pane-status" id="observe-pane-status" style="display: none"></div>
                           <form id="observe-user">
                             <div class="input-group">
                               <span class="input-group-text" id="observe-user-group">Observe</span>
@@ -401,7 +407,7 @@
                       </div>
                       <div class="tab-pane pt-2 fade h-100" id="pills-history" role="tabpanel" aria-labelledby="pills-history-tab">
                         <div class="d-flex flex-column h-100">
-                          <div class="center pane-status" id="history-pane-status" style="display: none"></div>
+                          <div class="pane-status" id="history-pane-status" style="display: none"></div>
                           <form id="history-user">
                             <div class="input-group" id="history-user-group">
                               <span class="input-group-text" id="history-user-label">History</span>
@@ -513,7 +519,7 @@
                               </ul>
                             </div>
                           </div>
-                          <span class="center mt-2" id="game-pane-status">You're not playing a game.</span>
+                          <span id="game-pane-status" class="pane-status">You're not playing a game.</span>
                           <div id="movelist-container" class="flex-grow-1 overflow-auto" style="min-height: 0">
                             <table id="move-table" class="table table-sm mb-0">
                               <tbody></tbody>
@@ -984,7 +990,7 @@
                                 </div>
                                 <div class="modal-body">
                                   <div id="channels-modal-list" class="mb-1" style="height: 500px; overflow-y: scroll;">
-                                    <table class="table table-sm table-borderless table-striped">
+                                    <table class="table table-sm table-borderless table-striped modal-table">
                                       <thead>
                                         <tr>
                                           <th scope="col">Channel</th>
