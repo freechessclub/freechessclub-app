@@ -1734,7 +1734,7 @@ function handleMiscMessage(data: any) {
         else
           game.history.display();
       }
-      updateBoard(game, false, false);
+      setFontSizes();
       return;
     }
     else {
@@ -2212,7 +2212,7 @@ function setClocks(game: Game) {
 
 // Start clock after a move, switch from white to black's clock etc
 function hitClock(game: Game, bSetClocks = false) {
-  if(!game.isPlaying && game.role !== Role.OBSERVING)
+  if(!game.isPlaying() && game.role !== Role.OBSERVING)
     return;
 
   let ply = game.history.last().ply;
