@@ -356,9 +356,10 @@ export class Tournaments {
         koths.forEach(koth => { 
           if(koth.game === '-')
             koth.opponent = null;
-          this.addKoTH(koth);
+          const card = this.addKoTH(koth);
           if(koth.king !== '-') {
-            koth.kingStats = null;
+            const data = card.data('tournament-data');
+            data.kingStats = null;
             awaiting.set('td-kingstats'); // Retrieve the kingstats for the current king
             this.session.send(`td kingstats ${koth.id}`);
           }
