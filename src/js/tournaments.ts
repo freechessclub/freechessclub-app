@@ -358,6 +358,7 @@ export class Tournaments {
             koth.opponent = null;
           this.addKoTH(koth);
           if(koth.king !== '-') {
+            koth.kingStats = null;
             awaiting.set('td-kingstats'); // Retrieve the kingstats for the current king
             this.session.send(`td kingstats ${koth.id}`);
           }
