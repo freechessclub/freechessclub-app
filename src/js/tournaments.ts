@@ -1513,7 +1513,7 @@ export class Tournaments {
     card.find('.koth-claim-throne').toggle(koth.open && koth.king === '-');
     card.find('.koth-seek').toggle(koth.king === user && !gameInProgress && !koth.seek);
     if(koth.seek)
-      card.find('.koth-unseek').attr('onclick', `sessionSend('unseek ${data.seek}')`);
+      card.find('.koth-unseek').attr('onclick', `sessionSend('unseek ${koth.seek}')`);
     card.find('.koth-unseek').toggle(koth.king === user && !gameInProgress && !!koth.seek);
     card.find('.koth-abdicate').toggle(koth.king === user && !gameInProgress);
     card.find('.koth-challenge').toggle(koth.open && koth.king !== '-' && !gameInProgress && koth.king !== user && koth.challenge === undefined);
