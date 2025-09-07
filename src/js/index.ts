@@ -760,6 +760,8 @@ function gameMove(data: any) {
     if(!game.bname)
       game.bname = data.bname;
     game.role = Role.EXAMINING;
+    if(examineModeRequested)
+      game.flip = false;
   }
   else {
     if(settings.multiboardToggle) {
@@ -6047,7 +6049,7 @@ function stopEngine() {
   if(engine) {
     engine.terminate();
     engine = null;
-    setTimeout(() => { games.focused.board.setAutoShapes([]); }, 0); // Need timeout to avoid conflict with board.set({orientation: X}); if that occurs in the same message handler
+    setTimeout(() => { games.focused.board.setAutoShapes([]); }, 50); // Need timeout to avoid conflict with board.set({orientation: X}); if that occurs in the same message handler
   }
 }
 
