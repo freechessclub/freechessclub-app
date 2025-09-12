@@ -89,12 +89,12 @@ export class Tournaments {
     // Restore the user's original KOTHInfo, TourneyInfo and TourneyUpdates 
     // td variables in case they were over-written 
 
-    if(this.kothReceiveInfo != null) {
+    if(typeof this.kothReceiveInfo === 'boolean') {
       awaiting.set('td-set');
       this.session.send(`td set KOTHInfo ${this.kothReceiveInfo ? 1 : 0}`);
     }
 
-    if(this.tournamentsReceiveInfo != null) {
+    if(typeof this.tournamentsReceiveInfo === 'boolean') {
       awaiting.set('td-set'); 
       this.session.send(`td set TourneyInfo ${this.tournamentsReceiveInfo ? 1 : 0}`);
     }
@@ -168,14 +168,18 @@ export class Tournaments {
   public leaveTournamentsPane() {
     if(this.session && this.session.isConnected()) {
       // Restore user's original td variables
-      awaiting.set('td-set');
-      this.session.send(`td set kothinfo ${this.kothReceiveInfo ? 'On' : 'Off'}`);
-      awaiting.set('td-set');
-      this.session.send(`td set tourneyinfo ${this.tournamentsReceiveInfo ? 'On' : 'Off'}`);
+      if(typeof this.kothReceiveInfo === 'boolean') {
+        awaiting.set('td-set');
+        this.session.send(`td set kothinfo ${this.kothReceiveInfo ? 'On' : 'Off'}`);
+      }
+      if(typeof this.tournamentsReceiveInfo === 'boolean') {
+        awaiting.set('td-set');
+        this.session.send(`td set tourneyinfo ${this.tournamentsReceiveInfo ? 'On' : 'Off'}`);
+      }
+      // We no longer need to store these, since we've restored the user's variables
+      storage.remove('tournaments-receive-info');
+      storage.remove('koth-receive-info');
     }
-    // We no longer need to store these, since we've restored the user's variables
-    storage.remove('tournaments-receive-info');
-    storage.remove('koth-receive-info');
   }
 
   /**
@@ -186,7 +190,7 @@ export class Tournaments {
     let match, pattern;
   
     // Ignore any messages which aren't tournament related
-    if(!msg.startsWith(':') && !awaiting.has('get-koth-game'))
+    if(!msg.startsWith(':') && !awaiting.has('get-koth-game') && !awaiting.has('get-private-variable'))
       return false;
 
     // Update our local copy of the td variables when they get changed
@@ -233,6 +237,16 @@ export class Tournaments {
         this.tdMessage = ''; 
       }
       return true;
+    }
+
+    // Detect when a KoTH game ends
+    match = msg.match(/^:mamer KOTH INFO: \{KOTH #(\d+) \(\w+ vs. \w+\)/m);
+    if(match) {
+      const id = +match[1];
+      this.updateKoTH(+match[1], {
+        game: '-',
+        opponent: undefined,
+      });
     }
 
     // Update the King and king stats for KoTH
@@ -310,17 +324,6 @@ export class Tournaments {
         });
         return true;
       }
-    }
-
-    // Detect when a KoTH game ends
-    match = msg.match(/^:mamer KOTH INFO: \{KOTH #(\d+) \(\w+ vs. \w+\)/m);
-    if(match) {
-      const id = +match[1];
-      this.updateKoTH(+match[1], {
-        game: '-',
-        opponent: undefined,
-      });
-      return false;
     }
 
     match = msg.match(/^:You (?:will now be|are already) following KOTH #(\d+)./m);
@@ -432,6 +435,32 @@ export class Tournaments {
       }
       $('#tournaments-pane-status').show();
       return false;
+    }
+
+    // If we are the King and 'Seek Game', a manual seek is sent. When an offer comes in, we get the variables
+    // of the challenger and decline if they have private=1, and auto-accept if they have private=0. This is 
+    // because mamer does not allow private KoTH games. 
+    pattern = 'Variable settings of';
+    if((msg.startsWith(pattern) || this.tdMessage.startsWith(pattern)) && awaiting.has('get-private-variable')) {
+      this.tdMessage += msg + '\n';
+      if(/Interface: /m.test(msg)) {
+        awaiting.resolve('get-private-variable');
+        const koths = $('[data-tournament-type="koth"]');
+        koths.each((index, element) => {
+          const kothData = $(element).data('tournament-data');
+          if(kothData.offer) {
+            if(this.tdMessage.includes('private=1')) {
+              this.session.send(`decline ${kothData.offer}`);
+              kothData.offer = null;
+            }
+            else if(kothData.seek) 
+              this.session.send(`accept ${kothData.offer}`);
+            return false;
+          }
+        });
+        this.tdMessage = '';
+      }
+      return true;
     }
 
     // User has changed their TourneyInfo td variable
@@ -600,7 +629,9 @@ export class Tournaments {
           data.running = false;
         });
 
-        const tourneys = this.parseTDListTourneys(this.tdMessage);
+        let tourneys = this.parseTDListTourneys(this.tdMessage);
+        tourneys = tourneys.filter(tourney => tourney.running || tourney.date); // Remove aborted tourneys
+
         // Sort the list of tournaments, so that only the latest (or currently running) 
         // iteration of each event is displayed
         tourneys.sort((a, b) => {
@@ -1463,9 +1494,9 @@ export class Tournaments {
             <div class="d-flex" style="justify-content: end; align-items: center">
               <div class="btn-group-vertical" style="gap: 10px">
                 <button type="button" class="btn btn-outline-secondary btn-md koth-claim-throne" title="Claim Throne" style="display: none" onclick="sessionSend('td claimthrone ${data.id}')">Claim Throne</button>
-                <button type="button" class="btn btn-outline-secondary btn-md koth-seek" title="Seek Game" style="display: none" onclick="sessionSend('seek ${data.type}')">Seek Game</button>
+                <button type="button" class="btn btn-outline-secondary btn-md koth-seek" title="Seek Game" style="display: none" onclick="sessionSend('seek ${data.type} m')">Seek Game</button>
                 <button type="button" class="btn btn-outline-secondary btn-md koth-unseek" title="Stop Seeking" style="display: none">Stop Seeking</button>
-                <button type="button" class="btn btn-outline-secondary btn-md koth-abdicate" title="Abdicate" style="display: none" onclick="sessionSend('td abdicate ${data.id}')">Abdicate</button>
+                <button type="button" class="btn btn-outline-secondary btn-md koth-abdicate" title="Abdicate" style="display: none">Abdicate</button>
                 <button type="button" class="btn btn-outline-secondary btn-md koth-challenge" title="Challenge" style="display: none" onclick="sessionSend('td matchking ${data.id}')">Challenge</button>
                 <button type="button" class="btn btn-outline-secondary btn-md koth-withdraw" title="Withdraw" style="display: none"">Withdraw</button>
                 <button type="button" class="btn btn-outline-secondary btn-md koth-watch" title="Watch" style="display: none" onclick="sessionSend('td observekoth ${data.id}')">Observe</button>
@@ -1478,6 +1509,13 @@ export class Tournaments {
       `);
       card.data('tournament-data', {});
       this.addTournamentCard(card, 'koth');
+
+      card.on('click', '.koth-abdicate', () => {
+        const data = card.data('tournament-data');
+        this.session.send(`td abdicate ${data.id}`);
+        if(data.seek != null) 
+          this.session.send(`unseek ${data.seek}`);
+      });
     }
 
     const koth = card.data('tournament-data');
@@ -1873,7 +1911,7 @@ export class Tournaments {
         // Temporarily save the user's settings, since we can't change them 
         // straight away if the Tournaments panel is showing. TourneyInfo
         // and TourneyUpdates are always set to On when the panel is showing.
-        if($('#pills-tournaments').hasClass('active')) 
+        if($('#pills-tournaments').hasClass('active') && typeof this.tournamentsReceiveInfo === 'boolean') 
           storage.set('tournaments-receive-info', String(this.tournamentsReceiveInfo));       
 
         // Save the notify list
@@ -1891,7 +1929,7 @@ export class Tournaments {
         checkMark = group.find('.receive-info .checkmark');
         checkMark.toggleClass('invisible', !this.kothReceiveInfo);
 
-        if($('#pills-tournaments').hasClass('active')) 
+        if($('#pills-tournaments').hasClass('active') && typeof this.kothReceiveInfo === 'boolean') 
           storage.set('koth-receive-info', String(this.kothReceiveInfo));
 
         group.find('.tournament-group-title').text(`${this.tdVariables.Female === 'Yes' ? 'Queen' : 'King'} of the Hill`);
@@ -1970,8 +2008,8 @@ export class Tournaments {
     const koths = $('[data-tournament-type="koth"]');
 
     // Our sent offers
-    const sentOffers = offers.filter((item) => (item.type === 'sn'
-      || (item.type === 'pt' && item.subtype === 'match'))
+    const matchOffers = offers.filter((item) => (item.type === 'sn'
+      || ((item.type === 'pt' || item.type === 'pf') && item.subtype === 'match'))
       && !$(`.sent-offer[data-offer-id="${item.id}"]`).length);
     
     // Remove tournament notifications if the user attempts to start their next tournament game
@@ -1979,10 +2017,10 @@ export class Tournaments {
       const data = $(card).data('tournament-data');
       return data.joined === true;
     });
-    if(inTournament && sentOffers)
+    if(inTournament && matchOffers.length > 0)
       removeNotification($(`.notification[data-tournament-id]`));
 
-    sentOffers.forEach((offer) => {
+    matchOffers.forEach((offer) => {
       const ratedUnrated = offer.ratedUnrated === 'unrated' ? 'u' : 'r';
       const type = `${offer.initialTime} ${offer.increment} ${ratedUnrated}`;
 
@@ -1995,12 +2033,22 @@ export class Tournaments {
             challenge: offer.id,
           });
         }
+        else if(offer.type === 'pf' && type === kothData.type && kothData.king === this.session.getUser()) {
+          // If we are the King and 'Seek Game', a manual seek is sent. When an offer comes in, we get the variables
+          // of the challenger and decline if they have private=1, and auto-accept if they have private=0. This is 
+          // because mamer does not allow private KoTH games. 
+          awaiting.set('get-private-variable');
+          this.session.send(`variables ${offer.opponent}`);
+          kothData.offer = offer.id;
+        }
         else if(offer.type === 'sn' && type === kothData.type) {
           // User (who may be the king) sent a seek matching the time and rated parameters
           // of this KoTH.
           this.updateKoTH(kothData.id, {
             seek: offer.id,
           });
+          if(kothData.offer) 
+            this.session.send(`accept ${kothData.offer}`);
         }
       });
     });
@@ -2017,6 +2065,10 @@ export class Tournaments {
             this.updateKoTH(kothData.id, {
               challenge: undefined,
             });
+          }
+          else if(offer.type === 'pr' && kothData.offer === id) {
+            awaiting.remove('get-private-variable');
+            kothData.offer = null;
           }
           else if(offer.type === 'sr' && kothData.seek === id) {
             // User (who may be the king) withdrew his seek request or started a game
