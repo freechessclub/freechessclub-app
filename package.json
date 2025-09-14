@@ -1,6 +1,6 @@
 {
   "name": "freechessclub",
-  "version": "3.7.4",
+  "version": "4.0.0",
   "license": "MIT",
   "description": "Free Chess Club: A modern web interface for FICS.",
   "main": "./dist/js/app.js",
@@ -108,5 +108,5 @@
     "workbox-routing": "^7.3.0",
     "workbox-strategies": "^7.3.0"
   },
-  "packageManager": "yarn@4.9.1"
+  "packageManager": "yarn@4.9.4"
 }
