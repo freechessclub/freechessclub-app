@@ -244,6 +244,10 @@ export class Parser {
 
     let match = null;
 
+    // Ignore text in help files
+    if(/^\[?Last Modified/m.test(msg))
+      return { message: msg };
+
     // game move
     match = msg.match(/(?:^|\n)<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(\-?[0-7])\s([01])\s([01])\s([01])\s([01])\s([0-9]+)\s([0-9]+)\s(\S+)\s(\S+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(\S+)\s\(([0-9]+)\:([0-9]+)\.([0-9]+)\)\s(\S+)\s([01])\s([0-9]+)\s([0-9]+)\s*/);
     if(match != null && match.length >= 34) {
@@ -460,7 +464,7 @@ export class Parser {
       for(let line of lines) {
         line = line.trim();
         // parse pendinfo
-        match = line.match(/^<(pt|pf)> (\d+) w=(\S+) t=(\S+) p=((\S+)(?: \((\S+)\)(?: \[(black|white)\])? (\S+) \((\S+)\) (rated|unrated) (\S+)(?: (\d+) (\d+))?(?: Loaded from (\S+))?( \(adjourned\))?)?)/);
+        match = line.match(/^<(pt|pf)> (\d+) w=(\S+) t=(\S+) p=((\S+)(?: \(\s*(\S+)\)(?: \[(black|white)\])? (\S+) \(\s*(\S+)\) (rated|unrated) (\S+)(?: (\d+) (\d+))?(?: Loaded from (\S+))?( \(adjourned\))?)?)/);
         if(match) {
           const type = match[1];
           const subtype = match[4];
