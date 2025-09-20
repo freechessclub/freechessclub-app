@@ -103,6 +103,12 @@ export class Tournaments {
       this.initTournamentsPane(session);
   }
 
+  // Called when disconnected from the server
+  public cleanup() {
+    $('#tournaments-pane-status').hide(); 
+    $('#pills-tournaments .tournament-group').remove();
+  }
+
   /**
    * Build the tournaments pane
    * Add the Tournament, KoTH and Team League cards 
@@ -441,15 +447,22 @@ export class Tournaments {
     // of the challenger and decline if they have private=1, and auto-accept if they have private=0. This is 
     // because mamer does not allow private KoTH games. 
     pattern = 'Variable settings of';
-    if((msg.startsWith(pattern) || this.tdMessage.startsWith(pattern)) && awaiting.has('get-private-variable')) {
-      this.tdMessage += msg + '\n';
-      if(/Interface: /m.test(msg)) {
-        awaiting.resolve('get-private-variable');
+    if((msg.startsWith(pattern) || this.tdMessage.startsWith(pattern)) && awaiting.has('get-private-variable')) {           
+      match = msg.match(/(?:^|\s)private=(\d)/m);
+      if(match) {
+        // Wait for 'Interface:' portion of response to arrive if it exists
+        setTimeout(() => {
+          this.tdMessage = '';
+          awaiting.resolve('get-private-variable');
+        }, 0);
+
+        const priv = match[1];
+
         const koths = $('[data-tournament-type="koth"]');
         koths.each((index, element) => {
           const kothData = $(element).data('tournament-data');
           if(kothData.offer) {
-            if(this.tdMessage.includes('private=1')) {
+            if(priv === '1') {
               this.session.send(`decline ${kothData.offer}`);
               kothData.offer = null;
             }
@@ -458,7 +471,7 @@ export class Tournaments {
             return false;
           }
         });
-        this.tdMessage = '';
+        this.tdMessage += msg + '\n';
       }
       return true;
     }
@@ -1068,7 +1081,7 @@ export class Tournaments {
     const lines = msg.split(/[\r\n]+/);
     const players: any = [];
     lines.forEach((line) => {
-      const match = line.match(/^:\|\s+(\d+)\s+\|\s+([^\w\s])(\w+(?:\(\w+\))?)\(([\d\-\+]+)\)\s+\|\s+([^\w\s])?(\w+)\s+\|/);
+      const match = line.match(/^:\|\s+(\d+)\s+\|\s+([^\w\s])(\w+(?:\(\w+\))?)\(\s*([\d\-\+]+)\)\s+\|\s+([^\w\s])?(\w+)\s+\|/);
       if(match) {
         players.push({
           seed: match[1],
@@ -1090,7 +1103,7 @@ export class Tournaments {
     const lines = msg.split(/[\r\n]+/);
     const players: any = [];
     lines.forEach((line) => {
-      const match = line.match(/^:\|\s+(\d+)\s+\|\s+([^\w\s])(\w+(?:\(\w+\))?)\(([\d\-\+]+)\)\s+\|\s+(.*?)\s+\|/);
+      const match = line.match(/^:\|\s+(\d+)\s+\|\s+([^\w\s])(\w+(?:\(\w+\))?)\(\s*([\d\-\+]+)\)\s+\|\s+(.*?)\s+\|/);
       if(match) {
         const roundStrings = match[5].split(/\s+/);
         const rounds = roundStrings.map(str => {

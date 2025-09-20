@@ -173,14 +173,10 @@ $(window).on('load', async () => {
   if('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
     navigator.serviceWorker.register(`./service-worker.js?env=${Utils.isCapacitor() || Utils.isElectron() ? 'app' : 'web'}`)
       .then((registration) => {  
-        if(navigator.serviceWorker.controller) { // Check this is an update and not first time install
+        if(navigator.serviceWorker.controller) { // Check this is an update and not first time install       
           // If service worker is updated (due to files changing) then refresh the page so new files are loaded.
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            newWorker.addEventListener('statechange', () => {
-              if(newWorker.state === 'activated') 
-                window.location.reload();
-            });
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            window.location.reload();
           });
         }
       });
@@ -398,7 +394,7 @@ function setPanelSizes() {
   // Adjust Notifications drop-down width
   if(Utils.isSmallWindow())
     $('#notifications').css('width', '100%');
-  else if(Utils.isMediumWindow() || !$('#chat-collapse').hasClass('show'))
+  else if(Utils.isMediumWindow() || !$('#collapse-chat').hasClass('show'))
     $('#notifications').css('width', '50%');
   else if(Utils.isLargeWindow())
     $('#notifications').width($(document).outerWidth(true) - $('#left-col').outerWidth(true) - $('#mid-col').outerWidth(true));
@@ -659,6 +655,7 @@ function messageHandler(data: any) {
         const panelHtml = `<div class="not-signed-in-notice">Not signed in. <a href="javascript:void(0)">Sign in</a></div>`;
         $('#chat-panel .nav-tabs').append(panelHtml);
         $('#pills-lobby').append(panelHtml);
+        $('#pills-tournaments').append(panelHtml);
         $('.not-signed-in-notice a').one('click', () => {
           session?.reconnect();
         });
@@ -2041,6 +2038,7 @@ function handleMiscMessage(data: any) {
 
 export function cleanup() {
   chat?.cleanup();
+  tournaments?.cleanup();
   awaiting.clearAll();
   partnerGameId = null;
   userVariables = {};
@@ -2065,7 +2063,7 @@ function parseUserList(msg: string): any[] {
   for(let line of msg.split('\n').slice(0, -2)) {
     const userStrings = line.split(/ {2,}/);
     userStrings.forEach((val) => {
-      const match = val.match(/([-+\d]{4})(.)([^(]+)(.*)/);
+      const match = val.match(/([-+\d]+)(.)([^(]+)(.*)/);
       if(match) {
         users.push({
           rating: match[1],
@@ -4409,7 +4407,7 @@ function showHistory(user: string, history: string) {
   }
   const hArr = parseHistory(history);
   for(let i = hArr.length - 1; i >= 0; i--) {
-    const id = hArr[i].slice(0, hArr[i].indexOf(':'));
+    const id = hArr[i].slice(0, hArr[i].indexOf(':')).trim();
     $('#history-table').append(
       `<button type="button" class="w-100 btn btn-outline-secondary" onclick="examineGame('${user}', `
         + `'${id}');">${hArr[i]}</button>`);
@@ -6049,7 +6047,8 @@ function stopEngine() {
   if(engine) {
     engine.terminate();
     engine = null;
-    setTimeout(() => { games.focused.board.setAutoShapes([]); }, 50); // Need timeout to avoid conflict with board.set({orientation: X}); if that occurs in the same message handler
+    games.focused.board.setAutoShapes([]); 
+    games.focused.board.redrawAll();
   }
 }
 
