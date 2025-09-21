@@ -801,6 +801,8 @@ function gameMove(data: any) {
     if(game.role !== Role.NONE && settings.multiboardToggle)
       game = cloneGame(game);
     game.id = data.id;
+    if(data.id != null && data.id > 0)
+      game.lastServerGameId = data.id;
     if(!game.wname)
       game.wname = data.wname;
     if(!game.bname)
@@ -821,6 +823,8 @@ function gameMove(data: any) {
 
     prevRole = game.role;
     Object.assign(game, data);
+    if(game.id != null && game.id > 0)
+      game.lastServerGameId = game.id;
   }
 
   // New game
@@ -3874,6 +3878,7 @@ function playComputer(params: any) {
   }
 
   game.id = -1;
+  game.lastServerGameId = null;
 
   const playerName = (session.isConnected() ? session.getUser() : 'Player');
   let playerTimeRemaining = params.playerTime * 60000;
@@ -4699,7 +4704,7 @@ function initGameTools(game: Game) {
     $('#game-tools-clone').parent().toggle(settings.multiboardToggle); // Only show 'Duplicate GAme' option in multiboard mode
     $('#game-tools-clone').toggleClass('disabled', game.isPlaying()); // Don't allow cloning of a game while playing (could allow cheating)
 
-    const canShareGame = game.id != null && game.id > 0;
+    const canShareGame = getShareableGameId(game) != null;
     const shareButton = $('#game-share-link');
     shareButton.toggleClass('disabled', !canShareGame);
     shareButton.prop('disabled', !canShareGame);
@@ -5506,8 +5511,9 @@ $('#game-share-link').on('click', async (event) => {
     return;
 
   const game = games.focused;
-  if(!game || game.id == null || game.id <= 0) {
-    chat.newNotification('No online game to share.');
+  const shareableGameId = game ? getShareableGameId(game) : null;
+  if(!game || shareableGameId == null) {
+    chat.newNotification('No shareable game available.');
     return;
   }
 
@@ -5542,11 +5548,28 @@ function buildExamineLink(gameId: number): string {
   return url.toString();
 }
 
-function buildGameShareLink(game: Game): { url: string; mode: 'observe' | 'examine' } {
-  if(shouldShareExamine(game))
-    return { url: buildExamineLink(game.id), mode: 'examine' };
+function getShareableGameId(game: Game): number | null {
+  if(!game)
+    return null;
 
-  return { url: buildObserveLink(game.id), mode: 'observe' };
+  if(game.id != null && game.id > 0)
+    return game.id;
+
+  if(game.lastServerGameId != null && game.lastServerGameId > 0 && shouldShareExamine(game))
+    return game.lastServerGameId;
+
+  return null;
+}
+
+function buildGameShareLink(game: Game): { url: string; mode: 'observe' | 'examine' } {
+  const gameId = getShareableGameId(game);
+  if(gameId == null)
+    throw new Error('No shareable game available.');
+
+  if(shouldShareExamine(game))
+    return { url: buildExamineLink(gameId), mode: 'examine' };
+
+  return { url: buildObserveLink(gameId), mode: 'observe' };
 }
 
 function shouldShareExamine(game: Game): boolean {
@@ -5610,6 +5633,7 @@ function cloneGame(game: Game): Game {
     clonedGame[key] = game[key];
 
   clonedGame.id = null;
+  clonedGame.lastServerGameId = null;
   clonedGame.role = Role.NONE;
   clonedGame.history = game.history.clone(clonedGame);
   clonedGame.history.display();
