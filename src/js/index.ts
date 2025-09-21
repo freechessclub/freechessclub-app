@@ -167,6 +167,24 @@ async function onDeviceReady() {
   }
 
   Utils.initDropdownSubmenus();
+
+  initSharedObservationLink();
+}
+
+function initSharedObservationLink() {
+  const params = new URLSearchParams(window.location.search);
+  const observeParam = params.get('observe');
+  if(!observeParam || !session)
+    return;
+
+  const trimmed = observeParam.trim();
+  if(!trimmed || !/^\d+$/.test(trimmed))
+    return;
+
+  $('#observe-username').val(trimmed);
+  $('#pills-observe-tab').tab('show');
+
+  observe(trimmed);
 }
 
 $(window).on('load', async () => {
@@ -4650,6 +4668,12 @@ function initGameTools(game: Game) {
     $('#game-tools-clone').parent().toggle(settings.multiboardToggle); // Only show 'Duplicate GAme' option in multiboard mode
     $('#game-tools-clone').toggleClass('disabled', game.isPlaying()); // Don't allow cloning of a game while playing (could allow cheating)
 
+    const canShareGame = game.id != null && game.id > 0;
+    const shareButton = $('#game-share-link');
+    shareButton.toggleClass('disabled', !canShareGame);
+    shareButton.prop('disabled', !canShareGame);
+    shareButton.attr('aria-disabled', String(!canShareGame));
+
     const mainGame = games.getPlayingExaminingGame();
     $('#game-tools-examine').toggleClass('disabled', (mainGame && mainGame.isPlayingOnline()) || game.isPlaying() || game.isExamining()
         || game.category === 'wild/fr' || game.category === 'wild/0' // Due to a bug in 'bsetup' it's not possible to convert some wild variants to examine mode
@@ -5445,6 +5469,74 @@ function savePGN(game: Game, pgn: string) {
 $('#game-tools-clone').on('click', () => {
   cloneGame(games.focused);
 });
+
+$('#game-share-link').on('click', async (event) => {
+  if($(event.currentTarget).hasClass('disabled') || $(event.currentTarget).prop('disabled'))
+    return;
+
+  const game = games.focused;
+  if(!game || game.id == null || game.id <= 0) {
+    chat.newNotification('No online game to share.');
+    return;
+  }
+
+  const shareUrl = buildObserveLink(game.id);
+  const copied = await copyTextToClipboard(shareUrl);
+  if(copied)
+    chat.newNotification('Game link copied to clipboard.');
+  else {
+    window.prompt('Copy this game link to share:', shareUrl);
+    chat.newNotification(`Copy this link to share the game: ${shareUrl}`);
+  }
+});
+
+function buildObserveLink(gameId: number): string {
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('observe', String(gameId));
+  return url.toString();
+}
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  if(navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to legacy copy behaviour
+    }
+  }
+
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.setAttribute('readonly', '');
+  textArea.style.position = 'absolute';
+  textArea.style.left = '-9999px';
+  document.body.appendChild(textArea);
+
+  const selection = document.getSelection();
+  const selectedRange = selection?.rangeCount ? selection.getRangeAt(0) : null;
+
+  textArea.select();
+  textArea.setSelectionRange(0, textArea.value.length);
+
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } catch {
+    copied = false;
+  }
+
+  document.body.removeChild(textArea);
+
+  if(selectedRange) {
+    selection?.removeAllRanges();
+    selection?.addRange(selectedRange);
+  }
+
+  return copied;
+}
 
 /**
  * Make an exact copy of a game with its own board, move list and status panels.
