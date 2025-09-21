@@ -176,12 +176,6 @@ function initSharedObservationLink() {
     return;
 
   const params = new URLSearchParams(window.location.search);
-  const examineId = sanitizeSharedGameId(params.get('examine'));
-  if(examineId) {
-    startSharedExamine(examineId);
-    return;
-  }
-
   const observeId = sanitizeSharedGameId(params.get('observe'));
   if(!observeId)
     return;
@@ -205,17 +199,6 @@ function startSharedObserve(gameId: string) {
   $('#pills-observe-tab').tab('show');
 
   observe(gameId);
-}
-
-function startSharedExamine(gameId: string) {
-  $('#pills-game-tab').tab('show');
-
-  if(games.focused) {
-    mexamineGame = games.focused;
-    mexamineRequested = games.focused;
-  }
-
-  session.send(`mexamine ${gameId}`);
 }
 
 $(window).on('load', async () => {
@@ -801,8 +784,6 @@ function gameMove(data: any) {
     if(game.role !== Role.NONE && settings.multiboardToggle)
       game = cloneGame(game);
     game.id = data.id;
-    if(data.id != null && data.id > 0)
-      game.lastServerGameId = data.id;
     if(!game.wname)
       game.wname = data.wname;
     if(!game.bname)
@@ -823,8 +804,6 @@ function gameMove(data: any) {
 
     prevRole = game.role;
     Object.assign(game, data);
-    if(game.id != null && game.id > 0)
-      game.lastServerGameId = game.id;
   }
 
   // New game
@@ -3878,7 +3857,6 @@ function playComputer(params: any) {
   }
 
   game.id = -1;
-  game.lastServerGameId = null;
 
   const playerName = (session.isConnected() ? session.getUser() : 'Player');
   let playerTimeRemaining = params.playerTime * 60000;
@@ -5517,18 +5495,13 @@ $('#game-share-link').on('click', async (event) => {
     return;
   }
 
-  const shareDetails = buildGameShareLink(game);
-  const copied = await copyTextToClipboard(shareDetails.url);
-  const copiedMessage = shareDetails.mode === 'examine' ? 'Examine link copied to clipboard.' : 'Game link copied to clipboard.';
+  const shareUrl = buildGameShareLink(game);
+  const copied = await copyTextToClipboard(shareUrl);
   if(copied)
-    chat.newNotification(copiedMessage);
+    chat.newNotification('Game link copied to clipboard.');
   else {
-    const promptMessage = shareDetails.mode === 'examine' ? 'Copy this game link to examine:' : 'Copy this game link to share:';
-    window.prompt(promptMessage, shareDetails.url);
-    const fallbackNotification = shareDetails.mode === 'examine'
-      ? `Copy this link to examine the game: ${shareDetails.url}`
-      : `Copy this link to share the game: ${shareDetails.url}`;
-    chat.newNotification(fallbackNotification);
+    window.prompt('Copy this game link to share:', shareUrl);
+    chat.newNotification(`Copy this link to share the game: ${shareUrl}`);
   }
 });
 
@@ -5540,14 +5513,6 @@ function buildObserveLink(gameId: number): string {
   return url.toString();
 }
 
-function buildExamineLink(gameId: number): string {
-  const url = new URL(window.location.href);
-  url.search = '';
-  url.hash = '';
-  url.searchParams.set('examine', String(gameId));
-  return url.toString();
-}
-
 function getShareableGameId(game: Game): number | null {
   if(!game)
     return null;
@@ -5555,29 +5520,15 @@ function getShareableGameId(game: Game): number | null {
   if(game.id != null && game.id > 0)
     return game.id;
 
-  if(game.lastServerGameId != null && game.lastServerGameId > 0 && shouldShareExamine(game))
-    return game.lastServerGameId;
-
   return null;
 }
 
-function buildGameShareLink(game: Game): { url: string; mode: 'observe' | 'examine' } {
+function buildGameShareLink(game: Game): string {
   const gameId = getShareableGameId(game);
   if(gameId == null)
     throw new Error('No shareable game available.');
 
-  if(shouldShareExamine(game))
-    return { url: buildExamineLink(gameId), mode: 'examine' };
-
-  return { url: buildObserveLink(gameId), mode: 'observe' };
-}
-
-function shouldShareExamine(game: Game): boolean {
-  if(game.isExamining())
-    return true;
-
-  const result = game.history?.metatags?.Result;
-  return !!result && result !== '*';
+  return buildObserveLink(gameId);
 }
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
@@ -5633,7 +5584,6 @@ function cloneGame(game: Game): Game {
     clonedGame[key] = game[key];
 
   clonedGame.id = null;
-  clonedGame.lastServerGameId = null;
   clonedGame.role = Role.NONE;
   clonedGame.history = game.history.clone(clonedGame);
   clonedGame.history.display();

@@ -61,7 +61,6 @@ export const NewVariationMode = {
 
 // An online chess game
 export class Game extends GameData {
-  lastServerGameId: number = null;
   history: any = null;
   historyList: any = [];
   clock: any = null;
