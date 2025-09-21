@@ -172,19 +172,50 @@ async function onDeviceReady() {
 }
 
 function initSharedObservationLink() {
+  if(!session)
+    return;
+
   const params = new URLSearchParams(window.location.search);
-  const observeParam = params.get('observe');
-  if(!observeParam || !session)
+  const examineId = sanitizeSharedGameId(params.get('examine'));
+  if(examineId) {
+    startSharedExamine(examineId);
+    return;
+  }
+
+  const observeId = sanitizeSharedGameId(params.get('observe'));
+  if(!observeId)
     return;
 
-  const trimmed = observeParam.trim();
+  startSharedObserve(observeId);
+}
+
+function sanitizeSharedGameId(rawValue: string | null): string | null {
+  if(!rawValue)
+    return null;
+
+  const trimmed = rawValue.trim();
   if(!trimmed || !/^\d+$/.test(trimmed))
-    return;
+    return null;
 
-  $('#observe-username').val(trimmed);
+  return trimmed;
+}
+
+function startSharedObserve(gameId: string) {
+  $('#observe-username').val(gameId);
   $('#pills-observe-tab').tab('show');
 
-  observe(trimmed);
+  observe(gameId);
+}
+
+function startSharedExamine(gameId: string) {
+  $('#pills-game-tab').tab('show');
+
+  if(games.focused) {
+    mexamineGame = games.focused;
+    mexamineRequested = games.focused;
+  }
+
+  session.send(`mexamine ${gameId}`);
 }
 
 $(window).on('load', async () => {
@@ -5480,13 +5511,18 @@ $('#game-share-link').on('click', async (event) => {
     return;
   }
 
-  const shareUrl = buildObserveLink(game.id);
-  const copied = await copyTextToClipboard(shareUrl);
+  const shareDetails = buildGameShareLink(game);
+  const copied = await copyTextToClipboard(shareDetails.url);
+  const copiedMessage = shareDetails.mode === 'examine' ? 'Examine link copied to clipboard.' : 'Game link copied to clipboard.';
   if(copied)
-    chat.newNotification('Game link copied to clipboard.');
+    chat.newNotification(copiedMessage);
   else {
-    window.prompt('Copy this game link to share:', shareUrl);
-    chat.newNotification(`Copy this link to share the game: ${shareUrl}`);
+    const promptMessage = shareDetails.mode === 'examine' ? 'Copy this game link to examine:' : 'Copy this game link to share:';
+    window.prompt(promptMessage, shareDetails.url);
+    const fallbackNotification = shareDetails.mode === 'examine'
+      ? `Copy this link to examine the game: ${shareDetails.url}`
+      : `Copy this link to share the game: ${shareDetails.url}`;
+    chat.newNotification(fallbackNotification);
   }
 });
 
@@ -5496,6 +5532,29 @@ function buildObserveLink(gameId: number): string {
   url.hash = '';
   url.searchParams.set('observe', String(gameId));
   return url.toString();
+}
+
+function buildExamineLink(gameId: number): string {
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('examine', String(gameId));
+  return url.toString();
+}
+
+function buildGameShareLink(game: Game): { url: string; mode: 'observe' | 'examine' } {
+  if(shouldShareExamine(game))
+    return { url: buildExamineLink(game.id), mode: 'examine' };
+
+  return { url: buildObserveLink(game.id), mode: 'observe' };
+}
+
+function shouldShareExamine(game: Game): boolean {
+  if(game.isExamining())
+    return true;
+
+  const result = game.history?.metatags?.Result;
+  return !!result && result !== '*';
 }
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
