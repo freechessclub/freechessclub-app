@@ -461,3 +461,13 @@ a {
 .tournament-table-draw { color: #ff8c00; }
 .tournament-table-other-result { color: #BB86FC; }
 .tournament-table-color { color: var(--fg-color); }
+
+.users-table tr.highlighted {
+  background-color: color-mix(in srgb, var(--bg-color) 70%, white 30%); 
+}
+.users-table .btn-outline-secondary {
+  --bs-btn-active-color: var(--bs-btn-hover-color);
+}
+.users-table .offline {
+  color: color-mix(in srgb, var(--bs-table-striped-color) 65%, black 35%);
+}

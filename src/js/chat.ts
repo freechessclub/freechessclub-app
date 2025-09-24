@@ -472,6 +472,8 @@ export class Chat {
 
       let tabElement = $('#tabs').find(`#tab-${from}`);
       if(!tabElement.length) {
+        
+
         tabElement = $(`<li ${tooltip}class="nav-item position-relative">
             <button class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-${from}" `
               + `id="tab-${from}" role="tab" style="padding-right: 30px">${chName}</button>
@@ -479,6 +481,9 @@ export class Chat {
               <span class="closeTab btn btn-default btn-sm">×</span>
             </container>
           </li>`).appendTo('#tabs');
+
+        // Add right-click user actions menu to tab
+        tabElement.find('button').toggleClass('clickable-user', !isGameTab && !isChannel && chName !== this.user);
 
         if(tooltip)
           createTooltip(tabElement);
@@ -729,9 +734,10 @@ export class Chat {
     let who = '';
     if (data.user !== undefined) {
       let textclass = '';
-      if (this.user === data.user) {
+      if (this.user === data.user) 
         textclass = ' class="mine"';
-      }
+      else
+        textclass = ' class="clickable-user"'
       let prompt = data.user;
       if (!settings.chattabsToggle && data.channel !== undefined) {
         prompt += `(${data.channel})`;
@@ -1066,7 +1072,7 @@ export class Chat {
         if(matchingUsers.length) {
           matchingUsers = matchingUsers.slice(0,6).sort((a, b) => a.name.localeCompare(b.name));
           matchingUsers.forEach(m => $('#start-chat-matching-users').append(
-            `<li><a class="dropdown-item noselect" data-tab-name="${m.name}">${m.name}</a></li>`));
+            `<li><a class="dropdown-item noselect clickable-user" data-tab-name="${m.name}">${m.name}</a></li>`));
         }
         $('#start-chat-matching-users').toggle(!!matchingUsers.length);
 

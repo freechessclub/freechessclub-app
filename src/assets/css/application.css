@@ -94,21 +94,37 @@ body {
   --bs-btn-border-radius: 0.9rem;
 }
 
-.modal-table {
+.modal-table th {
+  user-select: none;
+}
+.modal-table td,
+.modal-table th {
   white-space: pre;
+  padding-inline-start: 1rem;
+  padding-inline-end: 1rem;
 }
-.modal-table td:nth-child(1),
-.modal-table th:nth-child(1) {
-  padding-left: 0.75rem;
+.modal-table th.text-end,
+.modal-table td.text-end {
+  padding-inline-start: 1rem; 
+  padding-inline-end: 1rem;
 }
-.modal-table td:nth-child(n+2),
-.modal-table th:nth-child(n+2) {
-  padding-left: 2rem;
+
+.sort-header-wrapper {
+  display: flex;
+  justify-content: space-between; 
+  align-items: center;
+  gap: 0.75rem;
 }
-.modal-table td:last-child,
-.modal-table th:last-child {
-  padding-right: 0.75rem;
+.sortable-column {
+  cursor: pointer;
 }
+.sortable-column i {
+  opacity: 0.3;
+}
+.sortable-column.sort-primary i {
+  opacity: 0.6;
+}
+
 .modal-table thead {
  position: sticky; 
  top: 0;
@@ -294,6 +310,10 @@ body {
   font-size: 1.6rem;
   line-height: 21px;
   padding: 0.5rem;
+}
+
+.clickable-user {
+  cursor: pointer;
 }
 
 .captured {
@@ -1029,15 +1049,6 @@ input[type="number"]:focus {
   width: auto;
 }
 
-.tournament-standings td:nth-child(1),
-.tournament-standings th:nth-child(1) {
-  text-align: right;
-}
-.tournament-standings td:nth-child(3),
-.tournament-standings th:nth-child(3) {
-  text-align: right;
-}
-
 .tournament-players-modal {
   --bs-modal-width: 1000px;
 } 
@@ -1052,24 +1063,58 @@ input[type="number"]:focus {
 .tournament-players table {
   width: auto;
 }
-.tournament-players td:nth-child(1),
-.tournament-players th:nth-child(1) {
-  text-align: right;
-}
-.tournament-players td:nth-child(4),
-.tournament-players th:nth-child(4) {
-  text-align: center;
-}
-
-.tournament-games td:nth-child(1),
-.tournament-games th:nth-child(1) {
-  text-align: right;
-}
-.tournament-games td:nth-child(4),
-.tournament-games th:nth-child(4) {
-  text-align: center;
-}
 
 .tournament-table-result { font-weight: bold; }
 
+#users-modal {
+  --bs-modal-width: 600px;
+}
 
+.users-table {
+  table-layout: fixed;
+}
+
+.users-table td:nth-child(1),
+.users-table th:nth-child(1) {
+  width: 45%;
+  overflow: hidden;
+}
+.users-table td:nth-child(2),
+.users-table th:nth-child(2) {
+  width: 11ch;
+  overflow: hidden;
+}
+.users-table td:nth-child(3),
+.users-table th:nth-child(3) {
+  width: auto;
+  overflow: hidden;
+}
+.users-table .user-status {
+   flex-grow: 1;
+   overflow: hidden; 
+   min-width: 0; 
+   white-space: nowrap;
+}
+.users-table .user-buttons {
+  display: none;
+  padding-left: 3ch;
+  white-space: normal;
+}
+.users-table tr:hover .user-buttons {
+  display: inline-flex;
+}
+
+.info-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  --bs-toast-max-width: 800px;
+  --bs-toast-color: var(--fg-color);
+}
+@media (max-width: 767px) {
+  .info-dialog {
+    font-size: 0.7rem;
+  }
+}

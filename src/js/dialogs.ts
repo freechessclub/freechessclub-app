@@ -133,6 +133,19 @@ export function createDialog({type = '', title = '', msg = '', btnFailure, btnSu
   return dialog;
 }
 
+export function showInfoDialog(title: string, text: string) {
+  const dialog = $(`<div class="toast info-dialog" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="header-text me-auto">${title}</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body font-monospace" style="max-height: 500px; overflow: auto; white-space: pre-wrap">${text}</div>
+  </div>`);
+  const modal = $('.modal.show');
+  dialog.appendTo(modal.length ? modal : 'body');
+  dialog.toast('show');
+}
+
 /** NOTIFICATIONS FUNCTIONS **/
 
 export function createNotification(params: DialogParams): any {

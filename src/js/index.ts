@@ -13,6 +13,7 @@ import * as Utils from './utils';
 import * as ChessHelper from './chess-helper';
 import * as Dialogs from './dialogs';
 import Tournaments from './tournaments';
+import Users from './users';
 import Chat from './chat';
 import { Clock } from './clock';
 import { Engine, EvalEngine } from './engine';
@@ -41,16 +42,17 @@ const SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonst
 let session: Session;
 let chat: Chat;
 let tournaments: Tournaments;
+let users: Users;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
 let playEngine: Engine | null;
 let userVariables: any = {};
-let userList: any[];
 let pendingTells: any[] = [];
 let gameExitPending = [];
 let examineModeRequested: Game | null = null;
 let mexamineRequested: Game | null = null;
 let mexamineGame: Game | null = null;
+let rematchUser = '';
 let computerList = [];
 let numPVs = 1;
 let prevSizeCategory = null;
@@ -115,6 +117,7 @@ async function onDeviceReady() {
 
   chat = new Chat();
   tournaments = new Tournaments();
+  users = new Users();
 
   const game = createGame();
   game.role = Role.NONE;
@@ -323,7 +326,7 @@ $(window).on('resize', () => {
     useDesktopLayout();
 
   setPanelSizes();
-  setFontSizes();
+  updateBoardStatusText();
 
   prevSizeCategory = Utils.getSizeCategory();
 
@@ -640,6 +643,8 @@ function messageHandler(data: any) {
 
         session.sendPostConnectCommands();
         $('#sign-in-alert').removeClass('show');
+
+        users.connected(session, chat);
       }
       else if(data.command === 2) { // Login error
         session.disconnect();
@@ -843,7 +848,7 @@ function gameStart(game: Game) {
   else if(game.role === Role.PLAYING_COMPUTER)
     game.element.find('.title-bar-text').text('Computer (Playing)');
 
-  setFontSizes();
+  updateBoardStatusText();
 
   // Set board orientation
 
@@ -1347,7 +1352,7 @@ function handleMiscMessage(data: any) {
         numWatchers++;
         if(numWatchers === 1)
           req = 'Watchers:';
-        req += `<span class="ms-1 badge rounded-pill bg-secondary noselect">${watchers[i]}</span>`;
+        req += `<span class="ms-1 badge clickable-user rounded-pill bg-secondary noselect">${watchers[i]}</span>`;
         if(numWatchers > 5) {
           req += ` + ${watchers.length - i} more.`;
           break;
@@ -1459,9 +1464,53 @@ function handleMiscMessage(data: any) {
         showHistory(match[1], data.message);
       }
     }
+    else if(awaiting.resolve('history-rematch')) {
+      // Manually perform a rematch for a user who is in our match history (last 10 games)
+      const history = parseHistory(msg);
+      for(let i = history.length - 1; i >= 0; i--) {
+        const m = history[i].match(/^\s*(?:\S+\s+){5}(\w+)\s+\[\s*(\w)(\w)\s+(\d+)\s+(\d+)/);
+        const name = m[1];
+        if(rematchUser.toLowerCase() === name.toLowerCase()) {
+          if(i === history.length - 1) {
+            session.send('rematch'); // User was the last opponent we played so we can use the server's 'rematch' command instead
+            return;
+          }
+          else {
+            const type = m[2];
+            const ratedUnrated = m[3];
+            const min = m[4];
+            const inc = m[5];
+            const typeNames = {
+              z: 'crazyhouse',
+              B: 'bughouse',
+              S: 'suicide',
+              L: 'losers',
+              x: 'atomic'
+            }
+            if(type !== 'w') { // Don't send rematch if the last match was wild, since we won't be able to determine the board type
+              const typeStr = typeNames[type] ? ` ${typeNames[type]}` : '';
+              session.send(`match ${name} ${ratedUnrated} ${min} ${inc}${typeStr}`);
+              return;
+            }
+          }
+          break;
+        }
+      }
+      Dialogs.showFixedDialog({type: 'Unable to Rematch', msg: `Couldn't determine the last type of match played against ${rematchUser}. Use 'Challenge' instead.`, btnSuccess: ['', 'OK']});
+    }
     else
       chat.newMessage('console', data);
 
+    return;
+  }
+
+  if((msg.startsWith('Finger of') || msg.startsWith('There is no (registered )?player matching the name') || /^'\S+' is not a valid handle/.test(msg)) && awaiting.resolve('info-finger')) {
+    Dialogs.showInfoDialog('Finger Info', msg);
+    return;
+  }
+
+  if((msg.startsWith('Record for') || msg.startsWith('There is no (registered )?player matching the name') || msg === 'No player game stats to show.' || /^'\S+' is not a valid handle/.test(msg)) && awaiting.resolve('info-pstat')) {
+    Dialogs.showInfoDialog('Head to Head', msg);
     return;
   }
 
@@ -1728,7 +1777,7 @@ function handleMiscMessage(data: any) {
         else
           game.history.display();
       }
-      setFontSizes();
+      updateBoardStatusText();
       return;
     }
     else {
@@ -2000,8 +2049,16 @@ function handleMiscMessage(data: any) {
   
   match = msg.match(/^\s*\d+ players displayed \(of \d+\)\. \(\*\) indicates system administrator\./m);
   if(match && awaiting.resolve('userlist')) {
-    userList = parseUserList(msg);
-    chat.updateUserList(userList);
+    users.userList = parseUserList(msg);
+    users.updateUsers();
+    chat.updateUserList(users.userList);
+    return;
+  }
+
+  match = msg.match(/Blitz\s+Standard\s+Lightning/m);
+  if(match && awaiting.resolve('hbest')) {
+    users.parseBest(msg);
+    users.updateUsers();
     return;
   }
 
@@ -2090,13 +2147,16 @@ function parseUserList(msg: string): any[] {
 
 /** PLAYER/OPPONENT STATUS PANEL FUNCTIONS **/
 
-function setFontSizes() {
+function updateBoardStatusText() {
   setTimeout(() => {
     // Resize fonts for player and opponent name to fit
     $('.status').each((index, element) => {
       const nameElement = $(element).find('.name');
       const ratingElement = $(element).find('.rating');
       const nameRatingElement = $(element).find('.name-rating');
+
+      const name = nameElement.text();
+      nameElement.toggleClass('clickable-user', name && name !== 'Computer' && name !== session?.getUser() && !name.includes(' '));
 
       nameElement.css('font-size', '');
       ratingElement.css('width', '');
@@ -2382,7 +2442,7 @@ export function updateBoard(game: Game, playSound = false, setBoard = true, anim
 
   showCapturedMaterial(game);
   showOpeningName(game);
-  setFontSizes();
+  updateBoardStatusText();
 
   if(playSound && settings.soundToggle && game === games.focused) {
     clearTimeout(soundTimer);
@@ -3336,7 +3396,7 @@ export function maximizeGame(game: Game) {
     // Move card to main board area
     makeMainBoard(game);
     setPanelSizes();
-    setFontSizes();
+    updateBoardStatusText();
   }
   scrollToBoard(game);
 }
@@ -3703,7 +3763,7 @@ $('#pills-tab button').on('click', function() {
   }
 });
 
-function showTab(tab: any) {
+export function showTab(tab: any) {
   if($('#collapse-menus').hasClass('show'))
     tab.tab('show');
   else
@@ -6669,6 +6729,9 @@ function adjustInputTextHeight() {
     chat.fixScrollPosition();
 }
 
+export function setRematchUser(user: string) {
+  rematchUser = user;
+}
 
 
 

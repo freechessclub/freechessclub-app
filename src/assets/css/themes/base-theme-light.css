@@ -283,7 +283,7 @@ cg-board {
 }
 
 .modal-table thead {
-  background: color-mix(in srgb, var(--bg-color) 20%, white 80%);
+  background: color-mix(in srgb, var(--bg-color) 40%, white 60%);
   --box-shadow-color: color-mix(in srgb, var(--bg-color) 85%, black 15%);
 }
 
@@ -349,3 +349,13 @@ cg-board {
 .tournament-table-draw { color: #cc7000; }          
 .tournament-table-other-result { color: #7a42c1; }   
 .tournament-table-color { color: var(--fg-color); }
+
+.users-table tr.highlighted {
+  background-color: color-mix(in srgb, var(--bg-color) 85%, black 15%);
+}
+.users-table .btn-outline-secondary {
+  --bs-btn-active-color: var(--bs-btn-hover-color);
+}
+.users-table .offline {
+  color: color-mix(in srgb, var(--bs-table-striped-color) 60%, white 40%);
+}
