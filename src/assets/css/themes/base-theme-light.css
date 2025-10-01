@@ -159,10 +159,10 @@ cg-board {
 #move-table .subvariation .move {
   color: #191970;
 }
-#move-table .subvariation .move .piece-glyph.white::before {
+#move-table .move .piece-glyph.white::before {
   color: currentColor;
 }
-#move-table .subvariation .move .piece-glyph.black::before {
+#move-table .move .piece-glyph.black::before {
   color: color-mix(in srgb, currentColor 70%, white 30%); /* fancy new method for lightening/darkening colors */
 }
 

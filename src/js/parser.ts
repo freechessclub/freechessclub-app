@@ -200,6 +200,19 @@ export class Parser {
     return undefined;
   }
 
+  public splitBeforeAfterMatch(text: string, match: any) {
+    const start = match.index;
+    const end = start + match[0].length;
+    const before = text.slice(0, start).replace(/\n$/, '').trim();
+    const line = match[0];
+    const after = text.slice(end).replace(/^\n/, '').trim();
+    return {
+      before,
+      match: line,
+      after
+    };
+  }
+
   public parse(data: any) {
     let msg : string;
     if (data instanceof ArrayBuffer)
@@ -249,11 +262,11 @@ export class Parser {
       return { message: msg };
 
     // game move
-    match = msg.match(/(?:^|\n)<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(\-?[0-7])\s([01])\s([01])\s([01])\s([01])\s([0-9]+)\s([0-9]+)\s(\S+)\s(\S+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(\S+)\s\(([0-9]+)\:([0-9]+)\.([0-9]+)\)\s(\S+)\s([01])\s([0-9]+)\s([0-9]+)\s*/);
+    match = msg.match(/^<12>\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([rnbqkpRNBQKP\-]{8})\s([BW\-])\s(\-?[0-7])\s([01])\s([01])\s([01])\s([01])\s([0-9]+)\s([0-9]+)\s(\S+)\s(\S+)\s(\-?[0-3])\s([0-9]+)\s([0-9]+)\s([0-9]+)\s([0-9]+)\s(\-?[0-9]+)\s(\-?[0-9]+)\s([0-9]+)\s(\S+)\s\(([0-9]+)\:([0-9]+)\.([0-9]+)\)\s(\S+)\s([01])\s([0-9]+)\s([0-9]+)\s*$/m);
     if(match != null && match.length >= 34) {
-      const gMsgs = this.splitMessage(msg);
-      if(gMsgs)
-        return gMsgs;
+      const parts = this.splitBeforeAfterMatch(msg, match);
+      if(parts.before || parts.after) 
+        return [this._parse(parts.before), this._parse(parts.match), this._parse(parts.after)].flat();
 
       let fen = '';
       for (let i = 1; i < 8; i++) {
@@ -341,8 +354,12 @@ export class Parser {
     }
 
     // game start
-    match = msg.match(/(?:^|\n)\s*\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s(?:Creating|Continuing)[^\}]*\}.*/s);
+    match = msg.match(/^\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s(?:Creating|Continuing)[^\}]*\}.*/m);
     if (match != null && match.length > 2) {
+      const parts = this.splitBeforeAfterMatch(msg, match);
+      if(parts.before || parts.after) 
+        return [this._parse(parts.before), this._parse(parts.match), this._parse(parts.after)].flat();
+
       return {
         game_id: +match[1],
         player_one: match[2],
@@ -351,12 +368,10 @@ export class Parser {
     }
 
     // game end
-    match = msg.match(/(?:^|\n)[^\(\):]*(?:Game\s[0-9]+:.*)?\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)(?:' game|'s)?\s([^\}]+)\}\s(\*|[012/]+-[012/]+).*/s);
+    match = msg.match(/^\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)(?:' game|'s)?\s([^\}]+)\}\s(\*|[012/]+-[012/]+).*/m);
     if (match != null && match.length > 5) {
-      const gMsgs = this.splitMessage(msg);
-      if(gMsgs)
-        return gMsgs;
-
+      const parts = this.splitBeforeAfterMatch(msg, match);
+      
       const p1 = match[2];
       const p2 = match[3];
       const who = match[4];
@@ -370,7 +385,10 @@ export class Parser {
         loser,
         reason,
         score,
-        message: msg,
+        message: parts.match,
+        extraText: parts.before && parts.after
+          ? `${parts.before}\n${parts.after}`
+          : `${parts.before}${parts.after}`
       };
     }
 

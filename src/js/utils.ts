@@ -259,6 +259,13 @@ export function isMac() {
       navigator.userAgent.includes("Mac");
 }
 
+/**
+ * Is mobile
+ */
+export function isMobile() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 // Used by createContextMenu()
 let touchStarted = false; // Keeps track of whether a touch is in progress
 // Keeps track of whether a touch is currently in progress. Used by createContextMenu.

@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import Parser from './parser';
+import { isMobile } from './utils';
 
 export const enum MessageType {
   Control = 0,
@@ -145,7 +146,9 @@ export class Session {
     };
 
     this.websocket.onclose = (e) => {
-      if(this.isConnecting() || this.isConnected()) {
+      const wasConnected = this.isConnected();
+
+      if(this.isConnecting() || wasConnected) {
         this.reset();     
         this.onRecv({
           command: 3,
@@ -154,15 +157,13 @@ export class Session {
       }
 
       // Reconnect automatically if the connection was dropped unexpectedly, i.e. by mobile power management
-      if(this.isConnected()) {
-        if(!e.wasClean) {
-          if(document.visibilityState === 'visible')
+      if(wasConnected && !e.wasClean) {
+        if(!isMobile() || document.visibilityState === 'visible')
+          this.connect(this.user, this.pass);
+        else {
+          $(document).one('visibilitychange', () => {
             this.connect(this.user, this.pass);
-          else {
-            $(document).one('visibilitychange', () => {
-              this.connect(this.user, this.pass);
-            });
-          }
+          });
         }
       }
     };

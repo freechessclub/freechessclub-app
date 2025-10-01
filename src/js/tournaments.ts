@@ -359,7 +359,7 @@ export class Tournaments {
     pattern = ':mamer\'s KOTH list:';
     if((msg.startsWith(pattern) || this.tdMessage.startsWith(pattern)) && awaiting.has('td-listkoths')) {
       this.tdMessage += msg + '\n';
-      if(/:Total: \d+ KOTHs/m.test(msg)) { // The last line in the response, indicates we've receive the entire thing
+      if(/:Total: \d+ KOTHs?/m.test(msg)) { // The last line in the response, indicates we've receive the entire thing
         awaiting.resolve('td-listkoths');
         const koths = this.parseTDListKoTHs(msg);
         koths.forEach(koth => { 
@@ -498,13 +498,15 @@ export class Tournaments {
     }
 
     // A tournament has been opened
-    match = msg.match(/^:mamer TOURNEY INFO: (\*\*\* (.*?) \*\*\*\n:Tourney #(\d+), a [^,]+, has been opened!)/m);
+    match = msg.match(/^:mamer TOURNEY INFO: (\*\*\* (.*?) \*\*\*\n:Tourney #(\d+), a ([^,]+), has been opened!)/m);
     if(match) {
       const title = match[2];
       const id = +match[3];
+      const type = match[4];
       const card = this.addTournament({
         id,
         title,
+        type,
         running: true,
         joinable: true,
         joined: false,
@@ -633,7 +635,7 @@ export class Tournaments {
     pattern = ':mamer\'s tourney list:';
     if((msg.startsWith(pattern) || this.tdMessage.startsWith(pattern)) && awaiting.has('td-listtourneys')) {
       this.tdMessage += msg + '\n';
-      if(/^:Listed: \d+ tourneys/m.test(msg)) { // The last line in the response, indicates we have received the entire response
+      if(/^:Listed: \d+ tourneys?/m.test(msg)) { // The last line in the response, indicates we have received the entire response
         awaiting.resolve('td-listtourneys');
         
         $('.tournament-card[data-tournament-type="tournament"]').each((index, element) => {
@@ -818,11 +820,24 @@ export class Tournaments {
         this.updateAllTournaments({}); // This will remove old completed tournaments that are no longer stored or recurring
         // User has clicked the 'Standings' button or link
         if(awaiting.resolve('tourney-standings-dialog')) {
+          // Get date of tournament to display in the title
+          let dateStr = '';
+          const card = $(`.tournament-card[data-tournament-id="${id}"]`);
+          if(card.length) {
+            const data = card.data('tournament-data');
+            if(data.date) {
+              const formatted = data.date.toLocaleDateString(undefined, {
+                day: 'numeric',
+                month: 'long'
+              });
+              dateStr = ` (${formatted})`;
+            }
+          }
           const standingsModal = $(`<div class="modal fade tournament-standings-modal tournament-table-modal" tabindex="-1">
             <div class="modal-dialog modal-dialog-centered">
               <div class="modal-content">
                 <div class="modal-header">
-                  <h5 class="modal-title">Standings</h5>
+                  <h5 class="modal-title">Standings${dateStr}</h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -1880,6 +1895,10 @@ export class Tournaments {
     let inserted = false;
     container.children().each(function () {
       const existingData = $(this).data('tournament-data');
+
+      if(existingData.running)
+        return true;
+
       const existingTimestamp = existingData.timestamp;
 
       const isNewFuture = newTimestamp >= now;
@@ -1975,7 +1994,7 @@ export class Tournaments {
     else if(alert === false) {
       // If there are no longer any alerts, set the tab text back to normal
       delete this.alerts[id];
-      if(!this.alerts.length) {
+      if(!Object.keys(this.alerts).length) {
         const tab = $('button[data-bs-target="#pills-tournaments"]');
         tab.removeClass('tournaments-unviewed');
       }
@@ -2050,6 +2069,9 @@ export class Tournaments {
           // If we are the King and 'Seek Game', a manual seek is sent. When an offer comes in, we get the variables
           // of the challenger and decline if they have private=1, and auto-accept if they have private=0. This is 
           // because mamer does not allow private KoTH games. 
+          if(kothData.seek) 
+            offers.splice(offers.indexOf(offer), 1);
+          
           awaiting.set('get-private-variable');
           this.session.send(`variables ${offer.opponent}`);
           kothData.offer = offer.id;

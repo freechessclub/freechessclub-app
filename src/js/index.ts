@@ -1063,17 +1063,22 @@ function gameEnd(data: any) {
   if(game.isPlaying()) {
     let rematch = [];
     let analyze = [];
+    let dialogText = data.message;
     if(data.reason !== Reason.Disconnect && data.reason !== Reason.Adjourn && data.reason !== Reason.Abort) {
+      dialogText += `\n\n${data.extraText}`
+      
       if(game.role === Role.PLAYING_COMPUTER) {
         rematch = ['rematchComputer();', 'Rematch'];
       }
       else if(game.element.find('.player-status .name').text() === session.getUser())
         rematch = ['sessionSend(\'rematch\')', 'Rematch']
     }
-    if(data.reason !== Reason.Adjourn && data.reason !== Reason.Abort && game.history.length()) {
+    if(data.reason !== Reason.Adjourn && data.reason !== Reason.Abort && game.history.length()) 
       analyze = ['analyze();', 'Analyze'];
-    }
-    Dialogs.showBoardDialog({type: 'Match Result', msg: data.message, btnFailure: rematch, btnSuccess: analyze, icons: false});
+
+    Dialogs.showBoardDialog({type: 'Match Result', msg: dialogText, btnFailure: rematch, btnSuccess: analyze, icons: false});
+    if(data.extraText)
+      chat.newMessage('console', { message: data.extraText });
     cleanupGame(game);
   }
   
@@ -1084,7 +1089,7 @@ function handleOffers(offers: any[]) {
   tournaments?.handleOffers(offers);
 
   // Clear the lobby
-  if(offers[0].type === 'sc')
+  if(offers[0]?.type === 'sc')
     $('#lobby-table').html('');
 
   // Add seeks to the lobby
@@ -1279,7 +1284,8 @@ function showSentOffers(offers: any) {
     if(sentOfferElements.length) {
       sentOfferElements.show();
       $('#sent-offers-status').show();
-      $('#play-pane-subcontent')[0].scrollTop = 0;
+      if($('#pills-pairing').hasClass('active'))
+        $('#play-pane-subcontent')[0].scrollTop = 0;
     }
   }, 1000);
 }
@@ -1615,17 +1621,6 @@ function handleMiscMessage(data: any) {
     return;
   }
 
-  match = msg.match(/^You are now observing game \d+\./m);
-  if(match) {
-    if(awaiting.resolve('obs')) {
-      $('#observe-pane-status').hide();
-      return;
-    }
-
-    chat.newMessage('console', data);
-    return;
-  }
-
   match = msg.match(/^(Issuing match request since the seek was set to manual\.)/m);
   if(match && match.length > 1 && awaiting.has('lobby')) {
     $('#lobby-pane-status').text(match[1]);
@@ -1793,6 +1788,17 @@ function handleMiscMessage(data: any) {
     data.message = msg = Utils.removeLine(msg, match[0]); // remove the matching line
     if(!msg)
       return;
+  }
+
+  match = msg.match(/^You are now observing game \d+\./m);
+  if(match) {
+    if(awaiting.resolve('obs')) {
+      $('#observe-pane-status').hide();
+      return;
+    }
+
+    chat.newMessage('console', data);
+    return;
   }
 
   /* Parse score and termination reason for examined games */
@@ -3162,7 +3168,10 @@ function createGame(): Game {
   }
 
   // Event triggered when the game's panel (the board etc) is clicked
-  const gameTouchHandler = () => {
+  const gameTouchHandler = (event) => {
+    if($(event.target).closest('[title="Close"],[title="Maximize"]').length)
+      return;
+
     $('#input-text').trigger('blur');
     setGameWithFocus(game); 
     // Status flags that need to be set prior to squareSelected event being called (used by smart move)
@@ -3217,13 +3226,18 @@ export function setGameWithFocus(game: Game) {
     if(game.element.parent().attr('id') === 'secondary-board-area')
       game.element.addClass('game-focused');
 
+    const engineRunning = !!engine;
+    stopEngine();
+
     games.focused = game;
 
     setMovelistViewMode();
     initGameControls(game);
 
     updateBoard(game);
-    updateEngine();
+
+    if(game.analyzing && engineRunning)
+      startEngine();
   }
 }
 
