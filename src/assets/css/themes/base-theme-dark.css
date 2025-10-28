@@ -174,6 +174,17 @@ a {
   border-color: #888888;
 }
 
+.form-check-input,
+.form-check-input:disabled,
+.form-check-input:hover,
+.form-check-input:focus,
+.form-check-input:active {
+  filter: brightness(0.6) contrast(2);
+}
+.form-check-input:checked {
+  filter: brightness(0.8) contrast(1.2);
+}
+
 .nav {
   --bs-nav-link-color: lightgray;
 }
@@ -304,6 +315,10 @@ a {
   caret-color: whitesmoke;
 }
 
+#engine-panel .btn-check:checked+.btn, #engine-panel .btn-check+.btn {
+  color: lightgray;
+}
+
 #engine-pvs > li:nth-of-type(even) {
   background-color: rgba(0, 0, 0, 0.08);
 }
@@ -335,6 +350,13 @@ a {
 }
 #eval-progress .progress-bar {
   --bs-progress-bar-bg: #0d6efd;
+}
+
+.eval-bar-white {
+  background-color: #BDBBBB;
+}
+.eval-bar-black {
+  background-color: #3B322D;
 }
 
 .promotion-panel {
@@ -402,9 +424,6 @@ a {
 
 #pills-pairing .form-check-label {
   color: lightgray;
-}
-#pills-pairing .form-check-input {
-  filter: brightness(0.8);
 }
 
 .not-signed-in-notice {
