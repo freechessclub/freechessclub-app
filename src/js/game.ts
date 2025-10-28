@@ -81,6 +81,7 @@ export class Game extends GameData {
 
   // Keep track of which analysis tab is showing
   analyzing = false;
+  engineRunning = false;
   currentStatusTab: any = null;
 
   // Store parameters to movePiece temporarily while handling any intermediate popups, e.g. promotion dialog or new variation menu

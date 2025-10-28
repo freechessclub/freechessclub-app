@@ -57,7 +57,7 @@
   <div class="feature3 p-0 position-relative">
     <div class="row m-0" id="main-row">
       <div class="card-group p-0">
-        <div id="left-col" class="col-sm-12 col-md-3 col-lg-3 col-xl-3" style="min-width: 340px">
+        <div id="left-col" class="main-col col-sm-12 col-md-3 col-lg-3 col-xl-3" style="min-width: 340px">
           <div class="card bg-transparent" id="left-card">
             <div class="card-header top-panel d-flex" id="left-panel-header" style="visibility: hidden">
               <div id="navigation-toolbar" class="btn-toolbar m-auto">
@@ -562,11 +562,21 @@
                     </div>
                     <div class="tab-pane fade h-100 w-100 p-1" id="engine-panel" role="tabpanel" aria-labelledby="engine-panel">
                       <div class="d-flex flex-column h-100 w-100">
-                        <div style="display: inline-block">
-                          <button type="button" id="start-engine" class="me-1 btn btn-engine btn-outline-secondary btn-sm p-0" style="width: 50px" title="Start Engine">Go</button>
+                        <div style="display: flex; margin-top: 0.125rem; align-items: center;">
+                          <button type="button" id="start-engine" class="me-2 btn btn-engine btn-outline-secondary btn-sm p-0" style="width: 50px;" title="Start Engine">Go</button>
                           <div id="pv-button-group" class="btn-group" style="width: 50px">
                             <button type="button" id="remove-pv" class="btn btn-engine btn-outline-secondary btn-sm p-0" title="Remove Engine Line">-</button>
                             <button type="button" id="add-pv" class="btn btn-engine btn-outline-secondary btn-sm p-0" title="Add Engine Line">+</button>
+                          </div>
+                          <div class="d-flex ms-auto">
+                            <input type="checkbox" class="btn-check" id="best-move-arrow-toggle" autocomplete="off">
+                            <label class="btn btn-default py-1 border-0" style="display: block; line-height: 1;" for="best-move-arrow-toggle">
+                              <span id="best-move-arrow-toggle-icon" class="fa-regular fa-eye me-2" aria-hidden="false"></span>Best Move Arrow
+                            </label>
+                            <input type="checkbox" class="btn-check" id="eval-bar-toggle" autocomplete="off">
+                            <label class="btn btn-default py-1 border-0" style="display: block; line-height: 1;" for="eval-bar-toggle">
+                              <span id="eval-bar-toggle-icon" class="fa-regular fa-eye me-2" style="display: inline-block; width: 18px;" aria-hidden="false"></span>Eval Bar
+                            </label>
                           </div>
                         </div>
                         <div class="flex-grow-1 w-100" style="min-height: 0">
@@ -611,7 +621,7 @@
             </div>
           </div>
         </div>
-        <div id="mid-col" class="col-sm-12 col-md-auto position-relative align-self-center">
+        <div id="mid-col" class="main-col col-sm-12 col-md-auto position-relative align-self-center">
           <div class="toast-container h-100 w-100" style="z-index: 100;">
             <div id="game-requests" aria-live="polite" aria-atomic="true"></div>
           </div>
@@ -675,8 +685,16 @@
                   </div>
                 </div>
               </div>
-              <div class="card-body p-0 noselect" id="board-card">
-                <div class="board-container mw-100 position-relative">
+              <div class="card-body p-0 noselect d-flex" id="board-card">
+                <div class="eval-bar flex-column">
+                  <div class="eval-bar-segment eval-bar-black d-flex flex-column">
+                    <div class="eval-bar-text mx-auto"></div>
+                  </div>
+                  <div class="eval-bar-segment eval-bar-white d-flex flex-column">
+                    <div class="eval-bar-text mx-auto"></div>
+                  </div>
+                </div>
+                <div class="board-container flex-grow-1 position-relative" style="min-width: 0">
                   <div class="cg-wrap mw-100 board"></div>
                 </div>
               </div>
@@ -727,7 +745,7 @@
             </div>
           </div>
         </div>
-        <div id="right-col" class="col-sm-12 col-md-12 col-lg position-relative">
+        <div id="right-col" class="main-col col-sm-12 col-md-12 col-lg position-relative">
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header" id="right-panel-header" style="visibility: hidden">
               <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto position-relative" style="max-width: 42%">

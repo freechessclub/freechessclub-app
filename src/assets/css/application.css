@@ -822,6 +822,53 @@ body {
   padding: 20px;
 }
 
+.game-card .eval-bar {
+  display: none;
+  width: 34px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+@media (max-width: 767px) {
+  .game-card .eval-bar {
+    width: 26px;
+  }
+}
+
+.game-card-sm .eval-bar {
+  width: 17px;
+}
+@media (max-width: 767px) {
+  .game-card-sm .eval-bar {
+    width: 12px;
+  }
+}
+
+.eval-bar-text {
+  display: none;
+  text-box-trim: trim-both;
+  text-box-edge: cap alphabetic;
+}
+.game-card:not(.game-card-sm) .side-ahead.eval-bar-text {
+  display: block;
+}
+.eval-bar-segment:first-child .eval-bar-text {
+  padding-bottom: 0.75rem;
+  margin-top: auto;
+}
+.eval-bar-segment:last-child .eval-bar-text {
+  padding-top: 0.75rem;
+}
+.eval-bar-white {
+  height: 50%;
+  transition: height 0.7s linear;
+  color: #212529;
+}
+.eval-bar-black {
+  flex-grow: 1;
+  min-height: 0;
+  color: whitesmoke;
+}
+
 .promotion-panel {
   display: none;
   flex-direction: column;
@@ -1118,3 +1165,4 @@ input[type="number"]:focus {
     font-size: 0.7rem;
   }
 }
+
