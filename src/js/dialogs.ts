@@ -54,6 +54,9 @@ export interface DialogParams {
 }
 
 export function createDialog({type = '', title = '', msg = '', btnFailure, btnSuccess, useSessionSend = false, icons = true, progress = false, htmlMsg = false}: DialogParams): JQuery<HTMLElement> {
+  title = title.replace(/-/g, "\u2011"); // replace hyphen with non-breaking hyphen
+  msg = msg.replace(/-/g, "\u2011");
+
   const dialogId = `dialog${dialogCounter++}`;
   let req = `
   <div id="${dialogId}" class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
@@ -67,7 +70,7 @@ export function createDialog({type = '', title = '', msg = '', btnFailure, btnSu
     req += msg;
   else {
     req += `<div class="d-flex align-items-center">
-          <strong class="body-text text-primary my-auto">${title} ${msg}</strong>`;
+          <strong class="body-text text-primary my-auto" style="white-space: pre-wrap;">${title ? `${title} ` : ''}${msg}</strong>`;
     if (progress) {
       req += '<div class="spinner-border ms-auto" role="status" aria-hidden="true"></div>';
     }
@@ -128,6 +131,19 @@ export function createDialog({type = '', title = '', msg = '', btnFailure, btnSu
     dialog.find('.button-failure').on('click', btnFailureHandler);
 
   return dialog;
+}
+
+export function showInfoDialog(title: string, text: string) {
+  const dialog = $(`<div class="toast info-dialog" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="header-text me-auto">${title}</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body font-monospace" style="max-height: 500px; overflow: auto; white-space: pre-wrap">${text}</div>
+  </div>`);
+  const modal = $('.modal.show');
+  dialog.appendTo(modal.length ? modal : 'body');
+  dialog.toast('show');
 }
 
 /** NOTIFICATIONS FUNCTIONS **/

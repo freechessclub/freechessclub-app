@@ -37,11 +37,11 @@ initStyles();
 initShortcuts();
 
 $('#themes-menu li').on('click', (event) => {
-  $('#themes-button').text($(event.target).text());
+  $('#themes-button').text($(event.currentTarget).text());
   $('#board-style').remove();
   storage.remove('board');
 
-  const theme = $(event.target).attr('id').split('theme-')[1];
+  const theme = $(event.currentTarget).attr('id').split('theme-')[1];
   setTheme(theme);
 });
 

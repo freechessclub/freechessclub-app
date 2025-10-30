@@ -359,7 +359,7 @@ export class Tournaments {
     pattern = ':mamer\'s KOTH list:';
     if((msg.startsWith(pattern) || this.tdMessage.startsWith(pattern)) && awaiting.has('td-listkoths')) {
       this.tdMessage += msg + '\n';
-      if(/:Total: \d+ KOTHs/m.test(msg)) { // The last line in the response, indicates we've receive the entire thing
+      if(/:Total: \d+ KOTHs?/m.test(msg)) { // The last line in the response, indicates we've receive the entire thing
         awaiting.resolve('td-listkoths');
         const koths = this.parseTDListKoTHs(msg);
         koths.forEach(koth => { 
@@ -498,13 +498,15 @@ export class Tournaments {
     }
 
     // A tournament has been opened
-    match = msg.match(/^:mamer TOURNEY INFO: (\*\*\* (.*?) \*\*\*\n:Tourney #(\d+), a [^,]+, has been opened!)/m);
+    match = msg.match(/^:mamer TOURNEY INFO: (\*\*\* (.*?) \*\*\*\n:Tourney #(\d+), a ([^,]+), has been opened!)/m);
     if(match) {
       const title = match[2];
       const id = +match[3];
+      const type = match[4];
       const card = this.addTournament({
         id,
         title,
+        type,
         running: true,
         joinable: true,
         joined: false,
@@ -633,7 +635,7 @@ export class Tournaments {
     pattern = ':mamer\'s tourney list:';
     if((msg.startsWith(pattern) || this.tdMessage.startsWith(pattern)) && awaiting.has('td-listtourneys')) {
       this.tdMessage += msg + '\n';
-      if(/^:Listed: \d+ tourneys/m.test(msg)) { // The last line in the response, indicates we have received the entire response
+      if(/^:Listed: \d+ tourneys?/m.test(msg)) { // The last line in the response, indicates we have received the entire response
         awaiting.resolve('td-listtourneys');
         
         $('.tournament-card[data-tournament-type="tournament"]').each((index, element) => {
@@ -733,10 +735,10 @@ export class Tournaments {
                     <table class="table table-sm table-borderless table-striped modal-table">
                       <thead>
                         <tr>
-                          <th scope="col">Seed</th>
+                          <th scope="col" class="text-end">Seed</th>
                           <th scope="col">Player</th>
                           <th scope="col">Status</th>
-                          <th scope="col">Online</th>
+                          <th scope="col" class="text-center">Online</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -751,10 +753,11 @@ export class Tournaments {
           players.forEach(player => {          
             let row = tbody.insertRow();
             let cell = row.insertCell();
+            cell.classList.add('text-end');
             cell.innerHTML = `<span class="tournament-table-pos">${player.seed}</span>`;            
           
             cell = row.insertCell();
-            cell.innerHTML = `<span class="tournament-table-name">${player.name}</span> <span class="tournament-table-rating">(${player.rating})</span>`; 
+            cell.innerHTML = `<span class="tournament-table-name clickable-user">${player.name}</span> <span class="tournament-table-rating">(${player.rating})</span>`; 
           
             let statusStr = '';
             if(player.statusSymbol === '%')
@@ -770,6 +773,7 @@ export class Tournaments {
             cell.innerHTML = `<span class="tournament-table-status">${statusStr}</span>`;
           
             cell = row.insertCell();
+            cell.classList.add('text-center');
             const checkCrossIcon = player.onlineStatus === '-' 
                 ? '<i class="fa-solid fa-xmark"></i>'
                 : '<i class="fa-solid fa-check"></i>';
@@ -818,11 +822,24 @@ export class Tournaments {
         this.updateAllTournaments({}); // This will remove old completed tournaments that are no longer stored or recurring
         // User has clicked the 'Standings' button or link
         if(awaiting.resolve('tourney-standings-dialog')) {
+          // Get date of tournament to display in the title
+          let dateStr = '';
+          const card = $(`.tournament-card[data-tournament-id="${id}"]`);
+          if(card.length) {
+            const data = card.data('tournament-data');
+            if(data.date) {
+              const formatted = data.date.toLocaleDateString(undefined, {
+                day: 'numeric',
+                month: 'long'
+              });
+              dateStr = ` (${formatted})`;
+            }
+          }
           const standingsModal = $(`<div class="modal fade tournament-standings-modal tournament-table-modal" tabindex="-1">
             <div class="modal-dialog modal-dialog-centered">
               <div class="modal-content">
                 <div class="modal-header">
-                  <h5 class="modal-title">Standings</h5>
+                  <h5 class="modal-title">Standings${dateStr}</h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -830,9 +847,9 @@ export class Tournaments {
                     <table class="table table-sm table-borderless table-striped modal-table">
                       <thead>
                         <tr>
-                          <th scope="col">Pos</th>
+                          <th scope="col" class="text-end">Pos</th>
                           <th scope="col">Player</th>
-                          <th scope="col">Score</th>
+                          <th scope="col" class="text-end">Score</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -863,11 +880,13 @@ export class Tournaments {
             
             let row = tbody.insertRow();
             let cell = row.insertCell();
+            cell.classList.add('text-end');
             cell.innerHTML = `<span class="tournament-table-pos">${posStr}</span>`;            
           
             cell = row.insertCell();
-            cell.innerHTML = `<span class="tournament-table-name">${player.name}</span> <span class="tournament-table-rating">(${player.rating})</span>  <span class="tournament-table-seed">[${player.seed}]</span>`; 
+            cell.innerHTML = `<span class="tournament-table-name clickable-user">${player.name}</span> <span class="tournament-table-rating">(${player.rating})</span>  <span class="tournament-table-seed">[${player.seed}]</span>`; 
             cell = row.insertCell();
+            cell.classList.add('text-end');
             cell.innerHTML = `<span class="tournament-table-score">${player.score}</span>`;
             player.rounds.forEach(round => {
               // Use different class for win, loss or draw, so they can be displayed in different colors
@@ -936,10 +955,10 @@ export class Tournaments {
                     <table class="table table-sm table-borderless table-striped modal-table">
                       <thead>
                         <tr>
-                          <th scope="col">Board</th>
+                          <th scope="col" class="text-end">Board</th>
                           <th scope="col">White</th>
                           <th scope="col">Black</th>
-                          <th scope="col">Game / Result</th>
+                          <th scope="col" class="text-center">Game / Result</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -954,6 +973,7 @@ export class Tournaments {
           games.forEach(game => {          
             let row = tbody.insertRow();
             let cell = row.insertCell();
+            cell.classList.add('text-end');
             cell.innerHTML = `<span class="tournament-table-pos">${game.board}</span>`;            
           
             cell = row.insertCell();
@@ -966,6 +986,7 @@ export class Tournaments {
                 ? `  <a href="javascript:void(0)" onClick="sessionSend('obs ${game.gameID.slice(1)}')">Observe</a>` 
                 : ''; 
             cell = row.insertCell();
+            cell.classList.add('text-center');
             cell.innerHTML = `<span class="tournament-table-result">${game.gameID || game.result}${obsGameStr}</span>`;       
           });
 
@@ -1426,8 +1447,14 @@ export class Tournaments {
     if(tourney.running)
       tourney.winners = '';
     // Display the winners of the last held edition
-    const winnersStr = tourney.winners
-        ? `<span class="tournament-card-label">${ageInHours < 3 ? 'Winner' : 'Last Winner'}${tourney.winners.includes(',') ? 's' : ''}:</span>  ${tourney.winners}  <a class="tournament-standings-link" href="javascript:void(0)">(Standings)</a>`
+    const wrappedWinners = tourney.winners 
+      ? tourney.winners
+        .split(/\s*,\s*/)            
+        .map(name => `<span class="clickable-user">${name}</span>`) 
+        .join(', ')
+      : '';
+    const winnersStr = wrappedWinners
+        ? `<span class="tournament-card-label">${ageInHours < 3 ? 'Winner' : 'Last Winner'}${wrappedWinners.includes(',') ? 's' : ''}:</span>  ${wrappedWinners}  <a class="tournament-standings-link" href="javascript:void(0)">(Standings)</a>`
         : '';
     card.find('.tournament-winners').html(winnersStr);
 
@@ -1546,7 +1573,7 @@ export class Tournaments {
     koth.title = `KoTH ${koth.type}`;
     card.find('.koth-title').text(koth.title);
     const isFemale = this.tdVariables.Female === 'Yes';
-    const kingStr = `<span class="tournament-card-label">The ${isFemale ? 'Queen' : 'King'}:</span>  ${koth.king !== '-' ? '<i class="fa-solid fa-crown"></i>' : ''} ${koth.king}`; 
+    const kingStr = `<span class="tournament-card-label">The ${isFemale ? 'Queen' : 'King'}:</span>  ${koth.king !== '-' ? `<i class="fa-solid fa-crown"></i> <span class="clickable-user">${koth.king}</span>` : '-'}`; 
     card.find('.koth-king').html(kingStr);
     
     if(koth.king === '-')
@@ -1880,6 +1907,10 @@ export class Tournaments {
     let inserted = false;
     container.children().each(function () {
       const existingData = $(this).data('tournament-data');
+
+      if(existingData.running)
+        return true;
+
       const existingTimestamp = existingData.timestamp;
 
       const isNewFuture = newTimestamp >= now;
@@ -1975,7 +2006,7 @@ export class Tournaments {
     else if(alert === false) {
       // If there are no longer any alerts, set the tab text back to normal
       delete this.alerts[id];
-      if(!this.alerts.length) {
+      if(!Object.keys(this.alerts).length) {
         const tab = $('button[data-bs-target="#pills-tournaments"]');
         tab.removeClass('tournaments-unviewed');
       }
@@ -2050,6 +2081,9 @@ export class Tournaments {
           // If we are the King and 'Seek Game', a manual seek is sent. When an offer comes in, we get the variables
           // of the challenger and decline if they have private=1, and auto-accept if they have private=0. This is 
           // because mamer does not allow private KoTH games. 
+          if(kothData.seek) 
+            offers.splice(offers.indexOf(offer), 1);
+          
           awaiting.set('get-private-variable');
           this.session.send(`variables ${offer.opponent}`);
           kothData.offer = offer.id;

@@ -750,6 +750,9 @@
                   <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" data-fallback-placements="left, right" title="Maximize Chat"></div>
                   <span id="chat-maximize-icon" class="fa fa-toggle-left" aria-hidden="false"></span>
                 </button>
+                <button id="users-btn" class="btn btn-outline-secondary btn-md" type="button" aria-label="Users" data-bs-toggle="tooltip" data-fallback-placements="left, right" title="Users">
+                  <span id="users-icon" class="fa-solid fa-users" aria-hidden="false"></span>
+                </button>
                 <div class="modal fade" id="settings-modal" tabindex="-1" aria-labelledby="settings-modal-label" aria-hidden="true">
                   <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
@@ -953,6 +956,107 @@
                   </svg>
                 </button>
               </div>
+              <div class="modal fade" id="users-modal" tabindex="-1" aria-labelledby="users-modal-label" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title" id="users-modal-label"><span class="fa-solid fa-users me-2" aria-hidden="false"></span><span id="users-title-text">Users</span></h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                      <ul class="nav nav-tabs nav-justified">
+                        <li class="nav-item" role="presentation">
+                          <button class="nav-link active" id="friends-tab" data-bs-toggle="tab" data-bs-target="#friends-panel" type="button" role="tab" aria-controls="friends-panel" aria-selected="true">Friends</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                          <button class="nav-link" id="online-users-tab" data-bs-toggle="tab" data-bs-target="#online-users-panel" type="button" role="tab" aria-controls="online-users-panel" aria-selected="true">Online Users</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                          <button class="nav-link" id="top-players-tab" data-bs-toggle="tab" data-bs-target="#top-players-panel" type="button" role="tab" aria-controls="top-players-panel" aria-selected="true">Top Players</button>
+                        </li>
+                      </ul>
+                      <div class="tab-content" id="users-content" style="height: 500px;">
+                        <div class="tab-pane fade show active h-100 pt-3" id="friends-panel" role="tabpanel" aria-labelledby="friends-tab">
+                          <div class="d-flex flex-column h-100">
+                            <form id="add-friend">
+                              <div class="input-group">
+                                <input type="text" class="form-control" id="add-friend-input" placeholder="Friend's username" aria-describedby="add-friend" spellcheck="false" autocomplete="off">
+                                <button type="submit" class="btn btn-outline-secondary btn-md" id="add-friend-btn">Add Friend</button>
+                              </div>
+                              <ul class="dropdown-menu" id="add-friend-suggestions">
+                              </ul>
+                            </form>
+                            <div id="friends-table-container" class="mt-3 mb-1 flex-grow-1 overflow-auto" style="min-height: 0;">
+                              <table id="friends-table" class="table table-sm table-borderless table-striped modal-table users-table">
+                                <thead>
+                                  <tr>
+                                    <th scope="col" class="sortable-column" data-sort="asc" data-priority="2"><div class="sort-header-wrapper">Name<i class="fa fa-sort"></i></div></th>
+                                    <th scope="col" class="sortable-column text-end" data-sort="desc" data-priority="3"><div class="sort-header-wrapper"><i class="fa fa-sort"></i>Rating</div></th>
+                                    <th scope="col" class="sortable-column sort-primary" data-sort="asc" data-priority="1"><div class="sort-header-wrapper">Status<i class="fa fa-sort"></i></div></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="tab-pane fade h-100" id="online-users-panel" role="tabpanel" aria-labelledby="online-users-tab">
+                          <div class="d-flex flex-column h-100 pt-3">
+                            <div class="position-relative">
+                              <i class="fa-solid fa-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                              <input type="text" class="form-control" id="search-online-users" placeholder="Username..." aria-label="Search online users" spellcheck="false" autocomplete="off" style="padding-left: 2.5rem;">
+                            </div>                            
+                            <div id="online-users-table-container" class="mt-3 mb-1 flex-grow-1 overflow-auto" style="min-height: 0;">
+                              <table id="online-users-table" class="table table-sm table-borderless table-striped modal-table users-table">
+                                <thead>
+                                  <tr>
+                                    <th scope="col" class="sortable-column" data-sort="asc" data-priority="2"><div class="sort-header-wrapper">Name<i class="fa fa-sort"></i></div></th>
+                                    <th scope="col" class="sortable-column sort-primary text-end" data-sort="desc" data-priority="1"><div class="sort-header-wrapper"><i class="fa fa-sort"></i>Rating</div></th>
+                                    <th scope="col">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                </tbody>
+                              </table>
+                            </div>
+                            <span id="online-users-count" class="mt-2" style="display: none; font-weight: bold"></span>
+                          </div>
+                        </div>
+                        <div class="tab-pane fade h-100" id="top-players-panel" role="tabpanel" aria-labelledby="top-players-tab">
+                          <div class="d-flex flex-column h-100 pt-3">
+                            <button class="btn btn-outline-secondary dropdown-toggle" style="width: 15ch" id="top-players-category-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">Blitz</button>
+                            <ul class="dropdown-menu noselect" id="top-players-category-menu">
+                              <li><a class="dropdown-item">Blitz</a></li>
+                              <li><a class="dropdown-item">Standard</a></li>
+                              <li><a class="dropdown-item">Lightning</a></li>
+                              <li><a class="dropdown-item">Bughouse</a></li>
+                              <li><a class="dropdown-item">Crazyhouse</a></li>
+                              <li><a class="dropdown-item">Wild</a></li>
+                              <li><a class="dropdown-item">Suicide</a></li>
+                              <li><a class="dropdown-item">Losers</a></li>
+                              <li><a class="dropdown-item">Atomic</a></li>
+                            </ul>
+                            <div id="top-players-table-container" class="mt-3 mb-1 flex-grow-1 overflow-auto" style="min-height: 0;">
+                              <table id="top-players-table" class="table table-sm table-borderless table-striped modal-table users-table">
+                                <thead>
+                                  <tr>
+                                    <th scope="col" class="sortable-column" data-sort="asc" data-priority="2"><div class="sort-header-wrapper">Name<i class="fa fa-sort"></i></div></th>
+                                    <th scope="col" class="sortable-column sort-primary text-end" data-sort="desc" data-priority="1"><div class="sort-header-wrapper"><i class="fa fa-sort"></i>Rating</div></th>
+                                    <th scope="col" class="sortable-column" data-sort="asc" data-priority="3"><div class="sort-header-wrapper">Status<i class="fa fa-sort"></i></div></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div id="inner-right-panels">
               <div id="secondary-board-area" class="pt-1 ps-lg-2 pe-lg-1"></div>
@@ -967,7 +1071,7 @@
                             <span class="fa fa-plus-square" aria-hidden="false"></span>
                           </button>
                           <div id="start-chat-menu" class="dropdown-menu" aria-labelledby="start-chat-button">
-                            <li class="px-2 pb-2"><input type="text" class="form-control blur-on-enter" id="start-chat-input" placeholder="Start chat with..." aria-label="Start chat with..." spellcheck="false" autocomplete="false"></li>
+                            <li class="px-2 pb-2"><input type="text" class="form-control blur-on-enter" id="start-chat-input" placeholder="Start chat with..." aria-label="Start chat with..." spellcheck="false" autocomplete="off"></li>
                             <li id="add-remove-channels" class="center"><button class="btn btn-outline-secondary" type="button">Add or remove chat channels</button></li>
                             <li><ul id="start-chat-users-channels" class="p-0" style="list-style: none; overflow-y: auto; max-height: 500px;">
                               <li><ul id="subscribed-channels" class="p-0" style="list-style: none;">

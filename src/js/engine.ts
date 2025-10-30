@@ -18,6 +18,7 @@ export class Engine {
   protected bestMoveCallback: (game: Game, move: string, score: string) => void;
   protected pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string) => void;
   protected moveParams: string;
+  protected ready: boolean;
 
   constructor(game: Game, bestMoveCallback: (game: Game, move: string, score: string) => void, pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string) => void, options?: object, moveParams?: string) {
     this.numPVs = 1;
@@ -26,6 +27,7 @@ export class Engine {
     this.game = game;
     this.bestMoveCallback = bestMoveCallback;
     this.pvCallback = pvCallback;
+    this.ready = false;
 
     if(!this.moveParams)
       this.moveParams = 'infinite';
@@ -40,8 +42,9 @@ export class Engine {
 
     this.stockfish.onmessage = (response) => {
       let depth0 = false;
-
-      if (response.data.startsWith('info')) {
+      this.ready = true;
+      
+      if(response.data.startsWith('info')) {
         const fen = this.currFen;
         const info = response.data.substring(5, response.data.length);
         const infoArr: string[] = info.trim().split(/\s+/);
@@ -164,7 +167,16 @@ export class Engine {
   }
 
   public terminate() {
-    this.stockfish.terminate();
+    const worker = this.stockfish;
+    if(this.ready) 
+      worker.terminate();
+    else { 
+      // Wait for a worker to finish being created before terminating it
+      // Stops an overlay error in webpack dev-server
+      worker.onmessage = () => {
+        worker.terminate();
+      }
+    }
   }
 
   public move(hEntry: HEntry) {

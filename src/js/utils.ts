@@ -259,6 +259,13 @@ export function isMac() {
       navigator.userAgent.includes("Mac");
 }
 
+/**
+ * Is mobile
+ */
+export function isMobile() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 // Used by createContextMenu()
 let touchStarted = false; // Keeps track of whether a touch is in progress
 // Keeps track of whether a touch is currently in progress. Used by createContextMenu.
@@ -519,7 +526,7 @@ export function lockOverflow() {
  * @param triggerHandler Callback function that creates the context menu
  * @returns an array of function handlers which can be passed to removeContextMenuTrigger
  */
-export function createContextMenuTrigger(isTriggered: (event: any) => boolean, triggerHandler: (event: any) => void): any[] {
+export function createContextMenuTrigger(isTriggered: (event: any) => boolean, triggerHandler: (event: any) => void, leftClick = false, rightClick = true, longPress = true): any[] {
   /**
    * Event handler to display context menu when right clicking on an element.
    * Note: We don't use 'contextmenu' for long press on touch devices. This is because for contextmenu
@@ -537,7 +544,8 @@ export function createContextMenuTrigger(isTriggered: (event: any) => boolean, t
     if(!touchStarted) // right click only, we handle long press seperately.
       triggerHandler(event);
   };
-  $(document).on('contextmenu', contextmenuHandler);
+  if(rightClick)
+    $(document).on('contextmenu', contextmenuHandler);
 
   /**
    * Event handler to display context menu when long-pressing an element (on touch devices).
@@ -568,9 +576,23 @@ export function createContextMenuTrigger(isTriggered: (event: any) => boolean, t
       $(document).off('touchmove.longPress');
     });
   }; 
-  document.addEventListener('touchstart', touchstartHandler, {passive: true});
+  if(longPress)
+    document.addEventListener('touchstart', touchstartHandler, {passive: true});
 
-  return [contextmenuHandler, touchstartHandler];
+
+  /**
+   * Event handler to display context menu when left clicking on an element.
+   */
+  const clickHandler = (event) => {
+    if(!isTriggered(event))
+      return;
+
+    triggerHandler(event);
+  };
+  if(leftClick)
+    $(document).on('click', clickHandler);
+
+  return [contextmenuHandler, touchstartHandler, clickHandler];
 }
 
 /** Removes the events created by createContextMenuTrigger 
@@ -595,6 +617,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
   menu.css({
     'position': 'fixed',
     'display': 'block',
+    'z-index': '2000',
   });
   $('body').append(menu);
 
@@ -713,7 +736,7 @@ export function getTouchClickCoordinates(event: any, relativeToPage = false) {
     x = relativeToPage ? touch.pageX : touch.clientX;
     y = relativeToPage ? touch.pageY : touch.clientY;
   }
-  else if(event.type === 'mousedown' || event.type === 'mouseup' || event.type === 'mousemove' || event.type === 'mouseover' || event.type === 'mouseout' || event.type === 'mouseenter' || event.type === 'mouseleave' || event.type === 'contextmenu') {
+  else if(event.type === 'click' || event.type === 'mousedown' || event.type === 'mouseup' || event.type === 'mousemove' || event.type === 'mouseover' || event.type === 'mouseout' || event.type === 'mouseenter' || event.type === 'mouseleave' || event.type === 'contextmenu') {
     x = relativeToPage ? event.pageX : event.clientX;
     y = relativeToPage ? event.pageY : event.clientY;
   }
@@ -913,4 +936,75 @@ export function animateBoundingRects(fromElement: any, toElement: any, color = '
       height: toHeight
     });
   }, 0);
+}
+
+/**
+ * Perform a multi-column sort on a table based on its sorting data attributes.
+ * For sortable columns, the <th> elements should have the 'sortable-column' class and the following data attributes
+ * data-priority="<number>": Which column is the primary column to sort by, which is secondary etc.
+ * 1 is highest priority 
+ * The primary column should also have the 'sort-primary' class
+ * data-sort="<asc|desc>": The current sort order, ascending or descending
+ * The columns will be sorted based on their <td> text, either lexicographically or numerically
+ * if the text can be converted to a number. However if the <td> has a data-sort-value="<value>" attribute
+ * then the column is sorted by this value instead
+ * @param table The table element (JQuery) to sort
+ * @param column Optional <th> element, if specified, makes this column the primary sort column or
+ * if it is already the primary column, reverses its sort order (asc or desc). 
+ * (Basically what happens when you click on a sort header) 
+ */
+export function sortTable(table: any, column?: any) {
+  if(column) {
+    const priority = +column.attr('data-priority');
+    if(priority !== 1) {
+      table.find('.sortable-column').each((index, elem) => {
+        $(elem).removeClass('sort-primary');
+        const otherPriority = +$(elem).attr('data-priority');
+        if(otherPriority < priority)
+          $(elem).attr('data-priority', otherPriority + 1);
+      });
+      column.attr('data-priority', 1);
+      column.addClass('sort-primary');
+    } 
+    else
+      column.attr('data-sort', column.attr('data-sort') === 'asc' ? 'desc' : 'asc');
+  }
+
+  const tbody = table.find('tbody');
+  const rows = tbody.find('tr').toArray();
+
+  // Get all sortable columns, sorted by priority (ascending)
+  const columns = table.find('.sortable-column')
+    .toArray()
+    .sort((a, b) => {
+      return +$(a).attr('data-priority') - +$(b).attr('data-priority');
+    });
+
+  // Sort rows
+  rows.sort((rowA: any, rowB: any) => {
+    for (const col of columns) {
+      const index = $(col).index(); 
+      const sortOrder = $(col).attr('data-sort'); 
+
+      const cellA = $(rowA).children().eq(index);
+      const cellB = $(rowB).children().eq(index);
+      const textA = cellA.attr('data-sort-value') || cellA.text();
+      const textB = cellB.attr('data-sort-value') || cellB.text();      
+   
+      // Try numeric comparison before alphabetical
+      const numA = parseFloat(textA);
+      const numB = parseFloat(textB);
+
+      let cmp = 0;
+      if(!isNaN(numA) && !isNaN(numB)) 
+        cmp = numA - numB;
+      else 
+        cmp = textA.localeCompare(textB); // fallback string comparison
+      if (cmp !== 0) 
+        return sortOrder === 'asc' ? cmp : -cmp;
+    }
+    return 0;
+  });
+
+  tbody.append(rows);
 }
