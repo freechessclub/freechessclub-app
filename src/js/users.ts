@@ -39,19 +39,22 @@ export class Users {
       $('#add-friend-input').val('');
       $('#friends-table tr').removeClass('highlighted');
 
-      if(this.session?.isConnected()) {
-        awaiting.set('userlist');
-        this.session.send('who');
-      }
-      this.updateUsersTimer = setInterval(() => {
+      const requestUsers = () => {
         if(this.session?.isConnected()) {
           awaiting.set('userlist');
           this.session.send('who');
-          if($('#top-players-tab').hasClass('show')) {
+          console.log('hello?');
+          if($('#top-players-tab').hasClass('active')) {
+            console.log('hello 2');
             awaiting.set('hbest');
             this.session.send('hbest lbsxBzLSw');
           }
         }
+      };
+
+      requestUsers();
+      this.updateUsersTimer = setInterval(() => {
+        requestUsers();
       }, 60000);  
     });
 

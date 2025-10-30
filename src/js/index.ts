@@ -128,6 +128,9 @@ async function onDeviceReady() {
   // Initialize popovers
   $('[data-bs-toggle="popover"]').popover();
 
+  bootstrap.Collapse.getOrCreateInstance($('#collapse-menus')[0], { toggle: false });
+  bootstrap.Collapse.getOrCreateInstance($('#collapse-chat')[0], { toggle: false });
+  
   if(Utils.isSmallWindow()) {
     $('#collapse-chat').collapse('hide');
     $('#collapse-menus').collapse('hide');
@@ -545,7 +548,9 @@ function calculateFontSize(container: any, containerMaxWidth: number, minWidth?:
 function useMobileLayout() {
   swapLeftRightPanelHeaders();
   moveLeftPanelSetupBoard();
-  $('#chat-maximize-btn').hide();
+
+  $('#chat-toggle-btn').removeAttr('data-bs-toggle');
+
   $('#viewing-games-buttons:visible:last').removeClass('me-0');
   $('#stop-observing').appendTo($('#viewing-game-buttons').last());
   $('#stop-examining').appendTo($('#viewing-game-buttons').last());
@@ -560,7 +565,9 @@ function useMobileLayout() {
 function useDesktopLayout() {
   swapLeftRightPanelHeaders();
   moveLeftPanelSetupBoard();
-  $('#chat-maximize-btn').show();
+
+  $('#chat-toggle-btn').attr('data-bs-toggle', 'dropdown');
+  
   $('#stop-observing').appendTo($('#left-panel-header-2').last());
   $('#stop-examining').appendTo($('#left-panel-header-2').last());
   if(games.focused.isObserving() || games.focused.isExamining())
@@ -583,14 +590,10 @@ function swapLeftRightPanelHeaders() {
   $('#left-panel-header').attr('class', rightHeaderClass);
   $('#right-panel-header').attr('class', leftHeaderClass);
 
-  if(Utils.isSmallWindow()) {
-    $('#chat-toggle-btn').appendTo($('#chat-collapse-toolbar').last());
-    $('#menus-toggle-btn').appendTo($('#left-panel-header .btn-toolbar').last());
-  }
-  else {
-    $('#chat-toggle-btn').appendTo($('#right-panel-header .btn-toolbar').last());
-    $('#menus-toggle-btn').appendTo($('#navigation-toolbar').last());
-  }
+  if(Utils.isSmallWindow()) 
+    $('#chat-toggle-btn').parent().appendTo($('#chat-collapse-toolbar').last());
+  else
+    $('#chat-toggle-btn').parent().appendTo($('#right-panel-header .btn-toolbar').last());
 }
 
 /** ******************************************
@@ -3723,8 +3726,6 @@ function currentGameMove(game: Game): HEntry {
  ************************/
 
 $('#collapse-menus').on('hidden.bs.collapse', () => {
-  $('#menus-toggle-icon').removeClass('fa-toggle-up').addClass('fa-toggle-down');
-
   activeTab = $('#pills-tab button').filter('.active');
   $('#pills-placeholder-tab').tab('show'); // switch to a hidden tab in order to hide the active one
 
@@ -3732,7 +3733,6 @@ $('#collapse-menus').on('hidden.bs.collapse', () => {
 });
 
 $('#collapse-menus').on('show.bs.collapse', () => {
-  $('#menus-toggle-icon').removeClass('fa-toggle-down').addClass('fa-toggle-up');
   Utils.scrollToTop();
 
   if(activeTab.attr('id') === 'pills-placeholder-tab')

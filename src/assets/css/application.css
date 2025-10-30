@@ -292,10 +292,10 @@ body {
 }
 
 .btn-toolbar .btn {
-    margin-right: 10px;
+  margin-right: 10px;
 }
-.btn-toolbar .btn:last-child {
-    margin-right: 0;
+.btn-toolbar > :last-child.btn, .btn-toolbar > :last-child .btn {
+  margin-right: 0;
 }
 
 #session-status {
@@ -520,7 +520,7 @@ body {
   padding-right: 0.5rem;
   border-bottom: 1px solid;
 }
-.tools-menu-icon {
+.menu-icon {
   display: inline-block;
   width: 1.25rem;
 }
