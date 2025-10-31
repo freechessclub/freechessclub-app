@@ -77,10 +77,6 @@
                   <div class="tooltip-overlay" style="pointer-events: auto" data-bs-toggle="tooltip" data-bs-placement="top" data-fallback-placements="right,left" title="Exit Subvariation"></div>
                   <span class="fa fa-eject" aria-hidden="false"></span>
                 </button>
-                <button id="menus-toggle-btn" class="btn btn-outline-secondary btn-md position-relative" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-menus" aria-label="Show/Hide Menus" aria-expanded="true" aria-controls="collapse-menus">
-                  <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" title="Show/Hide Menus"></div>
-                  <span id="menus-toggle-icon" class="fa fa-toggle-up" aria-hidden="false"></span>
-                </button>
               </div>
               <div id="chat-collapse-toolbar" class="btn-toolbar d-md-none my-auto align-self-end">
               </div>
@@ -498,24 +494,24 @@
                                 <span class="fa-solid fa-ellipsis-vertical" aria-hidden="false"></span>
                               </button>
                               <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="more-game-tools">
-                                <li><a class="dropdown-item noselect" id="game-tools-new"><span class="tools-menu-icon fa-solid fa-file-circle-plus dropdown-icon" aria-hidden="false"></span>New Game</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-new"><span class="menu-icon fa-solid fa-file-circle-plus dropdown-icon" aria-hidden="false"></span>New Game</a></li>
                                 <li class="dropend">
-                                  <a class="dropdown-item dropdown-toggle noselect" id="game-tools-new-variant"><span class="tools-menu-icon fa-solid fa-file-circle-plus dropdown-icon" aria-hidden="false"></span>New Variant Game</a>
+                                  <a class="dropdown-item dropdown-toggle noselect" id="game-tools-new-variant"><span class="menu-icon fa-solid fa-file-circle-plus dropdown-icon" aria-hidden="false"></span>New Variant Game</a>
                                   <ul class="dropdown-menu dropdown-submenu" id="new-variant-game-submenu" aria-labelledby="game-tools-new-variant">
                                     <li><a class="dropdown-item noselect">Chess960</a></li>
                                     <li><a class="dropdown-item noselect">Crazyhouse</a></li>
                                     <li><a class="dropdown-item noselect">Losers</a></li>
                                   </ul>
                                 </li>
-                                <li><a class="dropdown-item noselect" id="game-tools-open-games" data-bs-toggle="modal" data-bs-target="#open-games-modal"><span class="tools-menu-icon fa-solid fa-file-import dropdown-icon" aria-hidden="false"></span>Open Games (PGN/FEN)</a></li>
-                                <li><a class="dropdown-item noselect" id="game-tools-save-game" data-bs-toggle="modal" data-bs-target="#save-game-modal"><span class="tools-menu-icon fa-solid fa-file-export dropdown-icon" aria-hidden="false"></span>Save Game (PGN/FEN)</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-open-games" data-bs-toggle="modal" data-bs-target="#open-games-modal"><span class="menu-icon fa-solid fa-file-import dropdown-icon" aria-hidden="false"></span>Open Games (PGN/FEN)</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-save-game" data-bs-toggle="modal" data-bs-target="#save-game-modal"><span class="menu-icon fa-solid fa-file-export dropdown-icon" aria-hidden="false"></span>Save Game (PGN/FEN)</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item noselect" id="game-tools-clone"><span class="tools-menu-icon fa-solid fa-copy dropdown-icon" aria-hidden="false"></span>Duplicate Game</a></li>
-                                <li><a class="dropdown-item noselect" id="game-tools-examine"><span class="tools-menu-icon fa-brands fa-slideshare dropdown-icon" aria-hidden="false"></span>Examine Mode (Shared)</a></li>
-                                <li><a class="dropdown-item noselect" id="game-tools-setup-board"><span class="tools-menu-icon fa-solid fa-chess-board dropdown-icon" aria-hidden="false"></span>Setup Board</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-clone"><span class="menu-icon fa-solid fa-copy dropdown-icon" aria-hidden="false"></span>Duplicate Game</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-examine"><span class="menu-icon fa-brands fa-slideshare dropdown-icon" aria-hidden="false"></span>Examine Mode (Shared)</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-setup-board"><span class="menu-icon fa-solid fa-chess-board dropdown-icon" aria-hidden="false"></span>Setup Board</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item noselect" id="game-tools-properties"><span class="tools-menu-icon fa-solid fa-file-pen dropdown-icon" aria-hidden="false"></span>Game Properties</a></li>
-                                <li style="display: none"><a class="dropdown-item noselect" id="game-tools-close"><span class="tools-menu-icon fa-solid fa-xmark dropdown-icon" aria-hidden="false"></span>Close Game</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-properties"><span class="menu-icon fa-solid fa-file-pen dropdown-icon" aria-hidden="false"></span>Game Properties</a></li>
+                                <li style="display: none"><a class="dropdown-item noselect" id="game-tools-close"><span class="menu-icon fa-solid fa-xmark dropdown-icon" aria-hidden="false"></span>Close Game</a></li>
                               </ul>
                             </div>
                           </div>
@@ -746,10 +742,6 @@
                 </div>
               </div>
               <div class="btn-toolbar my-auto ms-auto">
-                <button id="chat-maximize-btn" class="btn btn-outline-secondary btn-md position-relative" type="button" aria-label="Maximize Chat">
-                  <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" data-fallback-placements="left, right" title="Maximize Chat"></div>
-                  <span id="chat-maximize-icon" class="fa fa-toggle-left" aria-hidden="false"></span>
-                </button>
                 <button id="users-btn" class="btn btn-outline-secondary btn-md" type="button" aria-label="Users" data-bs-toggle="tooltip" data-fallback-placements="left, right" title="Users">
                   <span id="users-icon" class="fa-solid fa-users" aria-hidden="false"></span>
                 </button>
@@ -947,14 +939,20 @@
                   </button>
                   <span></span> <!-- This tricks bootstrap into allowing the outer <span> wrapper in a btn-toolbar (so we can have a tooltip on a disabled button) -->
                 </span>
-                <button id="chat-toggle-btn" style="position: relative" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-chat" aria-expanded="true" aria-label="Show/Hide Chat" aria-controls="collapse-chat">
-                  <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" title="Show/Hide Chat"></div>
-                  <span id="chat-toggle-icon" class="fa fa-comment" aria-hidden="false"></span>
-                  <svg id="chat-unviewed-bubble" class="counter-bubble h-100 w-100" style="display: none; position: absolute; top: 0; left: 0">
-                    <circle cx="50%" cy="50%" transform="translate(6, -6)" r="6" />
-                    <text id="chat-unviewed-number" class="counter-number" x="50%" y="50%" transform="translate(6, -5)" text-anchor="middle" alignment-baseline="middle"></text>
-                  </svg>
-                </button>
+                <div>
+                  <button id="chat-toggle-btn" style="position: relative" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="dropdown" data-bs-target="#chat-toggle-menu" aria-controls="chat-toggle-menu" aria-expanded="false" aria-label="Chat">
+                    <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" data-fallback-placements="left, right" title="Chat"></div>
+                    <span id="chat-toggle-icon" class="fa fa-comment" aria-hidden="false"></span>
+                    <svg id="chat-unviewed-bubble" class="counter-bubble h-100 w-100" style="display: none; position: absolute; top: 0; left: 0">
+                      <circle cx="50%" cy="50%" transform="translate(6, -6)" r="6" />
+                      <text id="chat-unviewed-number" class="counter-number" x="50%" y="50%" transform="translate(6, -5)" text-anchor="middle" alignment-baseline="middle"></text>
+                    </svg>
+                  </button>
+                  <ul class="dropdown-menu noselect" id="chat-toggle-menu">
+                    <li><a class="dropdown-item" data-action="maximize"><span class="menu-icon fa-solid fa-up-right-and-down-left-from-center dropdown-icon" aria-hidden="false"></span><span class="menu-label">Maximize Chat</span></a></li>
+                    <li><a class="dropdown-item" data-action="show-hide"><span class="menu-icon fa-solid fa-eye-slash dropdown-icon" aria-hidden="false"></span><span class="menu-label">Hide Chat</span></a></li>
+                  </ul>
+                </div>
               </div>
               <div class="modal fade" id="users-modal" tabindex="-1" aria-labelledby="users-modal-label" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">

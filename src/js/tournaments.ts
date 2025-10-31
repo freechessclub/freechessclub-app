@@ -674,7 +674,7 @@ export class Tournaments {
             }
           }
           else {
-            // Tournament has started or has ended, get the standard grid, 
+            // Tournament hasn't started or has ended, get the standard grid, 
             // so we can display the winner (if there is one)
             awaiting.set('td-standardgrid');
             this.session.send(`td standardgrid ${tourney.id}`);
@@ -783,6 +783,41 @@ export class Tournaments {
           playersModal.on('hidden.bs.modal', () => playersModal.remove());
           playersModal.appendTo('body').modal('show');        
         }
+        this.tdMessage = '';
+      }
+      return true;
+    }
+
+    match = msg.match(/^:Tourney #(\d+) is empty./m);
+    if(match && awaiting.resolve('td-players')) {
+      awaiting.resolve('tourney-players-dialog');
+      awaiting.set('td-listtourneyvariables');
+      this.session.send(`td listtourneyvariables ${match[1]}`);
+      return true;
+    }
+
+    pattern = /^:Variable settings of tourney #(\d+)/m;
+    if((pattern.test(msg) || pattern.test(this.tdMessage)) && awaiting.has('td-listtourneyvariables')) {
+      this.tdMessage += msg + '\n';
+      const matchLastLine = msg.match(/:Use "td next" to see the next page./m);
+      if(matchLastLine) {
+        awaiting.resolve('td-listtourneyvariables');
+        const matchIDLine = this.tdMessage.match(pattern);
+        const id = +matchIDLine[1];
+        const matchTitleLine = this.tdMessage.match(/^:Name:\s+".*?"/m);
+        const title = matchTitleLine[1];
+        // Check if we have pending tournaments that need to be 
+        // matched with existing cards
+        for(let i = this.pendingTournaments.length - 1; i >= 0; i--) {
+          const pt = this.pendingTournaments[i];
+          if(pt.id === id) {
+            pt.title = title;
+            pt.numPlayers = 0;
+            this.addTournament(pt); // Add or update a tournament card
+            this.pendingTournaments.splice(i, 1);
+          }
+        }
+        this.updateAllTournaments({}); // This will remove old completed tournaments that are no longer stored or recurring    
         this.tdMessage = '';
       }
       return true;

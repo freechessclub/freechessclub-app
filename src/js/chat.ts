@@ -133,14 +133,11 @@ const emoticons = {
   ':\'-(': '😭'
 };
 
-let maximized = false;
-
 export class Chat {
   private user: string;
   private userRE: RegExp;
   private timezone: string;
   private tabData: object;
-  private maximized: boolean;
   private isConnected: boolean;
   private unviewedNum: number;
   private virtualScrollerPromise: Promise<typeof import('virtual-scroller/dom')>;
@@ -187,9 +184,17 @@ export class Chat {
     });
 
     $('#collapse-chat').on('hide.bs.collapse', () => {
+      $('#chat-toggle-btn').removeClass('toggle-btn-selected');
+
       const activeTab = $('#tabs button').filter('.active');
       if(activeTab.length)
         activeTab.trigger('hide.bs.tab');
+
+      this.toggleMaximizeChat(false);
+      const menuItem = $('#chat-toggle-menu [data-action="show-hide"]');
+      menuItem.find('.menu-label').text('Show Chat');
+      menuItem.find('.dropdown-icon').removeClass('fa-eye-slash');
+      menuItem.find('.dropdown-icon').addClass('fa-eye');
     });
 
     $('#collapse-chat').on('hidden.bs.collapse', () => {
@@ -215,10 +220,11 @@ export class Chat {
         $('body').removeClass('chat-hidden');
         $(window).trigger('resize');
       }
-    });
 
-    $('#collapse-chat').on('hide.bs.collapse', () => {
-      $('#chat-toggle-btn').removeClass('toggle-btn-selected');
+      const menuItem = $('#chat-toggle-menu [data-action="show-hide"]');
+      menuItem.find('.menu-label').text('Hide Chat');
+      menuItem.find('.dropdown-icon').removeClass('fa-eye');
+      menuItem.find('.dropdown-icon').addClass('fa-eye-slash');
     });
 
     $('#collapse-chat-arrow').on('click', () => {
@@ -242,30 +248,49 @@ export class Chat {
     });
 
     $('#chat-maximize-btn').on('click', () => {
-      if(maximized) {
-        $('#chat-maximize-icon').removeClass('fa-toggle-right').addClass('fa-toggle-left');
-        $('#chat-maximize-btn').attr('aria-label', 'Maximize Chat');
-        $('#chat-maximize-btn .tooltip-overlay').attr('title', 'Maximize Chat');
-        createTooltip($('#chat-maximize-btn .tooltip-overlay'));
-        if($('#secondary-board-area > .game-card').length)
-          $('#secondary-board-area').css('display', 'flex');
-        maximized = false;
-      } else {
-        $('#chat-maximize-icon').removeClass('fa-toggle-left').addClass('fa-toggle-right');
-        $('#chat-maximize-btn').attr('aria-label', 'Unmaximize Chat');
-        $('#chat-maximize-btn .tooltip-overlay').attr('title', 'Unmaximize Chat');
-        createTooltip($('#chat-maximize-btn .tooltip-overlay'));
-        $('#collapse-chat').collapse('show');
-        $('#secondary-board-area').hide();
-        maximized = true;
-      }
-      $('#left-col').toggleClass('d-none');
-      $('#mid-col').toggleClass('d-none');
-      $(window).trigger('resize');
+      this.toggleMaximizeChat();
+    });
+    
+    $('#chat-toggle-btn').on('click', () => {
+      if(isSmallWindow())
+        $('#collapse-chat').collapse('toggle');
+    });
+
+    $('#chat-toggle-menu').on('click', '.dropdown-item', (e) => {
+      const action = $(e.currentTarget).attr('data-action');
+      if(action === 'maximize') 
+        this.toggleMaximizeChat();
+      else if(action === 'show-hide') 
+        $('#collapse-chat').collapse('toggle');
     });
 
     this.initStartChatMenu();
     this.initEmojis();
+  }
+
+  public toggleMaximizeChat(maximize?: boolean) {
+    const menuItem = $('#chat-toggle-menu [data-action="maximize"]');
+
+    if($('#mid-col').hasClass('d-none')) {
+      if(maximize === true)
+        return;
+
+      if($('#secondary-board-area > .game-card').length)
+        $('#secondary-board-area').css('display', 'flex');
+      menuItem.find('.menu-label').text('Maximize Chat');
+    } else {
+      if(maximize === false)
+        return;
+
+      $('#collapse-chat').collapse('show');
+      $('#secondary-board-area').hide();
+      menuItem.find('.menu-label').text('Unmaximize Chat');
+    }
+    $('#left-col').toggleClass('d-none');
+    $('#mid-col').toggleClass('d-none');
+    menuItem.find('.dropdown-icon').toggleClass('fa-up-right-and-down-left-from-center');
+    menuItem.find('.dropdown-icon').toggleClass('fa-down-left-and-up-right-to-center');
+    $(window).trigger('resize');
   }
 
   public connected(user: string): void {
