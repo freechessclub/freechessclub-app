@@ -87,6 +87,10 @@ $('#advanced-settings-back').on('click', () => {
   $('#basic-settings').show();
 });
 
+export function getShortcuts() {
+  return shortcuts;
+}
+
 function initShortcuts() {
   shortcuts = JSON.parse(storage.get('custom-shortcuts') || '[]');
 
@@ -217,22 +221,6 @@ function initShortcuts() {
   $('#shortcuts-list').on('click', 'a', (event) => {
     const menuItem = $(event.target);
     selectShortcutMenuItem(menuItem);
-  });
-
-  $(document).on("keydown", (e) => {
-    shortcuts.forEach(shortcut => {
-      if(e.code === shortcut.code 
-          && e.ctrlKey === shortcut.ctrlKey
-          && e.metaKey === shortcut.metaKey
-          && e.shiftKey === shortcut.shiftKey
-          && e.altKey === shortcut.altKey) {
-        const commands = shortcut.commands;
-        if(commands) {
-          e.preventDefault(); // prevent default browser behavior
-          commands.forEach((c: string) => (window as any).sessionSend(c));
-        }
-      }
-    });    
   });
 }
 
