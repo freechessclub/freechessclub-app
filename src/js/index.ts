@@ -24,6 +24,7 @@ import * as Sounds from './sounds';
 import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
 import { Reason } from './parser';
+import { getShortcuts } from './ui';
 import './ui';
 import packageInfo from '../../package.json';
 
@@ -55,6 +56,7 @@ let mexamineGame: Game | null = null;
 let rematchUser = '';
 let computerList = [];
 let numPVs = 1;
+let lastOpponent: string = ''; // The opponent of the current or last game played 
 let prevSizeCategory = null;
 let layout = Layout.Desktop;
 let keepAliveTimer; // Stop FICS auto-logout after 60 minutes idle
@@ -237,6 +239,31 @@ $(document).on('keydown', (e) => {
 
   else if(e.key === 'ArrowRight')
     forward();
+});
+
+/** Handle keyboard shortcuts */
+$(document).on("keydown", (e) => {
+  const user = session?.getUser() || '';
+  const gameID = games.getPlayingExaminingGame()?.id.toString() || '';
+  const shortcuts = getShortcuts();
+  shortcuts.forEach(shortcut => {
+    if(e.code === shortcut.code 
+        && e.ctrlKey === shortcut.ctrlKey
+        && e.metaKey === shortcut.metaKey
+        && e.shiftKey === shortcut.shiftKey
+        && e.altKey === shortcut.altKey) {
+      const commands = shortcut.commands;
+      if(commands) {
+        e.preventDefault(); // prevent default browser behavior
+        commands.forEach((c: string) => {
+          c = c.replace(/%user%/gi, user);
+          c = c.replace(/%opponent%/gi, lastOpponent);
+          c = c.replace(/%game%/gi, gameID);
+          (window as any).sessionSend(c);
+        });
+      }
+    }
+  });    
 });
 
 /**
@@ -858,6 +885,10 @@ function gameStart(game: Game) {
     game.color = 'w';
   else
     game.color = 'b';
+
+  if(game.isPlayingOnline()) {
+    lastOpponent = game.color === 'w' ? game.bname : game.wname;
+  }
 
   // Set game board text
   const whiteStatus = game.element.find(game.color === 'w' ? '.player-status' : '.opponent-status');

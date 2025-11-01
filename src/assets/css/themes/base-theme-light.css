@@ -370,3 +370,9 @@ cg-board {
 .users-table .offline {
   color: color-mix(in srgb, var(--bs-table-striped-color) 60%, white 40%);
 }
+
+.macros-key-description {
+  color: color-mix(in srgb, var(--fg-color) 70%, white 30%);
+}
+
+

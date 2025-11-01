@@ -490,3 +490,10 @@ a {
 .users-table .offline {
   color: color-mix(in srgb, var(--bs-table-striped-color) 65%, black 35%);
 }
+
+.macros-key-name {
+  color: lightgray;
+}
+.macros-key-description {
+  color: #AAAAAA;
+}

@@ -1047,6 +1047,13 @@ input[type="number"]:focus {
   overflow-x: hidden;
 }
 
+#macros-key {
+  font-size: 0.8rem;
+}
+.macros-key-description {
+  font-style: italic;
+}
+
 .tournament-group {
   padding-left: 0.5rem;
   padding-right: 0.5rem;

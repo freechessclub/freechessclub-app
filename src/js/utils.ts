@@ -617,7 +617,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
   menu.css({
     'position': 'fixed',
     'display': 'block',
-    'z-index': '2000',
+    'z-index': '1071', // This z-index is above modals but below tooltips
   });
   $('body').append(menu);
 
