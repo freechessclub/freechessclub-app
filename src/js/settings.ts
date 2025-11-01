@@ -23,6 +23,10 @@ export const settings = {
   smartmoveToggle: false,
   // toggle for remembering user's login and password between sessions
   rememberMeToggle: false,
+  // toggle for showing the eval bar when the engine is running
+  evalBarToggle: true,
+  // toggle for showing the best move arrow when the engine is running
+  bestMoveArrowToggle: true,
 
   /** Chat settings */
 
