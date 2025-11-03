@@ -24,6 +24,7 @@ import * as Sounds from './sounds';
 import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
 import { Reason } from './parser';
+import * as pako from 'pako';
 import './ui';
 import packageInfo from '../../package.json';
 
@@ -173,6 +174,149 @@ async function onDeviceReady() {
   }
 
   Utils.initDropdownSubmenus();
+
+  initSharedGameLink();
+}
+
+function initSharedGameLink() {
+  if(!session)
+    return;
+
+  const params = new URLSearchParams(window.location.search);
+  const observeId = sanitizeSharedGameId(params.get('observe'));
+  if(observeId) {
+    startSharedObserve(observeId);
+    return;
+  }
+
+  const encodedPgn = sanitizeSharedPgn(params.get('pgn'));
+  if(encodedPgn)
+    void startSharedPgn(encodedPgn);
+}
+
+function sanitizeSharedGameId(rawValue: string | null): string | null {
+  if(!rawValue)
+    return null;
+
+  const trimmed = rawValue.trim();
+  if(!trimmed || !/^\d+$/.test(trimmed))
+    return null;
+
+  return trimmed;
+}
+
+function sanitizeSharedPgn(rawValue: string | null): string | null {
+  if(!rawValue)
+    return null;
+
+  const trimmed = rawValue.trim();
+  if(!trimmed || /[^0-9A-Za-z_-]/.test(trimmed))
+    return null;
+
+  return trimmed;
+}
+
+function startSharedObserve(gameId: string) {
+  $('#observe-username').val(gameId);
+  $('#pills-observe-tab').tab('show');
+
+  observe(gameId);
+}
+
+async function startSharedPgn(encodedPgn: string) {
+  let pgn: string;
+  try {
+    pgn = decodePGN(encodedPgn);
+  } catch(err) {
+    Utils.logError('Failed to decode shared PGN link.', err);
+    chat?.newNotification('Invalid shared game link.');
+    return;
+  }
+
+  try {
+    await loadSharedPgnGame(pgn);
+  } catch(err) {
+    Utils.logError('Failed to load shared PGN.', err);
+    chat?.newNotification('Unable to load shared game.');
+  }
+}
+
+async function loadSharedPgnGame(pgn: string) {
+  let targetGame = games.getFreeGame();
+  let createdGame = false;
+  if(!targetGame) {
+    targetGame = createGame();
+    createdGame = true;
+  }
+
+  const preparedGame = newGame(false, targetGame);
+  if(!preparedGame)
+    throw new Error('Unable to prepare a board for the shared game.');
+
+  const history = preparedGame.history;
+  preparedGame.historyList.length = 0;
+
+  const { tags, moves } = splitPgnSections(pgn);
+  if(tags) {
+    const metatags = await parsePGNMetadata(tags);
+    if(metatags)
+      history.setMetatags(metatags, true);
+  }
+
+  history.pgn = moves || null;
+  preparedGame.historyList.push(history);
+  await setCurrentHistory(preparedGame, 0);
+  updateGamePreserved(preparedGame, true);
+  setGameWithFocus(preparedGame);
+  if(createdGame)
+    maximizeGame(preparedGame);
+}
+
+function splitPgnSections(pgn: string): { tags: string | null; moves: string | null } {
+  const tagMatch = pgn.match(/^(\s*(?:\[[^\]]+\]\s*)+)/);
+  if(tagMatch) {
+    const tags = tagMatch[1].trim();
+    const moves = pgn.slice(tagMatch[0].length).trim();
+    return { tags, moves: moves || null };
+  }
+
+  const trimmed = pgn.trim();
+  return { tags: null, moves: trimmed || null };
+}
+
+function toBase64Url(uint8array: Uint8Array): string {
+  let binary = '';
+  for(let i = 0; i < uint8array.length; i++)
+    binary += String.fromCharCode(uint8array[i]);
+
+  const b64 = btoa(binary);
+  return b64
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+function fromBase64Url(b64url: string): Uint8Array {
+  let b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  while(b64.length % 4)
+    b64 += '=';
+
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for(let i = 0; i < binary.length; i++)
+    bytes[i] = binary.charCodeAt(i);
+
+  return bytes;
+}
+
+function encodePGN(pgn: string): string {
+  const compressed = pako.deflate(pgn);
+  return toBase64Url(compressed);
+}
+
+function decodePGN(b64url: string): string {
+  const compressed = fromBase64Url(b64url);
+  return pako.inflate(compressed, { to: 'string' });
 }
 
 $(window).on('load', async () => {
@@ -4724,6 +4868,12 @@ function initGameTools(game: Game) {
     $('#game-tools-clone').parent().toggle(settings.multiboardToggle); // Only show 'Duplicate GAme' option in multiboard mode
     $('#game-tools-clone').toggleClass('disabled', game.isPlaying()); // Don't allow cloning of a game while playing (could allow cheating)
 
+    const canShareGame = getGameShareTarget(game) != null;
+    const shareButton = $('#game-share-link');
+    shareButton.toggleClass('disabled', !canShareGame);
+    shareButton.prop('disabled', !canShareGame);
+    shareButton.attr('aria-disabled', String(!canShareGame));
+
     const mainGame = games.getPlayingExaminingGame();
     $('#game-tools-examine').toggleClass('disabled', (mainGame && mainGame.isPlayingOnline()) || game.isPlaying() || game.isExamining()
         || game.category === 'wild/fr' || game.category === 'wild/0' // Due to a bug in 'bsetup' it's not possible to convert some wild variants to examine mode
@@ -5519,6 +5669,133 @@ function savePGN(game: Game, pgn: string) {
 $('#game-tools-clone').on('click', () => {
   cloneGame(games.focused);
 });
+
+$('#game-share-link').on('click', async (event) => {
+  if($(event.currentTarget).hasClass('disabled') || $(event.currentTarget).prop('disabled'))
+    return;
+
+  const game = games.focused;
+  const shareTarget = game ? getGameShareTarget(game) : null;
+  if(!game || !shareTarget) {
+    chat.newNotification('No shareable game available.');
+    return;
+  }
+
+  let shareUrl: string;
+  try {
+    shareUrl = buildGameShareLink(game, shareTarget);
+  } catch(err) {
+    Utils.logError('Failed to build game share link.', err);
+    chat.newNotification('Unable to create a shareable game link.');
+    return;
+  }
+  const copied = await copyTextToClipboard(shareUrl);
+  const successMessage = shareTarget.mode === 'observe'
+    ? 'Game link copied to clipboard.'
+    : 'Game analysis link copied to clipboard.';
+  if(copied)
+    chat.newNotification(successMessage);
+  else {
+    window.prompt('Copy this game link to share:', shareUrl);
+    chat.newNotification(`Copy this link to share the game: ${shareUrl}`);
+  }
+});
+
+function buildGameShareLink(game: Game, target?: GameShareTarget): string {
+  const shareTarget = target ?? getGameShareTarget(game);
+  if(!game || !shareTarget)
+    throw new Error('No shareable game available.');
+
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.hash = '';
+  if(shareTarget.mode === 'observe')
+    url.searchParams.set('observe', String(shareTarget.id));
+  else
+    url.searchParams.set('pgn', encodePGN(shareTarget.pgn));
+
+  return url.toString();
+}
+
+type GameShareTarget = { mode: 'observe'; id: number } | { mode: 'pgn'; pgn: string };
+
+function getGameShareTarget(game: Game): GameShareTarget | null {
+  if(!game)
+    return null;
+
+  if(canShareLiveGame(game))
+    return { mode: 'observe', id: game.id };
+
+  if(canSharePgn(game)) {
+    const pgn = gameToPGN(game);
+    if(pgn)
+      return { mode: 'pgn', pgn };
+  }
+
+  return null;
+}
+
+function canShareLiveGame(game: Game): boolean {
+  return game.id != null && game.id > 0 && isGameInProgress(game);
+}
+
+function isGameInProgress(game: Game): boolean {
+  if(game.isPlayingOnline())
+    return true;
+
+  if(game.isObserving() && game.role !== Role.OBS_EXAMINED)
+    return isResultPending(game.history?.metatags?.Result);
+
+  return false;
+}
+
+function isResultPending(result: string | undefined): boolean {
+  return !result || result === '*';
+}
+
+function canSharePgn(game: Game): boolean {
+  return !!game.history;
+}
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  if(navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to legacy copy behaviour
+    }
+  }
+
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.setAttribute('readonly', '');
+  textArea.style.position = 'absolute';
+  textArea.style.left = '-9999px';
+  document.body.appendChild(textArea);
+
+  const selection = document.getSelection();
+  const selectedRange = selection?.rangeCount ? selection.getRangeAt(0) : null;
+
+  textArea.select();
+  textArea.setSelectionRange(0, textArea.value.length);
+
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } catch {
+    copied = false;
+  }
+
+  document.body.removeChild(textArea);
+
+  if(selectedRange) {
+    selection?.removeAllRanges();
+    selection?.addRange(selectedRange);
+  }
+
+  return copied;
+}
 
 /**
  * Make an exact copy of a game with its own board, move list and status panels.
