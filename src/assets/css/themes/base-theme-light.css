@@ -231,6 +231,10 @@ cg-board {
   border-color: rgba(0,0,0,.125);
 }
 
+#engine-panel .btn-check:checked+.btn, #engine-panel .btn-check+.btn {
+  color: #6c757d;
+}
+
 #engine-pvs > li:nth-of-type(even) {
   background-color: rgba(0, 0, 0, 0.05);
 }
@@ -257,6 +261,13 @@ cg-board {
 /*.eval-hover-line {
   stroke: currentColor;
 }*/
+
+.eval-bar-white {
+  background-color: #D0CECE;
+}
+.eval-bar-black {
+  background-color: #514640;
+}
 
 .promotion-panel {
   background-color: white;
@@ -359,3 +370,9 @@ cg-board {
 .users-table .offline {
   color: color-mix(in srgb, var(--bs-table-striped-color) 60%, white 40%);
 }
+
+.macros-key-description {
+  color: color-mix(in srgb, var(--fg-color) 70%, white 30%);
+}
+
+

@@ -617,7 +617,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
   menu.css({
     'position': 'fixed',
     'display': 'block',
-    'z-index': '2000',
+    'z-index': '1071', // This z-index is above modals but below tooltips
   });
   $('body').append(menu);
 
@@ -823,7 +823,7 @@ export function getScrollbarWidth(): number {
  * Calculates the height taken up by an ancestor element's contents after a specified descendant element's
  * height is subtracted.
  * Note 1: Contents includes the padding, margin and border of each element between the descendant and ancestor
- * (including the ancestor), as well as the siblings of each element.
+ * (including the ancestor), as well as the vertical siblings of each element.
  * Note 2: All the ancestors of the descendant element are assumed to have height equal to their contents
  * @descendant Element whose outer height is subtracted
  * @ancestor Element to get remaining height for
@@ -834,12 +834,15 @@ export function getRemainingHeight(descendant: JQuery<HTMLElement>, ancestor: JQ
   let remHeight = 0;
   let currElem = descendant;
   while(!currElem.is(ancestor)) {
+    const currRect = currElem[0].getBoundingClientRect();
     if(descendant !== currElem)
       remHeight += currElem.outerHeight(true) - currElem.height();
-    if((!excludeSiblings || !currElem.is(excludeSiblings)) && !currElem.is('[class*="col-"]')) {
+    if((!excludeSiblings || !currElem.is(excludeSiblings)) && !currElem.hasClass('main-col')) {
       const siblings = currElem.siblings();
       siblings.each(function() {
-        if($(this).is(':visible') && $(this).css('position') !== 'absolute' && $(this).css('position') !== 'fixed')
+        const siblingRect = this.getBoundingClientRect(); 
+        if($(this).is(':visible') && $(this).css('position') !== 'absolute' && $(this).css('position') !== 'fixed'
+            && (currRect.bottom - siblingRect.top < 1 || currRect.top - siblingRect.bottom > -1)) // If 2 siblings overlap vertically by at most 1 pixel then we assume they are stacked vertically
           remHeight += $(this).outerHeight(true);
       });
     }
@@ -848,6 +851,33 @@ export function getRemainingHeight(descendant: JQuery<HTMLElement>, ancestor: JQ
   remHeight += currElem.outerHeight(true) - currElem.height();
 
   return remHeight;
+}
+
+/**
+ * Calculates the width taken up by an ancestor element's contents after a specified descendant element's
+ * width is subtracted. See getRemainingHeight() for more details.
+ */
+export function getRemainingWidth(descendant: JQuery<HTMLElement>, ancestor: JQuery<HTMLElement> = $('body'), excludeSiblings?: string): number {
+  let remWidth = 0;
+  let currElem = descendant;
+  while(!currElem.is(ancestor)) {
+    const currRect = currElem[0].getBoundingClientRect();
+    if(descendant !== currElem) 
+      remWidth += currElem.outerWidth(true) - currElem.width();
+    if(!excludeSiblings || !currElem.is(excludeSiblings)) {
+      const siblings = currElem.siblings();
+      siblings.each(function() {
+        const siblingRect = this.getBoundingClientRect();
+        if($(this).is(':visible') && $(this).css('position') !== 'absolute' && $(this).css('position') !== 'fixed'
+            && (currRect.right - siblingRect.left < 1 || currRect.left - siblingRect.right > -1)) // If 2 siblings overlap horizontally by at most 1 pixel then we assume they are stacked horizontally
+          remWidth += $(this).outerWidth(true);
+      });
+    }
+    currElem = currElem.parent();
+  }
+  remWidth += currElem.outerWidth(true) - currElem.width();
+
+  return remWidth;
 }
 
 /**

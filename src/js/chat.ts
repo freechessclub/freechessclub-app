@@ -282,7 +282,7 @@ export class Chat {
       if(maximize === false)
         return;
 
-      $('#collapse-chat').collapse('show');
+      $('#collapse-chat').addClass('show');
       $('#secondary-board-area').hide();
       menuItem.find('.menu-label').text('Unmaximize Chat');
     }

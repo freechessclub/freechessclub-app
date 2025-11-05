@@ -24,6 +24,7 @@ import * as Sounds from './sounds';
 import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
 import { Reason } from './parser';
+import { getShortcuts } from './ui';
 import './ui';
 import packageInfo from '../../package.json';
 
@@ -55,6 +56,7 @@ let mexamineGame: Game | null = null;
 let rematchUser = '';
 let computerList = [];
 let numPVs = 1;
+let lastOpponent: string = ''; // The opponent of the current or last game played 
 let prevSizeCategory = null;
 let layout = Layout.Desktop;
 let keepAliveTimer; // Stop FICS auto-logout after 60 minutes idle
@@ -237,6 +239,31 @@ $(document).on('keydown', (e) => {
 
   else if(e.key === 'ArrowRight')
     forward();
+});
+
+/** Handle keyboard shortcuts */
+$(document).on("keydown", (e) => {
+  const user = session?.getUser() || '';
+  const gameID = games.getPlayingExaminingGame()?.id.toString() || '';
+  const shortcuts = getShortcuts();
+  shortcuts.forEach(shortcut => {
+    if(e.code === shortcut.code 
+        && e.ctrlKey === shortcut.ctrlKey
+        && e.metaKey === shortcut.metaKey
+        && e.shiftKey === shortcut.shiftKey
+        && e.altKey === shortcut.altKey) {
+      const commands = shortcut.commands;
+      if(commands) {
+        e.preventDefault(); // prevent default browser behavior
+        commands.forEach((c: string) => {
+          c = c.replace(/%user%/gi, user);
+          c = c.replace(/%opponent%/gi, lastOpponent);
+          c = c.replace(/%game%/gi, gameID);
+          (window as any).sessionSend(c);
+        });
+      }
+    }
+  });    
 });
 
 /**
@@ -429,45 +456,52 @@ function setLeftColumnSizes() {
   }
 }
 
-function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: number) {
+function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: number, useRoundingCorrection = true) {
   const card = game.element;
-  let cardWidth: number;
-  const roundingCorrection = (card.hasClass('game-card-sm') ? 0.032 : 0.1);
+  let boardWidth: number;
+  
+  let roundingCorrection = (card.hasClass('game-card-sm') ? 0.032 : 0.1);
+
+  const remainingWidth = Utils.getRemainingWidth(card.find('.board-container'), card);
+  const remainingHeight = Utils.getRemainingHeight(card.find('.board-container'), card);
 
   if(cardMaxWidth !== undefined || cardMaxHeight !== undefined) {
-    const cardBorderWidth = card.outerWidth() - card.width();
-    let boardMaxWidth = cardMaxWidth - cardBorderWidth;
-
-    const remHeight = card.outerHeight() - card.find('.card-body').height();
-    let boardMaxHeight = cardMaxHeight - remHeight;
+    let boardMaxWidth = cardMaxWidth - remainingWidth;
+    let boardMaxHeight = cardMaxHeight - remainingHeight;
 
     if(!cardMaxWidth)
       boardMaxWidth = boardMaxHeight;
     if(!cardMaxHeight)
       boardMaxHeight = boardMaxWidth;
 
-    cardWidth = Math.min(boardMaxWidth, boardMaxHeight) - roundingCorrection;
+    boardWidth = Math.min(boardMaxWidth, boardMaxHeight) - (useRoundingCorrection ? roundingCorrection : 0);
   }
   else {
     card.css('width', '');
-    cardWidth = card.width();
+    boardWidth = card.width() - remainingWidth;
   }
 
   // Recalculate the width of the board so that the squares align to integer pixel boundaries, this is to match
   // what chessground does internally
-  cardWidth = (Math.floor((cardWidth * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio + roundingCorrection;
+  boardWidth = (Math.floor((boardWidth * window.devicePixelRatio) / 8) * 8) / window.devicePixelRatio + roundingCorrection;
+
+  const cardWidth = boardWidth + remainingWidth;
+  const cardHeight = boardWidth + remainingHeight;
 
   // Set card width
-  card.width(cardWidth);
+  const cardBorderWidth = card.outerWidth() - card.width();
+  card.width(cardWidth - cardBorderWidth);
   game.board.redrawAll();
+
+  return { width: cardWidth, height: cardHeight }
 }
 
 function setRightColumnSizes() {
-  if($('body').hasClass('chat-hidden') || !$('#collapse-chat').hasClass('show'))
-    return;
+  const chatVisible = !$('body').hasClass('chat-hidden') && $('#collapse-chat').hasClass('show');
   const boardHeight = $('#main-board-area .board').innerHeight();
+
   // Set chat panel height to 0 before resizing everything so as to remove scrollbar on window caused by chat overflowing
-  if(Utils.isLargeWindow())
+  if(Utils.isLargeWindow() && chatVisible)
     $('#chat-panel').height(0);
 
   // Set width and height of game cards in the right board area
@@ -477,15 +511,40 @@ function setRightColumnSizes() {
   else
     $('#secondary-board-area').css('overflow-y', 'hidden');
 
+  let boardAreaHeight = 0;
+  if(numCards > 0) {
+    const cardsPerRow = Utils.isLargeWindow() ? Math.min(2, numCards) : 2;
+    const cardHeight = Utils.isLargeWindow() ? boardHeight * 0.6 : null;
+    const boardAreaScrollbarWidth = $('#secondary-board-area')[0].offsetWidth - $('#secondary-board-area')[0].clientWidth;
+    const innerWidth = $('#secondary-board-area').width() - boardAreaScrollbarWidth - 1;
+    const cardWidth = innerWidth / cardsPerRow - parseInt($('#secondary-board-area').css('gap'), 10) * (cardsPerRow - 1) / cardsPerRow;
+
+    // Set the size of any card with an eval bar showing first, and its sibling on the same row (to match heights)
+    let evalGame = null;
+    let evalGameAdjacent = null;
+    if(isSecondaryBoard(games.focused)) {
+      const evalCard = games.focused.element;
+      const evalBar = evalCard.find('.eval-bar');
+      const index = evalCard.index();
+      const adjacentCard = (index % 2 === 0 ? evalCard.next() : evalCard.prev());
+      if(evalBar.is(':visible') && adjacentCard.length) {
+        evalGame = games.focused;
+        evalGameAdjacent = Array.from(games).find(g => g.element.is(adjacentCard));
+        const evalBarCardWidth = cardWidth + evalBar.outerWidth() / 2; // Add some more width since the eval bar will cause the board to be smaller
+        boardAreaHeight = setGameCardSize(evalGame, evalBarCardWidth, cardHeight).height;
+        setGameCardSize(evalGameAdjacent, evalBarCardWidth, boardAreaHeight, false); // Last parameter is false in order to match heights exactly
+      }
+    }
+
+    // Set the size of the other secondary game cards
+    for(const game of games) {
+      if(isSecondaryBoard(game) && game !== evalGame && game !== evalGameAdjacent)
+        boardAreaHeight = setGameCardSize(game, cardWidth, cardHeight).height; 
+    }
+  }
+
   for(const game of games) {
-    if(game.element.parent().is($('#secondary-board-area'))) {
-      const cardsPerRow = Utils.isLargeWindow() ? Math.min(2, numCards) : 2;
-      const cardHeight = Utils.isLargeWindow() ? boardHeight * 0.6 : null;
-
-      const boardAreaScrollbarWidth = $('#secondary-board-area')[0].offsetWidth - $('#secondary-board-area')[0].clientWidth;
-      const innerWidth = $('#secondary-board-area').width() - boardAreaScrollbarWidth - 1;
-      setGameCardSize(game, innerWidth / cardsPerRow - parseInt($('#secondary-board-area').css('gap'), 10) * (cardsPerRow - 1) / cardsPerRow, cardHeight);
-
+    if(isSecondaryBoard(game)) {
       // These variables are used to resize status panel elements based on the width / height of the panel
       const topPanel = game.element.find('.top-panel');
       topPanel.css('--panel-height', topPanel.css('height'));
@@ -499,22 +558,24 @@ function setRightColumnSizes() {
   if(Utils.isSmallWindow())
     $('#secondary-board-area').css('height', '');
   else
-    $('#secondary-board-area').height($('#secondary-board-area > :first-child').outerHeight());
+    $('#secondary-board-area').height(boardAreaHeight);
 
-  if(!Utils.isLargeWindow() || !boardHeight) {
-    const hasSiblings = $('#collapse-chat').siblings(':visible').length > 0; // If there are game boards in the right column, then don't try to fit the header and chat into the same screen height
-    const border = $('#chat-panel').outerHeight(true) - $('#chat-panel').height();
-    $('#chat-panel').height($(window).height() - Utils.getRemainingHeight($('#chat-panel'), $('body'), `#collapse-chat ${hasSiblings ? ', #inner-right-panels' : ''}`) - border);
-  }
-  else {
-    const remHeight = Utils.getRemainingHeight($('#chat-panel'), $('#inner-right-panels'));
-    const chatPanelBorder = $('#chat-panel').outerHeight(true) - $('#chat-panel').height();
-    $('#chat-panel').height(boardHeight + $('#left-panel-footer').outerHeight() - remHeight - chatPanelBorder);
-  }
+  if(chatVisible) {
+    if(!Utils.isLargeWindow() || !boardHeight) {
+      const hasSiblings = $('#collapse-chat').siblings(':visible').length > 0; // If there are game boards in the right column, then don't try to fit the header and chat into the same screen height
+      const border = $('#chat-panel').outerHeight(true) - $('#chat-panel').height();
+      $('#chat-panel').height($(window).height() - Utils.getRemainingHeight($('#chat-panel'), $('body'), `#collapse-chat ${hasSiblings ? ', #inner-right-panels' : ''}`) - border);
+    }
+    else {
+      const remHeight = Utils.getRemainingHeight($('#chat-panel'), $('#inner-right-panels'));
+      const chatPanelBorder = $('#chat-panel').outerHeight(true) - $('#chat-panel').height();
+      $('#chat-panel').height(boardHeight + $('#left-panel-footer').outerHeight() - remHeight - chatPanelBorder);
+    }
 
-  adjustInputTextHeight();
-  if(chat)
-    chat.fixScrollPosition();
+    adjustInputTextHeight();
+    if(chat)
+      chat.fixScrollPosition();
+  }
 }
 
 function calculateFontSize(container: any, containerMaxWidth: number, minWidth?: number, maxWidth?: number) {
@@ -824,6 +885,10 @@ function gameStart(game: Game) {
     game.color = 'w';
   else
     game.color = 'b';
+
+  if(game.isPlayingOnline()) {
+    lastOpponent = game.color === 'w' ? game.bname : game.wname;
+  }
 
   // Set game board text
   const whiteStatus = game.element.find(game.color === 'w' ? '.player-status' : '.opponent-status');
@@ -1876,6 +1941,8 @@ function handleMiscMessage(data: any) {
       mexamineGame = game; // Stores the game in case a 'mexamine' is about to be issued.
       if(game === games.focused)
         stopEngine();
+      else
+        game.engineRunning = false;
       cleanupGame(game);
     }
 
@@ -3001,6 +3068,9 @@ function createNewVariationMenu(game: Game) {
 function flipBoard(game: Game) {
   game.board.toggleOrientation();
 
+  // Flip eval bar
+  game.element.find('.eval-bar-segment:first-child').appendTo(game.element.find('.eval-bar'));
+
   // If pawn promotion dialog is open, redraw it in the correct location
   if(game.element.find('.promotion-panel').is(':visible'))
     showPromotionPanel(game);
@@ -3195,6 +3265,7 @@ function updateHistory(game: Game, move?: any, fen?: string) {
 function createGame(): Game {
   const game = new Game();
   if(!games.length) {
+    games.add(game);
     game.element = $('#main-board-area').children().first();
     game.statusElement = $('#game-status-list > :first-child');
     game.moveTableElement = $('#move-table > :first-child');
@@ -3202,10 +3273,12 @@ function createGame(): Game {
     game.board = mainBoard;
   }
   else {
+    games.add(game);
     game.element = $('#main-board-area').children().first().clone();
     game.board = createBoard(game.element.find('.board'));
     leaveSetupBoard(game);
     makeSecondaryBoard(game);
+    game.element.find('.eval-bar').hide();
     $(window).trigger('resize');
     game.element.find($('[title="Close"]')).css('visibility', 'visible');
     $('#secondary-board-area').css('display', 'flex');
@@ -3266,7 +3339,6 @@ function createGame(): Game {
   });
 
   game.clock = new Clock(game, checkGameEnd);
-  games.add(game);
   setRightColumnSizes();
 
   return game;
@@ -3289,8 +3361,11 @@ export function setGameWithFocus(game: Game) {
     if(game.element.parent().attr('id') === 'secondary-board-area')
       game.element.addClass('game-focused');
 
-    const engineRunning = !!engine;
-    stopEngine();
+    if(games.focused) {
+      const engineRunning = games.focused.engineRunning;
+      stopEngine();
+      games.focused.engineRunning = engineRunning;
+    }
 
     games.focused = game;
 
@@ -3299,7 +3374,7 @@ export function setGameWithFocus(game: Game) {
 
     updateBoard(game);
 
-    if(game.analyzing && engineRunning)
+    if(game.analyzing && game.engineRunning)
       startEngine();
   }
 }
@@ -3402,6 +3477,10 @@ export function maximizeGame(game: Game) {
     updateBoardStatusText();
   }
   scrollToBoard(game);
+}
+
+function isSecondaryBoard(game: Game) {
+  return game.element.parent().is($('#secondary-board-area'));
 }
 
 function closeGameDialog(game: Game) {
@@ -6112,23 +6191,40 @@ function startEngine() {
       engine.evaluateFEN(getSetupBoardFEN(game));
     else if(!game.movelistRequested)
       engine.move(game.history.current());
+
+    if(settings.evalBarToggle)
+      game.element.find('.eval-bar').css('display', 'flex');
+    setPanelSizes();
+
+    game.engineRunning = true;
   }
+  else 
+    game.engineRunning = false;
 }
 
-function stopEngine() {
+function stopEngine(temporary = false) {
+  const game = games.focused;
+
   $('#start-engine').text('Go');
 
   if(engine) {
     engine.terminate();
     engine = null;
-    games.focused.board.setAutoShapes([]); 
-    games.focused.board.redrawAll();
+    game.board.setAutoShapes([]); 
+    game.board.redrawAll();
+    
+    if(!temporary) {
+      game.element.find('.eval-bar').hide();
+      game.engineRunning = false;
+    }
+    
+    setPanelSizes();
   }
 }
 
 function updateEngine() {
   if(engine) {
-    stopEngine();
+    stopEngine(true);
     startEngine();
   }
   if(evalEngine)
@@ -6140,7 +6236,7 @@ $('#add-pv').on('click', () => {
   $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
   $('#engine-pvs').append('<li>&nbsp;</li>');
   if(engine) {
-    stopEngine();
+    stopEngine(true);
     startEngine();
   }
 });
@@ -6164,13 +6260,58 @@ function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: str
     const san = words[0].split(/\.+/)[1];
     const fen = game.setupBoard ? getSetupBoardFEN(game) : game.history.current().fen; 
     const parsed = parseGameMove(game, fen, san);
-    game.board.setAutoShapes([{
-      orig: parsed.move.from || parsed.move.to, // For crazyhouse, just draw a circle on dest square
-      dest: parsed.move.to,
-      brush: 'yellow',
-    }]);
+    if(settings.bestMoveArrowToggle) {
+      game.board.setAutoShapes([{
+        orig: parsed.move.from || parsed.move.to, // For crazyhouse, just draw a circle on dest square
+        dest: parsed.move.to,
+        brush: 'yellow',
+      }]);
+    }
+    updateEvalBar(game, pvEval);
   }
 }
+
+/**
+ * Update the engine eval bar for game, based on the specified eval string, e.g. '-3.21', '-#12' 
+ */
+function updateEvalBar(game: Game, pvEval: string) {
+  let barEvalPercentage: number;
+  let barEvalLabel: string;
+  if(pvEval.includes('#')) {
+    // It's a mate so set the bar all the way to the top or bottom
+    if(pvEval.includes('-'))
+      barEvalPercentage = 0;
+    else
+      barEvalPercentage = 100;
+    barEvalLabel = pvEval.replace('#', 'M').replace('-', '');
+  }
+  else {
+    let barEval = +pvEval.replace(/[+=]/g,'');
+    // An eval of 1.0 is one square up from the middle, 2.0 is two squares up etc
+    // The bar stops going up at eval 3.6 then it leaves a small amount at the top/bottom to distinguish from a mate
+    barEvalPercentage = Math.max(-45, Math.min(45, barEval * 12.5)) + 50;
+    barEvalLabel = (+pvEval.replace(/[-+=]/, '')).toFixed(1).toString(); 
+  }
+
+  const evalBarWhite = game.element.find('.eval-bar-white');
+
+  const sideAhead = barEvalPercentage >= 50 ? 'white' : 'black';
+  updateEvalBarText(game, barEvalLabel, sideAhead);
+  evalBarWhite.css('height', `${barEvalPercentage}%`); // Set the height of the white bar, the black bar stretches to fill remaining space
+}
+
+/**
+ * Add the eval as text on the Eval Bar. If white is ahead, it adds it to the white segment, otherwise to the black
+ * segment. We debounce this function to stop the text flickering quickly between segments when the engine first 
+ * starts up, before it stabilizes.
+ */
+const updateEvalBarText = Utils.debounce((game: Game, label: string, sideAhead: string) => {
+  if(game === games.focused) {
+    game.element.find('.eval-bar-white .eval-bar-text').toggleClass('side-ahead', sideAhead === 'white');
+    game.element.find('.eval-bar-black .eval-bar-text').toggleClass('side-ahead', sideAhead === 'black');
+    game.element.find('.side-ahead').text(label);
+  }
+}, 250);
 
 function createEvalEngine(game: Game) {
   if(game.category && Engine.categorySupported(game.category)) {
@@ -6448,6 +6589,16 @@ function initSettings() {
   settings.smartmoveToggle = (storage.get('smartmove') === 'true');
   $('#smartmove-toggle').prop('checked', settings.smartmoveToggle);
 
+  settings.evalBarToggle = (storage.get('evalbar') !== 'false');
+  $('#eval-bar-toggle').prop('checked', settings.evalBarToggle);
+  $('#eval-bar-toggle-icon').toggleClass('fa-eye', settings.evalBarToggle);
+  $('#eval-bar-toggle-icon').toggleClass('fa-eye-slash', !settings.evalBarToggle);
+
+  settings.bestMoveArrowToggle = (storage.get('bestmovearrow') !== 'false');
+  $('#best-move-arrow-toggle').prop('checked', settings.bestMoveArrowToggle);
+  $('#best-move-arrow-toggle-icon').toggleClass('fa-eye', settings.bestMoveArrowToggle);
+  $('#best-move-arrow-toggle-icon').toggleClass('fa-eye-slash', !settings.bestMoveArrowToggle);
+
   settings.rememberMeToggle = (storage.get('rememberme') === 'true');
   $('#remember-me').prop('checked', settings.rememberMeToggle);
 
@@ -6535,6 +6686,36 @@ $('#multiple-premoves-toggle').on('click', () => {
 $('#smartmove-toggle').on('click', () => {
   settings.smartmoveToggle = !settings.smartmoveToggle;
   storage.set('smartmove', String(settings.smartmoveToggle));
+});
+
+$('#eval-bar-toggle').on('change', () => {
+  settings.evalBarToggle = !settings.evalBarToggle;
+
+  $('#eval-bar-toggle-icon').toggleClass('fa-eye');
+  $('#eval-bar-toggle-icon').toggleClass('fa-eye-slash');
+
+  const game = games.focused;
+  if(game.engineRunning) {
+    if(settings.evalBarToggle)
+      game.element.find('.eval-bar').css('display', 'flex');
+    else
+      game.element.find('.eval-bar').hide();
+    setPanelSizes();
+  }
+  storage.set('evalbar', String(settings.evalBarToggle));
+});
+
+$('#best-move-arrow-toggle').on('change', () => {
+  settings.bestMoveArrowToggle = !settings.bestMoveArrowToggle;
+
+  $('#best-move-arrow-toggle-icon').toggleClass('fa-eye');
+  $('#best-move-arrow-toggle-icon').toggleClass('fa-eye-slash');
+
+  if(games.focused.engineRunning && !settings.bestMoveArrowToggle) {
+    games.focused.board.setAutoShapes([]); 
+    games.focused.board.redrawAll();
+  }
+  storage.set('bestmovearrow', String(settings.bestMoveArrowToggle));
 });
 
 /** *****************************
