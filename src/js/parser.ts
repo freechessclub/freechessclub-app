@@ -11,10 +11,10 @@ export enum Reason {
   Disconnect,
   Checkmate,
   TimeForfeit,
+  PartnerWon,
   Draw,
   Adjourn,
   Abort,
-  PartnerWon,
 }
 
 export class Parser {

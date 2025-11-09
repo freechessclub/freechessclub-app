@@ -91,10 +91,10 @@ export class Game extends GameData {
   movePiecePromotion;
 
   // Used to buffer navigation buttons when in examine mode
-  bufferedHistoryEntry: any = null;
-  bufferedHistoryCount = 0;
-
+  pendingMoves: any[] = [];            // In examine mode, store played moves until server confirms the move
+  restoreMove: any;                    // in examine mode, if a sequence of moves gets interrupted (from a move played by another examiner) then roll back to the point of the interruption 
   removeMoveRequested: any = null;     // In examine mode, store a move to be deleted from the move-list until after we have navigated away from it
+
   gameStatusRequested = false;         // Sends the 'moves' command in order to retrieve the game info to display in teh status panel
   lastComputerMoveEval: string = null; // Keeps track of the current eval for a game against the Computer. Used for draw offers
   partnerGameId: number = null;        // bughouse partner's game id

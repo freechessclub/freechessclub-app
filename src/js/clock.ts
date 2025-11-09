@@ -80,7 +80,7 @@ export class Clock {
       time = 0;
 
     const element = this.game.element;
-    const clockElement = this.game.color === color ? element.find('.player-status .clock') : element.find('.opponent-status .clock');
+    const clockElement = color === 'w' ? element.find('.white-status .clock') : element.find('.black-status .clock');
     const clockTimeElement = clockElement.find('.clock-time');
     const fractionalTimeElement = clockElement.find('.fractional-clock-time');
 

@@ -231,14 +231,23 @@ $(document).on('keydown', (e) => {
     }
   }
 
-  if($(e.target).closest('input, textarea, [contenteditable]')[0])
-    return;
+  if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    if($(e.target).closest('.modal, textarea, [contenteditable]')[0]) 
+      return;
+    
+    const inputElem = $(e.target).closest('input');
+    const textInputTypes = ['text', 'password', 'email', 'search', 'tel', 'url', 'number'];
+    if(inputElem.length && textInputTypes.includes(inputElem.attr('type')))
+      return;
 
-  if(e.key === 'ArrowLeft')
-    backward();
+    if(e.key === 'ArrowLeft')
+      backward();
 
-  else if(e.key === 'ArrowRight')
-    forward();
+    else if(e.key === 'ArrowRight')
+      forward();
+
+    e.preventDefault();
+  }
 });
 
 /** Handle keyboard shortcuts */
@@ -852,16 +861,37 @@ function gameMove(data: any) {
     updateSetupBoard(game, game.fen, true);
   }
   else if(game.role === Role.NONE || game.role >= -2 || game.role === Role.PLAYING_COMPUTER) {
+    // This is to allow multiple fast 'forward' or 'back' button presses in examine mode before the command reaches the server
+    if(game.pendingMoves.length) {
+      const lastPending = game.pendingMoves.shift();
+
+      if(lastPending.fen === game.fen) { // Expected move so ignore it
+        game.restoreMove = lastPending;
+        if(game.removeMoveRequested && !game.pendingMoves.length) {
+          if(!game.history.current().isPredecessor(game.removeMoveRequested)) {
+            game.history.remove(game.removeMoveRequested);
+            if(game === games.focused && !game.history.hasSubvariation())
+              $('#exit-subvariation').hide();
+          }
+          game.removeMoveRequested = null;
+        }
+        return;
+      }
+      game.history.goto(game.restoreMove); // Unexpected move from server, roll back pending moves
+      game.pendingMoves = [];
+      game.removeMoveRequested = null; // Cancel move removal because we were interrupted while trying to leave line being removed
+    }
+
     const lastFen = currentGameMove(game).fen;
     const lastPly = ChessHelper.getPlyFromFEN(lastFen);
     const thisPly = ChessHelper.getPlyFromFEN(game.fen);
 
     if(game.move !== 'none' && thisPly === lastPly + 1) { // make sure the move no is right
       const parsedMove = parseGameMove(game, lastFen, game.move);
-      movePieceAfter(game, (parsedMove ? parsedMove.move : game.moveVerbose), game.fen);
+      movePieceAfter(game, (parsedMove ? parsedMove.move : game.moveVerbose), game.fen, true);
     }
     else
-      updateHistory(game, null, game.fen);
+      updateHistory(game, null, game.fen, true);
 
     hitClock(game, true);
   }
@@ -891,8 +921,8 @@ function gameStart(game: Game) {
   }
 
   // Set game board text
-  const whiteStatus = game.element.find(game.color === 'w' ? '.player-status' : '.opponent-status');
-  const blackStatus = game.element.find(game.color === 'b' ? '.player-status' : '.opponent-status');
+  const whiteStatus = game.element.find('.white-status');
+  const blackStatus = game.element.find('.black-status');
   whiteStatus.find('.name').text(game.wname.replace(/_/g, ' '));
   blackStatus.find('.name').text(game.bname.replace(/_/g, ' '));
   if(!game.wrating)
@@ -919,20 +949,15 @@ function gameStart(game: Game) {
   updateBoardStatusText();
 
   // Set board orientation
-
-  const flipped = game.element.find('.opponent-status').parent().hasClass('bottom-panel');
-  game.board.set({
-    orientation: ((game.color === 'b') === flipped ? 'white' : 'black'),
-  });
-
+  const flipped = blackStatus.parent().hasClass('bottom-panel'); // Is the board currently flipped to black at the bottom?
   // Check if server flip variable is set and flip board if necessary
   const vFlip = game.isPlaying() ? (game.color === 'b') !== game.flip : game.flip;
-  if(vFlip !== flipped)
+  if((game.color === 'b' !== flipped) !== vFlip)
     flipBoard(game);
 
   // Reset HTML elements
-  game.element.find('.player-status .captured').text('');
-  game.element.find('.opponent-status .captured').text('');
+  game.element.find('.white-status .captured').text('');
+  game.element.find('.black-status .captured').text('');
   game.element.find('.card-header').css('--bs-card-cap-bg', '');
   game.element.find('.card-footer').css('--bs-card-cap-bg', '');
   game.element.find('.clock').removeClass('low-time');
@@ -1110,24 +1135,25 @@ function gameEnd(data: any) {
   // Set clock time to the time that the player resigns/aborts etc.
   game.history.updateClockTimes(game.history.last(), game.clock.getWhiteTime(), game.clock.getBlackTime());
 
-  if(data.reason <= 4 && game.element.find('.player-status .name').text() === data.winner) {
-    // player won
-    game.element.find('.player-status').parent().css('--bs-card-cap-bg', 'var(--game-win-color)');
-    game.element.find('.opponent-status').parent().css('--bs-card-cap-bg', 'var(--game-lose-color)');
-    if (game === games.focused && settings.soundToggle) {
-      Sounds.winSound.play();
+  const whiteStatus = game.element.find('.white-status');
+  const blackStatus = game.element.find('.black-status');
+  if(data.reason <= 5) {
+    const winner = whiteStatus.find('.name').text() === data.winner ?
+      'w' : 'b';
+    whiteStatus.parent().css('--bs-card-cap-bg', winner === 'w' ? 'var(--game-win-color)' : 'var(--game-lose-color)');
+    blackStatus.parent().css('--bs-card-cap-bg', winner === 'b' ? 'var(--game-win-color)' : 'var(--game-lose-color)');    
+  
+    if(game === games.focused && settings.soundToggle) {
+      if(winner === game.color)
+        Sounds.winSound.play();
+      else
+        Sounds.loseSound.play();
     }
-  } else if (data.reason <= 4 && game.element.find('.player-status .name').text() === data.loser) {
-    // opponent won
-    game.element.find('.player-status').parent().css('--bs-card-cap-bg', 'var(--game-lose-color)');
-    game.element.find('.opponent-status').parent().css('--bs-card-cap-bg', 'var(--game-win-color)');
-    if (game === games.focused && settings.soundToggle) {
-      Sounds.loseSound.play();
-    }
-  } else {
+  } 
+  else {
     // tie
-    game.element.find('.player-status').parent().css('--bs-card-cap-bg', 'var(--game-tie-color)');
-    game.element.find('.opponent-status').parent().css('--bs-card-cap-bg', 'var(--game-tie-color)');
+    whiteStatus.parent().css('--bs-card-cap-bg', 'var(--game-tie-color)');
+    blackStatus.parent().css('--bs-card-cap-bg', 'var(--game-tie-color)');
   }
 
   const status = data.message.replace(/Game \d+ /, '');
@@ -1143,8 +1169,7 @@ function gameEnd(data: any) {
       if(game.role === Role.PLAYING_COMPUTER) {
         rematch = ['rematchComputer();', 'Rematch'];
       }
-      else if(game.element.find('.player-status .name').text() === session.getUser())
-        rematch = ['sessionSend(\'rematch\')', 'Rematch']
+      rematch = ['sessionSend(\'rematch\')', 'Rematch']
     }
     if(data.reason !== Reason.Adjourn && data.reason !== Reason.Abort && game.history.length()) 
       analyze = ['analyze();', 'Analyze'];
@@ -1783,8 +1808,8 @@ function handleMiscMessage(data: any) {
           else brating = '----';
         }
 
-        game.element.find('.player-status .rating').text(game.color === 'b' ? game.brating : game.wrating);
-        game.element.find('.opponent-status .rating').text(game.color === 'b' ? game.wrating : game.brating);
+        game.element.find('.white-status .rating').text(game.wrating);
+        game.element.find('.black-status .rating').text(game.brating);
 
         const time = initialTime === '0' && increment === '0' ? '' : ` ${initialTime} ${increment}`;
 
@@ -1893,14 +1918,8 @@ function handleMiscMessage(data: any) {
       if(game.history)
         game.history.initMetatags();
 
-      if(match[3] === session.getUser() || match[1].startsWith('Game')) {
-        game.element.find('.player-status .rating').text(game.wrating);
-        game.element.find('.opponent-status .rating').text(game.brating);
-      }
-      else if(match[5] === session.getUser()) {
-        game.element.find('.opponent-status .rating').text(game.wrating);
-        game.element.find('.player-status .rating').text(game.brating);
-      }
+      game.element.find('.white-status .rating').text(game.wrating);
+      game.element.find('.black-status .rating').text(game.brating);
     }
     data.message = msg = Utils.removeLine(msg, match[0]); // remove the matching line
     if(!msg)
@@ -2284,16 +2303,17 @@ function showCapturedMaterial(game: Game) {
     }
   }
 
-  game.element.find('.player-status .captured').empty();
-  game.element.find('.opponent-status .captured').empty();
+  const whitePanel = game.element.find('.white-status .captured');
+  const blackPanel = game.element.find('.black-status .captured');
+  whitePanel.empty();
+  blackPanel.empty();
   Object.entries(holdings || captured).forEach(([key, value]) => {
     if(value > 0) {
       const color = key === key.toUpperCase() ? 'w' : 'b';
       const piece = `${color}${key.toUpperCase()}`;
       const num = value;
-      const panel = (!holdings && game.color !== color) || (holdings && game.color === color)
-        ? game.element.find('.player-status .captured')
-        : game.element.find('.opponent-status .captured');
+      const panel = (!holdings && color === 'b') || (holdings && color === 'w')
+        ? whitePanel : blackPanel;
       const pieceElement = $(`<span class="captured-piece" data-drag-piece="${piece}"><span class="captured-piece-img" style="background-image: url('assets/css/images/pieces/merida/${piece}.svg')"></span><small>${num}</small></span>`);
       panel.append(pieceElement);
 
@@ -2332,8 +2352,8 @@ function setClocks(game: Game) {
   }
 
   // Add my-turn highlighting to clock
-  const whiteClock = (game.color === 'w' ? game.element.find('.player-status .clock') : game.element.find('.opponent-status .clock'));
-  const blackClock = (game.color === 'b' ? game.element.find('.player-status .clock') : game.element.find('.opponent-status .clock'));
+  const whiteClock = game.element.find('.white-status .clock');
+  const blackClock = game.element.find('.black-status .clock');
 
   const turnColor = hEntry.turnColor;
   if(turnColor === 'b') {
@@ -2425,7 +2445,13 @@ export function updateBoard(game: Game, playSound = false, setBoard = true, anim
   setClocks(game);
 
   const premoveSquares = new Map();
-  if(setBoard && !game.setupBoard) {
+
+  if((setBoard || game.setupBoard) && game.element.find('.promotion-panel').is(':visible')) {
+    game.board.cancelPremove();
+    hidePromotionPanel(game);
+  }
+
+  if(setBoard && !game.setupBoard) {   
     // Display premoves (when multiple premoves setting enabled)
     if(game.premoves.length && game.history.current() === game.history.last()) {
       fen = game.premovesFen;
@@ -2448,11 +2474,6 @@ export function updateBoard(game: Game, playSound = false, setBoard = true, anim
       game.board.set({ animation: { enabled: true }});
   }
 
-  if(game.element.find('.promotion-panel').is(':visible')) {
-    game.board.cancelPremove();
-    hidePromotionPanel(game);
-  }
-
   const categorySupported = SupportedCategories.includes(game.category);
 
   if(move && move.from && move.to)
@@ -2466,10 +2487,7 @@ export function updateBoard(game: Game, playSound = false, setBoard = true, anim
   let movableColor: string | undefined;
   let turnColor: string | undefined;
 
-  if(game.isObserving()) {
-    turnColor = color;
-  }
-  else if(game.isPlaying()) {
+  if(game.isPlaying()) {
     movableColor = (game.color === 'w' ? 'white' : 'black');
     dests = gameToDests(game);
     turnColor = color;
@@ -2615,8 +2633,10 @@ export function scrollToBoard(game?: Game) {
 export function movePiece(source: any, target: any, metadata: any, pieceRole?: string, promotePiece?: string) {
   const game = games.focused;
 
-  if(game.isObserving())
+  if(game.isPlaying() && game.history.current() !== game.history.last()) {
+    game.history.display(game.history.last(), false);
     return;
+  }
 
   // Show 'Analyze' button once any moves have been made on the board
   showAnalyzeButton();
@@ -2624,7 +2644,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   if(game.setupBoard)
     return;
 
-  const prevHEntry = currentGameMove(game); 
+  const prevHEntry = game.isPlaying() ? game.history.last() : game.history.current(); 
   const pieces = game.board.state.pieces;
   const targetPiece = pieces.get(target);
   
@@ -2673,7 +2693,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   }
 
   if(parsedMove) {
-    if(game.history.editMode && game.newVariationMode === NewVariationMode.ASK && nextMove) {
+    if(game.history.editMode && game.newVariationMode === NewVariationMode.ASK && nextMove && (!game.isObserving() || game.history.current().parent)) {
       let subFound = false;
       for(const sub of nextMove.subvariations) {
         if(sub.fen === fen)
@@ -2697,35 +2717,42 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
         && move.promotion === nextMove.promotion)
       nextMoveMatches = true;
 
+    if(!game.pendingMoves.length)
+      game.restoreMove = game.history.current();
+
     if(nextMoveMatches && !nextMove.isSubvariation && !game.history.scratch())
       session.send('for');
     else
       sendMove(move);
   }
 
-  hitClock(game, false);
+  if(!game.isObserving()) {
+    hitClock(game, false);
+    game.wtime = game.clock.getWhiteTime();
+    game.btime = game.clock.getBlackTime();
+  }
 
-  game.wtime = game.clock.getWhiteTime();
-  game.btime = game.clock.getBlackTime();
+  if(parsedMove && parsedMove.move) {
+    movePieceAfter(game, move, fen, false);
+    if(game.isExamining()) 
+      game.pendingMoves.push(game.history.current());
+  }
 
-  if(parsedMove && parsedMove.move) 
-    movePieceAfter(game, move, fen);
- 
   if(game.role === Role.PLAYING_COMPUTER) // Send move to engine in Play Computer mode
     getComputerMove(game);
 
   showTab($('#pills-game-tab'));
 }
 
-function movePieceAfter(game: Game, move: any, fen?: string) {
-  // go to current position if user is looking at earlier move in the move list
-  if((game.isPlaying() || game.isObserving()) && game.history.current() !== game.history.last())
-    game.history.display(game.history.last());
-
+function movePieceAfter(game: Game, move: any, fen: string, serverIssued: boolean) {
+  let analyzing = false;
+  if(game.isPlaying() && game.history.current() !== game.history.last()) 
+    game.history.display(game.history.last()); // go to current position if user is looking at earlier move in the move list
+  
   if(fen)
     checkPremoves(game, fen); // For multiple premoves, prunes premoves that are no longer possible (e.g. the piece was captured)
 
-  updateHistory(game, move, fen);
+  updateHistory(game, move, fen, serverIssued);
   playPremove(game);
   checkGameEnd(game); // Check whether game is over when playing against computer (offline mode)
 }
@@ -2739,6 +2766,12 @@ function preDropPiece(role: string, key: string) {
 
 function preMovePiece(source: any, target: any, metadata: any) {
   const game = games.focused;
+
+  if(game.history.current() !== game.history.last()) {
+    game.board.cancelPremove();
+    game.history.display(game.history.last(), false);
+    return;
+  }
 
   if(ChessHelper.longToShortPieceName(source)) // piece drop rather than move
     return;
@@ -3076,13 +3109,13 @@ function flipBoard(game: Game) {
     showPromotionPanel(game);
 
   // Swap player and opponent status panels
-  if(game.element.find('.player-status').parent().hasClass('top-panel')) {
-    game.element.find('.player-status').appendTo(game.element.find('.bottom-panel'));
-    game.element.find('.opponent-status').appendTo(game.element.find('.top-panel'));
+  if(game.element.find('.white-status').parent().hasClass('top-panel')) {
+    game.element.find('.white-status').appendTo(game.element.find('.bottom-panel'));
+    game.element.find('.black-status').appendTo(game.element.find('.top-panel'));
   }
   else {
-    game.element.find('.player-status').appendTo(game.element.find('.top-panel'));
-    game.element.find('.opponent-status').appendTo(game.element.find('.bottom-panel'));
+    game.element.find('.white-status').appendTo(game.element.find('.top-panel'));
+    game.element.find('.black-status').appendTo(game.element.find('.bottom-panel'));
   }
 
   // Swap pieces in Setup Board panel
@@ -3110,7 +3143,8 @@ function parseGameMove(game: Game, fen: string, move: any, premove = false) {
 
 /** Wrapper function for toDests */
 function gameToDests(game: Game) {
-  return ChessHelper.toDests(currentGameMove(game).fen, game.history.first().fen, game.category, game.history.current().variantData);
+  const hEntry = game.history.current();
+  return ChessHelper.toDests(hEntry.fen, game.history.first().fen, game.category, hEntry.variantData);
 }
 
 /** Wrapper function for updateVariantMoveData */
@@ -3171,14 +3205,7 @@ export function parseMovelist(game: Game, movelist: string) {
   }
 }
 
-function updateHistory(game: Game, move?: any, fen?: string) {
-  // This is to allow multiple fast 'forward' or 'back' button presses in examine mode before the command reaches the server
-  // bufferedHistoryEntry contains a temporary reference to the current move which is used for subsequent forward/back button presses
-  if(game.bufferedHistoryCount)
-    game.bufferedHistoryCount--;
-  if(!game.bufferedHistoryCount)
-    game.bufferedHistoryEntry = null;
-
+function updateHistory(game: Game, move?: any, fen?: string, serverIssued = true) {
   // If currently commiting a move list in examine mode. Don't display moves until we've finished
   // sending the move list and then navigated back to the current move.
   if(game.commitingMovelist)
@@ -3197,7 +3224,7 @@ function updateHistory(game: Game, move?: any, fen?: string) {
     if(move) {
       let newSubvariation = false;
 
-      if(game.role === Role.NONE || game.isExamining()) {
+      if(game.role === Role.NONE || game.isExamining() || (game.isObserving() && !serverIssued)) {
         if(game.history.length() === 0)
           game.history.scratch(true);
 
@@ -3212,10 +3239,20 @@ function updateHistory(game: Game, move?: any, fen?: string) {
 
         game.newVariationMode = NewVariationMode.ASK;
       }
+      
+      let currMove = null;
+      if(game.isObserving() && game.history.current() !== game.history.last() && serverIssued) {
+        currMove = game.history.current();
+        game.history.goto(game.history.last());     
+      }
 
       game.history.add(move, fen, newSubvariation, game.wtime, game.btime);
       getOpening(game);
       updateGameVariantMoveData(game);
+
+      if(currMove) 
+        game.history.goto(currMove);   
+
       $('#game-pane-status').hide();
     }
     else {
@@ -3237,7 +3274,7 @@ function updateHistory(game: Game, move?: any, fen?: string) {
     if(hEntry === game.history.current())
       sameMove = true;
 
-    else if(game.isPlaying() || game.isObserving()) {
+    else if(game.isPlaying() || (game.isObserving() && serverIssued)) {
       if(hEntry !== game.history.last()) 
         cancelMultiplePremoves(game);
       
@@ -3246,16 +3283,15 @@ function updateHistory(game: Game, move?: any, fen?: string) {
     }
   }
 
+  if(game.isObserving() && game.history.current() !== game.history.last() && serverIssued) {
+    game.history.highlightMove();
+    updateBoard(game, false, false);
+    return; // User is currently viewing an earlier move in the move list, so don't display the new move
+  }
+
   game.history.display(hEntry, move && !sameMove);
   if(!sameMove)
     updateEngine();
-
-  if(game.removeMoveRequested && game.removeMoveRequested.prev === hEntry) {
-    game.history.remove(game.removeMoveRequested);
-    game.removeMoveRequested = null;
-    if(game === games.focused && !game.history.hasSubvariation())
-      $('#exit-subvariation').hide();
-  }
 }
 
 /** ***************
@@ -3308,7 +3344,7 @@ function createGame(): Game {
     if($(event.target).closest('[title="Close"],[title="Maximize"]').length)
       return;
 
-    $('#input-text').trigger('blur');
+    $(':focus').trigger('blur');
     setGameWithFocus(game); 
     // Status flags that need to be set prior to squareSelected event being called (used by smart move)
     game.pieceSelected = game.board.state.selected; // Tracks whether a piece was currently selected prior to another square being clicked
@@ -3601,9 +3637,9 @@ function cleanupGame(game: Game) {
   if($('#pills-play').hasClass('active') && $('#pills-lobby').hasClass('active'))
     initLobbyPane();
 
-  game.bufferedHistoryEntry = null;
-  game.bufferedHistoryCount = 0;
   game.removeMoveRequested = null;
+  game.pendingMoves = [];
+  game.restoreMove = null;
 }
 
 async function getOpening(game: Game) {
@@ -3669,7 +3705,7 @@ $('#backward').on('click', () => {
 
 function backward() {
   const game = games.focused;
-  const move = bufferedCurrentMove(game).prev;
+  const move = game.history.prev();
 
   if(move)
     gotoMove(move);
@@ -3686,7 +3722,7 @@ $('#forward').on('click', () => {
 
 function forward() {
   const game = games.focused;
-  const move = bufferedCurrentMove(game).next;
+  const move = game.history.next();
 
   if(move)
     gotoMove(move, true);
@@ -3716,23 +3752,24 @@ $('#exit-subvariation').on('click', () => {
 });
 
 function exitSubvariation() {
-  const curr = bufferedCurrentMove(games.focused);
+  const curr = games.focused.history.current();
   const prev = curr.first.prev;
   gotoMove(prev);
   showTab($('#pills-game-tab'));
 }
 
-function bufferedCurrentMove(game: Game) {
-  return game.bufferedHistoryEntry || game.history.current();
-}
-
 export function gotoMove(to: HEntry, playSound = false) {
-  if(!to)
+  const game = games.focused;
+
+  if(!to && to !== game.history.current())
     return;
 
-  const game = games.focused;
   if(game.isExamining() && !game.setupBoard) {
-    let from = bufferedCurrentMove(game);
+    let from = game.history.current();
+
+    if(!game.pendingMoves.length)
+      game.restoreMove = from;
+    
     let curr = from;
     let index = 0;
     while(curr) {
@@ -3750,8 +3787,7 @@ export function gotoMove(to: HEntry, playSound = false) {
     const backNum = curr.visited;
     if(backNum > 0) {
       session.send(`back ${backNum}`);
-      game.bufferedHistoryEntry = curr;
-      game.bufferedHistoryCount++;
+      game.pendingMoves.push(curr);
     }
 
     while(from) {
@@ -3769,23 +3805,20 @@ export function gotoMove(to: HEntry, playSound = false) {
       }
       if(forwardNum > 0) {
         session.send(`for ${forwardNum}`);
-        game.bufferedHistoryEntry = curr;
-        game.bufferedHistoryCount++;
+        game.pendingMoves.push(curr);
       }
     }
 
     for(let i = path.length - forwardNum - 1; i >= 0; i--) {
       sendMove(path[i].move);
-      game.bufferedHistoryEntry = path[i];
-      game.bufferedHistoryCount++;
+      game.pendingMoves.push(path[i]);
     }
   }
-  else {
-    game.history.display(to, playSound);
-    updateEngine();
-    if(game.setupBoard)
-      updateSetupBoard(game);
-  }
+
+  game.history.display(to, playSound);
+  updateEngine();
+  if(game.setupBoard)
+    updateSetupBoard(game);
 }
 
 function sendMove(move: any) {
@@ -4648,13 +4681,13 @@ function createMoveContextMenu(cmEvent: any) {
     contextMenu.append('<li><a class="dropdown-item noselect" data-action="edit-comment-after">Edit Comment</a></li>');
   if(hEntry.nags.length)
     contextMenu.append('<li><a class="dropdown-item noselect" data-action="delete-annotation">Delete Annotation</a></li>');
-  if(!game.isObserving() && !game.isPlaying()) {
+  if((!game.isObserving() && !game.isPlaying()) || hEntry.parent) 
     contextMenu.append('<li><a class="dropdown-item noselect" data-action="delete-move">Delete Move</a></li>');
-    if(hEntry.parent)
-      contextMenu.append('<li><a class="dropdown-item noselect" data-action="promote-variation">Promote Variation</a></li>');
-    else if(hEntry.prev !== hEntry.first)
-      contextMenu.append('<li><a class="dropdown-item noselect" data-action="make-continuation">Make Continuation</a></li>');
-  }
+  if(hEntry.parent && ((!game.isObserving() && !game.isPlaying()) || hEntry.parent.parent))
+    contextMenu.append('<li><a class="dropdown-item noselect" data-action="promote-variation">Promote Variation</a></li>');
+  if((!game.isObserving() && !game.isPlaying()) && !hEntry.parent && hEntry.prev !== hEntry.first)
+    contextMenu.append('<li><a class="dropdown-item noselect" data-action="make-continuation">Make Continuation</a></li>');
+  
   contextMenu.append('<li><a class="dropdown-item noselect" data-action="clear-all-analysis">Clear All Analysis</a></li>');
   contextMenu.append('<li><hr class="dropdown-divider"></li>');
   let annotationsHtml = '<div class="annotations-menu annotation">';
@@ -4754,14 +4787,15 @@ function deleteMove(game: Game, entry: HEntry) {
     // If the current move is on the line we are just about to delete, we need to back out of it first
     // before deleting the line.
     gotoMove(entry.prev);
-    if(game.isExamining())
+    if(game.isExamining()) {
       game.removeMoveRequested = entry;
-    else {
-      game.history.remove(entry);
-      if(!game.history.hasSubvariation())
-        $('#exit-subvariation').hide();
+      return;
     }
   }
+
+  game.history.remove(entry);
+  if(!game.history.hasSubvariation())
+    $('#exit-subvariation').hide();
 }
 
 /**
@@ -4824,23 +4858,6 @@ $('#game-table-view').on('change', () => {
 $('#game-list-view').on('change', () => {
   if($('#game-list-view').is(':checked'))
     setViewModeList();
-});
-
-/**
- * Stops the Table View / List View radio buttons from stealing left-arrow key / right-arrow key
- * input from the move-list
- */
-$('#game-table-view, #game-list-view').on('keydown', (event) => {
-  if(event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-    event.preventDefault();
-    $(document).trigger($.Event('keydown', {
-      key: event.key,
-      altKey: event.altKey,
-      ctrlKey: event.ctrlKey,
-      shiftKey: event.shiftKey,
-      metaKey: event.metaKey
-    }));
-  }
 });
 
 /**
@@ -5321,8 +5338,8 @@ function updateGameFromMetatags(game: Game) {
     const metatags = game.history.metatags;
     const whiteName = metatags.White.slice(0, 17).trim().replace(/[^\w]+/g, '_'); // Convert multi-word names into a single word format that FICS can handle
     const blackName = metatags.Black.slice(0, 17).trim().replace(/[^\w]+/g, '_');
-    const whiteStatus = game.element.find(game.color === 'w' ? '.player-status' : '.opponent-status');
-    const blackStatus = game.element.find(game.color === 'b' ? '.player-status' : '.opponent-status');
+    const whiteStatus = game.element.find('.white-status');
+    const blackStatus = game.element.find('.black-status');
     if(whiteName !== game.wname) {
       game.wname = whiteName;
       if(game.isExamining())
