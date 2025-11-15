@@ -312,26 +312,27 @@ export class History {
     if(newSubvariation) {
       if(!this.editMode)
         this.removeAllSubvariations();
-      if(this.currEntry.next)
-        this.currEntry.next.addSubvariation(newEntry); // Add subvariation
-      else
-        this.currEntry.addSubvariation(newEntry); // Add continuation
+
+      this.addHEntry(newEntry, this.currEntry, true);
     }
     else {
       if(this.currEntry.next)
         this.remove(this.currEntry.next);
 
-      for(const sub of this.currEntry.subvariations) {
-        if(sub.isContinuation())
-          this.remove(sub);
-      }
+      this.addHEntry(newEntry, this.currEntry, false);
 
-      this.currEntry.add(newEntry);
+      // Convert continuations on the previous move to subvariations
+      const subs = [...this.currEntry.subvariations];
+      for(const sub of subs) {
+        if(sub.isContinuation()) {
+          this.remove(sub);
+          this.addHEntry(sub, newEntry, true);
+        }
+      }
     }
 
     this.updateClockTimes(newEntry, wtime, btime);
     this.currEntry = newEntry;
-    this.addMoveElements(this.currEntry);
 
     return this.currEntry;
   }

@@ -54,9 +54,6 @@ export interface DialogParams {
 }
 
 export function createDialog({type = '', title = '', msg = '', btnFailure, btnSuccess, useSessionSend = false, icons = true, progress = false, htmlMsg = false}: DialogParams): JQuery<HTMLElement> {
-  title = title.replace(/-/g, "\u2011"); // replace hyphen with non-breaking hyphen
-  msg = msg.replace(/-/g, "\u2011");
-
   const dialogId = `dialog${dialogCounter++}`;
   let req = `
   <div id="${dialogId}" class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
@@ -66,9 +63,11 @@ export function createDialog({type = '', title = '', msg = '', btnFailure, btnSu
     </div>
     <div class="toast-body">`;
 
-  if(htmlMsg)
+  if(htmlMsg) 
     req += msg;
   else {
+    title = title.replace(/-/g, "\u2011"); // replace hyphen with non-breaking hyphen
+    msg = msg.replace(/-/g, "\u2011");
     req += `<div class="d-flex align-items-center">
           <strong class="body-text text-primary my-auto" style="white-space: pre-wrap;">${title ? `${title} ` : ''}${msg}</strong>`;
     if (progress) {
