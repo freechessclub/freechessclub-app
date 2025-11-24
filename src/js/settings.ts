@@ -1,3 +1,7 @@
+import { isMobile } from './utils';
+
+const deviceMemory = (navigator as any).deviceMemory || 4; // GB
+
 export const settings = {
   /** Main settings */
   
@@ -25,10 +29,22 @@ export const settings = {
   smartmoveToggle: false,
   // toggle for remembering user's login and password between sessions
   rememberMeToggle: false,
+  
+  /** Engine settings */ 
+
   // toggle for showing the eval bar when the engine is running
   evalBarToggle: true,
   // toggle for showing the best move arrow when the engine is running
   bestMoveArrowToggle: true,
+  // name of the chess engine to use
+  analyzeEngineName: isMobile() && deviceMemory < 4 ? 'Stockfish MV 2019' : 'Stockfish 17.1 Lite',
+  playEngineName: isMobile() && deviceMemory < 4 ? 'Stockfish MV 2019' : 'Stockfish 17.1 Lite',
+  variantsEngineName: 'Stockfish MV 2019',
+  // engine options
+  engineLines: 1,
+  engineMaxTime: 5000, // ms
+  engineThreads: isMobile() ? 1 : Math.min(navigator.hardwareConcurrency - 1, 5),
+  engineMemory: 16, // MB
 
   /** Chat settings */
 

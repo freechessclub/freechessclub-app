@@ -107,6 +107,16 @@ cg-board {
   --bs-modal-bg: var(--bg-color);
 }
 
+.form-range::-webkit-slider-runnable-track {
+  background-color: rgba(0, 0, 0, 0.13);
+}
+.form-range::-moz-range-track {
+  background-color: rgba(0, 0, 0, 0.13);
+}
+.form-range::-ms-track {
+  background-color: rgba(0, 0, 0, 0.13);
+}
+
 .form-heading {
   color: #638FA8;
 }

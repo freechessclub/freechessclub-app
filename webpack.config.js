@@ -105,6 +105,10 @@ module.exports = (env, argv) => {
       },
       compress: true,
       port: 8080,
+      headers: {
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Opener-Policy': 'same-origin',
+      },
     }
   };
 

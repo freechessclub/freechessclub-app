@@ -55,7 +55,10 @@ let mexamineRequested: Game | null = null;
 let mexamineGame: Game | null = null;
 let rematchUser = '';
 let computerList = [];
-let numPVs = 1;
+let oldEngineName: string = '';
+let oldEngineMaxTime: number;
+let oldEngineThreads: number;
+let oldEngineMemory: number;
 let lastOpponent: string = ''; // The opponent of the current or last game played 
 let prevSizeCategory = null;
 let layout = Layout.Desktop;
@@ -109,10 +112,11 @@ async function onDeviceReady() {
   await storage.init();
   initSettings();
 
+
   chat = new Chat();
   tournaments = new Tournaments();
   users = new Users();
-
+  
   const game = createGame();
   game.role = Role.NONE;
   game.category = 'untimed';
@@ -175,6 +179,8 @@ $(window).on('load', async () => {
   if('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
     navigator.serviceWorker.register(`./service-worker.js?env=${Utils.isCapacitor() || Utils.isElectron() ? 'app' : 'web'}`)
       .then((registration) => {  
+        navigator.serviceWorker.ready.then(preload); // Fetch assets into the run-time cache
+
         if(navigator.serviceWorker.controller) { // Check this is an update and not first time install       
           // If service worker is updated (due to files changing) then refresh the page so new files are loaded.
           navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -184,6 +190,12 @@ $(window).on('load', async () => {
       });
   }
 });
+
+/** Preload assets into the run-time cache */
+function preload() {
+  // Pre-fetch Stockfish from the CDN
+  Engine.load(settings.analyzeEngineName).catch(err => {}); 
+}
 
 /** Prompt before unloading page if in a game */
 $(window).on('beforeunload', () => {
@@ -989,11 +1001,9 @@ function gameStart(game: Game) {
     }
   }
 
-  if(game === games.focused && evalEngine) {
-    evalEngine.terminate();
-    evalEngine = null;
-  }
-
+  if(game === games.focused) 
+    stopEvalEngine();
+ 
   if(!examineModeRequested && !mexamineRequested) {
     game.historyList.length = 0;
     game.gameListFilter = '';
@@ -1055,7 +1065,13 @@ function gameStart(game: Game) {
       }
 
       if(game.role === Role.PLAYING_COMPUTER) { // Play Computer mode
-        playEngine = new Engine(game, playComputerBestMove, null, getPlayComputerEngineOptions(game), getPlayComputerMoveParams(game));
+        const options = getPlayComputerEngineOptions(game);
+        
+        const engineName = options.hasOwnProperty('UCI_Variant')
+          ? settings.variantsEngineName
+          : settings.playEngineName;
+
+        playEngine = new Engine(game, playComputerBestMove, null, engineName, options, getPlayComputerMoveParams(game));
         if(game.turn !== game.color)
           getComputerMove(game);
       }
@@ -4088,6 +4104,7 @@ function getPlayComputerEngineOptions(game: Game): object {
   const skillLevels = [0, 1, 2, 3, 5, 7, 9, 11, 13, 15, 17, 20]; // Skill Level for each difficulty level
 
   const engineOptions = {
+    ...(settings.engineThreads > 1 && { Threads: settings.engineThreads }),   
     ...(game.category === 'wild/fr' && { UCI_Chess960: true }),
     ...(game.category === 'crazyhouse' && { UCI_Variant: game.category }),
     'Skill Level': skillLevels[game.difficulty - 1],
@@ -4814,6 +4831,7 @@ function deleteMove(game: Game, entry: HEntry) {
   }
 
   game.history.remove(entry);
+  evalEngine?.evaluate();
   if(!game.history.hasSubvariation())
     $('#exit-subvariation').hide();
 }
@@ -5813,6 +5831,7 @@ function leaveSetupBoard(game: Game, serverIssued = false) {
   game.element.find('.status').css('display', 'flex');
   hidePanel('#left-panel-setup-board');
   initGameTools(game);
+  updateEngine();
   updateBoard(game);
   if(game.isExamining() && !serverIssued)
     session.send('bsetup done');
@@ -6160,9 +6179,9 @@ function showAnalysis() {
   openLeftBottomTab($('#eval-graph-tab'));
 
   $('#engine-pvs').empty();
-  for(let i = 0; i < numPVs; i++)
+  for(let i = 0; i < settings.engineLines; i++)
     $('#engine-pvs').append('<li>&nbsp;</li>');
-  $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
+  $('#engine-pvs').css('white-space', (settings.engineLines === 1 ? 'normal' : 'nowrap'));
   games.focused.analyzing = true;
 
   if(currentStatusTab && currentStatusTab.attr('id') !== 'eval-graph-tab')
@@ -6171,6 +6190,7 @@ function showAnalysis() {
 
 function hideAnalysis() {
   stopEngine();
+  stopEvalEngine();
   closeLeftBottomTab($('#engine-tab'));
   closeLeftBottomTab($('#eval-graph-tab'));
   showAnalyzeButton();
@@ -6181,10 +6201,7 @@ function hideAnalysis() {
 function initAnalysis(game: Game) {
   // Check if game category (variant) is supported by Engine
   if(game === games.focused) {
-    if(evalEngine) {
-      evalEngine.terminate();
-      evalEngine = null;
-    }
+    stopEvalEngine();
 
     if(game.category) {
       if(Engine.categorySupported(game.category)) {
@@ -6214,16 +6231,28 @@ function startEngine() {
     $('#start-engine').text('Stop');
 
     $('#engine-pvs').empty();
-    for(let i = 0; i < numPVs; i++)
+    for(let i = 0; i < settings.engineLines; i++)
       $('#engine-pvs').append('<li>&nbsp;</li>');
 
     const options = {
-      ...(numPVs > 1 && { MultiPV: numPVs }),
+      Hash: settings.engineMemory,    
+      ...(settings.engineLines > 1 && { MultiPV: settings.engineLines }),
+      ...(settings.engineThreads > 1 && { Threads: settings.engineThreads }),     
       ...(game.category === 'wild/fr' && { UCI_Chess960: true }),
       ...(game.category === 'crazyhouse' && { UCI_Variant: game.category }),
     };
 
-    engine = new Engine(game, null, displayEnginePV, options);
+    const moveParams = settings.engineMaxTime !== Infinity
+      ? `movetime ${settings.engineMaxTime}`
+      : null;
+
+    const engineName = options.hasOwnProperty('UCI_Variant')
+      ? settings.variantsEngineName
+      : settings.analyzeEngineName;
+   
+    if(!engine)
+      engine = new Engine(game, null, displayEnginePV, engineName, options, moveParams);
+    
     if(game.setupBoard)
       engine.evaluateFEN(getSetupBoardFEN(game));
     else if(!game.movelistRequested)
@@ -6245,8 +6274,15 @@ function stopEngine(temporary = false) {
   $('#start-engine').text('Go');
 
   if(engine) {
-    engine.terminate();
-    engine = null;
+    // For engines that support the 'stop' command we send it. Otherwise (e.g. single threaded engines) 
+    // if the engine is still 'thinking' we must terminate the Worker and re-create it.
+    if(temporary && engine.hasStop()) 
+      engine.stop();
+    else if(!temporary || engine.thinking) {
+      engine.terminate();
+      engine = null;
+    }
+
     game.board.setAutoShapes([]); 
     game.board.redrawAll();
     
@@ -6261,7 +6297,7 @@ function stopEngine(temporary = false) {
 
 function updateEngine() {
   if(engine) {
-    stopEngine(true);
+    stopEngine(true); // For multithreaded stockfish we send 'stop' command, for single threaded we must terminate the Worker and re-create it.
     startEngine();
   }
   if(evalEngine)
@@ -6269,24 +6305,33 @@ function updateEngine() {
 }
 
 $('#add-pv').on('click', () => {
-  numPVs++;
-  $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
+  settings.engineLines++;
+  storage.set('engine-lines', String(settings.engineLines));
+  $('#engine-pvs').css('white-space', (settings.engineLines === 1 ? 'normal' : 'nowrap'));
   $('#engine-pvs').append('<li>&nbsp;</li>');
   if(engine) {
     stopEngine(true);
+    if(engine)
+      engine.setNumPVs(settings.engineLines);
     startEngine();
   }
 });
 
 $('#remove-pv').on('click', () => {
-  if(numPVs === 1)
+  if(settings.engineLines === 1)
     return;
 
-  numPVs--;
-  $('#engine-pvs').css('white-space', (numPVs === 1 ? 'normal' : 'nowrap'));
+  settings.engineLines--;
+  storage.set('engine-lines', String(settings.engineLines));
+  $('#engine-pvs').css('white-space', (settings.engineLines === 1 ? 'normal' : 'nowrap'));
   $('#engine-pvs li').last().remove();
-  if(engine)
-    engine.setNumPVs(numPVs);
+  
+  if(engine) {
+    stopEngine(true);
+    if(engine)
+      engine.setNumPVs(settings.engineLines);
+    startEngine();
+  }
 });
 
 function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: string) {
@@ -6307,6 +6352,119 @@ function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: str
     updateEvalBar(game, pvEval);
   }
 }
+
+/** Engine Settings button in engine panel */
+$('#engine-settings-btn').on('click', () => {
+  $('#engine-settings-modal').modal('show');
+});
+
+/** Opening Engine Settings panel */
+$('#engine-settings-modal').on('show.bs.modal', () => {
+  const deviceMemory = (navigator as any).deviceMemory || 4; // GB
+  const isMobile = Utils.isMobile();
+
+  oldEngineName = settings.analyzeEngineName;
+  $('#engine-selector-btn').text(settings.analyzeEngineName);
+
+  const engineMenu = $('#engine-selector-menu');
+  engineMenu.html('');
+  if(!isMobile || deviceMemory >= 8)
+    engineMenu.append('<li><a class="dropdown-item" href="#">Stockfish 17.1 (75MB download)</a></li>');
+  if(!isMobile || deviceMemory >= 4)
+    engineMenu.append('<li><a class="dropdown-item" href="#">Stockfish 17.1 Lite</a></li>');
+  engineMenu.append('<li><a class="dropdown-item" href="#">Stockfish MV 2019</a></li>');
+
+  oldEngineMaxTime = settings.engineMaxTime;
+  const maxTimeSteps = [3000, 5000, 10000, 20000, 30000, Infinity]; // Slider steps in powers of 2
+  $('#engine-max-time-slider').attr('max', maxTimeSteps.length - 1);
+  $('#engine-max-time-slider').val(maxTimeSteps.indexOf(settings.engineMaxTime));
+  $('#engine-max-time-value').text(settings.engineMaxTime === Infinity ? '∞' : `${settings.engineMaxTime / 1000}s`);
+
+  oldEngineThreads = settings.engineThreads;
+  let maxThreads;
+  if(!isMobile)
+    maxThreads = navigator.hardwareConcurrency - 1;
+  else if(deviceMemory >= 4)
+    maxThreads = navigator.hardwareConcurrency - 2;
+  else
+    maxThreads = 1;
+  $('#engine-threads-slider').parent().css('display', Utils.hasMultiThreading() && maxThreads > 1 ? 'flex' : 'none');
+  $('#engine-threads-slider').val(settings.engineThreads);
+  $('#engine-threads-slider').attr('max', maxThreads);
+  $('#engine-threads-value').text(`${settings.engineThreads} / ${maxThreads}`);
+
+  
+  oldEngineMemory = settings.engineMemory;
+  // Only allow a smaller max memory on mobile, since we don't want to crash their phone
+  let maxMemory;
+  if(!isMobile || deviceMemory >= 8)
+    maxMemory = 512;
+  else if(deviceMemory >= 4)
+    maxMemory = 64;
+  else
+    maxMemory = 16;
+
+  const memorySteps = [16, 32, 64, 128, 256, 512];
+  $('#engine-memory-slider').parent().css('display', maxMemory > 16 ? 'flex' : 'none');
+  $('#engine-memory-slider').attr('max', memorySteps.indexOf(maxMemory));
+  $('#engine-memory-slider').val(memorySteps.indexOf(settings.engineMemory));
+  $('#engine-memory-value').text(`${settings.engineMemory}MB`);
+});
+
+/** Closing Engine Settings panel */
+$('#engine-settings-modal').on('hide.bs.modal', () => {
+  if(oldEngineName !== settings.analyzeEngineName && !evalEngine && !engine) {
+    // The Engine has changed, pre-fetch the new one
+    Engine.load(settings.analyzeEngineName).catch(err => {}); 
+  }
+  else if(oldEngineName !== settings.analyzeEngineName 
+      || oldEngineThreads !== settings.engineThreads 
+      || oldEngineMemory !== settings.engineMemory
+      || oldEngineMaxTime !== settings.engineMaxTime) {
+    // If engine settings have changed, terminate any analysis engines running and restart them.
+    if(evalEngine) {
+      stopEvalEngine();
+      createEvalEngine(games.focused);
+      evalEngine.evaluate();
+    }
+    if(engine) {
+      stopEngine();
+      startEngine();
+    }
+  }
+});
+
+/** New engine selected */
+$('#engine-selector-menu').on('click', '.dropdown-item', (event) => {
+  const item = $(event.currentTarget);
+  settings.analyzeEngineName = item.text().split('(')[0].trim();
+  $('#engine-selector-btn').text(settings.analyzeEngineName);
+  storage.set('analyze-engine-name', settings.analyzeEngineName);
+});
+
+/** Engine threads changed */
+$('#engine-threads-slider').on('input', (event) => {
+  settings.engineThreads = +$(event.target).val();
+  const maxThreads = navigator.hardwareConcurrency - (Utils.isMobile() ? 2 : 1);
+  $('#engine-threads-value').text(`${settings.engineThreads} / ${maxThreads}`);
+  storage.set('engine-threads', String(settings.engineThreads));
+});
+
+/** Engine hash memory changed */
+$('#engine-memory-slider').on('input', (event) => {
+  const memorySteps = [16, 32, 64, 128, 256, 512];
+  settings.engineMemory = memorySteps[+$(event.target).val()];
+  $('#engine-memory-value').text(`${settings.engineMemory}MB`);
+  storage.set('engine-memory', String(settings.engineMemory));
+});
+
+/** Engine max time changed */
+$('#engine-max-time-slider').on('input', (event) => {
+  const maxTimeSteps = [3000, 5000, 10000, 20000, 30000, Infinity]; 
+  settings.engineMaxTime = maxTimeSteps[+$(event.target).val()];
+  $('#engine-max-time-value').text(settings.engineMaxTime === Infinity ? '∞' : `${settings.engineMaxTime / 1000}s`);
+  storage.set('engine-max-time', String(settings.engineMaxTime));
+});
 
 /**
  * Update the engine eval bar for game, based on the specified eval string, e.g. '-3.21', '-#12' 
@@ -6354,11 +6512,23 @@ function createEvalEngine(game: Game) {
   if(game.category && Engine.categorySupported(game.category)) {
     // Configure for variants
     const options = {
+      Hash: settings.engineMemory,
+      ...(settings.engineThreads > 1 && { Threads: settings.engineThreads }),   
       ...(game.category === 'wild/fr' && { UCI_Chess960: true }),
       ...(game.category === 'crazyhouse' && { UCI_Variant: game.category }),
     };
-    evalEngine = new EvalEngine(game, options);
+
+    const engineName = options.hasOwnProperty('UCI_Variant')
+      ? settings.variantsEngineName
+      : settings.analyzeEngineName;
+    
+    evalEngine = new EvalEngine(game, engineName, options);
   }
+}
+
+function stopEvalEngine() {
+  evalEngine?.terminate();
+  evalEngine = null;
 }
 
 /** STATUS PANEL SHOW/HIDE BUTTON **/
@@ -6638,6 +6808,26 @@ function initSettings() {
   $('#best-move-arrow-toggle-icon').toggleClass('fa-eye', settings.bestMoveArrowToggle);
   $('#best-move-arrow-toggle-icon').toggleClass('fa-eye-slash', !settings.bestMoveArrowToggle);
 
+  const engineName = storage.get('analyze-engine-name');
+  if(engineName)
+    settings.analyzeEngineName = engineName;
+
+  const engineLines = storage.get('engine-lines');
+  if(engineLines)
+    settings.engineLines = +engineLines;
+
+  const engineMaxTime = storage.get('engine-max-time');
+  if(engineMaxTime)
+    settings.engineMaxTime = +engineMaxTime;
+
+  const engineThreads = storage.get('engine-threads');
+  if(engineThreads)
+    settings.engineThreads = +engineThreads;
+
+  const engineMemory = storage.get('engine-memory');
+  if(engineMemory)
+    settings.engineMemory = +engineMemory;
+
   settings.rememberMeToggle = (storage.get('rememberme') === 'true');
   $('#remember-me').prop('checked', settings.rememberMeToggle);
 
@@ -6750,10 +6940,15 @@ $('#best-move-arrow-toggle').on('change', () => {
   $('#best-move-arrow-toggle-icon').toggleClass('fa-eye');
   $('#best-move-arrow-toggle-icon').toggleClass('fa-eye-slash');
 
-  if(games.focused.engineRunning && !settings.bestMoveArrowToggle) {
-    games.focused.board.setAutoShapes([]); 
-    games.focused.board.redrawAll();
+  if(settings.bestMoveArrowToggle) 
+    updateEngine();
+  else {
+    if(games.focused.engineRunning) {
+      games.focused.board.setAutoShapes([]); 
+      games.focused.board.redrawAll();
+    }
   }
+  
   storage.set('bestmovearrow', String(settings.bestMoveArrowToggle));
 });
 

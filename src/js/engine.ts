@@ -6,180 +6,335 @@ import { HEntry } from './history';
 import { getTurnColorFromFEN, getMoveNoFromFEN, parseMove } from './chess-helper';
 import { gotoMove } from './index';
 import { Game } from './game';
+import { hasMultiThreading } from './utils';
 
 const SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'wild/fr', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
 
 export class Engine {
-  protected stockfish: any;
-  protected numPVs: number;
+  protected worker: any;
+  protected workerPromise: any = null; // For waiting until engine worker is created and initialised
+  protected static loadPromise: any = null; // For waiting until engine files are fetched
+  protected static workerUrl: any; // engine worker Blob URL
+  protected static loadedEngineName: string; // The name of the engine currently loading/loaded
+  protected static loadedEngineMultiThreaded: boolean = false; // Is the loaded Blob a multi-threading engine?
+  protected static abortLoad: AbortController; // For aborting an engine fetch 
+  public multiThreaded: boolean = false; // Is this instance a multi-threading engine?
+  public thinking: boolean = false; // If the engine is currently in 'go' mode
+  public stopping: boolean = false; // Has 'stop' command been called? Ignore any late 'info' messages
   protected currFen: string;
   protected currEval: string;
   protected game: Game;
   protected bestMoveCallback: (game: Game, move: string, score: string) => void;
   protected pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string) => void;
   protected moveParams: string;
-  protected ready: boolean;
-
-  constructor(game: Game, bestMoveCallback: (game: Game, move: string, score: string) => void, pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string) => void, options?: object, moveParams?: string) {
-    this.numPVs = 1;
+  
+  constructor(game: Game, bestMoveCallback: (game: Game, move: string, score: string) => void, pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string) => void, engineName: string, options?: object, moveParams?: string) {
     this.moveParams = moveParams;
     this.currFen = null;
     this.game = game;
     this.bestMoveCallback = bestMoveCallback;
     this.pvCallback = pvCallback;
-    this.ready = false;
 
     if(!this.moveParams)
       this.moveParams = 'infinite';
 
-    const wasmSupported = typeof WebAssembly === 'object' && WebAssembly.validate(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
-    if(wasmSupported) {
-      new URL('stockfish.js/stockfish.wasm', import.meta.url); // Get webpack to copy the file from node_modules
-      this.stockfish = new Worker(new URL('stockfish.js/stockfish.wasm.js', import.meta.url));
-    }
-    else
-      this.stockfish = new Worker(new URL('stockfish.js/stockfish.js', import.meta.url));
+    this.workerPromise = this.init(game, engineName, options); // Create engine worker
+    void this.workerPromise.catch(err => { 
+      if(err.name !== "AbortError") 
+        console.error(err);
+    });
+  }
 
-    this.stockfish.onmessage = (response) => {
-      let depth0 = false;
-      this.ready = true;
-      
-      if(response.data.startsWith('info')) {
-        const fen = this.currFen;
-        const info = response.data.substring(5, response.data.length);
-        const infoArr: string[] = info.trim().split(/\s+/);
+  public async init(game: Game, engineName?: string, options?: object) {
+    await Engine.load(engineName);
+    this.multiThreaded = Engine.loadedEngineMultiThreaded;
+    this.worker = new Worker(Engine.workerUrl);
+    
+    return new Promise<void>((resolve) => {   
+      this.worker.onmessage = (response) => {     
+        if(response.data === 'uciok') {
+          // Parse options
+          Object.entries(options).forEach(([key, value]) => {
+            this.worker.postMessage(`setoption name ${key} value ${value}`);
+          });
 
-        let bPV = false;
-        const pvArr = [];
-        let scoreStr: string;
-        let pvNum = 1;
-        for(let i = 0; i < infoArr.length; i++) {
-          if(infoArr[i] === 'lowerbound' || infoArr[i] === 'upperbound')
+          this.worker.postMessage('ucinewgame');
+          this.worker.postMessage('isready');
+        }
+        else if(response.data === 'readyok')
+          resolve(); 
+        else if(response.data.startsWith('info')) {
+          if(this.stopping)
             return;
 
-          if(infoArr[i] === 'depth' && infoArr[i + 1] === '0')
-            depth0 = true;
+          let depth0 = false;
+          const fen = this.currFen;
+          const info = response.data.substring(5, response.data.length);
+          const infoArr: string[] = info.trim().split(/\s+/);
 
-          if(infoArr[i] === 'multipv') {
-            pvNum = +infoArr[i + 1];
-            if(pvNum > this.numPVs)
+          let bPV = false;
+          const pvArr = [];
+          let scoreStr: string;
+          let pvNum = 1;
+          for(let i = 0; i < infoArr.length; i++) {
+            if(infoArr[i] === 'lowerbound' || infoArr[i] === 'upperbound')
               return;
+
+            if(infoArr[i] === 'depth' && infoArr[i + 1] === '0')
+              depth0 = true;
+
+            if(infoArr[i] === 'multipv') 
+              pvNum = +infoArr[i + 1];
+
+            if(infoArr[i] === 'score') {
+              let score = +infoArr[i + 2];
+              const turn = fen.split(/\s+/)[1];
+
+              let prefix = '';
+              if(score > 0 && turn === 'w' || score < 0 && turn === 'b')
+                prefix = '+';
+              else if(score === 0)
+                prefix = '=';
+              else
+                prefix = '-';
+              score = (score < 0 ? -score : score);
+
+              if(infoArr[i+1] === 'mate') {
+                if(prefix === '+')
+                  prefix = '';
+                else if(prefix === '=') {
+                  if(turn === 'w')
+                    prefix = '-';
+                  else prefix = '';
+                }
+
+                scoreStr = `${prefix}#${score}`;
+              }
+              else
+                scoreStr = `${prefix}${(score / 100).toFixed(2)}`;
+            }
+            else if(infoArr[i] === 'pv')
+              bPV = true;
+            else if(bPV)
+              pvArr.push(infoArr[i]);
           }
 
-          if(infoArr[i] === 'score') {
-            let score = +infoArr[i + 2];
-            const turn = fen.split(/\s+/)[1];
+          if(pvArr.length) {
+            let pv = '';
+            let currFen = fen;
+            for(const move of pvArr) {
+              const moveParam = move[1] === '@'
+                ? move
+                : {
+                  from: move.slice(0, 2),
+                  to: move.slice(2, 4),
+                  promotion: (move.length === 5 ? move.charAt(4) : undefined)
+                };
 
-            let prefix = '';
-            if(score > 0 && turn === 'w' || score < 0 && turn === 'b')
-              prefix = '+';
-            else if(score === 0)
-              prefix = '=';
-            else
-              prefix = '-';
-            score = (score < 0 ? -score : score);
-
-            if(infoArr[i+1] === 'mate') {
-              if(prefix === '+')
-                prefix = '';
-              else if(prefix === '=') {
-                if(turn === 'w')
-                  prefix = '-';
-                else prefix = '';
+              const parsedMove = parseMove(currFen, moveParam, game.history.first().fen, game.category);
+              if(!parsedMove) {
+                // Non-standard or unsupported moves were passed to Engine.
+                this.terminate();
+                return;
               }
 
-              scoreStr = `${prefix}#${score}`;
-            }
-            else
-              scoreStr = `${prefix}${(score / 100).toFixed(2)}`;
-          }
-          else if(infoArr[i] === 'pv')
-            bPV = true;
-          else if(bPV)
-            pvArr.push(infoArr[i]);
-        }
-
-        if(pvArr.length) {
-          let pv = '';
-          let currFen = fen;
-          for(const move of pvArr) {
-            const moveParam = move[1] === '@'
-              ? move
-              : {
-                from: move.slice(0, 2),
-                to: move.slice(2, 4),
-                promotion: (move.length === 5 ? move.charAt(4) : undefined)
-              };
-
-            const parsedMove = parseMove(currFen, moveParam, game.history.first().fen, game.category);
-            if(!parsedMove) {
-              // Non-standard or unsupported moves were passed to Engine.
-              this.terminate();
-              return;
+              const turnColor = getTurnColorFromFEN(currFen);
+              const moveNumber = getMoveNoFromFEN(currFen);
+              let moveNumStr = '';
+              if(turnColor === 'w')
+                moveNumStr = `${moveNumber}.`;
+              else if(fen === currFen && turnColor === 'b')
+                moveNumStr = `${moveNumber}...`;
+              pv += `${moveNumStr}${parsedMove.move.san} `;
+              currFen = parsedMove.fen;
             }
 
-            const turnColor = getTurnColorFromFEN(currFen);
-            const moveNumber = getMoveNoFromFEN(currFen);
-            let moveNumStr = '';
-            if(turnColor === 'w')
-              moveNumStr = `${moveNumber}.`;
-            else if(fen === currFen && turnColor === 'b')
-              moveNumStr = `${moveNumber}...`;
-            pv += `${moveNumStr}${parsedMove.move.san} `;
-            currFen = parsedMove.fen;
+            if(this.pvCallback)
+              this.pvCallback(this.game, pvNum, scoreStr, pv);
           }
+          // mate in 0
+          else if(scoreStr === '#0' || scoreStr === '-#0') {
+            if(this.pvCallback)
+              this.pvCallback(this.game, 1, scoreStr, '');
+          }
+          this.currEval = scoreStr;
 
-          if(this.pvCallback)
-            this.pvCallback(this.game, pvNum, scoreStr, pv);
+          // For backwards compatibility, older version of Stockfish didn't send a bestmove for mate in 0.
+          if(depth0 && this.bestMoveCallback)
+            this.bestMoveCallback(this.game, '', this.currEval);
         }
-        // mate in 0
-        else if(scoreStr === '#0' || scoreStr === '-#0') {
-          if(this.pvCallback)
-            this.pvCallback(this.game, 1, scoreStr, '');
+        else if(response.data.startsWith('bestmove')) {
+          if(this.stopping) {
+            this.stopping = false;
+            return;
+          }
+          this.thinking = false;
+
+          if(this.bestMoveCallback) {
+            const bestMove = response.data.trim().split(/\s+/)[1];
+            if(bestMove !== '(none)')
+              this.bestMoveCallback(this.game, bestMove, this.currEval);
+          }
         }
-        this.currEval = scoreStr;
+      };
 
-        if(depth0 && this.bestMoveCallback)
-          this.bestMoveCallback(this.game, '', this.currEval);
+      this.worker.postMessage('uci');
+    });
+  }
+
+  /**
+   * Fetch engine files from CDN and create Blob URLs for them.
+   * We only load one Blob at a time. 
+   */
+  public static load(engineName?: string) {
+    if(!engineName)
+      engineName = 'Stockfish 17.1 Lite';
+
+    if(this.loadPromise && engineName === this.loadedEngineName) // load() has already been called
+      return this.loadPromise;
+    this.loadedEngineName = engineName;
+
+    this.loadPromise = (async () => {
+      this.abortLoad?.abort(); // Abort any fetches from a previous load()
+      this.abortLoad = new AbortController();
+      const signal = this.abortLoad.signal;
+
+      const wasmSupported = typeof WebAssembly === 'object' && WebAssembly.validate(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
+      this.loadedEngineMultiThreaded = false;
+      let jsCode = null;
+      if(engineName === 'Stockfish MV 2019') {
+        if(wasmSupported) {
+          const jsUrl = 'https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.wasm.js';
+          const wasmUrl = 'https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.wasm';
+
+          jsCode = await (await fetch(jsUrl, { signal })).text();
+          const wasmBuffer = await (await fetch(wasmUrl, { signal })).arrayBuffer();
+          const wasmBlob = new Blob([wasmBuffer], { type: 'application/wasm' });
+          const wasmBlobUrl = URL.createObjectURL(wasmBlob); 
+
+          // Patch the locateFile function in the wasm loader so that it can fetch the .wasm from a Blob URL 
+          jsCode = jsCode.replace(/locateFile:function[^}]*}/,
+            `locateFile:function(e){return "${wasmBlobUrl}"}`);
+        }
+        else 
+          jsCode = await (await fetch('https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.js', { signal })).text();
       }
-      else if(response.data.startsWith('bestmove') && this.bestMoveCallback) {
-        const bestMove = response.data.trim().split(/\s+/)[1];
-        this.bestMoveCallback(this.game, bestMove, this.currEval);
+      else if(engineName === 'Stockfish 17.1') {
+        if(wasmSupported) {     
+          this.loadedEngineMultiThreaded = hasMultiThreading();
+
+          const url = hasMultiThreading()
+            ? 'https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js@7fa3404/src/stockfish-17.1-8e4d048'
+            : 'https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js@7fa3404/src/stockfish-17.1-single-a496a04';  
+
+          const jsUrl = `${url}.js`;
+          jsCode = await (await fetch(jsUrl, { signal })).text();
+          
+          const wasmParts = [];
+          const numParts = 6;
+          for(let i = 0; i < numParts; i++) 
+            wasmParts[i] = await (await fetch(`${url}-part-${i}.wasm`, { signal })).blob();
+          
+          const wasmBlob = new Blob(wasmParts, { type: 'application/wasm' });
+          const wasmBlobUrl = URL.createObjectURL(wasmBlob); 
+
+          // Patch the wasm loader so it expects a single wasm instead of parts
+          jsCode = jsCode.replace(`var enginePartsCount=${numParts};`, '');
+          
+          // Patch the locateFile function in the wasm loader so that it can fetch the .wasm and the loader itself from Blob URLs 
+          jsCode = jsCode.replace(/locateFile:function[^}]*,worker"}/,
+            `locateFile:function(e){return-1<e.indexOf(".wasm")?"${wasmBlobUrl}":"blob:"+self.location.pathname+"#"+"${wasmBlobUrl}"+",worker"}`);
+        }
+        else 
+          jsCode = await (await fetch('https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js@7fa3404/src/stockfish-17.1-asm-341ff22.js', { signal })).text();
       }
-    };
+      else { // Stockfish 17.1 Lite (default)
+        if(wasmSupported) {      
+          this.loadedEngineMultiThreaded = hasMultiThreading();
 
-    this.uci('uci');
+          const url = hasMultiThreading() 
+            ? 'https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js@7fa3404/src/stockfish-17.1-lite-51f59da'
+            : 'https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js@7fa3404/src/stockfish-17.1-lite-single-03e3232';  
 
-    // Parse options
-    Object.entries(options).forEach(([key, value]) => {
-      if(key === 'MultiPV')
-        this.numPVs = value;
+          const jsUrl = `${url}.js`;
+          const wasmUrl = `${url}.wasm`;
 
-      this.uci(`setoption name ${key} value ${value}`);
+          jsCode = await (await fetch(jsUrl, { signal })).text();
+          const wasmBuffer = await (await fetch(wasmUrl, { signal })).arrayBuffer();
+          const wasmBlob = new Blob([wasmBuffer], { type: 'application/wasm' });
+          const wasmBlobUrl = URL.createObjectURL(wasmBlob); 
+
+          // Patch the locateFile function in the wasm loader so that it can fetch the .wasm and the loader itself from Blob URLs 
+          jsCode = jsCode.replace(/locateFile:function[^}]*,worker"}/,
+            `locateFile:function(e){return-1<e.indexOf(".wasm")?"${wasmBlobUrl}":"blob:"+self.location.pathname+"#"+"${wasmBlobUrl}"+",worker"}`);
+        }
+        else 
+          jsCode = await (await fetch('https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js@7fa3404/src/stockfish-17.1-asm-341ff22.js', { signal })).text();
+      }
+      const jsBlob = new Blob([jsCode], { type: 'application/javascript' });
+      Engine.workerUrl = URL.createObjectURL(jsBlob); 
+    })().catch(err => {
+      this.loadPromise = null;
+      throw err;
     });
 
-    this.uci('ucinewgame');
-    this.uci('isready');
+    return this.loadPromise;
   }
 
   public static categorySupported(category: string) {
     return SupportedCategories.indexOf(category) > -1;
   }
 
-  public terminate() {
-    const worker = this.stockfish;
-    if(this.ready) 
-      worker.terminate();
-    else { 
-      // Wait for a worker to finish being created before terminating it
-      // Stops an overlay error in webpack dev-server
-      worker.onmessage = () => {
-        worker.terminate();
-      }
+  public async ready() {
+    try {
+      await this.workerPromise;
+      return true;
     }
+    catch(err) {
+      return false;
+    };
   }
 
-  public move(hEntry: HEntry) {
+  public async terminate() {
+    if(!await this.ready())
+      return;
+
+    this.worker.terminate();
+  }
+
+  /**
+   * If multithreading is supported, then stop the engine without terminating it
+   */
+  public async stop() {
+    if(!this.hasStop() || !this.thinking)
+      return;
+
+    this.thinking = false;
+    this.stopping = true;
+
+    if(!await this.ready())
+      return;
+
+    this.uci('stop');
+  }
+
+  /**
+   * Returns true/false depending on if this engine supports the 'stop' command, 
+   * e.g. multi-threaded vs single-threaded engine 
+   */
+  public hasStop() {
+    return this.multiThreaded;
+  }
+
+  public async move(hEntry: HEntry) {
+    if(this.thinking)
+      return;
+
+    this.thinking = true;
+
+    if(!await this.ready())
+      return;
+
     this.currFen = hEntry.fen;
 
     const movesStr = this.movesToCoordinatesString(hEntry);
@@ -206,19 +361,32 @@ export class Engine {
     return movesStr;
   }
 
-  public evaluateFEN(fen: string) {
+  public async evaluateFEN(fen: string) {
+    if(this.thinking)
+      return;
+
+    this.thinking = true;
+
+    if(!await this.ready())
+      return;
+
     this.currFen = fen;
     this.uci(`position fen ${fen}`);
     this.uci(`go ${this.moveParams}`);
   }
 
-  public setNumPVs(num : any = 1) {
-    this.numPVs = num;
-    this.uci(`setoption name MultiPV value ${this.numPVs}`);
+  public async setNumPVs(num: any = 1) {
+    if(!await this.ready())
+      return;
+
+    this.uci(`setoption name MultiPV value ${num}`);
   }
 
-  private uci(cmd: string, ports?: any) {
-    return this.stockfish.postMessage(cmd, ports)
+  private async uci(cmd: string, ports?: any) {
+    if(!await this.ready())
+      return;
+
+    return this.worker.postMessage(cmd, ports)
   }
 }
 
@@ -227,11 +395,11 @@ export class EvalEngine extends Engine {
   private numGraphMoves = 0;
   private currMove: any;
 
-  constructor(game: Game, options?: any, moveParams?: string) {
+  constructor(game: Game, engineName: string, options?: any, moveParams?: string) {
     if(!moveParams)
       moveParams = 'movetime 100';
 
-    super(game, null, null, options, moveParams);
+    super(game, null, null, engineName, options, moveParams);
     this.bestMoveCallback = this.bestMove;
   }
 
@@ -245,6 +413,12 @@ export class EvalEngine extends Engine {
   public evaluate() {
     if(this._redraw)
       $('#eval-graph-container').html('');
+
+    $('#eval-graph-status').toggle(this.game.history.length() === 0);
+    if(this.game.history.length() === 0) {
+      $('#eval-graph-container').hide();
+      $('#eval-progress').hide();
+    }
 
     if(this.game.history.length() === 0 || !$('#eval-graph-panel').is(':visible'))
       return;
