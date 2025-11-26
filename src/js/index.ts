@@ -109,14 +109,6 @@ async function onDeviceReady() {
   await storage.init();
   initSettings();
 
-  if(Utils.isCapacitor()) {
-    Capacitor.Plugins.SafeArea.enable({
-      config: {
-        customColorsForSystemBars: false
-      },
-    });
-  }
-
   chat = new Chat();
   tournaments = new Tournaments();
   users = new Users();
@@ -160,21 +152,23 @@ async function onDeviceReady() {
     $('#right-panel-header').css('visibility', 'visible');
   }, 0);
 
+  Utils.initDropdownSubmenus();
+
   credential = new CredentialStorage();
-  if(settings.rememberMeToggle)
-    await credential.retrieve(); // Get the username/password from secure storage (if the user has previously ticked Remember Me)
+  if(settings.rememberMeToggle) {
+     // Get the username/password from secure storage (if the user has previously ticked Remember Me)
+    credential.retrieve().then(() => {
+      if(credential.username != null && credential.password != null) 
+        session = new Session(messageHandler, credential.username, credential.password);
+      else 
+        session = new Session(messageHandler);
+    });
+  }
   else {
     $('#login-user').val('');
     $('#login-pass').val('');
-  }
-
-  if(credential.username != null && credential.password != null) {
-    session = new Session(messageHandler, credential.username, credential.password);
-  } else {
     session = new Session(messageHandler);
   }
-
-  Utils.initDropdownSubmenus();
 }
 
 $(window).on('load', async () => {
@@ -318,16 +312,16 @@ $(document).on('hide.bs.modal', '.modal', () => {
   $(document.activeElement).trigger('blur');
 });
 
-Utils.createContextMenuTrigger((event) => {
-  const target = $(event.target);
-  return settings.multiplePremovesToggle && !!target.closest('.board').length;
-}, (event) => { 
-  const element = $(event.target).closest('.game-card');
-  for(const g of games) {
-    if(g.element.is(element) && g.premoves.length) {
-      cancelMultiplePremoves(g);
-      updateBoard(g, false, true, false);
-    }
+/** Cancel multiple premoves on right click */
+$(document).on('mousedown', '.board', (event) => {
+  if(event.button === 2) {
+    const element = $(event.target).closest('.game-card');
+    for(const g of games) {
+      if(g.element.is(element) && g.premoves.length) {
+        cancelMultiplePremoves(g);
+        updateBoard(g, false, true, false);
+      }
+    }  
   }
 });
 
@@ -718,6 +712,9 @@ function messageHandler(data: any) {
         $('#sign-in-alert').removeClass('show');
 
         users.connected(session, chat);
+
+        settings.visited = true;
+        storage.set('visited', String(settings.visited)); 
       }
       else if(data.command === 2) { // Login error
         session.disconnect();
@@ -1164,12 +1161,13 @@ function gameEnd(data: any) {
     let analyze = [];
     let dialogText = data.message;
     if(data.reason !== Reason.Disconnect && data.reason !== Reason.Adjourn && data.reason !== Reason.Abort) {
-      dialogText += `\n\n${data.extraText}`
+      if(data.extraText)
+        dialogText += `\n\n${data.extraText}`;
       
-      if(game.role === Role.PLAYING_COMPUTER) {
+      if(game.role === Role.PLAYING_COMPUTER) 
         rematch = ['rematchComputer();', 'Rematch'];
-      }
-      rematch = ['sessionSend(\'rematch\')', 'Rematch']
+      else 
+        rematch = ['sessionSend(\'rematch\')', 'Rematch']
     }
     if(data.reason !== Reason.Adjourn && data.reason !== Reason.Abort && game.history.length()) 
       analyze = ['analyze();', 'Analyze'];
@@ -2523,7 +2521,7 @@ export function updateBoard(game: Game, playSound = false, setBoard = true, anim
     },
     predroppable: { enabled: game.category === 'crazyhouse' || game.category === 'bughouse' },
     check: !game.setupBoard && /[+#]/.test(move?.san) ? color : false,
-    blockTouchScroll: (game.isPlaying() ? true : false),
+    blockTouchScroll: game.isPlaying(),
     autoCastle: !game.setupBoard && (categorySupported || game.category === 'atomic'),
     drawable: { enabled: !game.premoves.length } 
   });
@@ -2599,15 +2597,34 @@ function squareSelected(square: string) {
   const prevPremoveSet = game.premoveSet; // did this click cancel a chessground premove?
   game.premoveSet = game.board.state.premovable.current; // did this click set a chessground premove?
 
-  if(!game.isPlaying())
-    return;
-
-  const cancellingPremove = (prevPremoveSet && !settings.multiplePremovesToggle) 
+  let cancellingPremove = (prevPremoveSet && !settings.multiplePremovesToggle) 
       || game.element.find('.promotion-panel').is(':visible');
 
+  // If the user clicks the same square twice quickly, without selecting a piece, then cancel multiple premoves
+  const prevSquareSelectedTime = game.squareSelectedTime;
+  game.squareSelectedTime = Date.now();
+  const prevSquareSelected = game.squareSelected;
+  game.squareSelected = square;
+  const prevSmartMove = game.smartMove;
+  game.smartMove = null;
+
+  if(!prevPieceSelected && (!game.pieceSelected || prevSmartMove) && prevSquareSelected === square && prevSquareSelectedTime && game.squareSelectedTime - prevSquareSelectedTime < 300) {
+    cancellingPremove = true;
+    cancelMultiplePremoves(game);
+    updateBoard(game, false, true, false);
+  }
+  
   // Don't play smart move if the user is setting/cancelling a previous premove or selecting/unselecting a piece
-  if(!cancellingPremove && !game.premoveSet && !prevPieceSelected && !game.pieceSelected) 
-    playSmartMove(game, square);
+  if(!cancellingPremove && !game.premoveSet && !prevPieceSelected && !game.pieceSelected) {
+    const boardRect = game.element.find('.board')[0].getBoundingClientRect();
+    const orientation = game.board.state.orientation === 'white' ? 'w' : 'b';
+    const squareRect = ChessHelper.getSquareRect(boardRect, square, orientation);
+    const coords = lastPointerCoords;
+    const edgeDistance = 10;
+    if(coords.x >= squareRect.left + edgeDistance && coords.x <= squareRect.right - edgeDistance
+        && coords.y >= squareRect.top + edgeDistance && coords.y <= squareRect.bottom - edgeDistance)
+      playSmartMove(game, square);
+  }
 
   setPremoveDests(game, square); // Set custom dests for premove (correct castling dests for variants)
 }
@@ -2936,7 +2953,7 @@ function cancelMultiplePremoves(game: Game) {
  * @square the square selected 
  */
 function setPremoveDests(game: Game, square: string) {
-  if(currentGameMove(game).turnColor !== game.color && game.category.startsWith('wild')) {
+  if(game.isPlaying() && currentGameMove(game).turnColor !== game.color && game.category.startsWith('wild')) {
     /** Correct castling dests for premove */
     const pieces = game.board.state.pieces;
     const piece = pieces.get(square);
@@ -2980,7 +2997,7 @@ function playSmartMove(game: Game, square: string) {
   // If there are multiple premoves, check valid premoves from the final premove position
   // Note the new premoves are checked as regualar moves (full validation) 
   let fen = (game.premoves.length ? game.premovesFen : currentGameMove(game).fen);
-  if(ChessHelper.getTurnColorFromFEN(fen) !== game.color) {
+  if(game.isPlaying() && ChessHelper.getTurnColorFromFEN(fen) !== game.color) {
     const fenWords = ChessHelper.splitFEN(fen);
     fenWords.color = game.color; // Check the move from the perspective of the player's color
     fenWords.enPassant = '-'; // Remove en passant from premove FEN (or chess.js will flag the position as invalid)
@@ -3008,7 +3025,8 @@ function playSmartMove(game: Game, square: string) {
     game.board.set({ events: { select: null } }); // Disable squareSelected event to stop potential infinite loop (just in case)
     game.board.selectSquare(validMove.from); // Play the move/premove by selecting source and destination square
     game.board.selectSquare(validMove.to);
-    game.board.set({ events: { select: squareSelected } });      
+    game.board.set({ events: { select: squareSelected } });  
+    game.smartMove = true;    
   }
 }
 
@@ -3312,6 +3330,8 @@ function createGame(): Game {
     games.add(game);
     game.element = $('#main-board-area').children().first().clone();
     game.board = createBoard(game.element.find('.board'));
+    const orientation = game.element.find('.black-status').parent().hasClass('bottom-panel') ? 'black' : 'white';
+    game.board.set({ orientation });
     leaveSetupBoard(game);
     makeSecondaryBoard(game);
     game.element.find('.eval-bar').hide();
@@ -5036,6 +5056,7 @@ function newGame(createNewBoard: boolean, game?: Game, category = 'untimed', fen
 
   const data = {
     fen,                                    // game state
+    color: 'w',                             // The side of the board to view from
     turn: 'w',                              // color whose turn it is to move ("B" or "W")
     id: null,                               // The game number
     wname: '',                              // White's name
@@ -5636,7 +5657,6 @@ function cloneGame(game: Game): Game {
   clonedGame.statusElement.find('.game-id').remove();
   clonedGame.element.find('.title-bar-text').empty();
 
-  clonedGame.board.set({ orientation: game.board.state.orientation });
   scrollToBoard(clonedGame);
   return clonedGame;
 }
@@ -6582,6 +6602,8 @@ $('#disconnect').on('click', () => {
  * This must be done after 'storage' is initialised in onDeviceReady
  */
 function initSettings() {
+  settings.visited = (storage.get('visited') === 'true');
+
   settings.soundToggle = (storage.get('sound') !== 'false');
   updateDropdownSound();
 

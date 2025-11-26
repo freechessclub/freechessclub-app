@@ -111,7 +111,7 @@ export class Engine {
                 promotion: (move.length === 5 ? move.charAt(4) : undefined)
               };
 
-            const parsedMove = parseMove(currFen, moveParam, game.history.first().fen, game.category, game.history.holdings);
+            const parsedMove = parseMove(currFen, moveParam, game.history.first().fen, game.category);
             if(!parsedMove) {
               // Non-standard or unsupported moves were passed to Engine.
               this.terminate();

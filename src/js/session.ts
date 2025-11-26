@@ -4,6 +4,7 @@
 
 import Parser from './parser';
 import { isMobile } from './utils';
+import { settings } from './settings';
 
 export const enum MessageType {
   Control = 0,
@@ -105,11 +106,11 @@ export class Session {
 
   public setUser(user: string): void {
     $('#session-status').html(`<span style="overflow: hidden; text-overflow: ellipsis"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;<span class="h6">${user}</span></span>`);
-    if(!this.user) { // Only display popover if this is a new user or guest
+    if(!this.user && !settings.visited) { // Only display popover if this is a new user or guest
       $('#session-status').popover({
         animation: true,
         content: `Connected as ${user}. Click here to connect as a different user!`,
-        placement: 'top',
+        placement: 'bottom',
       });
       $('#session-status').popover('show');
       this.sessionStatusPopoverTimer = setTimeout(() => $('#session-status').popover('dispose'), 3600);

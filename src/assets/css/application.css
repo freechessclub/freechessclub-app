@@ -15,8 +15,18 @@ html, body {
 }
 
 body {
-  padding-top: var(--safe-area-inset-top);
-  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.status-shim {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top);
+  background-color: var(--bg-color);
+  z-index: 1000;
 }
 
 .feature3 {
@@ -1012,7 +1022,7 @@ input[type="number"]:focus {
   position: fixed; 
   width: fit-content; 
   white-space: nowrap;
-  top: 0; 
+  top: env(safe-area-inset-top); 
   left: 0; 
   transform: translateY(-100%);
   transition: opacity 0.8s ease, transform 0.8s ease;

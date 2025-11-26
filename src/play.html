@@ -29,6 +29,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Math&family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
 </head>
 <body>
+  <div class="status-shim"></div>
   <svg xmlns="http://www.w3.org/2000/svg" style="display: none">
     <symbol id="icon-info" fill="currentColor" class="bi bi-info-circle" viewBox="0 0 16 16">
       <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
@@ -36,7 +37,7 @@
     </symbol>
   </svg>
   <div id="sign-in-alert" class="banner-alert fade" role="alert">Signing in...</div>
-  <div id="notifications" style="z-index: 2000; position: fixed; top: 0; right: 0; width: 100%">
+  <div id="notifications" style="z-index: 2000; position: fixed; top: env(safe-area-inset-top); right: 0; width: 100%">
     <div class="toast notification-panel" data-bs-animation="false" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-header">
       <div class="toast-body position-relative d-flex">
         <span class="mx-auto">Notifications</span>
@@ -818,13 +819,17 @@
                             <div class="col">
                               <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" role="switch" id="multiple-premoves-toggle" checked>
-                                <label class="form-check-label" for="multiple-premoves-toggle"><span id="multiple-premoves-toggle-icon" class="fa-solid fa-arrows-turn-to-dots dropdown-icon" aria-hidden="false"></span>Multiple Premoves</label>
+                                <label class="form-check-label" for="multiple-premoves-toggle"><span id="multiple-premoves-toggle-icon" class="fa-solid fa-arrows-turn-to-dots dropdown-icon" aria-hidden="false"></span>Multiple Premoves
+                                  <svg class="ms-1 info-icon" data-bs-placement="top" data-bs-trigger="hover focus" data-bs-toggle="popover" data-bs-content="To cancel multiple premoves, use double click or right click." role="button"><use href="#icon-info"/></svg>
+                                </label>
                               </div>
                             </div>
                             <div class="col">
                               <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" role="switch" id="smartmove-toggle" checked>
-                                <label class="form-check-label" for="smartmove-toggle"><span id="smartmove-toggle-icon" class="fa-solid fa-brain dropdown-icon" aria-hidden="false"></span>Smart Move</label>
+                                <label class="form-check-label" for="smartmove-toggle"><span id="smartmove-toggle-icon" class="fa-solid fa-brain dropdown-icon" aria-hidden="false"></span>Smart Move
+                                  <svg class="ms-1 info-icon" data-bs-placement="top" data-bs-trigger="hover focus" data-bs-toggle="popover" data-bs-content="Move a piece by clicking only its destination square. Only works if there is a single piece that can legally move there. Warning: Use with care." role="button"><use href="#icon-info"/></svg>
+                                </label>
                               </div>
                             </div>
                           </div>

@@ -1,6 +1,8 @@
 export const settings = {
   /** Main settings */
-
+  
+  // tracks if the person has visited the site before
+  visited: false,
   // toggle game sounds
   soundToggle: true,
   // toggle for auto-promote to queen
