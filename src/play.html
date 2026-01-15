@@ -29,6 +29,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Math&family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
 </head>
 <body>
+  <div class="status-shim"></div>
   <svg xmlns="http://www.w3.org/2000/svg" style="display: none">
     <symbol id="icon-info" fill="currentColor" class="bi bi-info-circle" viewBox="0 0 16 16">
       <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
@@ -36,7 +37,7 @@
     </symbol>
   </svg>
   <div id="sign-in-alert" class="banner-alert fade" role="alert">Signing in...</div>
-  <div id="notifications" style="z-index: 2000; position: fixed; top: 0; right: 0; width: 100%">
+  <div id="notifications" style="z-index: 2000; position: fixed; top: env(safe-area-inset-top); right: 0; width: 100%">
     <div class="toast notification-panel" data-bs-animation="false" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-header">
       <div class="toast-body position-relative d-flex">
         <span class="mx-auto">Notifications</span>
@@ -568,15 +569,52 @@
                             <button type="button" id="remove-pv" class="btn btn-engine btn-outline-secondary btn-sm p-0" title="Remove Engine Line">-</button>
                             <button type="button" id="add-pv" class="btn btn-engine btn-outline-secondary btn-sm p-0" title="Add Engine Line">+</button>
                           </div>
-                          <div class="d-flex ms-auto">
+                          <div class="d-flex flex-grow-1 ms-auto align-items-center justify-content-between" style="max-width: 280px;">
                             <input type="checkbox" class="btn-check" id="best-move-arrow-toggle" autocomplete="off">
-                            <label class="btn btn-default py-1 border-0" style="display: block; line-height: 1;" for="best-move-arrow-toggle">
-                              <span id="best-move-arrow-toggle-icon" class="fa-regular fa-eye me-2" aria-hidden="false"></span>Best Move Arrow
+                            <label class="btn btn-default ms-1 py-1 px-1 border-0" style="display: block; line-height: 1; white-space: nowrap" for="best-move-arrow-toggle">
+                              <span id="best-move-arrow-toggle-icon" class="fa-regular fa-eye me-2" aria-hidden="false"></span>Best Arrow
                             </label>
                             <input type="checkbox" class="btn-check" id="eval-bar-toggle" autocomplete="off">
-                            <label class="btn btn-default py-1 border-0" style="display: block; line-height: 1;" for="eval-bar-toggle">
+                            <label class="btn btn-default py-1 px-1 border-0" style="display: block; line-height: 1; white-space: nowrap" for="eval-bar-toggle">
                               <span id="eval-bar-toggle-icon" class="fa-regular fa-eye me-2" style="display: inline-block; width: 18px;" aria-hidden="false"></span>Eval Bar
                             </label>
+                            <button id="engine-settings-btn" type="button" style="line-height: 1;" class="btn btn-outline-secondary btn-transparent px-1 py-0" data-bs-toggle="tooltip" aria-haspopup="true" aria-expanded="false" title="Engine Settings" aria-label="Engine Settings">
+                              <span class="fa-solid fa-gear" aria-hidden="false"></span>
+                            </button>
+                            <div class="modal fade" id="engine-settings-modal" tabindex="-1" aria-labelledby="engine-settings-modal-label" aria-hidden="true">
+                              <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                  <div class="modal-header">
+                                    <h5 class="modal-title" id="engine-settings-modal-label"><span class="fa fa-gear me-2" aria-hidden="false"></span><span id="engine-settings-title-text">Engine Settings</span></h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                  </div>
+                                  <div class="modal-body">
+                                    <div class="align-items-center mb-3" style="display: flex;">
+                                      <span class="me-2">Chess Engine:</span>
+                                      <div class="btn-group">
+                                        <button id="engine-selector-btn" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"></button>
+                                        <ul id="engine-selector-menu" class="dropdown-menu"></ul>
+                                      </div>
+                                    </div>
+                                    <div class="align-items-center mb-3" style="display: flex;">
+                                      <span class="me-2" style="white-space: nowrap">Maximum Time:</span>
+                                      <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-max-time-slider" min="0" max="5" value="0">
+                                      <span id="engine-max-time-value" style="min-width: 9ch; white-space: nowrap;"></span>
+                                    </div>
+                                    <div class="align-items-center mb-3" style="display: flex;">
+                                      <span class="me-2">Threads:</span>
+                                      <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-threads-slider" min="1" max="8" value="1">
+                                      <span id="engine-threads-value" style="min-width: 9ch; white-space: nowrap;"></span>
+                                    </div>
+                                    <div class="align-items-center mb-3" style="display: flex;">
+                                      <span class="me-2">Memory:</span>
+                                      <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-memory-slider" min="0" max="5" value="0">
+                                      <span id="engine-memory-value" style="min-width: 9ch; white-space: nowrap;"></span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                         <div class="flex-grow-1 w-100" style="min-height: 0">
@@ -585,11 +623,13 @@
                       </div>
                     </div>
                     <div class="tab-pane fade h-100 w-100" id="eval-graph-panel" role="tabpanel" aria-labelledby="eval-graph-panel">
-                      <div id="eval-graph-container" class="h-100 w-100" style="display: none">
-                      </div>
-                      <div id="eval-progress" class="center h-100 w-100" style="display: none">
-                        <div class="progress h-100 w-100">
-                          <div class="progress-bar" role="progressbar" aria-label="Loading Eval Graph" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">100%</div>
+                      <div class="d-flex h-100 w-100">
+                        <div class="pane-status m-auto" style="font-style: italic; display: none;" id="eval-graph-status">Awaiting moves...</div>                     
+                        <div id="eval-graph-container" class="h-100 w-100" style="display: none"></div>
+                        <div id="eval-progress" class="center h-100 w-100" style="display: none">
+                          <div class="progress h-100 w-100">
+                            <div class="progress-bar" role="progressbar" aria-label="Loading Eval Graph" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">100%</div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -818,13 +858,17 @@
                             <div class="col">
                               <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" role="switch" id="multiple-premoves-toggle" checked>
-                                <label class="form-check-label" for="multiple-premoves-toggle"><span id="multiple-premoves-toggle-icon" class="fa-solid fa-arrows-turn-to-dots dropdown-icon" aria-hidden="false"></span>Multiple Premoves</label>
+                                <label class="form-check-label" for="multiple-premoves-toggle"><span id="multiple-premoves-toggle-icon" class="fa-solid fa-arrows-turn-to-dots dropdown-icon" aria-hidden="false"></span>Multiple Premoves
+                                  <svg class="ms-1 info-icon" data-bs-placement="top" data-bs-trigger="hover focus" data-bs-toggle="popover" data-bs-content="To cancel multiple premoves, use double click or right click." role="button"><use href="#icon-info"/></svg>
+                                </label>
                               </div>
                             </div>
                             <div class="col">
                               <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" role="switch" id="smartmove-toggle" checked>
-                                <label class="form-check-label" for="smartmove-toggle"><span id="smartmove-toggle-icon" class="fa-solid fa-brain dropdown-icon" aria-hidden="false"></span>Smart Move</label>
+                                <label class="form-check-label" for="smartmove-toggle"><span id="smartmove-toggle-icon" class="fa-solid fa-brain dropdown-icon" aria-hidden="false"></span>Smart Move
+                                  <svg class="ms-1 info-icon" data-bs-placement="top" data-bs-trigger="hover focus" data-bs-toggle="popover" data-bs-content="Move a piece by clicking only its destination square. Only works if there is a single piece that can legally move there. Warning: Use with care." role="button"><use href="#icon-info"/></svg>
+                                </label>
                               </div>
                             </div>
                           </div>
@@ -947,7 +991,7 @@
                   <div class="dropdown-menu dropdown-menu-right" aria-labelledby="settingsButton">
                     <div class="dropdown-item noselect" id="flip-toggle"><span id="flip-toggle-icon" class="fa fa-refresh dropdown-icon" aria-hidden="false"></span>Flip Board</div>
                     <div class="dropdown-item noselect" id="sound-toggle"><span id="sound-toggle-icon" class="fa fa-volume-up dropdown-icon" aria-hidden="false"></span>Sounds ON</div>
-                    <div class="dropdown-item noselect" id="advanced-settings" data-bs-toggle="modal" data-bs-target="#settings-modal"><span id="advanced-settings-icon" class="fa-solid fa-gears dropdown-icon" aria-hidden="false"></span>Settings</div>
+                    <div class="dropdown-item noselect" id="open-settings" data-bs-toggle="modal" data-bs-target="#settings-modal"><span id="open-settings-icon" class="fa-solid fa-gears dropdown-icon" aria-hidden="false"></span>Settings</div>
                     <div class="dropdown-divider"></div>
                     <div class="dropdown-item disabled noselect" id="version"></div>
                   </div>

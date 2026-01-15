@@ -4,7 +4,7 @@
 
 import packageInfo from '../../package.json';
 import { storage } from './storage';
-import { isMac } from './utils';
+import { isMac, isCapacitor } from './utils';
 
 $('#version').text(`Version: ${packageInfo.version}`);
 
@@ -309,6 +309,9 @@ function setStyle(component: string, name: string, directory?: string) {
 async function setBaseTheme(baseTheme: string) {
   storage.set('base-theme', baseTheme);
 
+  if(isCapacitor()) 
+    Capacitor.Plugins.StatusBar.setStyle({ style: baseTheme === 'base-theme-dark' ? "DARK" : "LIGHT" });
+
   $('#base-theme').remove();
   if(themes[baseTheme]) {
     $(themes[baseTheme]).appendTo('head');
@@ -316,7 +319,7 @@ async function setBaseTheme(baseTheme: string) {
   }
 
   const styleInjectionPromise = waitForStyleInjection();
-
+ 
   const mod = (baseTheme === 'base-theme-dark'
     ? await import(/* webpackChunkName: "themes/base-theme-dark" */ 'assets/css/themes/base-theme-dark.css')
     : await import(/* webpackChunkName: "themes/base-theme-light" */ 'assets/css/themes/base-theme-light.css'));

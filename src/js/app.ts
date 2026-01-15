@@ -2,7 +2,7 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import { app, BrowserWindow, safeStorage, ipcMain, Menu, screen, shell } from 'electron'
+import { session, app, BrowserWindow, safeStorage, ipcMain, Menu, screen, shell } from 'electron'
 import * as path from 'path'
 import * as url from 'url'
 import { autoUpdater } from 'electron-updater'
@@ -347,6 +347,17 @@ if (process.platform === 'darwin') {
 }
 
 app.on('ready', () => {
+  // Add COOP/COEP headers for multi-threading
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Cross-Origin-Opener-Policy': 'same-origin',
+        'Cross-Origin-Embedder-Policy': 'require-corp'
+      }
+    })
+  })
+
   createWindow();
   autoUpdater.checkForUpdatesAndNotify();
 });

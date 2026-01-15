@@ -451,7 +451,7 @@ function parseVariantMove(fen: string, move: any, startFen: string, category: st
     outFen = `${boardAfter} ${colorAfter} ${castlingRightsAfter} ${enPassantAfter} ${plyClockAfter} ${moveNoAfter}`;
 
     chess.load(outFen);
-    if(chess.in_checkmate())
+    if(chess.in_checkmate()) 
       outMove.san += '#';
     else if(chess.in_check())
       outMove.san += '+';
@@ -483,7 +483,7 @@ function parseVariantMove(fen: string, move: any, startFen: string, category: st
       for(const adj of adjacent) {
         if(!chess.get(adj)) {
           chess.put({type: 'p', color: chess.turn()}, adj);
-          if(!chess.in_checkmate()) {
+          if(!chess.in_check()) {
             blockingSquare = adj;
             break;
           }
@@ -494,7 +494,7 @@ function parseVariantMove(fen: string, move: any, startFen: string, category: st
         let canBlock = false;
         if(category === 'crazyhouse') {
           // check if we have a held piece capable of occupying the blocking square
-          for(const k in variantData.holdings) {
+          for(const k in variantData?.holdings) {
             if(variantData.holdings[k] === 0)
               continue;
 
@@ -1005,7 +1005,7 @@ export function getAdjacentSquares(square: string) : string[] {
 /** 
  * Basic check to see if a piece can reach the dest square from the source on
  * an empty board.
- * @includeCastling if true the king can reach any back row square from any other square on the same row.
+ * @param includeCastling if true the king can reach any back row square from any other square on the same row.
  * This is to account for all kinds of castling such as fischer random etc. If false, dest square must be 
  * adjacent to source square.
  */
@@ -1113,4 +1113,22 @@ export function moveToCoordinateString(move: any): string {
     moveStr = `${move.from}-${move.to}${move.promotion ? '=' + move.promotion : ''}`;
 
   return moveStr;
+}
+
+/**
+ * Given a board element's bounding rect, returns a given square's rect
+ * @param boardRect The board element's bounding rect
+ * @param the square coordinates, e.g "e4"
+ * @param orientation the way the board is facing, "w" or "b"
+ * @returns the square's bounding rect 
+ */
+export function getSquareRect(boardRect: DOMRect, square: string, orientation: string): DOMRect {
+  const file = square.charAt(0).toLowerCase();
+  const rank = square.charAt(1);
+  const colIndex = orientation === 'w' ? file.charCodeAt(0) - 'a'.charCodeAt(0) : 7 - (file.charCodeAt(0) - 'a'.charCodeAt(0));
+  const rowIndex = orientation === 'w' ? 8 - parseInt(rank, 10) : parseInt(rank, 10) - 1;
+  const squareSize = boardRect.width / 8;
+  const top = boardRect.top + squareSize * rowIndex;
+  const left = boardRect.left + squareSize * colIndex;
+  return new DOMRect(left, top, squareSize, squareSize);
 }

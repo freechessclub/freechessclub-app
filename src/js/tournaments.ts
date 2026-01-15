@@ -632,6 +632,13 @@ export class Tournaments {
     }
 
     // Retrieve and parse the tournament list (from 'td listtourneys')
+
+    // No tourneys to list
+    if(msg === ':There are no tourneys right now.' && awaiting.resolve('td-listtourneys')) {
+      awaiting.set('td-set');
+      this.session.send('td set height 24');
+    }
+
     pattern = ':mamer\'s tourney list:';
     if((msg.startsWith(pattern) || this.tdMessage.startsWith(pattern)) && awaiting.has('td-listtourneys')) {
       this.tdMessage += msg + '\n';

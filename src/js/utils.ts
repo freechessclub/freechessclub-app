@@ -266,6 +266,13 @@ export function isMobile() {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
+/**
+ * Server and browser support multi-threading
+ */
+export function hasMultiThreading() {
+  return typeof SharedArrayBuffer !== 'undefined' && crossOriginIsolated;
+}
+
 // Used by createContextMenu()
 let touchStarted = false; // Keeps track of whether a touch is in progress
 // Keeps track of whether a touch is currently in progress. Used by createContextMenu.

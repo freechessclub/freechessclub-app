@@ -45,8 +45,7 @@ export class GameData {
   category = '';                // category or variant
   color = 'w';
   difficulty = 0;               // computer difficulty level
-  variantData: any = {};              // variant data such as holdings used by crazyhouse/bughouse
-
+ 
   public isPlaying() { return this.role === Role.MY_MOVE || this.role === Role.OPPONENTS_MOVE || this.role === Role.PLAYING_COMPUTER; }
   public isPlayingOnline() { return this.role === Role.MY_MOVE || this.role === Role.OPPONENTS_MOVE; }
   public isExamining() { return this.role === Role.EXAMINING; }
@@ -67,11 +66,16 @@ export class Game extends GameData {
   board: any = null;
   watchers: any = [];
   watchersInterval: any = null;
+  
+  // Smart move and premove state flags
   premoves: any = []; // List of premoves for multiple premoves mode
   premovesFen: string = ''; // The position after the final premove (multiple premoves)
   premovesObserver: any; // MutationObserver for adding numbers to premove squares (multiple premoves)
-  premoveSet: string[] = null; // Status flag that keeps track of whether a Chessground premove is currently set (used by smart move)
-  pieceSelected: string = null; // Status flag that keeps track of whether a piece is currently selected (used by smart move)
+  premoveSet: string[] = null; // Status flag that keeps track of whether a Chessground premove is currently set
+  pieceSelected: string = null; // Status flag that keeps track of whether a piece is currently selected 
+  squareSelected: string = null; // The last square selected (used to cancel multiple premoves)
+  squareSelectedTime: number = null; // The time the last square was selected (used to cancel multiple premoves)
+  smartMove: boolean = false;
 
   // HTML elements associated with this Game
   element: any = null; // The main game card including the board
