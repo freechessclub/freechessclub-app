@@ -59,6 +59,9 @@ $('#pieces-leipzig').on('click', () => { setStyle('piece', 'leipzig') });
 $('#pieces-maestro').on('click', () => { setStyle('piece', 'maestro') });
 $('#pieces-pirouetti').on('click', () => { setStyle('piece', 'pirouetti') });
 $('#pieces-spatial').on('click', () => { setStyle('piece', 'spatial') });
+$('#pieces-chessnut').on('click', () => { setStyle('piece', 'chessnut') });
+$('#pieces-fantasy').on('click', () => { setStyle('piece', 'fantasy') });
+$('#pieces-pixel').on('click', () => { setStyle('piece', 'pixel') });
 
 $('#settings-modal').on('show.bs.modal', () => {
   $('.settings-pane').hide();
