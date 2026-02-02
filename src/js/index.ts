@@ -6358,6 +6358,11 @@ $('#engine-settings-btn').on('click', () => {
   $('#engine-settings-modal').modal('show');
 });
 
+/** Engine Settings button in Advanced Settings */
+$('#engine-settings-advanced-btn').on('click', () => {
+  $('#engine-settings-modal').modal('show');
+});
+
 /** Opening Engine Settings panel */
 $('#engine-settings-modal').on('show.bs.modal', () => {
   const deviceMemory = (navigator as any).deviceMemory || 4; // GB
