@@ -5,6 +5,8 @@
 // style sheets that need webpack file hashing and HMR 
 import 'assets/css/application.css'; 
 
+import { Capacitor } from '@capacitor/core';
+import { ForegroundService, Importance } from '@capawesome-team/capacitor-android-foreground-service';
 import { Chessground } from 'chessground';
 import { Polyglot } from 'cm-polyglot/src/Polyglot.js';
 import * as PgnParser from '@mliebelt/pgn-parser';
@@ -81,6 +83,8 @@ let lastPointerCoords = {x: 0, y: 0}; // Stores the pointer coordinates from the
 let credential: CredentialStorage = null; // The persistently stored username/password
 let gameListVirtualScroller = null;
 const mainBoard: any = createBoard($('#main-board-area').children().first().find('.board'));
+let foregroundServiceActive = false;
+let foregroundServiceChannelReady = false;
 
 /**
  * Used to call session.send() from inline JS.
@@ -88,6 +92,103 @@ const mainBoard: any = createBoard($('#main-board-area').children().first().find
 (window as any).sessionSend = (cmd: string) => {
   session.send(cmd);
 };
+
+function isAndroidCapacitor() {
+  return Utils.isCapacitor() && Capacitor.getPlatform && Capacitor.getPlatform() === 'android';
+}
+
+function getForegroundServiceTitle() {
+  const user = session?.getUser?.();
+  return user ? `Connected as ${user}` : 'Free Chess Club';
+}
+
+function getForegroundServiceBody() {
+  return 'Keeping your game connection active.';
+}
+
+async function updateForegroundServiceNotification() {
+  if(!isAndroidCapacitor() || !foregroundServiceActive)
+    return;
+
+  try {
+    await ForegroundService.updateForegroundService({
+      id: 1,
+      title: getForegroundServiceTitle(),
+      body: getForegroundServiceBody(),
+      smallIcon: 'ic_fcc_notification',
+      notificationChannelId: 'fcc-foreground',
+      silent: true
+    });
+  }
+  catch(error) {
+    Utils.logError('Error updating foreground service:', error);
+  }
+}
+
+async function startForegroundService() {
+  if(!isAndroidCapacitor() || foregroundServiceActive)
+    return;
+
+  try {
+    const permissionStatus = await ForegroundService.checkPermissions();
+    if(permissionStatus.display !== 'granted') {
+      const requestStatus = await ForegroundService.requestPermissions();
+      if(requestStatus.display !== 'granted')
+        return;
+    }
+
+    if(!foregroundServiceChannelReady) {
+      await ForegroundService.createNotificationChannel({
+        id: 'fcc-foreground',
+        name: 'Foreground Service',
+        description: 'Keeps the chess connection active',
+        importance: Importance.Low
+      });
+      foregroundServiceChannelReady = true;
+    }
+
+    await ForegroundService.startForegroundService({
+      id: 1,
+      title: getForegroundServiceTitle(),
+      body: getForegroundServiceBody(),
+      smallIcon: 'ic_fcc_notification',
+      notificationChannelId: 'fcc-foreground',
+      silent: true
+    });
+    foregroundServiceActive = true;
+  }
+  catch(error) {
+    Utils.logError('Error starting foreground service:', error);
+  }
+}
+
+async function stopForegroundService() {
+  if(!isAndroidCapacitor() || !foregroundServiceActive)
+    return;
+
+  try {
+    await ForegroundService.stopForegroundService();
+  }
+  catch(error) {
+    Utils.logError('Error stopping foreground service:', error);
+  }
+  finally {
+    foregroundServiceActive = false;
+  }
+}
+
+function updateForegroundServiceState() {
+  if(!isAndroidCapacitor())
+    return;
+
+  const shouldRun = !!session?.isConnected();
+  if(shouldRun) {
+    startForegroundService();
+    updateForegroundServiceNotification();
+  }
+  else
+    stopForegroundService();
+}
 
 /** *********************************************
  * INITIALIZATION AND TOP LEVEL EVENT LISTENERS *
@@ -173,6 +274,8 @@ async function onDeviceReady() {
     $('#login-pass').val('');
     session = new Session(messageHandler);
   }
+
+  document.addEventListener('visibilitychange', updateForegroundServiceState);
 }
 
 $(window).on('load', async () => {
@@ -725,8 +828,12 @@ function messageHandler(data: any) {
 
         users.connected(session, chat);
 
+        updateForegroundServiceNotification();
+
         settings.visited = true;
         storage.set('visited', String(settings.visited)); 
+
+        updateForegroundServiceState();
       }
       else if(data.command === 2) { // Login error
         session.disconnect();
@@ -747,6 +854,7 @@ function messageHandler(data: any) {
           session?.reconnect();
         });
         $('#sign-in-alert').removeClass('show');
+        stopForegroundService();
       }
       else if(data.command === 4) { // Connecting
         $('#game-requests').empty();
