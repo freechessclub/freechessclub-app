@@ -964,10 +964,6 @@ body {
   max-width: 400px;
 }
 
-#difficulty-selector .form-check {
-  width: 2.5rem;
-}
-
 .tooltip-separator {
   margin-top: 4px;
   margin-bottom: 4px;

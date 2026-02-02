@@ -3975,7 +3975,34 @@ $('#quick-game').on('click', () => {
 
 $('#play-computer-modal').on('show.bs.modal', () => {
   $('#play-computer-start-from-pos').removeClass('is-invalid');
+  updatePlayComputerDifficultyDisplay();
 });
+
+$('#play-computer-level-slider').on('input', () => {
+  updatePlayComputerDifficultyDisplay();
+});
+
+function updatePlayComputerDifficultyDisplay() {
+  const difficultyLabels = [
+    'Beginner',
+    'Easy',
+    'Casual',
+    'Intermediate',
+    'Challenging',
+    'Advanced',
+    'Strong',
+    'Expert',
+    'Master',
+    'GM',
+    'Super GM',
+    'Engine'
+  ];
+
+  const slider = $('#play-computer-level-slider');
+  const level = +(slider.val() as string);
+  $('#play-computer-level-value').text(String(level));
+  $('#play-computer-level-desc').text(difficultyLabels[level - 1] || '');
+}
 
 $('#play-computer-form').on('submit', (event) => {
   event.preventDefault();
@@ -3986,7 +4013,7 @@ $('#play-computer-form').on('submit', (event) => {
     playerTime: +$('#play-computer-min').val(),
     playerInc: +$('#play-computer-inc').val(),
     gameType: $('[name="play-computer-type"]:checked').next().text(),
-    difficulty: $('[name="play-computer-level"]:checked').next().text(),
+    difficulty: +$('#play-computer-level-slider').val(),
     fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
   };
 

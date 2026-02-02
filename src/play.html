@@ -128,59 +128,12 @@
                                   </div>
                                   <div class="modal-body">
                                     <div class="mb-3" id="difficulty-selector">
-                                      <label class="form-heading">Difficulty Level:</label>
-                                      <div>
-                                        <div class="form-check form-check-inline">
-                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level1" checked>
-                                          <label class="form-check-label" for="play-computer-level1">1</label>
-                                        </div>
-                                        <div class="form-check form-check-inline">
-                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level2">
-                                          <label class="form-check-label" for="play-computer-level2">2</label>
-                                        </div>
-                                        <div class="form-check form-check-inline">
-                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level3">
-                                          <label class="form-check-label" for="play-computer-level3">3</label>
-                                        </div>
-                                        <div class="form-check form-check-inline">
-                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level4">
-                                          <label class="form-check-label" for="play-computer-level4">4</label>
-                                        </div>
-                                        <div class="form-check form-check-inline">
-                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level5">
-                                          <label class="form-check-label" for="play-computer-level5">5</label>
-                                        </div>
-                                        <div class="form-check form-check-inline">
-                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level6">
-                                          <label class="form-check-label" for="play-computer-level6">6</label>
-                                        </div>
+                                      <label class="form-heading" for="play-computer-level-slider">Difficulty Level:</label>
+                                      <div class="d-flex align-items-center gap-2">
+                                        <input type="range" class="form-range" id="play-computer-level-slider" min="1" max="12" step="1" value="1">
+                                        <span id="play-computer-level-value" style="min-width: 3ch; text-align: right;">1</span>
                                       </div>
-                                      <div>
-                                        <div class="form-check form-check-inline">
-                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level7">
-                                          <label class="form-check-label" for="play-computer-level7">7</label>
-                                        </div>
-                                        <div class="form-check form-check-inline">
-                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level8">
-                                          <label class="form-check-label" for="play-computer-level8">8</label>
-                                        </div>
-                                        <div class="form-check form-check-inline">
-                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level9">
-                                          <label class="form-check-label" for="play-computer-level9">9</label>
-                                        </div>
-                                        <div class="form-check form-check-inline">
-                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level10">
-                                          <label class="form-check-label" for="play-computer-level10">10</label>
-                                        </div>
-                                        <div class="form-check form-check-inline">
-                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level11">
-                                          <label class="form-check-label" for="play-computer-level11">11</label>
-                                        </div>
-                                        <div class="form-check form-check-inline">
-                                          <input class="form-check-input" type="radio" name="play-computer-level" id="play-computer-level12">
-                                          <label class="form-check-label" for="play-computer-level12">12</label>
-                                        </div>
-                                      </div>
+                                      <div class="small text-muted" id="play-computer-level-desc">Beginner</div>
                                     </div>
                                     <div class="mb-3">
                                       <label class="form-heading">Player Time:</label>
