@@ -35,7 +35,7 @@ export class Users {
       $('#users-modal').modal('show');
     });
 
-    $('#users-modal').on('show.bs.modal', () => {
+    $('#users-modal').on('shown.bs.modal', () => {
       $('#add-friend-input').val('');
       $('#friends-table tr').removeClass('highlighted');
 
