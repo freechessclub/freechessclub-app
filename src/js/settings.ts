@@ -21,6 +21,8 @@ export const settings = {
   highlightsToggle: true,
   // toggle for showing highlights/graphics on the board
   wakelockToggle: true,
+  // toggle for Android foreground service
+  foregroundServiceToggle: true,
   // toggle for multi-board mode / single-board mode
   multiboardToggle: true,
   // toggle for enabling multiple premoves

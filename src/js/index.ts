@@ -181,6 +181,11 @@ function updateForegroundServiceState() {
   if(!isAndroidCapacitor())
     return;
 
+  if(!settings.foregroundServiceToggle) {
+    stopForegroundService();
+    return;
+  }
+
   const shouldRun = !!session?.isConnected();
   if(shouldRun) {
     startForegroundService();
@@ -855,6 +860,7 @@ function messageHandler(data: any) {
         });
         $('#sign-in-alert').removeClass('show');
         stopForegroundService();
+        updateForegroundServiceState();
       }
       else if(data.command === 4) { // Connecting
         $('#game-requests').empty();
@@ -6929,6 +6935,11 @@ function initSettings() {
   settings.wakelockToggle = (storage.get('wakelock') !== 'false');
   $('#wakelock-toggle').prop('checked', settings.wakelockToggle);
 
+  settings.foregroundServiceToggle = (storage.get('foregroundservice') !== 'false');
+  $('#foreground-service-toggle').prop('checked', settings.foregroundServiceToggle);
+  if(!isAndroidCapacitor())
+    $('#foreground-service-row').hide();
+
   settings.multiboardToggle = (storage.get('multiboard') !== 'false');
   $('#multiboard-toggle').prop('checked', settings.multiboardToggle);
 
@@ -7019,6 +7030,12 @@ $('#wakelock-toggle').on('click', () => {
   else
     noSleep.disable();
   storage.set('wakelock', String(settings.wakelockToggle));
+});
+
+$('#foreground-service-toggle').on('click', () => {
+  settings.foregroundServiceToggle = !settings.foregroundServiceToggle;
+  storage.set('foregroundservice', String(settings.foregroundServiceToggle));
+  updateForegroundServiceState();
 });
 
 $('#multiboard-toggle').on('click', () => {
