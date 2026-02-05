@@ -58,15 +58,19 @@ export class Session {
   private bodyClickHandler; // Used to detect when user clicks outside of session status popover
   private postConnectCommands;
 
-  constructor(onRecv: (msg: any) => void, user?: string, pass?: string) {
+  constructor(onRecv: (msg: any) => void, user?: string, pass?: string, autoConnect = true) {
     this.connected = false;
     this.connecting = false;
     this.user = user;
     this.pass = pass;
     this.onRecv = onRecv;
     this.registered = false;
-    this.connect(user, pass);
     this.postConnectCommands = [];
+
+    if(autoConnect)
+      this.connect(user, pass);
+    else
+      this.reset();
 
     // Hide popover if user clicks anywhere outside
     this.bodyClickHandler = (e) => {
@@ -184,7 +188,8 @@ export class Session {
 
   public disconnect() {
     this.reset();
-    this.websocket.close();
+    if(this.websocket)
+      this.websocket.close();
     this.onRecv({
       command: 3,
       control: 'Disconnected'

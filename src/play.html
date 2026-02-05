@@ -247,6 +247,12 @@
                                     </span>
                                   </div>
                                 </form>
+                                <div class="d-flex center py-2">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="invite-toggle">
+                                    <label class="form-check-label" for="invite-toggle">Create invite link when starting a game</label>
+                                  </div>
+                                </div>
                                 <div class="btn-group dropdown position-static" role="group" aria-label="Custom-2">
                                   <button class="btn btn-outline-secondary dropdown-toggle w-100" id="player-color-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">Any color</button>
                                   <ul class="dropdown-menu" id="player-color-menu">
@@ -1185,9 +1191,7 @@
               <div class="modal-content">
                 <div class="modal-header">
                   <h5 class="modal-title" id="login-modal">Login to FICS</h5>
-                  <button type="button" class="btn btn-outline-secondary close" data-bs-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                  </button>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                   <form id="login-form">

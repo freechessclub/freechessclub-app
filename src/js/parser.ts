@@ -27,7 +27,7 @@ export class Parser {
     this.loggedin = false;
     this.session = session;
     this.user = (user === undefined) ? 'guest' : user;
-    this.pass = pass;
+    this.pass = pass ?? '';
   }
 
   private style12ToFEN(str: string): string {

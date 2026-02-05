@@ -42,6 +42,34 @@ export const enum Layout {
 // and a move is not added to the move list unless it is verified by the server.
 const SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'bughouse', 'losers', 'wild/fr', 'wild/0', 'wild/1', 'wild/2', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
 
+type InviteCreateState = {
+  token: string;
+  min: number;
+  inc: number;
+  rated: 'r' | 'u';
+  color: 'white' | 'black' | 'any';
+  variant: string;
+  useFormula: boolean;
+  createdAt: number;
+  seekId?: number;
+};
+
+type InviteJoinState = {
+  seekId: number;
+  host?: string;
+  token?: string;
+  min?: number;
+  inc?: number;
+  rated?: string;
+  color?: string;
+  guestHandle?: string;
+};
+
+type InviteTokenInfo = {
+  token: string;
+  seekId: number;
+};
+
 let session: Session;
 let chat: Chat;
 let tournaments: Tournaments;
@@ -85,6 +113,14 @@ let gameListVirtualScroller = null;
 const mainBoard: any = createBoard($('#main-board-area').children().first().find('.board'));
 let foregroundServiceActive = false;
 let foregroundServiceChannelReady = false;
+let pendingInviteCreate: InviteCreateState | null = null;
+let activeInvite: InviteCreateState | null = null;
+let pendingInviteJoin: InviteJoinState | null = null;
+const inviteTokensByUser = new Map<string, InviteTokenInfo>();
+let activeInviteDialog: JQuery<HTMLElement> | null = null;
+let activeInviteLink: string | null = null;
+let inviteExpiryTimer: number | null = null;
+const INVITE_EXPIRY_MS = 5 * 60 * 1000;
 
 /**
  * Used to call session.send() from inline JS.
@@ -265,20 +301,23 @@ async function onDeviceReady() {
   Utils.initDropdownSubmenus();
 
   credential = new CredentialStorage();
+  const autoConnect = !hasInviteParams();
   if(settings.rememberMeToggle) {
      // Get the username/password from secure storage (if the user has previously ticked Remember Me)
     credential.retrieve().then(() => {
       if(credential.username != null && credential.password != null) 
-        session = new Session(messageHandler, credential.username, credential.password);
+        session = new Session(messageHandler, credential.username, credential.password, autoConnect);
       else 
-        session = new Session(messageHandler);
+        session = new Session(messageHandler, undefined, undefined, autoConnect);
     });
   }
   else {
     $('#login-user').val('');
     $('#login-pass').val('');
-    session = new Session(messageHandler);
+    session = new Session(messageHandler, undefined, undefined, autoConnect);
   }
+
+  initInviteFromUrl();
 
   document.addEventListener('visibilitychange', updateForegroundServiceState);
 }
@@ -841,6 +880,8 @@ function messageHandler(data: any) {
         storage.set('visited', String(settings.visited)); 
 
         updateForegroundServiceState();
+
+          completeInviteJoin();
       }
       else if(data.command === 2) { // Login error
         session.disconnect();
@@ -873,6 +914,7 @@ function messageHandler(data: any) {
       chat.newMessage(data.channel, data);
       break;
     case MessageType.PrivateTell:
+        handleInviteTell(data);
       chat.newMessage(data.user, data);
       break;
     case MessageType.Messages:
@@ -1088,6 +1130,10 @@ function gameStart(game: Game) {
   game.element.find('.clock').removeClass('low-time');
   $('#game-pane-status').hide();
   $('#pairing-pane-status').hide();
+  if(activeInviteDialog) {
+    activeInviteDialog.toast('hide');
+    activeInviteDialog = null;
+  }
   game.statusElement.find('.game-watchers').empty();
   game.statusElement.find('.opening-name').hide();
 
@@ -1354,9 +1400,20 @@ function handleOffers(offers: any[]) {
   showSentOffers(sentOffers);
   $('#pairing-pane-status').hide();
 
+  if(pendingInviteCreate) {
+    const inviteOffer = sentOffers.find((item) => item.type === 'sn'
+      && item.initialTime === pendingInviteCreate.min
+      && item.increment === pendingInviteCreate.inc
+      && item.ratedUnrated === pendingInviteCreate.rated);
+    if(inviteOffer)
+      finalizeInviteSeek(inviteOffer);
+  }
+
   // Offers received from another player
   const otherOffers = offers.filter((item) => item.type === 'pf');
   otherOffers.forEach((item) => {
+    if(handleInviteMatchOffer(item))
+      return;
     let headerTitle = '';
     let bodyTitle = '';
     let bodyText = '';
@@ -1434,6 +1491,19 @@ function handleOffers(offers: any[]) {
   const removals = offers.filter((item) => item.type === 'pr' || item.type === 'sr');
   removals.forEach((item) => {
     item.ids.forEach((id) => {
+      if(activeInvite && activeInvite.seekId && +id === activeInvite.seekId) {
+        activeInvite = null;
+        activeInviteLink = null;
+        if(inviteExpiryTimer) {
+          clearTimeout(inviteExpiryTimer);
+          inviteExpiryTimer = null;
+        }
+        $('#show-invite-link').remove();
+        if(activeInviteDialog) {
+          activeInviteDialog.toast('hide');
+          activeInviteDialog = null;
+        }
+      }
       Dialogs.removeNotification($(`.notification[data-offer-id="${id}"]`)); // If match request was not ours, remove the Notification
       $(`.board-dialog[data-offer-id="${id}"]`).toast('hide'); // if in-game request, hide the dialog
       $(`.sent-offer[data-offer-id="${id}"]`).remove(); // If offer, match request or seek was sent by us, remove it from the Play pane
@@ -1500,7 +1570,11 @@ function showSentOffers(offers: any) {
     const lastIndex = requestsHtml.lastIndexOf(' ') + 1;
     const lastWord = requestsHtml.slice(lastIndex);
     requestsHtml = requestsHtml.substring(0, lastIndex);
-    requestsHtml += `<span style="white-space: nowrap">${lastWord}<span class="fa fa-times-circle btn btn-default `
+    const showInvite = activeInviteLink && activeInvite?.seekId && +offer.id === activeInvite.seekId;
+    const showInviteBtn = showInvite
+      ? `<button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline" id="show-invite-link">Invite link</button>`
+      : '';
+    requestsHtml += `<span style="white-space: nowrap">${lastWord}${showInviteBtn}<span class="fa fa-times-circle btn btn-default `
       + `btn-sm" onclick="sessionSend('${removeCmd}')" aria-hidden="false"></span></span></div>`;
   });
 
@@ -4522,6 +4596,342 @@ function initPairingPane() {
   }
 }
 
+function generateInviteToken(): string {
+  if(window.crypto && window.crypto.getRandomValues) {
+    const bytes = new Uint8Array(6);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function buildInviteLink(invite: InviteCreateState): string {
+  const params = new URLSearchParams();
+  params.set('invite', '1');
+  params.set('seek', String(invite.seekId));
+  params.set('host', session?.getUser?.() || '');
+  params.set('token', invite.token);
+  params.set('time', String(invite.min));
+  params.set('inc', String(invite.inc));
+  params.set('rated', invite.rated === 'r' ? '1' : '0');
+  params.set('color', invite.color);
+  const baseUrl = `${window.location.origin}${window.location.pathname}`;
+  return `${baseUrl}?${params.toString()}`;
+}
+
+function showInviteLinkDialog(link: string, token: string) {
+  const inputId = `invite-link-${token}`;
+  const buttonId = `invite-copy-${token}`;
+  const dialog = Dialogs.showFixedDialog({
+    type: 'Invite Link',
+    htmlMsg: true,
+    msg: `
+      <div class="mb-2">Share this link so someone can join your game:</div>
+      <div class="input-group">
+        <input id="${inputId}" class="form-control" type="text" readonly value="${link}">
+        <button id="${buttonId}" class="btn btn-outline-secondary" type="button">Copy</button>
+      </div>
+    `
+  });
+
+  activeInviteDialog = dialog;
+  activeInviteLink = link;
+
+  dialog.on('hidden.bs.toast', () => {
+    if(activeInviteDialog === dialog)
+      activeInviteDialog = null;
+  });
+
+  dialog.on('click', `#${buttonId}`, async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      dialog.toast('hide');
+    }
+    catch(error) {
+      const input = dialog.find(`#${inputId}`) as any;
+      input.trigger('focus');
+      input[0].select();
+      $('#pairing-pane-status').text('Copy failed. Link selected — press ⌘+C.').show();
+    }
+  });
+}
+
+function createInviteSeek(min: number, inc: number) {
+  if(Number.isNaN(min) || Number.isNaN(inc)) {
+    $('#pairing-pane-status').text('Please enter a valid time control.').show();
+    return;
+  }
+
+  if(activeInvite && activeInvite.seekId) {
+    session.send(`unseek ${activeInvite.seekId}`);
+  }
+  if(inviteExpiryTimer) {
+    clearTimeout(inviteExpiryTimer);
+    inviteExpiryTimer = null;
+  }
+  if(activeInviteDialog) {
+    activeInviteDialog.toast('hide');
+    activeInviteDialog = null;
+  }
+  activeInviteLink = null;
+  pendingInviteCreate = null;
+
+  const ratedUnrated = ($('#rated-unrated-button').text() === 'Rated' ? 'r' : 'u') as 'r' | 'u';
+  const colorName = $('#player-color-button').text();
+  let color = 'any' as 'white' | 'black' | 'any';
+  let colorCmd = '';
+  if(colorName === 'White') {
+    color = 'white';
+    colorCmd = 'W ';
+  }
+  else if(colorName === 'Black') {
+    color = 'black';
+    colorCmd = 'B ';
+  }
+
+  const useFormula = $('#formula-toggle').is(':checked');
+  const token = generateInviteToken();
+
+  inviteTokensByUser.clear();
+  activeInvite = null;
+
+  pendingInviteCreate = {
+    token,
+    min,
+    inc,
+    rated: ratedUnrated,
+    color,
+    variant: newGameVariant,
+    useFormula,
+    createdAt: Date.now()
+  };
+
+  const flags = [] as string[];
+  if(useFormula)
+    flags.push('f');
+  flags.push('m');
+  const flagsSuffix = flags.length ? ` ${flags.join(' ')}` : '';
+  awaiting.set('match');
+  session.send(`seek${flagsSuffix} ${min} ${inc} ${ratedUnrated} ${colorCmd}${newGameVariant}`);
+}
+
+function finalizeInviteSeek(offer: any) {
+  if(!pendingInviteCreate)
+    return;
+
+  pendingInviteCreate.seekId = +offer.id;
+  activeInvite = pendingInviteCreate;
+  pendingInviteCreate = null;
+  const link = buildInviteLink(activeInvite);
+  activeInviteLink = link;
+  showInviteLinkDialog(link, activeInvite.token);
+
+  const sentOffer = $(`.sent-offer[data-offer-id="${activeInvite.seekId}"]`);
+  if(sentOffer.length && !sentOffer.find('#show-invite-link').length) {
+    sentOffer.find('.fa-times-circle').first().before(
+      '<button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline" id="show-invite-link">Invite link</button>'
+    );
+  }
+
+  if(inviteExpiryTimer)
+    clearTimeout(inviteExpiryTimer);
+  inviteExpiryTimer = window.setTimeout(() => {
+    if(activeInvite?.seekId) {
+      session.send(`unseek ${activeInvite.seekId}`);
+      $('#pairing-pane-status').text('Invite link expired.').show();
+      activeInvite = null;
+      activeInviteLink = null;
+      if(activeInviteDialog) {
+        activeInviteDialog.toast('hide');
+        activeInviteDialog = null;
+      }
+    }
+  }, INVITE_EXPIRY_MS);
+}
+
+function matchesInviteOffer(offer: any, invite: InviteCreateState): boolean {
+  if(offer.subtype !== 'match')
+    return false;
+  if(offer.initialTime !== invite.min || offer.increment !== invite.inc)
+    return false;
+  const rated = offer.ratedUnrated === 'rated' ? 'r' : 'u';
+  if(rated !== invite.rated)
+    return false;
+  return true;
+}
+
+function handleInviteMatchOffer(offer: any): boolean {
+  if(!activeInvite)
+    return false;
+
+  if(!matchesInviteOffer(offer, activeInvite))
+    return false;
+
+  const userKey = offer.opponent?.toLowerCase?.() || '';
+  const tokenInfo = inviteTokensByUser.get(userKey);
+  if(tokenInfo && tokenInfo.token === activeInvite.token && tokenInfo.seekId === activeInvite.seekId) {
+    session.send(`accept ${offer.id}`);
+    $('#pairing-pane-status').text(`Invite accepted from ${offer.opponent}.`).show();
+    if(inviteExpiryTimer) {
+      clearTimeout(inviteExpiryTimer);
+      inviteExpiryTimer = null;
+    }
+    activeInvite = null;
+    activeInviteLink = null;
+    $('#show-invite-link').remove();
+  }
+  else {
+    session.send(`decline ${offer.id}`);
+    $('#pairing-pane-status').text(`Declined non-invite match request from ${offer.opponent}.`).show();
+  }
+  return true;
+}
+
+function handleInviteTell(data: any): boolean {
+  if(!activeInvite)
+    return false;
+
+  const match = data.message?.match?.(/^invite\s+([a-z0-9]+)\s+(\d+)/i);
+  if(!match)
+    return false;
+
+  inviteTokensByUser.set(data.user.toLowerCase(), {
+    token: match[1],
+    seekId: +match[2]
+  });
+  return true;
+}
+
+function showInviteJoinDialog(invite: InviteJoinState) {
+  const summaryParts = [];
+  if(invite.min != null && invite.inc != null)
+    summaryParts.push(`${invite.min} + ${invite.inc}`);
+  if(invite.rated === '1')
+    summaryParts.push('Rated');
+  else if(invite.rated === '0')
+    summaryParts.push('Unrated');
+  if(invite.color)
+    summaryParts.push(invite.color);
+
+  const summary = summaryParts.length ? ` (${summaryParts.join(', ')})` : '';
+  const inviter = invite.host ? ` by ${invite.host}` : '';
+
+  const dialog = Dialogs.showFixedDialog({
+    type: 'Game Invite',
+    htmlMsg: true,
+    msg: `
+      <div class="mb-2">You have been invited to a game${summary}${inviter}.</div>
+      <div class="mb-2">
+        <input type="text" class="form-control" id="invite-guest-handle" maxlength="17" placeholder="Guest handle (optional)">
+      </div>
+      <div class="center mt-2">
+        <button class="btn btn-sm btn-primary me-2" id="invite-join-guest">Continue as Guest</button>
+        <button class="btn btn-sm btn-outline-secondary" id="invite-join-login">Sign In</button>
+      </div>
+    `
+  });
+
+  const readGuestHandle = () => {
+    const inputVal = (dialog.find('#invite-guest-handle').val() as string) || '';
+    const cleaned = inputVal.trim().replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 17);
+    if(cleaned) {
+      const prefixed = cleaned.startsWith('FICSGuest') ? cleaned : `FICSGuest${cleaned}`;
+      invite.guestHandle = prefixed.slice(0, 17);
+    }
+    else
+      invite.guestHandle = undefined;
+  };
+
+  dialog.on('click', '#invite-join-guest', () => {
+    readGuestHandle();
+    pendingInviteJoin = invite;
+    const desiredHandle = invite.guestHandle;
+    const currentUser = session?.getUser?.() || '';
+    const isGuestSession = session && session.isConnected() && /^Guest[A-Z]{4}$/.test(currentUser);
+    const matchesDesiredHandle = !!desiredHandle && currentUser.toLowerCase() === desiredHandle.toLowerCase();
+
+    if(desiredHandle) {
+      if(!matchesDesiredHandle) {
+        if(session) {
+          session.disconnect();
+          session.destroy();
+        }
+        session = new Session(messageHandler, desiredHandle);
+      }
+      else
+        completeInviteJoin();
+    }
+    else if(isGuestSession) {
+      completeInviteJoin();
+    }
+    else {
+      if(session) {
+        session.disconnect();
+        session.destroy();
+      }
+      session = new Session(messageHandler);
+    }
+    dialog.toast('hide');
+  });
+
+  dialog.on('click', '#invite-join-login', () => {
+    readGuestHandle();
+    pendingInviteJoin = invite;
+    if(session && session.isConnected() && !/^Guest[A-Z]{4}$/.test(session.getUser()))
+      completeInviteJoin();
+    else {
+      $('#login-as-guest').prop('checked', false).trigger('click');
+      $('#login-screen').modal('show');
+    }
+    dialog.toast('hide');
+  });
+}
+
+function completeInviteJoin() {
+  if(!pendingInviteJoin)
+    return;
+
+  if(!session)
+    return;
+
+  const invite = pendingInviteJoin;
+  pendingInviteJoin = null;
+  showTab($('#pills-play-tab'));
+  if(invite.host && invite.token)
+    session.send(`tell ${invite.host} invite ${invite.token} ${invite.seekId}`);
+  awaiting.set('match');
+  session.send(`play ${invite.seekId}`);
+}
+
+function initInviteFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const seekParam = params.get('seek');
+  if(!seekParam)
+    return;
+
+  const seekId = +seekParam;
+  if(Number.isNaN(seekId))
+    return;
+
+  const invite: InviteJoinState = {
+    seekId,
+    host: params.get('host') || params.get('user') || undefined,
+    token: params.get('token') || undefined,
+    min: params.get('time') && !Number.isNaN(+params.get('time')) ? +params.get('time') : undefined,
+    inc: params.get('inc') && !Number.isNaN(+params.get('inc')) ? +params.get('inc') : undefined,
+    rated: params.get('rated') || undefined,
+    color: params.get('color') || undefined,
+  };
+
+  showInviteJoinDialog(invite);
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+function hasInviteParams(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.has('invite') || params.has('seek');
+}
+
 function clearMatchRequests() {
   handleOffers([{
     type: 'sr',
@@ -4549,10 +4959,26 @@ $('#formula-toggle').on('change', function() {
   storage.set('seeks-use-formula', String($(this).is(':checked')));
 });
 
+$(document).on('click', '#show-invite-link', () => {
+  if(activeInviteLink) {
+    const token = activeInvite?.token || 'invite';
+    showInviteLinkDialog(activeInviteLink, token);
+  }
+});
+
 function getGame(min: number, sec: number) {
   let opponent = Utils.getValue('#opponent-player-name')
   opponent = opponent.trim().split(/\s+/)[0];
   $('#opponent-player-name').val(opponent);
+
+  const inviteEnabled = $('#invite-toggle').is(':checked');
+  if(inviteEnabled && opponent === '') {
+    createInviteSeek(min, sec);
+    return;
+  }
+  else if(inviteEnabled && opponent !== '') {
+    $('#pairing-pane-status').text('Invite links are only for open seeks. Clear the opponent field to use invites.').show();
+  }
 
   const useFormula = $('#formula-toggle').is(':checked') ? ' f' : ''; 
   const ratedUnrated = ($('#rated-unrated-button').text() === 'Rated' ? 'r' : 'u');
