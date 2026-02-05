@@ -312,6 +312,11 @@ function setStyle(component: string, name: string, directory?: string) {
 async function setBaseTheme(baseTheme: string) {
   storage.set('base-theme', baseTheme);
 
+  document.documentElement.setAttribute(
+    'data-bs-theme',
+    baseTheme === 'base-theme-dark' ? 'dark' : 'light'
+  );
+
   if(isCapacitor()) 
     Capacitor.Plugins.StatusBar.setStyle({ style: baseTheme === 'base-theme-dark' ? "DARK" : "LIGHT" });
 

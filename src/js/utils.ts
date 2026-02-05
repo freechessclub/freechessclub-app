@@ -234,7 +234,15 @@ export function getDiffDays(date: Date, now = new Date()) {
  * Is this a Capacitor app?
  */
 export function isCapacitor() {
-  return typeof window !== 'undefined' && window.Capacitor !== undefined;
+  if(typeof window === 'undefined')
+    return false;
+
+  const capacitor = (window as any).Capacitor;
+  if(!capacitor || typeof capacitor.getPlatform !== 'function')
+    return false;
+
+  const platform = capacitor.getPlatform();
+  return platform && platform !== 'web';
 }
 
 /**

@@ -1,14 +1,16 @@
-:root {
+:root[data-bs-theme="light"] {
   color-scheme: light;
   --color-scheme: light;
   --bg-color: #dee3e6;
   --fg-color: #212529;
   --bs-body-bg: var(--bg-color);
   --bs-body-color: var(--fg-color);
-  --form-control-bg: #white;
+  --bs-body-bg-rgb: 222, 227, 230;
+  --bs-body-color-rgb: 33, 37, 41;
+  --form-control-bg: #ffffff;
   --flash-color: #ffcccc;
-  /* --bs-border-color: #dee2e6; */
-  /* --bs-border-color-translucent: rgba(0, 0, 0, 0.175); */
+  --bs-border-color: #b5c0c8;
+  --bs-border-color-translucent: rgba(0, 0, 0, 0.2);
 }
 
 cg-board {
@@ -105,6 +107,23 @@ cg-board {
 .modal {
   --bs-modal-color: var(--fg-color);
   --bs-modal-bg: var(--bg-color);
+}
+
+.form-control,
+.form-control:active,
+.form-control:focus,
+#fake-input-text:focus-within {
+  background-color: var(--form-control-bg);
+  border-color: var(--bs-border-color);
+  color: var(--fg-color);
+  --box-shadow-color: rgba(13, 110, 253, .25);
+}
+.form-control:disabled {
+  background-color: #e1e6ea;
+}
+.input-group-text {
+  background-color: #f0f3f6;
+  border-color: var(--bs-border-color);
 }
 
 .form-range::-webkit-slider-runnable-track {
