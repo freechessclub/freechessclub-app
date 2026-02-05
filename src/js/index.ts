@@ -2380,6 +2380,9 @@ function parseNotifyList(msg: string): string[] | null {
   if(!lower.includes('notify'))
     return null;
 
+  if(/notify list\s*:\s*0\s+names/i.test(msg))
+    return [];
+
   if(/notify list is empty|no users on your notify list|you have no one on your notify list|notify list empty/.test(lower))
     return [];
 
@@ -2399,7 +2402,9 @@ function parseNotifyList(msg: string): string[] | null {
   if(!listText)
     return null;
 
-  const ignore = new Set(['notify', 'list', 'is', 'your', 'you', 'have', 'no', 'none', 'on', 'the', 'users', 'user', 'displayed', 'there', 'are', 'currently', 'empty']);
+  listText = listText.replace(/^-+\s*/, '').replace(/\s*-+$/, '').trim();
+
+  const ignore = new Set(['notify', 'list', 'is', 'your', 'you', 'have', 'no', 'none', 'on', 'the', 'users', 'user', 'names', 'displayed', 'there', 'are', 'currently', 'empty']);
   const tokens = listText.replace(/[;,]/g, ' ').split(/\s+/).filter(Boolean);
   const names = tokens.filter(token => {
     const normalized = token.toLowerCase();
