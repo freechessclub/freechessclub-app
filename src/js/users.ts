@@ -338,7 +338,7 @@ export class Users {
    * @param updateTable If true update the friends table after adding. We might want to defer this 
    * if adding many friends at once
    */
-  public addFriend(name: string, rating = '', updateTable = true) {
+  public addFriend(name: string, rating = '', updateTable = true, save = true) {
     name = name.trim();
     if(!name || name.length > 17 || !/^[A-Za-z()]+$/.test(name)) // Test name is a valid username
       return;
@@ -371,7 +371,8 @@ export class Users {
       }
       this.friendList.push(friend);
     }
-    this.saveFriends(); // save friend list to localstorage
+    if(save)
+      this.saveFriends(); // save friend list to localstorage
 
     if(updateTable)
       this.updateUsersTable($('#friends-table'), this.friendList); // update the friends table
@@ -383,7 +384,7 @@ export class Users {
   public loadFriends() {
     const storedFriends = JSON.parse(storage.get('friends')) || [];
     storedFriends.forEach(friend => {
-      this.addFriend(friend.name, friend.rating, false);
+      this.addFriend(friend.name, friend.rating, false, false);
     });
     this.updateUsersTable($('#friends-table'), this.friendList);
   }
@@ -397,6 +398,27 @@ export class Users {
       rating: fr.rating
     }));
     storage.set('friends', JSON.stringify(storedFriends));
+  }
+
+  /**
+   * Add users from a notify list to the friends list
+   */
+  public addFriendsFromNotify(names: string[]) {
+    if(!names || !names.length)
+      return;
+
+    let added = false;
+    names.forEach((name) => {
+      const before = this.friendList.length;
+      this.addFriend(name, '', false, false);
+      if(this.friendList.length !== before)
+        added = true;
+    });
+
+    if(added) {
+      this.saveFriends();
+      this.updateUsersTable($('#friends-table'), this.friendList);
+    }
   }
 
   /**

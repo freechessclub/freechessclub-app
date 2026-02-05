@@ -809,6 +809,8 @@ function messageHandler(data: any) {
         awaiting.set('user-variables');
         session.send('date'); // Get the server's timezone for time conversions
         awaiting.set('date');
+        session.send('=notify'); // Get user's notify list to pre-populate friends
+        awaiting.set('notify-list');
         chat.connected(data.control);
         tournaments.connected(session);
 
@@ -2264,12 +2266,24 @@ function handleMiscMessage(data: any) {
     return;
   }
   
-  match = msg.match(/^\s*\d+ players displayed \(of \d+\)\. \(\*\) indicates system administrator\./m);
+  match = msg.match(/\s*\d+ players displayed \(of \d+\)\. \(\*\) indicates system administrator\./m);
   if(match && awaiting.resolve('userlist')) {
     users.userList = parseUserList(msg);
     users.updateUsers();
     chat.updateUserList(users.userList);
     return;
+  }
+
+  if(awaiting.has('notify-list')) {
+    const notifyUsers = parseNotifyList(msg);
+    if(notifyUsers !== null) {
+      awaiting.resolve('notify-list');
+      if(notifyUsers.length)
+        users.addFriendsFromNotify(notifyUsers);
+      return;
+    }
+    if(/notify/i.test(msg))
+      awaiting.resolve('notify-list');
   }
 
   match = msg.match(/Blitz\s+Standard\s+Lightning/m);
@@ -2355,6 +2369,48 @@ function parseUserList(msg: string): any[] {
     });
   }
   return users;
+}
+
+/**
+ * Parse the result from the server '=notify' command into a list of usernames
+ * Returns null if the message doesn't look like a notify list response.
+ */
+function parseNotifyList(msg: string): string[] | null {
+  const lower = msg.toLowerCase();
+  if(!lower.includes('notify'))
+    return null;
+
+  if(/notify list is empty|no users on your notify list|you have no one on your notify list|notify list empty/.test(lower))
+    return [];
+
+  let listText = '';
+  const colonMatch = msg.match(/notify list(?:\s+is)?\s*:\s*([\s\S]*)/i);
+  if(colonMatch && colonMatch[1]) {
+    listText = colonMatch[1];
+  }
+  else {
+    const lines = msg.split('\n');
+    const headerIndex = lines.findIndex(line => /notify list/i.test(line));
+    if(headerIndex !== -1) {
+      listText = lines.slice(headerIndex + 1).join(' ');
+    }
+  }
+
+  if(!listText)
+    return null;
+
+  const ignore = new Set(['notify', 'list', 'is', 'your', 'you', 'have', 'no', 'none', 'on', 'the', 'users', 'user', 'displayed', 'there', 'are', 'currently', 'empty']);
+  const tokens = listText.replace(/[;,]/g, ' ').split(/\s+/).filter(Boolean);
+  const names = tokens.filter(token => {
+    const normalized = token.toLowerCase();
+    if(ignore.has(normalized))
+      return false;
+    if(token.length > 17)
+      return false;
+    return /^[A-Za-z()]+$/.test(token);
+  });
+
+  return names;
 }
 
 /** *******************************************************
