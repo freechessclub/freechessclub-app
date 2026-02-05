@@ -1053,3 +1053,159 @@ export function sortTable(table: any, column?: any) {
 
   tbody.append(rows);
 }
+
+/**
+ * Gets the play duration / length of an Audio object.
+ * @param audio An Audio object
+ * @returns the duration in seconds (floating point)
+ */
+export async function getAudioDuration(audio) {
+  if(audio.readyState >= 1) // Metadata already loaded
+    return audio.duration;
+
+  await new Promise(resolve => { // Wait for metadata to load
+    audio.addEventListener('loadedmetadata', resolve, { once: true });
+  });
+
+  return audio.duration;
+}
+
+/**
+ * An object representing a sprite animation. Contains a sprite sheet as well as the
+ * properties used to control the sprite. Used by SpritePlayer class.
+ */
+export interface Sprite {
+  spriteSheet: HTMLImageElement, // A sprite sheet
+  destRect: { // The rects where the animation is to be drawn on the canvas (relative to the canvas' origin). Note that multiple copies of the sprite can be drawn using the same animation.
+    x: number,
+    y: number,
+    width: number,
+    height: number 
+  },
+  frames?: number[], // Frames to draw (in order), if undefined, frames are drawn in row-major order stopping after totalFrames.
+  totalFrames?: number, // Total number of frames. If frames array is defined then totalFrames is set to its length
+  frameWidth: number, // The width of each frame
+  frameHeight: number, // The height of each frame
+  startTime?: number, // When to start animating, if null, will use the time the sprite is added
+  duration: number, // Duration of the animation in ms
+  removeAfter?: boolean, // If true, remove the sprite from the sprite list when it finishes playing,
+                         // If false, the sprite will continue to be drawn using its final frame
+  loop?: boolean // Loop the sprite
+}
+
+/**
+ * A sprite renderer (rendering loop), which animates a list of sprites on a HTML canvas
+ */
+export class SpritePlayer {
+  private sprites: Sprite[] = []; // The list of sprites to draw
+  private canvas: HTMLCanvasElement; // The canvas element to render on
+
+  constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
+  }
+
+  /**
+   * Add a Sprite to the sprites list.
+   * Starts the rendering loop if not already started. 
+   */
+  public addSprite(sp: Sprite) {
+    this.sprites.push(sp);
+    if(this.sprites.length === 1) 
+      requestAnimationFrame((time) => this.animate(time));
+  }
+
+  /** 
+   * Remove a Sprite from the animations list.
+   */
+  public removeSprite(sprite: Sprite) {
+    this.sprites = this.sprites.filter(sp => sprite !== sp);
+  }
+
+  /**
+   * Remove all Sprites from the sprite list.
+   */
+  public removeAllSprites() {
+    this.sprites = [];
+  }
+
+  /**
+   * The rendering loop
+   * @param time current timestamp (passed by requestAnimationFrame)
+   */
+  private animate(time: number) {  
+    // Update the size of the rendering context in case the canvas has been resized
+    const dpr = window.devicePixelRatio || 1;
+    const canvasRect = this.canvas.getBoundingClientRect(); 
+
+    let resized = false;
+    if (this.canvas.width !== canvasRect.width * dpr || this.canvas.height !== canvasRect.height * dpr) {
+      this.canvas.width = canvasRect.width * dpr; 
+      this.canvas.height = canvasRect.height * dpr;
+      resized = true; // canvas was cleared automatically
+    }
+
+    const ctx = this.canvas.getContext('2d'); 
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Clear the canvas
+    if(!resized)
+      ctx.clearRect(0, 0, canvasRect.width, canvasRect.height);
+
+    // Draw sprite frames
+    for(let i = this.sprites.length - 1; i >= 0; i--) {
+      const sp = this.sprites[i];
+
+      if(sp.frames)
+        sp.totalFrames = sp.frames.length;
+
+      const frameDuration = sp.duration / sp.totalFrames;
+
+      if(sp.startTime == null) 
+        sp.startTime = time;
+      
+      const elapsed = time - sp.startTime;
+
+      if(elapsed >= sp.duration) { 
+        if(sp.loop)
+          sp.startTime = time;
+        else if(sp.removeAfter) {
+          this.removeSprite(sp); // Remove sprite that has finished playing
+          continue;
+        }
+      }
+
+      let frame = Math.min(sp.totalFrames - 1, Math.floor(elapsed / frameDuration));
+      this.drawFrame(ctx, sp, frame);
+    }
+
+    if(this.sprites.length)
+      requestAnimationFrame((time) => this.animate(time));
+  }
+  
+  /**
+   * Draw the current frame for a sprite
+   * @param ctx Canvas rendering context
+   * @param sp Sprite
+   * @param frameIndex Current frame
+   */
+  private drawFrame(ctx: CanvasRenderingContext2D, sp: Sprite, frameIndex: number) {  
+    if(sp.frames) // Use index array instead of row-major order
+      frameIndex = sp.frames[frameIndex];
+    
+    const cols = Math.floor(sp.spriteSheet.width / sp.frameWidth);
+    const row = Math.floor(frameIndex / cols);
+    const col = frameIndex % cols;
+
+    ctx.drawImage(
+      sp.spriteSheet,
+      col * sp.frameWidth,
+      row * sp.frameHeight,
+      sp.frameWidth,
+      sp.frameHeight,
+      sp.destRect.x, // Location on canvas
+      sp.destRect.y,
+      sp.destRect.width, // Scale the sprite
+      sp.destRect.height
+    );
+  }
+}

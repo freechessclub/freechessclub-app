@@ -1132,3 +1132,38 @@ export function getSquareRect(boardRect: DOMRect, square: string, orientation: s
   const left = boardRect.left + squareSize * colIndex;
   return new DOMRect(left, top, squareSize, squareSize);
 }
+
+/**
+ * Gets the squares for all pieces that exploded following a piece capture with atomic variant.
+ * @param fen The board position before the move was made
+ * @param src Source square coordinates
+ * @param dest Dest square coordinates
+ * @returns An array of strings containing the coordinates of squares that exploded
+ */
+export function getAtomicExplodeSquares(fen: string, src: string, dest: string) {
+  const pos = new Position(fen);
+  const adjacent = getAdjacentSquares(dest);
+  const explodeSquares = adjacent.filter(a => {
+    const piece = pos.get(a);
+    return a !== src && piece?.type && piece.type !== 'p';
+  });
+  explodeSquares.push(dest);
+  return explodeSquares;
+}
+
+/**
+ * Checks if a move was a capture based on the position prior to the move and the 
+ * move's source and destination squares
+ * @param fen The board position before the move was made
+ * @param src Source square coordinates
+ * @param dest Dest square coordinates
+ * @returns true if a capture took place, otherwise false
+ */
+export function isCapture(fen: string, src: string, dest: string) {
+  const pos = new Position(fen);
+  const srcPiece = pos.get(src);
+  const destPiece = pos.get(dest);
+  // There was an opponent's piece on the destination square OR the source piece was a pawn
+  // and moved diagonally (handles en passant).
+  return (destPiece && srcPiece.color !== destPiece.color) || (srcPiece.type === 'p' && src[0] !== dest[0])
+}

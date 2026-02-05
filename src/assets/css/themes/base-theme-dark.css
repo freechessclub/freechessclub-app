@@ -230,7 +230,7 @@ a {
 }
 
 #move-table {
-  color: rgba(255, 255, 255, 0.6);
+  --bs-table-color: var(--fg-color);
 }
 #move-table .selectable:hover {
   background-color: rgba(255, 255, 255, 0.06);

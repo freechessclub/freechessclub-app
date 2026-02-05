@@ -100,6 +100,9 @@ let mexamineRequested: Game | null = null;
 let mexamineGame: Game | null = null;
 let rematchUser = '';
 let computerList = [];
+let spritePlayer = null;
+let atomicSpritePromise = null;
+let atomicSprite = null;
 let oldEngineName: string = '';
 let oldEngineMaxTime: number;
 let oldEngineThreads: number;
@@ -2939,7 +2942,7 @@ function createBoard(element: any): any {
   });
 }
 
-export function updateBoard(game: Game, playSound = false, setBoard = true, animate = true) {
+export function updateBoard(game: Game, playMove = false, setBoard = true, animate = true) {
   if(!game.history)
     return;
 
@@ -3037,7 +3040,7 @@ export function updateBoard(game: Game, playSound = false, setBoard = true, anim
   showOpeningName(game);
   updateBoardStatusText();
 
-  if(playSound && settings.soundToggle && game === games.focused) {
+  if(playMove && !checkAtomicCapture(game) && settings.soundToggle && game === games.focused) {
     clearTimeout(soundTimer);
     soundTimer = setTimeout(() => {
       if(/[+#]/.test(move?.san)) {
@@ -3210,7 +3213,8 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   game.movePiecePromotion = promotePiece;
   const nextMove = game.history.next();
 
-  if(promote && !promotePiece && !settings.autoPromoteToggle) {
+  if(promote && !promotePiece && !settings.autoPromoteToggle 
+      && (game.category !== 'atomic' || !ChessHelper.isCapture(prevHEntry.fen, source, target))) { // Don't show promotion panel when capturing in Atomic, since the piece will explode immediately anyway.
     showPromotionPanel(game);
     game.board.set({ movable: { color: undefined } });
     return;
@@ -8158,6 +8162,71 @@ export function setRematchUser(user: string) {
   rematchUser = user;
 }
 
+/**
+ * If the last played move was a capture in atomic variant then play the explosion sprites and sfx
+ * @returns true if atomic capture, false otherwise
+ */
+function checkAtomicCapture(game: Game): boolean {
+  const move = game.history.current().move;
+  if(game.category === 'atomic' && move?.san?.includes('x')) {
+    const fen = game.history.prev().fen;
+    const squares = ChessHelper.getAtomicExplodeSquares(fen, move.from, move.to); // Get the list of squares where explosions occur
+    playAtomicEffect(game, squares);
+    return true;
+  }
+  return false;
+}
 
+/**
+ * Play explosion animations and sfx for atomic variant
+ * @param squares an array of square coordinates where the explosion sprites are rendered
+ */
+async function playAtomicEffect(game: Game, squares: string[]) {
+  atomicSprite = await loadAtomicSprite();
+
+  const canvas = game.element.find('.board-sprites')[0];
+
+  const orientation = game.board.state.orientation === 'white' ? 'w' : 'b';
+  const destRects = [];
+  const canvasRect = canvas.getBoundingClientRect();
+  canvasRect.x = canvasRect.y = 0; // Convert to canvas coordinates
+  
+  // Get explosion sfx duration in order to sync animation duration with it
+  const duration = await Utils.getAudioDuration(Sounds.atomicSound) * 1000;
+
+  // Play sound effect
+  if(settings.soundToggle && game === games.focused) {
+    const sound = Sounds.atomicSound.cloneNode(true) as HTMLAudioElement;
+    sound.play();
+  }
+
+  if(!spritePlayer)
+    spritePlayer = new Utils.SpritePlayer(canvas);
+
+  squares.forEach(sq => {
+    const sprite: Utils.Sprite = {
+      spriteSheet: atomicSprite,
+      destRect: ChessHelper.getSquareRect(canvasRect, sq, orientation),
+      frameWidth: 256,
+      frameHeight: 256,
+      totalFrames: 30,
+      duration,
+      removeAfter: true
+    }
+    spritePlayer.addSprite(sprite); // Play sprite
+  });
+}
+
+/**
+ * Load sprite sheet of explosion used by atomic variant
+ */
+function loadAtomicSprite() {
+  if(!atomicSpritePromise) {
+    atomicSprite = new Image();
+    atomicSprite.src = '/assets/img/atomic.webp';
+    atomicSpritePromise = atomicSprite.decode().then(() => atomicSprite);
+  }
+  return atomicSpritePromise;
+}
 
 
