@@ -4822,7 +4822,7 @@ function showInviteJoinDialog(invite: InviteJoinState) {
     msg: `
       <div class="mb-2">You have been invited to a game${summary}${inviter}.</div>
       <div class="mb-2">
-        <input type="text" class="form-control" id="invite-guest-handle" maxlength="17" placeholder="Guest handle (optional)">
+        <input type="text" class="form-control" id="invite-guest-handle" maxlength="8" placeholder="Guest handle (optional)">
       </div>
       <div class="center mt-2">
         <button class="btn btn-sm btn-primary me-2" id="invite-join-guest">Continue as Guest</button>
@@ -4833,7 +4833,8 @@ function showInviteJoinDialog(invite: InviteJoinState) {
 
   const readGuestHandle = () => {
     const inputVal = (dialog.find('#invite-guest-handle').val() as string) || '';
-    const cleaned = inputVal.trim().replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 17);
+    const maxGuestChars = 17 - 'FICSGuest'.length;
+    const cleaned = inputVal.trim().replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '').slice(0, maxGuestChars);
     if(cleaned) {
       const prefixed = cleaned.startsWith('FICSGuest') ? cleaned : `FICSGuest${cleaned}`;
       invite.guestHandle = prefixed.slice(0, 17);
