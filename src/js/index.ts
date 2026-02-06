@@ -65,9 +65,24 @@ type InviteJoinState = {
   guestHandle?: string;
 };
 
+type InviteObserveState = {
+  host: string;
+  seekId: number;
+  token?: string;
+  stage?: 'play' | 'obs';
+  gameId?: number;
+};
+
 type InviteTokenInfo = {
   token: string;
   seekId: number;
+};
+
+type InviteGameInfo = {
+  gameId: number;
+  seekId?: number;
+  host?: string;
+  updatedAt: number;
 };
 
 let session: Session;
@@ -116,7 +131,11 @@ let foregroundServiceChannelReady = false;
 let pendingInviteCreate: InviteCreateState | null = null;
 let activeInvite: InviteCreateState | null = null;
 let pendingInviteJoin: InviteJoinState | null = null;
+let pendingInviteObserve: InviteObserveState | null = null;
+let pendingInviteGame: { token: string; seekId?: number } | null = null;
 const inviteTokensByUser = new Map<string, InviteTokenInfo>();
+const inviteGamesByToken = new Map<string, InviteGameInfo>();
+const inviteRequestersByToken = new Map<string, Set<string>>();
 let activeInviteDialog: JQuery<HTMLElement> | null = null;
 let activeInviteLink: string | null = null;
 let inviteExpiryTimer: number | null = null;
@@ -1086,6 +1105,25 @@ function gameStart(game: Game) {
   if(game.isPlayingOnline()) {
     lastOpponent = game.color === 'w' ? game.bname : game.wname;
   }
+  if(pendingInviteGame && game.isPlayingOnline()) {
+    const token = pendingInviteGame.token;
+    inviteGamesByToken.set(token, {
+      gameId: game.id,
+      seekId: pendingInviteGame.seekId,
+      host: session?.getUser?.(),
+      updatedAt: Date.now()
+    });
+
+    const requesters = inviteRequestersByToken.get(token);
+    if(requesters) {
+      requesters.forEach((user) => {
+        session.send(`tell ${user} invite-game ${token} ${game.id}`);
+      });
+      inviteRequestersByToken.delete(token);
+    }
+    pendingInviteGame = null;
+  }
+  pendingInviteObserve = null;
 
   // Set game board text
   const whiteStatus = game.element.find('.white-status');
@@ -1850,6 +1888,24 @@ function handleMiscMessage(data: any) {
   if(!match)
     match = msg.match(/^You have no partner for bughouse\./m);
   if(match && (awaiting.has('history') || awaiting.has('obs') || awaiting.has('match') || awaiting.has('allobs'))) {
+    if(pendingInviteObserve && match[0] === 'There is no such game.') {
+      const host = pendingInviteObserve.host;
+      if(pendingInviteObserve.stage !== 'obs') {
+        pendingInviteObserve.stage = 'obs';
+        awaiting.set('obs');
+        session.send(`obs ${host}`);
+        showTab($('#pills-observe-tab'));
+      }
+      else if(pendingInviteObserve.gameId) {
+        const gameId = pendingInviteObserve.gameId;
+        pendingInviteObserve = null;
+        session.send(`ex ${host} ${gameId}`);
+        showTab($('#pills-game-tab'));
+      }
+      else {
+        $('#pairing-pane-status').text(`Invite game ended. Check ${host}'s history.`).show();
+      }
+    }
     let status: JQuery<HTMLElement>;
     if(awaiting.has('history'))
       status = $('#history-pane-status');
@@ -4776,6 +4832,7 @@ function handleInviteMatchOffer(offer: any): boolean {
       clearTimeout(inviteExpiryTimer);
       inviteExpiryTimer = null;
     }
+    pendingInviteGame = { token: activeInvite.token, seekId: activeInvite.seekId };
     activeInvite = null;
     activeInviteLink = null;
     $('#show-invite-link').remove();
@@ -4788,17 +4845,59 @@ function handleInviteMatchOffer(offer: any): boolean {
 }
 
 function handleInviteTell(data: any): boolean {
-  if(!activeInvite)
-    return false;
+  const inviteGameMatch = data.message?.match?.(/^invite-game\s+([a-z0-9]+)\s+(\d+)/i);
+  if(inviteGameMatch) {
+    const token = inviteGameMatch[1];
+    const gameId = +inviteGameMatch[2];
+    inviteGamesByToken.set(token, {
+      gameId,
+      host: data.user,
+      updatedAt: Date.now()
+    });
+
+    if(pendingInviteObserve && pendingInviteObserve.token === token
+        && pendingInviteObserve.host.toLowerCase() === data.user.toLowerCase()) {
+      pendingInviteObserve.gameId = gameId;
+      if(pendingInviteObserve.stage === 'obs') {
+        pendingInviteObserve = null;
+        session.send(`ex ${data.user} ${gameId}`);
+        showTab($('#pills-game-tab'));
+      }
+    }
+    return true;
+  }
 
   const match = data.message?.match?.(/^invite\s+([a-z0-9]+)\s+(\d+)/i);
   if(!match)
     return false;
 
-  inviteTokensByUser.set(data.user.toLowerCase(), {
-    token: match[1],
-    seekId: +match[2]
-  });
+  const token = match[1];
+  const seekId = +match[2];
+  const canHandle = (activeInvite && activeInvite.token === token)
+    || (pendingInviteGame && pendingInviteGame.token === token)
+    || inviteGamesByToken.has(token);
+  if(!canHandle)
+    return false;
+
+  if(activeInvite) {
+    inviteTokensByUser.set(data.user.toLowerCase(), {
+      token,
+      seekId
+    });
+  }
+
+  const gameInfo = inviteGamesByToken.get(token);
+  if(gameInfo) {
+    session.send(`tell ${data.user} invite-game ${token} ${gameInfo.gameId}`);
+  }
+  else {
+    let requesters = inviteRequestersByToken.get(token);
+    if(!requesters) {
+      requesters = new Set<string>();
+      inviteRequestersByToken.set(token, requesters);
+    }
+    requesters.add(data.user);
+  }
   return true;
 }
 
@@ -4901,6 +5000,12 @@ function completeInviteJoin() {
   if(invite.host && invite.token)
     session.send(`tell ${invite.host} invite ${invite.token} ${invite.seekId}`);
   awaiting.set('match');
+  pendingInviteObserve = invite.host ? {
+    host: invite.host,
+    seekId: invite.seekId,
+    token: invite.token,
+    stage: 'play'
+  } : null;
   session.send(`play ${invite.seekId}`);
 }
 
