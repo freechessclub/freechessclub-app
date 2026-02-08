@@ -140,6 +140,28 @@ let activeInviteDialog: JQuery<HTMLElement> | null = null;
 let activeInviteLink: string | null = null;
 let inviteExpiryTimer: number | null = null;
 const INVITE_EXPIRY_MS = 5 * 60 * 1000;
+const SESSION_CHANNEL_NAME = 'fcc-session';
+const ACTIVE_SESSION_KEY = 'fcc-active-session';
+const INVITE_SHARE_KEY = 'fcc-invite-share';
+const ACTIVE_SESSION_TTL_MS = 20000;
+const ACTIVE_SESSION_PING_MS = 5000;
+const tabId = (() => {
+  try {
+    const key = 'fcc-tab-id';
+    const existing = sessionStorage.getItem(key);
+    if(existing)
+      return existing;
+    const created = Math.random().toString(36).slice(2, 10);
+    sessionStorage.setItem(key, created);
+    return created;
+  }
+  catch(error) {
+    return Math.random().toString(36).slice(2, 10);
+  }
+})();
+let sessionChannel: BroadcastChannel | null = null;
+let activeSessionTimer: number | null = null;
+let activeSessionOnLoad: { user: string; tabId: string; ts: number } | null = null;
 
 /**
  * Used to call session.send() from inline JS.
@@ -159,6 +181,128 @@ function getForegroundServiceTitle() {
 
 function getForegroundServiceBody() {
   return 'Keeping your game connection active.';
+}
+
+function readActiveSession(): { user: string; tabId: string; ts: number } | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
+    if(!raw)
+      return null;
+    const data = JSON.parse(raw) as { user: string; tabId: string; ts: number };
+    if(!data || !data.tabId || !data.ts)
+      return null;
+    return data;
+  }
+  catch(error) {
+    return null;
+  }
+}
+
+function getOtherActiveSession(): { user: string; tabId: string; ts: number } | null {
+  const data = readActiveSession();
+  if(!data)
+    return null;
+  if(data.tabId === tabId)
+    return null;
+  if(Date.now() - data.ts > ACTIVE_SESSION_TTL_MS)
+    return null;
+  return data;
+}
+
+function writeActiveSession(user: string) {
+  if(!user)
+    return;
+  const payload = { user, tabId, ts: Date.now() };
+  localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(payload));
+}
+
+function startActiveSessionAnnounce() {
+  if(!session || !session.isConnected())
+    return;
+  if(activeSessionTimer)
+    clearInterval(activeSessionTimer);
+  writeActiveSession(session.getUser());
+  activeSessionTimer = window.setInterval(() => {
+    if(session && session.isConnected())
+      writeActiveSession(session.getUser());
+  }, ACTIVE_SESSION_PING_MS);
+}
+
+function stopActiveSessionAnnounce() {
+  if(activeSessionTimer) {
+    clearInterval(activeSessionTimer);
+    activeSessionTimer = null;
+  }
+  const data = readActiveSession();
+  if(data && data.tabId === tabId)
+    localStorage.removeItem(ACTIVE_SESSION_KEY);
+}
+
+function sendInviteToActiveTab(invite: InviteJoinState) {
+  const payload = { type: 'invite-link', invite, tabId, ts: Date.now() };
+  if(sessionChannel)
+    sessionChannel.postMessage(payload);
+  else
+    localStorage.setItem(INVITE_SHARE_KEY, JSON.stringify(payload));
+}
+
+function handleSharedInvite(invite: InviteJoinState) {
+  if(!invite || !invite.seekId)
+    return;
+  showTab($('#pills-play-tab'));
+  if(session && session.isConnected()) {
+    pendingInviteJoin = invite;
+    completeInviteJoin();
+    return;
+  }
+  showInviteJoinDialog(invite);
+}
+
+function initSessionSharing() {
+  if(typeof BroadcastChannel !== 'undefined') {
+    sessionChannel = new BroadcastChannel(SESSION_CHANNEL_NAME);
+    sessionChannel.onmessage = (event) => {
+      const data = event.data;
+      if(!data || data.tabId === tabId)
+        return;
+      if(data.type === 'invite-link' && data.invite)
+        handleSharedInvite(data.invite as InviteJoinState);
+    };
+  }
+
+  window.addEventListener('storage', (event) => {
+    if(event.key !== INVITE_SHARE_KEY || !event.newValue)
+      return;
+    try {
+      const data = JSON.parse(event.newValue);
+      if(!data || data.tabId === tabId)
+        return;
+      if(data.type === 'invite-link' && data.invite)
+        handleSharedInvite(data.invite as InviteJoinState);
+    }
+    catch(error) {
+      return;
+    }
+  });
+}
+
+function showActiveSessionPrompt(activeSession: { user: string; tabId: string; ts: number }) {
+  if(!activeSession)
+    return;
+
+  const activeLabel = activeSession.user ? ` (${activeSession.user})` : '';
+  const bodyText = `Another active session${activeLabel} is already running in another tab.<br><br>`
+    + `Use that tab, or connect here (this may disconnect it).`;
+  const connectHandler = () => {
+    session?.reconnect();
+  };
+  Dialogs.showFixedDialog({
+    type: 'Active Session Detected',
+    msg: bodyText,
+    btnFailure: ['', 'Use active tab'],
+    btnSuccess: [connectHandler, 'Connect here'],
+    htmlMsg: true
+  });
 }
 
 async function updateForegroundServiceNotification() {
@@ -273,6 +417,7 @@ async function onDeviceReady() {
   await storage.init();
   initSettings();
 
+  initSessionSharing();
 
   chat = new Chat();
   tournaments = new Tournaments();
@@ -320,7 +465,9 @@ async function onDeviceReady() {
   Utils.initDropdownSubmenus();
 
   credential = new CredentialStorage();
-  const autoConnect = !hasInviteParams();
+  const hasInvite = hasInviteParams();
+  activeSessionOnLoad = hasInvite ? null : getOtherActiveSession();
+  const autoConnect = !hasInvite && !activeSessionOnLoad;
   if(settings.rememberMeToggle) {
      // Get the username/password from secure storage (if the user has previously ticked Remember Me)
     credential.retrieve().then(() => {
@@ -328,12 +475,16 @@ async function onDeviceReady() {
         session = new Session(messageHandler, credential.username, credential.password, autoConnect);
       else 
         session = new Session(messageHandler, undefined, undefined, autoConnect);
+      if(activeSessionOnLoad)
+        showActiveSessionPrompt(activeSessionOnLoad);
     });
   }
   else {
     $('#login-user').val('');
     $('#login-pass').val('');
     session = new Session(messageHandler, undefined, undefined, autoConnect);
+    if(activeSessionOnLoad)
+      showActiveSessionPrompt(activeSessionOnLoad);
   }
 
   initInviteFromUrl();
@@ -374,6 +525,37 @@ $(window).on('beforeunload', () => {
 $(document).one('click', () => {
   if(settings.wakelockToggle) {
     noSleep.enable();
+  }
+});
+
+$(document).on('click', 'a', function(event) {
+  const href = ($(this).attr('href') || '').trim();
+  if(!href || href.startsWith('javascript:') || href.startsWith('#'))
+    return;
+
+  let url: URL;
+  try {
+    url = new URL(href, window.location.href);
+  }
+  catch(error) {
+    return;
+  }
+
+  if(url.origin !== window.location.origin)
+    return;
+
+  const params = url.searchParams;
+  if(params.has('invite') || params.has('seek')) {
+    event.preventDefault();
+    if(url.pathname === window.location.pathname) {
+      const invite = parseInviteFromParams(params);
+      if(invite) {
+        handleInviteJoinFromParams(invite, false);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+    }
+    window.location.assign(url.toString());
   }
 });
 
@@ -901,6 +1083,7 @@ function messageHandler(data: any) {
         updateForegroundServiceState();
 
           completeInviteJoin();
+        startActiveSessionAnnounce();
       }
       else if(data.command === 2) { // Login error
         session.disconnect();
@@ -913,6 +1096,7 @@ function messageHandler(data: any) {
       }
       else if(data.command === 3) { // Disconnected
         cleanup();
+        stopActiveSessionAnnounce();
         const panelHtml = `<div class="not-signed-in-notice">Not signed in. <a href="javascript:void(0)">Sign in</a></div>`;
         $('#chat-panel .nav-tabs').append(panelHtml);
         $('#pills-lobby').append(panelHtml);
@@ -933,7 +1117,8 @@ function messageHandler(data: any) {
       chat.newMessage(data.channel, data);
       break;
     case MessageType.PrivateTell:
-        handleInviteTell(data);
+      if(handleInviteTell(data))
+        return;
       chat.newMessage(data.user, data);
       break;
     case MessageType.Messages:
@@ -2477,6 +2662,7 @@ export function cleanup() {
       cleanupGame(game);
   }
   clearInterval(keepAliveTimer);
+  stopActiveSessionAnnounce();
 }
 
 /**
@@ -4833,6 +5019,12 @@ function handleInviteMatchOffer(offer: any): boolean {
       inviteExpiryTimer = null;
     }
     pendingInviteGame = { token: activeInvite.token, seekId: activeInvite.seekId };
+    const requesters = inviteRequestersByToken.get(activeInvite.token);
+    if(requesters) {
+      requesters.delete(offer.opponent);
+      if(!requesters.size)
+        inviteRequestersByToken.delete(activeInvite.token);
+    }
     activeInvite = null;
     activeInviteLink = null;
     $('#show-invite-link').remove();
@@ -4855,13 +5047,17 @@ function handleInviteTell(data: any): boolean {
       updatedAt: Date.now()
     });
 
-    if(pendingInviteObserve && pendingInviteObserve.token === token
-        && pendingInviteObserve.host.toLowerCase() === data.user.toLowerCase()) {
+    if(pendingInviteObserve && pendingInviteObserve.token === token) {
       pendingInviteObserve.gameId = gameId;
-      if(pendingInviteObserve.stage === 'obs') {
-        pendingInviteObserve = null;
-        session.send(`ex ${data.user} ${gameId}`);
-        showTab($('#pills-game-tab'));
+      if(!pendingInviteObserve.host)
+        pendingInviteObserve.host = data.user;
+      if(pendingInviteObserve.host.toLowerCase() === data.user.toLowerCase()) {
+        if(pendingInviteObserve.stage !== 'obs') {
+          pendingInviteObserve.stage = 'obs';
+          awaiting.set('obs');
+          session.send(`obs ${data.user}`);
+          showTab($('#pills-observe-tab'));
+        }
       }
     }
     return true;
@@ -5009,17 +5205,28 @@ function completeInviteJoin() {
   session.send(`play ${invite.seekId}`);
 }
 
-function initInviteFromUrl() {
-  const params = new URLSearchParams(window.location.search);
+function handleInviteJoinFromParams(invite: InviteJoinState, clearUrl: boolean) {
+  if(session && session.isConnected()) {
+    pendingInviteJoin = invite;
+    completeInviteJoin();
+  }
+  else {
+    showInviteJoinDialog(invite);
+  }
+  if(clearUrl)
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+function parseInviteFromParams(params: URLSearchParams): InviteJoinState | null {
   const seekParam = params.get('seek');
   if(!seekParam)
-    return;
+    return null;
 
   const seekId = +seekParam;
   if(Number.isNaN(seekId))
-    return;
+    return null;
 
-  const invite: InviteJoinState = {
+  return {
     seekId,
     host: params.get('host') || params.get('user') || undefined,
     token: params.get('token') || undefined,
@@ -5028,9 +5235,39 @@ function initInviteFromUrl() {
     rated: params.get('rated') || undefined,
     color: params.get('color') || undefined,
   };
+}
 
-  showInviteJoinDialog(invite);
-  window.history.replaceState({}, document.title, window.location.pathname);
+function initInviteFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const invite = parseInviteFromParams(params);
+  if(!invite)
+    return;
+
+  const activeSession = getOtherActiveSession();
+  if(activeSession) {
+    const activeLabel = activeSession.user ? ` (${activeSession.user})` : '';
+    const bodyText = `Another active session${activeLabel} was detected.<br>`
+      + `Opening this invite here may disconnect it.<br><br>`
+      + `Send the invite to the active tab instead?`;
+    const sendHandler = () => {
+      sendInviteToActiveTab(invite);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      Dialogs.showFixedDialog({type: 'Invite Sent', msg: 'Invite sent to your active tab.', btnSuccess: ['', 'OK']});
+    };
+    const continueHandler = () => {
+      handleInviteJoinFromParams(invite, true);
+    };
+    Dialogs.showFixedDialog({
+      type: 'Active Session Detected',
+      msg: bodyText,
+      btnFailure: [continueHandler, 'Continue here'],
+      btnSuccess: [sendHandler, 'Send to active tab'],
+      htmlMsg: true
+    });
+    return;
+  }
+
+  handleInviteJoinFromParams(invite, true);
 }
 
 function hasInviteParams(): boolean {
