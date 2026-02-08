@@ -4847,6 +4847,29 @@ function generateInviteToken(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
+function getInviteBaseUrl(): string {
+  const fallbackOrigin = 'https://freechess.org';
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  let origin = window.location.origin;
+  let pathname = window.location.pathname || '/play.html';
+
+  const isLocalhost = hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '0.0.0.0'
+    || hostname === '[::1]'
+    || origin === 'null';
+  const isUnsupportedProtocol = protocol !== 'http:' && protocol !== 'https:';
+
+  if(isLocalhost || isUnsupportedProtocol) {
+    origin = fallbackOrigin;
+    if(!pathname || pathname === '/' || pathname.includes('android_asset'))
+      pathname = '/play.html';
+  }
+
+  return `${origin}${pathname}`;
+}
+
 function buildInviteLink(invite: InviteCreateState): string {
   const params = new URLSearchParams();
   params.set('invite', '1');
@@ -4857,7 +4880,7 @@ function buildInviteLink(invite: InviteCreateState): string {
   params.set('inc', String(invite.inc));
   params.set('rated', invite.rated === 'r' ? '1' : '0');
   params.set('color', invite.color);
-  const baseUrl = `${window.location.origin}${window.location.pathname}`;
+  const baseUrl = getInviteBaseUrl();
   return `${baseUrl}?${params.toString()}`;
 }
 
