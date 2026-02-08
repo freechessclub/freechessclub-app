@@ -235,7 +235,7 @@ export class Tournaments {
       if(/^:Language:/m.test(msg)) { // This is the last line in the response, indicating we have it all
         awaiting.resolve('td-variables');
         this.parseTDVariables(this.tdMessage);
-        // Update 'Receive Info' checkmarks in the '...' menus 
+        // Update 'Show Console Info' checkmarks in the '...' menus 
         this.kothReceiveInfo = (this.tdVariables.KOTHInfo === 'On' ? true : false); 
         this.updateGroup('koth');
         this.tournamentsReceiveInfo = (this.tdVariables.TourneyInfo === 'On' ? true : false); 
@@ -278,6 +278,7 @@ export class Tournaments {
       this.updateKoTH(id, {
         king,
         kingStats: undefined,
+        isFemale: match[3] === 'queen'
       }, true);
       awaiting.set('td-kingstats');
       this.session.send(`td kingstats ${id}`);
@@ -301,6 +302,7 @@ export class Tournaments {
       const opponent = match[3];
       this.updateKoTH(id, {
         king: match[1],
+        isFemale: match[2] === 'queen',
         opponent: match[3],
       });
       return false;
@@ -1612,15 +1614,18 @@ export class Tournaments {
     // Change styling of card to show it's active when there is currently a king
     card.toggleClass('tournament-card-active', koth.king !== '-'); 
 
+    if(koth.king === '-') {
+      koth.kingStats = null;
+      koth.isFemale = null;
+    }
+
     koth.title = `KoTH ${koth.type}`;
     card.find('.koth-title').text(koth.title);
-    const isFemale = this.tdVariables.Female === 'Yes';
-    const kingStr = `<span class="tournament-card-label">The ${isFemale ? 'Queen' : 'King'}:</span>  ${koth.king !== '-' ? `<i class="fa-solid fa-crown"></i> <span class="clickable-user">${koth.king}</span>` : '-'}`; 
+    if(koth.isFemale == null) 
+      koth.isFemale = this.tdVariables.Female === 'Yes';
+    const kingStr = `<span class="tournament-card-label">The ${koth.isFemale ? 'Queen' : 'King'}:</span>  ${koth.king !== '-' ? `<i class="fa-solid fa-crown"></i> <span class="clickable-user">${koth.king}</span>` : '-'}`; 
     card.find('.koth-king').html(kingStr);
     
-    if(koth.king === '-')
-      koth.kingStats = null;
-
     const kingStats = koth.kingStats;
     const kingStatsStr = kingStats 
         ? `<span class="tournament-card-label">Streak:</span>  ${kingStats.wins} wins, ${kingStats.draws} draws`
@@ -1813,7 +1818,7 @@ export class Tournaments {
             </button>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="tournament-more-options">
               <li><a class="dropdown-item noselect show-notifications"><span class="me-2 checkmark invisible">&#10003;</span>Show All Notifications</a></li>
-              <li><a class="dropdown-item noselect receive-info"><span class="me-2 checkmark invisible">&#10003;</span>Receive Info</a></li>
+              <li><a class="dropdown-item noselect receive-info"><span class="me-2 checkmark invisible">&#10003;</span>Show Console Info</a></li>
               ${groupName === 'koth' ? '<li><a class="dropdown-item noselect set-female"><span class="me-2 checkmark invisible">&#10003;</span>Set me as Female</a></li>' : ''}
             </ul>`
             : ''}
