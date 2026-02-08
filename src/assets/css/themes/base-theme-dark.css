@@ -184,24 +184,16 @@ a {
 .input-group-text {
   background-color: #777777;
   border-color: #888888;
+  color: #212529;
 }
 
-.form-check-input,
-.form-check-input:disabled,
-.form-check-input:hover,
-.form-check-input:focus,
-.form-check-input:active {
-  filter: brightness(0.6) contrast(2);
-}
-.form-check-input:checked {
-  filter: brightness(0.8) contrast(1.2);
-}
 .form-check-input:not(:checked) {
   background-color: #5f5f5f;
   border-color: #8a8a8a;
 }
 .form-switch .form-check-input:not(:checked) {
   background-color: #5f5f5f;
+  filter: contrast(1.5);
 }
 
 .nav {

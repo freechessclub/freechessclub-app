@@ -540,40 +540,6 @@
                             <button id="engine-settings-btn" type="button" style="line-height: 1;" class="btn btn-outline-secondary btn-transparent px-1 py-0" data-bs-toggle="tooltip" aria-haspopup="true" aria-expanded="false" title="Engine Settings" aria-label="Engine Settings">
                               <span class="fa-solid fa-gear" aria-hidden="false"></span>
                             </button>
-                            <div class="modal fade" id="engine-settings-modal" tabindex="-1" aria-labelledby="engine-settings-modal-label" aria-hidden="true">
-                              <div class="modal-dialog modal-dialog-centered">
-                                <div class="modal-content">
-                                  <div class="modal-header">
-                                    <h5 class="modal-title" id="engine-settings-modal-label"><span class="fa fa-gear me-2" aria-hidden="false"></span><span id="engine-settings-title-text">Engine Settings</span></h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                  </div>
-                                  <div class="modal-body">
-                                    <div class="align-items-center mb-3" style="display: flex;">
-                                      <span class="me-2">Chess Engine:</span>
-                                      <div class="btn-group">
-                                        <button id="engine-selector-btn" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"></button>
-                                        <ul id="engine-selector-menu" class="dropdown-menu"></ul>
-                                      </div>
-                                    </div>
-                                    <div class="align-items-center mb-3" style="display: flex;">
-                                      <span class="me-2" style="white-space: nowrap">Maximum Time:</span>
-                                      <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-max-time-slider" min="0" max="5" value="0">
-                                      <span id="engine-max-time-value" style="min-width: 9ch; white-space: nowrap;"></span>
-                                    </div>
-                                    <div class="align-items-center mb-3" style="display: flex;">
-                                      <span class="me-2">Threads:</span>
-                                      <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-threads-slider" min="1" max="8" value="1">
-                                      <span id="engine-threads-value" style="min-width: 9ch; white-space: nowrap;"></span>
-                                    </div>
-                                    <div class="align-items-center mb-3" style="display: flex;">
-                                      <span class="me-2">Memory:</span>
-                                      <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-memory-slider" min="0" max="5" value="0">
-                                      <span id="engine-memory-value" style="min-width: 9ch; white-space: nowrap;"></span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
                           </div>
                         </div>
                         <div class="flex-grow-1 w-100" style="min-height: 0">
@@ -935,7 +901,7 @@
                               <ul id="shortcuts-list" class="dropdown-menu show">
                               </ul>
                               <div id="shortcut-settings-right-col" style="flex-shrink: 0;">
-                                <div id="shortcut-buttons" class="mb-3" style="display: inline-block;">
+                                <div id="shortcut-buttons" class="mb-3" style="white-space: nowrap; display: inline-block;">
                                   <button type="button" id="new-shortcut" class="btn btn-outline-secondary btn-sm" title="New Shortcut">New Shortcut</button>
                                   <button type="button" id="remove-shortcut" class="btn btn-outline-secondary btn-sm" title="Remove Shortcut">Remove Shortcut</button>
                                 </div>
@@ -1225,6 +1191,40 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="engine-settings-modal" tabindex="-1" aria-labelledby="engine-settings-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="engine-settings-modal-label"><span class="fa fa-gear me-2" aria-hidden="false"></span><span id="engine-settings-title-text">Engine Settings</span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="align-items-center mb-3" style="display: flex;">
+            <span class="me-2">Chess Engine:</span>
+            <div class="btn-group">
+              <button id="engine-selector-btn" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"></button>
+              <ul id="engine-selector-menu" class="dropdown-menu"></ul>
+            </div>
+          </div>
+          <div class="align-items-center mb-3" style="display: flex;">
+            <span class="me-2" style="white-space: nowrap">Maximum Time:</span>
+            <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-max-time-slider" min="0" max="5" value="0">
+            <span id="engine-max-time-value" style="min-width: 9ch; white-space: nowrap;"></span>
+          </div>
+          <div class="align-items-center mb-3" style="display: flex;">
+            <span class="me-2">Threads:</span>
+            <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-threads-slider" min="1" max="8" value="1">
+            <span id="engine-threads-value" style="min-width: 9ch; white-space: nowrap;"></span>
+          </div>
+          <div class="align-items-center mb-3" style="display: flex;">
+            <span class="me-2">Memory:</span>
+            <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-memory-slider" min="0" max="5" value="0">
+            <span id="engine-memory-value" style="min-width: 9ch; white-space: nowrap;"></span>
           </div>
         </div>
       </div>
