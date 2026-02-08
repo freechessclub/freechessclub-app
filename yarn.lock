@@ -1235,6 +1235,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@capacitor/keyboard@npm:^8.0.0":
+  version: 8.0.0
+  resolution: "@capacitor/keyboard@npm:8.0.0"
+  peerDependencies:
+    "@capacitor/core": ">=8.0.0"
+  checksum: 10c0/755ef1ccf80c3d9fa46be595e7c4115d252f64b299d2e40cf01e8c42b5cb75c2677a142b1f2f19c7e134a033099c92ac65b4f8267feebc22ea171cddfb704bba
+  languageName: node
+  linkType: hard
+
 "@capacitor/preferences@npm:^8.0.0":
   version: 8.0.0
   resolution: "@capacitor/preferences@npm:8.0.0"
@@ -6909,6 +6918,7 @@ __metadata:
     "@capacitor/cli": "npm:^8.0.2"
     "@capacitor/core": "npm:^8.0.2"
     "@capacitor/ios": "npm:^8.0.2"
+    "@capacitor/keyboard": "npm:^8.0.0"
     "@capacitor/preferences": "npm:^8.0.0"
     "@capacitor/status-bar": "npm:^8.0.0"
     "@capawesome-team/capacitor-android-foreground-service": "npm:^8.0.0"
