@@ -109,6 +109,10 @@ cg-board {
   --bs-modal-bg: var(--bg-color);
 }
 
+.form-check-input {
+  --bs-form-check-bg: #FFFFFF;
+}
+
 .form-control,
 .form-control:active,
 .form-control:focus,
