@@ -78,7 +78,23 @@ jobs:
       - name: Install deps
         run: yarn install --immutable
 
-      - name: Build and publish
+      - name: Bundle app
+        run: yarn webpack --config electron.webpack.js
+
+      - name: Build and publish (macOS)
+        if: runner.os == 'macOS'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: yarn build
+        run: yarn electron-builder -m --x64 --arm64 -p always
+
+      - name: Build and publish (Windows)
+        if: runner.os == 'Windows'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: yarn electron-builder -w --x64 -p always
+
+      - name: Build and publish (Linux)
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: yarn electron-builder -l --x64 -p always
