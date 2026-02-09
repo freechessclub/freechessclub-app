@@ -7,6 +7,11 @@ on:
     paths:
       - package.json
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Run release even without version change"
+        required: false
+        default: "true"
 
 permissions:
   contents: write
@@ -41,7 +46,9 @@ jobs:
             previous_version=""
           fi
 
-          if [[ "$current_version" != "$previous_version" ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$current_version" != "$previous_version" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
