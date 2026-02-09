@@ -3785,9 +3785,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"autolink-js@https://github.com/freechessclub/autolink-js":
+"autolink-js@git+https://github.com/freechessclub/autolink-js.git#4b787a21bc2f9271f016043ba2d62534e2ca9f65":
   version: 1.0.2
-  resolution: "autolink-js@git+ssh://git@github.com/freechessclub/autolink-js.git#commit=4b787a21bc2f9271f016043ba2d62534e2ca9f65"
+  resolution: "autolink-js@https://github.com/freechessclub/autolink-js.git#commit=4b787a21bc2f9271f016043ba2d62534e2ca9f65"
   checksum: 10c0/05c8a663dbea326ebc41acd5babcde8912fd45850a2be9f766bd16b8fa67724d820837ebe91ec6a53ff697e2ecb340dcd87bfd648fabe00e8b2770f0d0e02151
   languageName: node
   linkType: hard
@@ -6931,7 +6931,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": "npm:^8.17.0"
     "@typescript-eslint/parser": "npm:^8.17.0"
     "@uriopass/nosleep.js": "npm:^0.12.2"
-    autolink-js: "https://github.com/freechessclub/autolink-js"
+    autolink-js: "git+https://github.com/freechessclub/autolink-js.git#4b787a21bc2f9271f016043ba2d62534e2ca9f65"
     bootstrap: "npm:5.3.8"
     builder-util-runtime: "npm:^9.2.10"
     capacitor-secure-storage-plugin: "npm:^0.13.0"
