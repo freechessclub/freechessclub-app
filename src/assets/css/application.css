@@ -516,6 +516,15 @@ body {
   flex-wrap: wrap;
 }
 
+.board-sprites {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .btn-transparent {
   --bs-btn-active-bg: transparent;
   --bs-btn-hover-bg: transparent;

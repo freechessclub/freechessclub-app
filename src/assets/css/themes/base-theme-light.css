@@ -158,6 +158,9 @@ cg-board {
   --bs-btn-active-color: rgba(159, 184, 228, 0.75);
 }
 
+#move-table {
+  --bs-table-color: var(--fg-color);
+}
 #move-table .selectable:hover {
   background-color: rgba(0, 0, 0, 0.075);
 }
