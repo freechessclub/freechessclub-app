@@ -23,12 +23,13 @@ export class Engine {
   public stopping: boolean = false; // Has 'stop' command been called? Ignore any late 'info' messages
   protected currFen: string;
   protected currEval: string;
+  protected currNodes: number;
   protected game: Game;
-  protected bestMoveCallback: (game: Game, move: string, score: string) => void;
-  protected pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string) => void;
+  protected bestMoveCallback: (game: Game, move: string, score: string, nodes: number) => void;
+  protected pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string, pvNodes: number) => void;
   protected moveParams: string;
   
-  constructor(game: Game, bestMoveCallback: (game: Game, move: string, score: string) => void, pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string) => void, engineName: string, options?: object, moveParams?: string) {
+  constructor(game: Game, bestMoveCallback: (game: Game, move: string, score: string, nodes: number) => void, pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string, pvNodes: number) => void, engineName: string, options?: object, moveParams?: string) {
     this.moveParams = moveParams;
     this.currFen = null;
     this.game = game;
@@ -76,6 +77,7 @@ export class Engine {
           const pvArr = [];
           let scoreStr: string;
           let pvNum = 1;
+          this.currNodes = 0;
           for(let i = 0; i < infoArr.length; i++) {
             if(infoArr[i] === 'lowerbound' || infoArr[i] === 'upperbound')
               return;
@@ -113,6 +115,8 @@ export class Engine {
               else
                 scoreStr = `${prefix}${(score / 100).toFixed(2)}`;
             }
+            else if(infoArr[i] === 'nodes')
+              this.currNodes = +infoArr[i+1];
             else if(infoArr[i] === 'pv')
               bPV = true;
             else if(bPV)
@@ -150,18 +154,18 @@ export class Engine {
             }
 
             if(this.pvCallback)
-              this.pvCallback(this.game, pvNum, scoreStr, pv);
+              this.pvCallback(this.game, pvNum, scoreStr, pv, this.currNodes);
           }
           // mate in 0
           else if(scoreStr === '#0' || scoreStr === '-#0') {
             if(this.pvCallback)
-              this.pvCallback(this.game, 1, scoreStr, '');
+              this.pvCallback(this.game, 1, scoreStr, '', this.currNodes);
           }
           this.currEval = scoreStr;
 
           // For backwards compatibility, older version of Stockfish didn't send a bestmove for mate in 0.
           if(depth0 && this.bestMoveCallback)
-            this.bestMoveCallback(this.game, '', this.currEval);
+            this.bestMoveCallback(this.game, '', this.currEval, this.currNodes);
         }
         else if(response.data.startsWith('bestmove')) {
           if(this.stopping) {
@@ -173,7 +177,7 @@ export class Engine {
           if(this.bestMoveCallback) {
             const bestMove = response.data.trim().split(/\s+/)[1];
             if(bestMove !== '(none)')
-              this.bestMoveCallback(this.game, bestMove, this.currEval);
+              this.bestMoveCallback(this.game, bestMove, this.currEval, this.currNodes);
           }
         }
       };
@@ -403,8 +407,10 @@ export class EvalEngine extends Engine {
     this.bestMoveCallback = this.bestMove;
   }
 
-  public bestMove(game: Game, move: string, score: string) {
+  public bestMove(game: Game, move: string, score: string, nodes: number) {
     this.currMove.eval = score;
+    this.currMove.evalNodes = nodes;
+    this.currMove.evalBestMove = move;
     this.currMove = undefined;
     this._redraw = true;
     this.evaluate();
@@ -681,6 +687,95 @@ export class EvalEngine extends Engine {
         currMoveCircle
           .css('opacity', 0);
     }
+  }
+
+  /**
+   * Scores a move based on its engine eval relative to a reference eval (usually the Engine's best move).
+   * The function is weighted so that moves which would cause a transition from equal to losing, or winning to
+   * equal etc are given a much bigger negative score than those which don't change the overall outcome.
+   * Current calibration:
+   * 0 to -0.5 ok move
+   * -0.5 to -1 inaccuracy
+   * -1 to -3 mistake
+   * < -3 blunder 
+   * @param evaluation The engine's centi-pawn eval for the move
+   * @param reference The reference eval (usually engine's best move)
+   * @param turnColor The side who made the move
+   * @returns a score, usually < 0
+   */
+  public static scoreMove(evaluation: string, reference: string, turnColor: string) {  
+    // Piece-wise sensitivity function for scoring intervals along an eval curve.
+    // This can be visualised as a curve with 2 peaks centered at eval 2.5 and -2.5
+    // with a valley at 0 eval and flat tails beyond an eval of 3.
+    // E.g. an eval change from 5 to 3 has a score close to 0 since it doesn't change the expected
+    // outcome of the game, whereas a change from 2 to 0 has a much bigger score, since it goes from
+    // winning to equal. Only the positive side of the curve is defined, but it is treated as
+    // symmetrical around 0
+    const bands = [
+      { start: 5, end: 10, weight: 0.05 },
+      { start: 3, end: 5, weight: 0.25 },
+      { start: 2, end: 3, weight: 1.75 },
+      { start: 1, end: 2, weight: 1.5 },
+      { start: 0, end: 1, weight: 1 },
+    ];
+    
+    evaluation.replace('=', '');
+    reference.replace('=', '');
+
+    // Treat all "mate in X" as having an eval of 10
+    if(evaluation.includes('#')) 
+      evaluation = (evaluation[0] === '-' ? '-10' : '+10');
+    if(reference.includes('#')) 
+      reference = (reference[0] === '-' ? '-10' : '+10');
+
+    const evalNum = +evaluation;
+    const refNum = +reference;
+
+    /**
+     * Returns the length of the overlap between two intervals.
+     * @param a One end of the given interval (eval difference)
+     * @param b Other end of the given interval 
+     * @param start Start of the band interval (sensitivity function)
+     * @param end: End of the band interval
+     */
+    const overlap = (a: number, b: number, bandA: number, bandB: number) => {
+      const lo = Math.min(a, b);
+      const hi = Math.max(a, b);
+      const bandLo = Math.min(bandA, bandB);
+      const bandHi = Math.max(bandA, bandB);
+      return Math.max(0, Math.min(hi, bandHi) - Math.max(lo, bandLo));
+    };
+
+    // A negative eval change produces a negative score for white, but positive score for black
+    const sign = Math.sign(evalNum - refNum) * (turnColor === 'w' ? 1 : -1);
+
+    const score = sign * bands.reduce((acc, band) => {
+      // positive bands
+      let o = overlap(evalNum, refNum, band.start, band.end);
+      // mirrored negative bands
+      o += overlap(-evalNum, -refNum, band.start, band.end);
+      return acc + o * band.weight;
+    }, 0);
+
+    return score;
+  }
+
+  /**
+   * Rates a move based on its engine eval relative to a reference eval (usually the Engine's best move).
+   * Rating is a string which describes the quality of the move. 
+   * See scoreMove for more info.
+   */
+  public static rateMove(evaluation: string, reference: string, turnColor: string) {
+    const score = this.scoreMove(evaluation, reference, turnColor);
+
+    if(score < -3)
+      return 'blunder';
+    else if(score < -1)
+      return 'mistake';
+    else if(score < -0.5)
+      return 'inaccuracy';
+    else 
+      return 'ok';
   }
 }
 

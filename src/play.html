@@ -29,32 +29,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Math&family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="status-shim"></div>
-  <svg xmlns="http://www.w3.org/2000/svg" style="display: none">
-    <symbol id="icon-info" fill="currentColor" class="bi bi-info-circle" viewBox="0 0 16 16">
-      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
-      <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/>
-    </symbol>
-  </svg>
-  <div id="sign-in-alert" class="banner-alert fade" role="alert">Signing in...</div>
-  <div id="notifications" style="z-index: 2000; position: fixed; top: env(safe-area-inset-top); right: 0; width: 100%">
-    <div class="toast notification-panel" data-bs-animation="false" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-header">
-      <div class="toast-body position-relative d-flex">
-        <span class="mx-auto">Notifications</span>
-        <button type="button" class="btn-close" style="background: transparent; position: absolute; right: 6px; top: 50%; transform: translateY(-50%);" aria-label="Hide">
-          <span id="notifications-close-icon" class="fa-solid fa-chevron-down" aria-hidden="false"></span>
-        </button>
-      </div>
-    </div>
-    <div class="toast notification-panel" data-bs-animation="false" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-footer">
-      <div class="toast-body">
-        <div class="d-flex">
-          <a class="me-auto" id="notifications-clear-all" style="cursor: pointer; text-decoration: none; font-style: italic">Clear all</a>
-          <a class="ms-auto" id="notifications-show-all" style="cursor: pointer; text-decoration: none; font-style: italic">Show all >></a>
-        </div>
-      </div>
-    </div>
-  </div>
   <div class="feature3 p-0 position-relative">
     <div class="row m-0" id="main-row">
       <div class="card-group p-0">
@@ -322,16 +296,16 @@
                                 <div id="lobby" class="flex-grow-1" style="min-height: 0">
                                   <div class="d-flex flex-column h-100">
                                     <div class="center p-2 justify-content-around">
-                                      <div>
+                                      <div class="eye-toggle">
                                         <input type="checkbox" class="btn-check" id="lobby-show-computers" autocomplete="off">
                                         <label class="btn btn-default border-0" for="lobby-show-computers">
-                                          <span id="lobby-show-computers-icon" class="fa-regular fa-eye me-2" aria-hidden="false"></span>Computers
+                                          <span id="lobby-show-computers-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Computers
                                         </label>
                                       </div>
-                                      <div>
+                                      <div class="eye-toggle">
                                         <input type="checkbox" class="btn-check" id="lobby-show-unrated" autocomplete="off">
                                         <label class="btn btn-default border-0" for="lobby-show-unrated">
-                                          <span id="lobby-show-unrated-icon" class="fa-regular fa-eye me-2" aria-hidden="false"></span>Unrated
+                                          <span id="lobby-show-unrated-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Unrated
                                         </label>
                                       </div>
                                     </div>
@@ -529,14 +503,18 @@
                             <button type="button" id="add-pv" class="btn btn-engine btn-outline-secondary btn-sm p-0" title="Add Engine Line">+</button>
                           </div>
                           <div class="d-flex flex-grow-1 ms-auto align-items-center justify-content-between" style="max-width: 280px;">
-                            <input type="checkbox" class="btn-check" id="best-move-arrow-toggle" autocomplete="off">
-                            <label class="btn btn-default ms-1 py-1 px-1 border-0" style="display: block; line-height: 1; white-space: nowrap" for="best-move-arrow-toggle">
-                              <span id="best-move-arrow-toggle-icon" class="fa-regular fa-eye me-2" aria-hidden="false"></span>Best Arrow
-                            </label>
-                            <input type="checkbox" class="btn-check" id="eval-bar-toggle" autocomplete="off">
-                            <label class="btn btn-default py-1 px-1 border-0" style="display: block; line-height: 1; white-space: nowrap" for="eval-bar-toggle">
-                              <span id="eval-bar-toggle-icon" class="fa-regular fa-eye me-2" style="display: inline-block; width: 18px;" aria-hidden="false"></span>Eval Bar
-                            </label>
+                            <div class="eye-toggle">
+                              <input type="checkbox" class="btn-check" id="engine-board-visuals-toggle" autocomplete="off">
+                              <label class="btn btn-default ms-1 py-1 px-1 border-0" style="display: block; line-height: 1;" for="engine-board-visuals-toggle">
+                                <span id="engine-board-visuals-toggle-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Board Visuals
+                              </label>
+                            </div>
+                            <div class="eye-toggle">
+                              <input type="checkbox" class="btn-check" id="engine-panel-eval-bar-toggle" autocomplete="off">
+                              <label class="btn btn-default py-1 px-1 border-0" style="display: block; line-height: 1;" for="engine-panel-eval-bar-toggle">
+                                <span id="engine-panel-eval-bar-toggle-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Eval Bar
+                              </label>
+                            </div>
                             <button id="engine-settings-btn" type="button" style="line-height: 1;" class="btn btn-outline-secondary btn-transparent px-1 py-0" data-bs-toggle="tooltip" aria-haspopup="true" aria-expanded="false" title="Engine Settings" aria-label="Engine Settings">
                               <span class="fa-solid fa-gear" aria-hidden="false"></span>
                             </button>
@@ -960,14 +938,53 @@
                                 <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-memory-slider" min="0" max="5" value="0">
                                 <span id="engine-memory-value" style="min-width: 9ch; white-space: nowrap;"></span>
                               </div>
+                              <hr/>
+                              <div class="row">
+                                <div class="col-12 col-md">
+                                  <div class="eye-toggle">         
+                                    <input type="checkbox" class="btn-check" id="eval-bar-toggle" autocomplete="off">
+                                    <label class="btn btn-default" for="eval-bar-toggle">
+                                      <span id="eval-bar-toggle-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Eval Bar
+                                    </label>
+                                    <div class="settings-toggle-help eye-toggle-help">Shows an eval bar next to the board.</div>
+                                  </div>
+                                </div>
+                                <div class="col-12 col-md"> 
+                                  <div class="eye-toggle">         
+                                    <input type="checkbox" class="btn-check" id="move-rating-toggle" autocomplete="off">
+                                    <label class="btn btn-default" for="move-rating-toggle">
+                                      <span id="move-rating-toggle-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Move Rating Icon
+                                    </label>
+                                    <div class="settings-toggle-help eye-toggle-help">Shows a move rating bubble next to the last played move.</div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div class="row">
+                                <div class="col-12 col-md">
+                                  <div class="eye-toggle">     
+                                    <input type="checkbox" class="btn-check form-check-input" id="best-move-arrow-toggle" autocomplete="off">
+                                    <label class="btn btn-default" for="best-move-arrow-toggle">
+                                      <span id="best-move-arrow-toggle-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Best Move Arrow
+                                    </label>
+                                    <div class="settings-toggle-help eye-toggle-help">Shows the engine's first choice move on the board.</div>
+                                  </div>
+                                </div>
+                                <div class="col-12 col-md">
+                                  <div class="eye-toggle">    
+                                    <input type="checkbox" class="btn-check" id="prev-best-move-arrow-toggle" autocomplete="off">
+                                    <label class="btn btn-default" for="prev-best-move-arrow-toggle">
+                                      <span id="prev-best-move-arrow-toggle-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Previous Best Move Arrow
+                                    </label>
+                                    <div class="settings-toggle-help eye-toggle-help">Shows the engine's first choice alternative for the last played move.</div>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-
                             <div class="tab-pane fade" id="settings-shortcuts" role="tabpanel" aria-labelledby="settings-shortcuts-tab" tabindex="0">
                               <div class="d-flex flex-column settings-shortcuts-layout">
                                 <label class="form-heading mb-1">Shortcuts:</label>
                                 <div class="d-flex settings-shortcuts-body">
-                                  <ul id="shortcuts-list" class="dropdown-menu show">
-                                  </ul>
+                                  <ul id="shortcuts-list" class="dropdown-menu show"></ul>
                                   <div id="shortcut-settings-right-col">
                                     <div id="shortcut-buttons" class="mb-3">
                                       <button type="button" id="new-shortcut" class="btn btn-outline-secondary btn-sm" title="New Shortcut">New Shortcut</button>
@@ -1266,6 +1283,32 @@
       </div>
     </div>
   </div>
+  <div class="status-shim"></div>
+  <div id="sign-in-alert" class="banner-alert fade" role="alert">Signing in...</div>
+  <div id="notifications" style="z-index: 2000; position: fixed; top: env(safe-area-inset-top); right: 0; width: 100%">
+    <div class="toast notification-panel" data-bs-animation="false" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-header">
+      <div class="toast-body position-relative d-flex">
+        <span class="mx-auto">Notifications</span>
+        <button type="button" class="btn-close" style="background: transparent; position: absolute; right: 6px; top: 50%; transform: translateY(-50%);" aria-label="Hide">
+          <span id="notifications-close-icon" class="fa-solid fa-chevron-down" aria-hidden="false"></span>
+        </button>
+      </div>
+    </div>
+    <div class="toast notification-panel" data-bs-animation="false" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-footer">
+      <div class="toast-body">
+        <div class="d-flex">
+          <a class="me-auto" id="notifications-clear-all" style="cursor: pointer; text-decoration: none; font-style: italic">Clear all</a>
+          <a class="ms-auto" id="notifications-show-all" style="cursor: pointer; text-decoration: none; font-style: italic">Show all >></a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <svg xmlns="http://www.w3.org/2000/svg" style="display: none">
+    <symbol id="icon-info" fill="currentColor" class="bi bi-info-circle" viewBox="0 0 16 16">
+      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+      <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/>
+    </symbol>
+  </svg>
   <script src="https://code.jquery.com/jquery-3.7.1.slim.min.js" integrity="sha384-5AkRS45j4ukf+JbWAfHL8P4onPA9p0KwwP7pUdjSQA3ss9edbJUJc/XcYAiheSSz" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.min.js" integrity="sha384-G/EV+4j2dNv+tEPo3++6LCgdCROaejBqfUeNjuKAiuXbjrxilcCdDz6ZAVfHWe1Y" crossorigin="anonymous"></script>

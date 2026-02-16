@@ -384,6 +384,7 @@ a {
 .notification-panel {
   --bs-toast-bg: #333333;
   --bs-toast-border-color: #303030;
+  --bs-toast-header-border-color: rgba(0, 0, 0, 0.05);
 }
 #notifications-header {
   --bs-toast-bg: #383838;

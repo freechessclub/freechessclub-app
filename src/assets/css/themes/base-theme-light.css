@@ -313,6 +313,7 @@ cg-board {
 .notification-panel {
   --bs-toast-bg: white;
   --bs-toast-border-color: #DDDDDD;
+  --bs-toast-header-border-color: rgba(0, 0, 0, 0.05);
 }
 #notifications-header {
   --bs-toast-bg: ghostwhite;

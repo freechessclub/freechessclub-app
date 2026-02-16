@@ -107,6 +107,8 @@ let oldEngineName: string = '';
 let oldEngineMaxTime: number;
 let oldEngineThreads: number;
 let oldEngineMemory: number;
+let bestMoveBrush = 'yellow';
+let prevBestMoveBrush = 'purple';
 let lastOpponent: string = ''; // The opponent of the current or last game played 
 let prevSizeCategory = null;
 let layout = Layout.Desktop;
@@ -857,7 +859,10 @@ function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: numb
   // Set card width
   const cardBorderWidth = card.outerWidth() - card.width();
   card.width(cardWidth - cardBorderWidth);
-  game.board.redrawAll();
+  
+  setTimeout(() => {
+    game.board.redrawAll(); // Redraw board coordinates
+  }, 0);
 
   return { width: cardWidth, height: cardHeight }
 }
@@ -2952,7 +2957,7 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
 
   setClocks(game);
 
-  const premoveSquares = new Map();
+  const squareClasses = new Map();
 
   if((setBoard || game.setupBoard) && game.element.find('.promotion-panel').is(':visible')) {
     game.board.cancelPremove();
@@ -2967,9 +2972,9 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
       for(let i = 0; i < game.premoves.length; i++) {
         const premove = game.premoves[i];
         // Set premove square highlighting and numbering classes
-        if(premove.from && !premoveSquares.get(premove.from))
-          premoveSquares.set(premove.from, 'current-premove');
-        premoveSquares.set(premove.to, `current-premove premove-target premove-square-${premove.to}`);
+        if(premove.from && !squareClasses.get(premove.from))
+          squareClasses.set(premove.from, 'current-premove');
+        squareClasses.set(premove.to, `current-premove premove-target premove-square-${premove.to}`);
       }
     }   
 
@@ -3027,7 +3032,7 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
     highlight: {
       lastMove: settings.highlightsToggle,
       check: settings.highlightsToggle,
-      custom: premoveSquares
+      custom: squareClasses
     },
     predroppable: { enabled: game.category === 'crazyhouse' || game.category === 'bughouse' },
     check: !game.setupBoard && /[+#]/.test(move?.san) ? color : false,
@@ -3039,6 +3044,7 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
   showCapturedMaterial(game);
   showOpeningName(game);
   updateBoardStatusText();
+  updateMoveRatingIcon(game);
 
   if(playMove && !checkAtomicCapture(game) && settings.soundToggle && game === games.focused) {
     clearTimeout(soundTimer);
@@ -3637,6 +3643,8 @@ function flipBoard(game: Game) {
   if(game.element.find('.promotion-panel').is(':visible'))
     showPromotionPanel(game);
 
+  positionMoveRatingIcon(game);
+
   // Swap player and opponent status panels
   if(game.element.find('.white-status').parent().hasClass('top-panel')) {
     game.element.find('.white-status').appendTo(game.element.find('.bottom-panel'));
@@ -3813,8 +3821,9 @@ function updateHistory(game: Game, move?: any, fen?: string, serverIssued = true
   }
 
   if(game.isObserving() && game.history.current() !== game.history.last() && serverIssued) {
-    game.history.highlightMove();
     updateBoard(game, false, false);
+    if(evalEngine)
+      evalEngine.evaluate();
     return; // User is currently viewing an earlier move in the move list, so don't display the new move
   }
 
@@ -3918,7 +3927,7 @@ export function setGameWithFocus(game: Game) {
       games.focused.moveTableElement.hide();
       games.focused.moveListElement.hide();
       games.focused.statusElement.hide();
-      games.focused.board.setAutoShapes([]);
+      removeAutoShape(games.focused, bestMoveBrush);
     }
 
     game.moveTableElement.show();
@@ -7187,8 +7196,10 @@ function showAnalysis() {
 }
 
 function hideAnalysis() {
+  removeAutoShape(games.focused, prevBestMoveBrush);
   stopEngine();
   stopEvalEngine();
+  removeMoveRatingIcon(games.focused);
   closeLeftBottomTab($('#engine-tab'));
   closeLeftBottomTab($('#eval-graph-tab'));
   showAnalyzeButton();
@@ -7281,8 +7292,7 @@ function stopEngine(temporary = false) {
       engine = null;
     }
 
-    game.board.setAutoShapes([]); 
-    game.board.redrawAll();
+    removeAutoShape(game, bestMoveBrush); 
     
     if(!temporary) {
       game.element.find('.eval-bar').hide();
@@ -7332,21 +7342,33 @@ $('#remove-pv').on('click', () => {
   }
 });
 
-function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: string) {
+function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: string, pvNodes: number) {
   $('#engine-pvs li').eq(pvNum - 1).html(`<b>(${pvEval})</b> ${pvMoves}<b/>`);
 
   if(pvNum === 1 && pvMoves) {
+    const currHEntry = game.history.current();
     const words = pvMoves.split(/\s+/);
     const san = words[0].split(/\.+/)[1];
-    const fen = game.setupBoard ? getSetupBoardFEN(game) : game.history.current().fen; 
+    const fen = game.setupBoard ? getSetupBoardFEN(game) : currHEntry.fen; 
     const parsed = parseGameMove(game, fen, san);
-    if(settings.bestMoveArrowToggle) {
-      game.board.setAutoShapes([{
+    if(settings.bestMoveArrowToggle && settings.engineBoardVisualsToggle) {
+      removeAutoShape(game, bestMoveBrush);      
+      let autoShapes = game.board.state.drawable.autoShapes;
+      autoShapes.push({ 
         orig: parsed.move.from || parsed.move.to, // For crazyhouse, just draw a circle on dest square
         dest: parsed.move.to,
-        brush: 'yellow',
-      }]);
+        brush: bestMoveBrush
+      });
+      game.board.setAutoShapes(autoShapes);
     }
+
+    if(!game.setupBoard && (!currHEntry.evalNodes || pvNodes >= currHEntry.evalNodes)) {
+      currHEntry.eval = pvEval;
+      currHEntry.evalBestMove = san[1] === '@' ? san : `${parsed.move.from}${parsed.move.to}`;
+      currHEntry.evalNodes = pvNodes;
+      debounceUpdateMoveRatingIcon(game);
+    }
+    
     updateEvalBar(game, pvEval);
   }
 }
@@ -7535,6 +7557,96 @@ function stopEvalEngine() {
   evalEngine?.terminate();
   evalEngine = null;
 }
+
+const debounceUpdateMoveRatingIcon = Utils.debounce(updateMoveRatingIcon, 250);
+/**
+ * Adds a move rating icon to the corner of a square on the board, indicating the previous move's
+ * quality, e.g. inaccuracy, mistake, blunder, best engine move (star), book move.
+ * Also optionally adds an arrow showing the engine's best alternative to the move (Previous Best Move Arrow). 
+ */
+async function updateMoveRatingIcon(game: Game) {
+  const curr = game.history.current();
+  const prev = game.history.prev();
+  const square = curr.move?.to;
+
+  if(!game.setupBoard && game.analyzing && curr.eval != null && prev?.eval != null) {
+    let rating = '';
+    if((await getBookMoves(curr.fen)).length) 
+      rating = 'book';
+    else {
+      const mv = curr.move.san[1] === '@' ? curr.move.san : `${curr.move.from}${curr.move.to}`;
+      rating = (mv === prev.evalBestMove)
+        ? 'best'
+        : EvalEngine.rateMove(curr.eval, prev.eval, ChessHelper.swapColor(curr.turnColor));
+    }
+
+    // If the current move changed while we were looking up the opening book then bail out.
+    if(game.setupBoard || !game.analyzing || curr !== game.history?.current() || prev !== game.history?.prev())
+      return;
+    
+    removeMoveRatingIcon(game);
+
+    if(settings.moveRatingIconToggle && settings.engineBoardVisualsToggle) {
+      // Add new 'eval-icon'
+      const icon = $(`<square data-coords="${square}" class="eval-icon eval-icon-${rating}"></square>`);
+      game.element.find('.board-container').append(icon);
+      positionMoveRatingIcon(game);
+    }
+
+    // If current move is not the best move then indicate the alternative best move with an arrow
+    if(rating !== 'book' && rating !== 'best' 
+        && settings.prevBestMoveArrowToggle && settings.engineBoardVisualsToggle) {
+      const bestMove = prev.evalBestMove;
+      const dest = bestMove.slice(2,4);
+      const orig = bestMove[1] === '@' ? dest : bestMove.slice(0,2);
+      removeAutoShape(game, prevBestMoveBrush);  
+      let autoShapes = game.board.state.drawable.autoShapes;
+      autoShapes.push({ orig, dest, brush: prevBestMoveBrush });
+      game.board.setAutoShapes(autoShapes);
+    }
+  }
+  else {
+    removeMoveRatingIcon(game);
+    removeAutoShape(game, prevBestMoveBrush);
+  }
+}
+
+/**
+ * Position a move rating icon based on its data-coords attribute, e.g. 'e4'.
+ */
+function positionMoveRatingIcon(game: Game) {
+  const icon = game.element.find('.eval-icon');
+  if(icon.length) {
+    const orientation = game.board.state.orientation === 'white' ? 'w' : 'b';
+    const boardRect = game.element.find('.board')[0].getBoundingClientRect();
+    const square = icon.attr('data-coords');
+    const squareRect = ChessHelper.getSquareRect(boardRect, square, orientation, true);
+    const percentLeft = squareRect.left * 100 / boardRect.width;
+    const percentTop = squareRect.top * 100 / boardRect.height; 
+    icon.css({
+      left: `${percentLeft}%`,
+      top: `${percentTop}%`
+    });
+  }
+}
+
+/**
+ * Removes a move rating icon shown on the board.
+ */
+function removeMoveRatingIcon(game: Game) {
+  game.element.find('.eval-icon').remove();
+};
+
+/**
+ * Removes all Chessground AutoShapes from the board which match the specified brush name (usually a color). 
+ */
+function removeAutoShape(game: Game, brush: string) {   
+  let autoShapes = game.board.state.drawable.autoShapes;
+  if(!autoShapes)
+    return;
+  autoShapes = autoShapes.filter(shape => shape.brush !== brush);
+  game.board.setAutoShapes(autoShapes);
+} 
 
 /** STATUS PANEL SHOW/HIDE BUTTON **/
 
@@ -7808,15 +7920,40 @@ function initSettings() {
   settings.smartmoveToggle = (storage.get('smartmove') === 'true');
   $('#smartmove-toggle').prop('checked', settings.smartmoveToggle);
 
-  settings.evalBarToggle = (storage.get('evalbar') !== 'false');
-  $('#eval-bar-toggle').prop('checked', settings.evalBarToggle);
-  $('#eval-bar-toggle-icon').toggleClass('fa-eye', settings.evalBarToggle);
-  $('#eval-bar-toggle-icon').toggleClass('fa-eye-slash', !settings.evalBarToggle);
+  let setting = storage.get('engineboardvisuals');
+  if(setting != null)
+    settings.engineBoardVisualsToggle = (setting === 'true');
+  $('#engine-board-visuals-toggle').prop('checked', settings.engineBoardVisualsToggle);
+  $('#engine-board-visuals-toggle-icon').toggleClass('fa-eye', settings.engineBoardVisualsToggle);
+  $('#engine-board-visuals-toggle-icon').toggleClass('fa-eye-slash', !settings.engineBoardVisualsToggle);
 
-  settings.bestMoveArrowToggle = (storage.get('bestmovearrow') !== 'false');
+  setting = storage.get('evalbar');
+  if(setting != null)
+    settings.evalBarToggle = (setting === 'true');
+  $('#engine-panel-eval-bar-toggle, #eval-bar-toggle').prop('checked', settings.evalBarToggle);
+  $('#engine-panel-eval-bar-toggle-icon, #eval-bar-toggle-icon').toggleClass('fa-eye', settings.evalBarToggle);
+  $('#engine-panel-eval-bar-toggle-icon, #eval-bar-toggle-icon').toggleClass('fa-eye-slash', !settings.evalBarToggle);
+
+  setting = storage.get('moveratingicon');
+  if(setting != null)
+    settings.moveRatingIconToggle = (setting === 'true');
+  $('#move-rating-toggle').prop('checked', settings.moveRatingIconToggle);
+  $('#move-rating-toggle-icon').toggleClass('fa-eye', settings.moveRatingIconToggle);
+  $('#move-rating-toggle-icon').toggleClass('fa-eye-slash', !settings.moveRatingIconToggle);
+
+  setting = storage.get('bestmovearrow');
+  if(setting != null)
+    settings.bestMoveArrowToggle = (setting === 'true');
   $('#best-move-arrow-toggle').prop('checked', settings.bestMoveArrowToggle);
   $('#best-move-arrow-toggle-icon').toggleClass('fa-eye', settings.bestMoveArrowToggle);
   $('#best-move-arrow-toggle-icon').toggleClass('fa-eye-slash', !settings.bestMoveArrowToggle);
+
+  setting = storage.get('prevbestmovearrow');
+  if(setting != null)
+    settings.prevBestMoveArrowToggle = (setting === 'true');
+  $('#prev-best-move-arrow-toggle').prop('checked', settings.prevBestMoveArrowToggle);
+  $('#prev-best-move-arrow-toggle-icon').toggleClass('fa-eye', settings.prevBestMoveArrowToggle);
+  $('#prev-best-move-arrow-toggle-icon').toggleClass('fa-eye-slash', !settings.prevBestMoveArrowToggle);
 
   const engineName = storage.get('analyze-engine-name');
   if(engineName)
@@ -7933,11 +8070,11 @@ $('#smartmove-toggle').on('click', () => {
   storage.set('smartmove', String(settings.smartmoveToggle));
 });
 
-$('#eval-bar-toggle').on('change', () => {
+$('#engine-panel-eval-bar-toggle, #eval-bar-toggle').on('change', () => {
   settings.evalBarToggle = !settings.evalBarToggle;
 
-  $('#eval-bar-toggle-icon').toggleClass('fa-eye');
-  $('#eval-bar-toggle-icon').toggleClass('fa-eye-slash');
+  $('#engine-panel-eval-bar-toggle-icon, #eval-bar-toggle-icon').toggleClass('fa-eye');
+  $('#engine-panel-eval-bar-toggle-icon, #eval-bar-toggle-icon').toggleClass('fa-eye-slash');
 
   const game = games.focused;
   if(game.engineRunning) {
@@ -7950,6 +8087,22 @@ $('#eval-bar-toggle').on('change', () => {
   storage.set('evalbar', String(settings.evalBarToggle));
 });
 
+$('#move-rating-toggle').on('change', () => {
+  settings.moveRatingIconToggle = !settings.moveRatingIconToggle;
+
+  $('#move-rating-toggle-icon').toggleClass('fa-eye');
+  $('#move-rating-toggle-icon').toggleClass('fa-eye-slash');
+
+  for(const game of games) {
+    if(settings.moveRatingIconToggle) 
+      updateMoveRatingIcon(game);
+    else 
+      removeMoveRatingIcon(game);
+  }
+  
+  storage.set('moveratingicon', String(settings.moveRatingIconToggle));
+});
+
 $('#best-move-arrow-toggle').on('change', () => {
   settings.bestMoveArrowToggle = !settings.bestMoveArrowToggle;
 
@@ -7958,14 +8111,49 @@ $('#best-move-arrow-toggle').on('change', () => {
 
   if(settings.bestMoveArrowToggle) 
     updateEngine();
-  else {
-    if(games.focused.engineRunning) {
-      games.focused.board.setAutoShapes([]); 
-      games.focused.board.redrawAll();
-    }
-  }
+  else if(games.focused.engineRunning) 
+    removeAutoShape(games.focused, bestMoveBrush);  
   
   storage.set('bestmovearrow', String(settings.bestMoveArrowToggle));
+});
+
+$('#prev-best-move-arrow-toggle').on('change', () => {
+  settings.prevBestMoveArrowToggle = !settings.prevBestMoveArrowToggle;
+
+  $('#prev-best-move-arrow-toggle-icon').toggleClass('fa-eye');
+  $('#prev-best-move-arrow-toggle-icon').toggleClass('fa-eye-slash');
+
+  for(const game of games) {
+    if(settings.prevBestMoveArrowToggle) 
+      updateMoveRatingIcon(game);
+    else 
+      removeAutoShape(game, prevBestMoveBrush);  
+  }
+  
+  storage.set('prevbestmovearrow', String(settings.prevBestMoveArrowToggle));
+});
+
+$('#engine-board-visuals-toggle').on('change', () => {
+  settings.engineBoardVisualsToggle = !settings.engineBoardVisualsToggle;
+
+  $('#engine-board-visuals-toggle-icon').toggleClass('fa-eye');
+  $('#engine-board-visuals-toggle-icon').toggleClass('fa-eye-slash');
+
+  for(const game of games) {
+    if(settings.engineBoardVisualsToggle) 
+      updateMoveRatingIcon(game);
+    else {
+      removeMoveRatingIcon(game);
+      removeAutoShape(game, prevBestMoveBrush);  
+    }
+  }
+
+  if(settings.bestMoveArrowToggle) 
+    updateEngine();
+  else if(games.focused.engineRunning) 
+    removeAutoShape(games.focused, bestMoveBrush);  
+
+  storage.set('engineboardvisuals', String(settings.engineBoardVisualsToggle));
 });
 
 /** *****************************
@@ -8191,7 +8379,6 @@ async function playAtomicEffect(game: Game, squares: string[]) {
   const orientation = game.board.state.orientation === 'white' ? 'w' : 'b';
   const destRects = [];
   const canvasRect = canvas.getBoundingClientRect();
-  canvasRect.x = canvasRect.y = 0; // Convert to canvas coordinates
   
   // Get explosion sfx duration in order to sync animation duration with it
   const duration = await Utils.getAudioDuration(Sounds.atomicSound) * 1000;
@@ -8208,7 +8395,7 @@ async function playAtomicEffect(game: Game, squares: string[]) {
   squares.forEach(sq => {
     const sprite: Utils.Sprite = {
       spriteSheet: atomicSprite,
-      destRect: ChessHelper.getSquareRect(canvasRect, sq, orientation),
+      destRect: ChessHelper.getSquareRect(canvasRect, sq, orientation, true),
       frameWidth: 256,
       frameHeight: 256,
       totalFrames: 30,
