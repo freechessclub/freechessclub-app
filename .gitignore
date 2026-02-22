@@ -9,7 +9,6 @@ plugins
 package-lock.json
 yarn-error.log
 .idea
-/android
 /ios
 .DS_Store
 .pnp.*

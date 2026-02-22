@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Free Chess Club</string>
+    <string name="title_activity_main">Free Chess Club</string>
+    <string name="package_name">club.freechess.FreeChessClub</string>
+    <string name="custom_url_scheme">club.freechess.FreeChessClub</string>
+</resources>
