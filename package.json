@@ -17,7 +17,7 @@
     "android": "node scripts/copy-app-files.js && npx cap run android",
     "android:sync": "node scripts/copy-app-files.js && npx cap sync android",
     "android:bundle": "cd android && ./gradlew bundleRelease",
-    "android:ci": "yarn android:sync && yarn android:bundle",
+    "android:ci": "yarn bundle && yarn android:sync && yarn android:bundle",
     "ios": "node scripts/copy-app-files.js && npx cap run ios",
     "start": "webpack-dev-server --config webpack.config.js"
   },
