@@ -97,14 +97,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          for gradle_file in node_modules/@capacitor/*/android/build.gradle; do
+          while IFS= read -r -d '' gradle_file; do
             if grep -q "proguard-android.txt" "$gradle_file"; then
               sed -i.bak "s/proguard-android\.txt/proguard-android-optimize.txt/g" "$gradle_file"
               rm -f "${gradle_file}.bak"
               echo "Patched $gradle_file"
             fi
-          done
+          done < <(find node_modules -path "*/android/build.gradle" -print0)
 
       - name: Decode Android keystore
         shell: bash
