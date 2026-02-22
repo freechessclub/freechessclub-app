@@ -74,6 +74,8 @@ jobs:
     needs: check-version
     if: needs.check-version.outputs.changed == 'true'
     runs-on: ubuntu-latest
+    env:
+      ANDROID_VERSION_CODE_OFFSET: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -110,10 +112,21 @@ jobs:
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
 
+      - name: Set Android version code
+        shell: bash
+        run: |
+          set -euo pipefail
+          version_code=$((ANDROID_VERSION_CODE_OFFSET + GITHUB_RUN_NUMBER))
+          if (( version_code >= 2100000000 )); then
+            echo "Computed ANDROID_VERSION_CODE is too high: ${version_code}" >&2
+            exit 1
+          fi
+          echo "ANDROID_VERSION_CODE=${version_code}" >> "$GITHUB_ENV"
+          echo "Using ANDROID_VERSION_CODE=${version_code}"
+
       - name: Build Android AAB
         env:
           ANDROID_VERSION_NAME: ${{ needs.check-version.outputs.version }}
-          ANDROID_VERSION_CODE: ${{ github.run_number }}
           ANDROID_KEYSTORE_PATH: release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
