@@ -101,7 +101,7 @@ jobs:
       - name: Build Android AAB
         env:
           ANDROID_VERSION_NAME: ${{ needs.check-version.outputs.version }}
-          ANDROID_VERSION_CODE: ${{ 100000 + github.run_number }}
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
           ANDROID_KEYSTORE_PATH: release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
