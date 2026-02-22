@@ -3,12 +3,14 @@ apply plugin: 'com.android.application'
 android {
     namespace "club.freechess.FreeChessClub"
     compileSdk rootProject.ext.compileSdkVersion
+    def ciVersionCode = System.getenv("ANDROID_VERSION_CODE")
+    def ciVersionName = System.getenv("ANDROID_VERSION_NAME")
     defaultConfig {
         applicationId "club.freechess.FreeChessClub"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 18
-        versionName "4.3.1"
+        versionCode ciVersionCode ? ciVersionCode.toInteger() : 18
+        versionName ciVersionName ?: "4.3.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
