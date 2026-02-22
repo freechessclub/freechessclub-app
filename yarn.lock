@@ -1262,12 +1262,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@capawesome-team/capacitor-android-foreground-service@npm:^8.0.0":
-  version: 8.0.0
-  resolution: "@capawesome-team/capacitor-android-foreground-service@npm:8.0.0"
+"@capawesome-team/capacitor-android-foreground-service@npm:^8.0.1":
+  version: 8.0.1
+  resolution: "@capawesome-team/capacitor-android-foreground-service@npm:8.0.1"
   peerDependencies:
     "@capacitor/core": ">=8.0.0"
-  checksum: 10c0/137f0e80874c30e2def1c55e1207e597258306633b137a97876a0821f17f6d276d2bfdecadc84db5fe76afb5e42730357db524bcf51b66091c39dc4919afb0e1
+  checksum: 10c0/9e7746a9a0a67888269dae311c46107c210287ee872506d710de021b37fca2a80256b8a8a20c63b62adf1fde36580977c1451b834e43cfdbafaf11a208486a89
   languageName: node
   linkType: hard
 
@@ -6898,7 +6898,7 @@ __metadata:
     "@capacitor/keyboard": "npm:^8.0.0"
     "@capacitor/preferences": "npm:^8.0.1"
     "@capacitor/status-bar": "npm:^8.0.1"
-    "@capawesome-team/capacitor-android-foreground-service": "npm:^8.0.0"
+    "@capawesome-team/capacitor-android-foreground-service": "npm:^8.0.1"
     "@mliebelt/pgn-parser": "npm:^1.4.15"
     "@mliebelt/pgn-types": "npm:^1.0.4"
     "@popperjs/core": "npm:^2.11.6"

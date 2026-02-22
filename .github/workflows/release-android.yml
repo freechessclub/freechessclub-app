@@ -93,6 +93,19 @@ jobs:
       - name: Install deps
         run: yarn install --immutable
 
+      - name: Patch Capacitor Android plugin ProGuard defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for gradle_file in node_modules/@capacitor/*/android/build.gradle; do
+            if grep -q "proguard-android.txt" "$gradle_file"; then
+              sed -i.bak "s/proguard-android\.txt/proguard-android-optimize.txt/g" "$gradle_file"
+              rm -f "${gradle_file}.bak"
+              echo "Patched $gradle_file"
+            fi
+          done
+
       - name: Decode Android keystore
         shell: bash
         run: |
