@@ -1070,6 +1070,15 @@ export async function getAudioDuration(audio) {
   return audio.duration;
 }
 
+/** Plays a sound. If there is a current instance playing, restarts it from the beginning */
+export function replaySound(sound: any) {
+  if(!sound.paused) {
+    sound.pause();
+    sound.currentTime = 0;
+  }
+  sound.play();
+}
+
 /**
  * An object representing a sprite animation. Contains a sprite sheet as well as the
  * properties used to control the sprite. Used by SpritePlayer class.

@@ -330,8 +330,11 @@ cg-board {
   color: white;
 }
 
+.modal-table {
+  --bs-emphasis-color: var(--bs-body-color);
+}
 .modal-table thead {
-  background: color-mix(in srgb, var(--bg-color) 40%, white 60%);
+  --bs-table-bg: color-mix(in srgb, var(--bg-color) 40%, white 60%);
   --box-shadow-color: color-mix(in srgb, var(--bg-color) 85%, black 15%);
 }
 

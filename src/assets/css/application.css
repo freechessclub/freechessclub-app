@@ -146,12 +146,26 @@ body {
   text-align: center;
 }
 
-#game-requests {
+.dialog-container {
   width: 100%;
   height: 100%;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
+  z-index: 100;
+}
+
+#fixed-dialog-container {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  top: 50%; 
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 101;
 }
 
 .game-status {
@@ -1168,6 +1182,7 @@ input[type="number"]:focus {
 
 #shortcuts-list {
   position: static;
+  align-self: stretch;
   flex: 1 1 auto;
   min-width: 0;
   max-height: 340px;

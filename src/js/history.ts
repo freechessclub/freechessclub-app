@@ -1404,7 +1404,8 @@ export class History {
       TimeControl: timeControl,
       WhiteElo: (game.wname ? game.wrating || '-' : '?'),
       BlackElo: (game.bname ? game.brating || '-' : '?'),
-      Time: time,
+      UTCDate: date,
+      UTCTime: time,
       Variant: game.category,
       ...(isSetupPosition && { SetUp: '1', FEN: game.fen })
     }, true);
