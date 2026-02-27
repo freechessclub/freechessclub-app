@@ -67,27 +67,19 @@ $('#settings-modal').on('show.bs.modal', () => {
   $('.settings-pane').hide();
   $('#settings-title-text').text('Settings');
   $('#basic-settings').show();
+  $('#settings-general-tab').tab('show');
 });
 
 $('#settings-modal').on('shown.bs.modal', () => {
-  $('.settings-pane').height($('#basic-settings').height());
+  const basicSettingsHeight = $('#basic-settings').outerHeight() || 0;
+  $('.settings-pane').css({
+    height: 'auto',
+    'min-height': `${basicSettingsHeight}px`,
+  });
 });
 
 $('#settings-modal').on('hide.bs.modal', () => {
-  if($('#custom-shortcuts-settings').is(':visible'))
-    updateCustomShortcuts();
-});
-
-$('#advanced-settings-link').on('click', () => {
-  $('.settings-pane').hide();
-  $('#settings-title-text').text('Advanced Settings');
-  $('#advanced-settings').show();
-});
-
-$('#advanced-settings-back').on('click', () => {
-  $('.settings-pane').hide();
-  $('#settings-title-text').text('Settings');
-  $('#basic-settings').show();
+  updateCustomShortcuts();
 });
 
 export function getShortcuts() {
@@ -97,23 +89,17 @@ export function getShortcuts() {
 function initShortcuts() {
   shortcuts = JSON.parse(storage.get('custom-shortcuts') || '[]');
 
-  $('#custom-shortcuts-button').on('click', () => {
-    $('.settings-pane').hide();
-    $('#settings-title-text').text('Custom Keyboard Shortcuts');
+  const populateShortcutsEditor = () => {
     $('#shortcuts-list').html('');
     shortcuts.forEach(item => addShortcutMenuItem(item));
     selectShortcutMenuItem($('#shortcuts-list a').first());
     const modKey = isMac() ? 'Meta' : 'Ctrl';
     $('#shortcut-modifier-label').text(`${modKey} + Shift + `);
-    $('#custom-shortcuts-settings').show();
-    $('#shortcut-settings-right-col').width($('#shortcut-buttons').width());
-  });
+  };
 
-  $('#custom-shortcuts-back').on('click', () => {
-    $('.settings-pane').hide();
-    $('#settings-title-text').text('Advanced Settings');
-    updateCustomShortcuts();
-    $('#advanced-settings').show();
+  $('#settings-modal').on('show.bs.modal', () => {
+    shortcuts = JSON.parse(storage.get('custom-shortcuts') || '[]');
+    populateShortcutsEditor();
   });
 
   $('#new-shortcut').on('click', () => {

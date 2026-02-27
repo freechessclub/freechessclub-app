@@ -7353,16 +7353,11 @@ function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: str
 
 /** Engine Settings button in engine panel */
 $('#engine-settings-btn').on('click', () => {
-  $('#engine-settings-modal').modal('show');
+  $('#settings-modal').modal('show');
+  $('#settings-engine-tab').tab('show');
 });
 
-/** Engine Settings button in Advanced Settings */
-$('#engine-settings-advanced-btn').on('click', () => {
-  $('#engine-settings-modal').modal('show');
-});
-
-/** Opening Engine Settings panel */
-$('#engine-settings-modal').on('show.bs.modal', () => {
+function initEngineSettingsPanel() {
   const deviceMemory = (navigator as any).deviceMemory || 4; // GB
   const isMobile = Utils.isMobile();
 
@@ -7412,10 +7407,9 @@ $('#engine-settings-modal').on('show.bs.modal', () => {
   $('#engine-memory-slider').attr('max', memorySteps.indexOf(maxMemory));
   $('#engine-memory-slider').val(memorySteps.indexOf(settings.engineMemory));
   $('#engine-memory-value').text(`${settings.engineMemory}MB`);
-});
+}
 
-/** Closing Engine Settings panel */
-$('#engine-settings-modal').on('hide.bs.modal', () => {
+function applyEngineSettingsChanges() {
   if(oldEngineName !== settings.analyzeEngineName && !evalEngine && !engine) {
     // The Engine has changed, pre-fetch the new one
     Engine.load(settings.analyzeEngineName).catch(err => {}); 
@@ -7435,6 +7429,14 @@ $('#engine-settings-modal').on('hide.bs.modal', () => {
       startEngine();
     }
   }
+}
+
+$('#settings-modal').on('show.bs.modal', () => {
+  initEngineSettingsPanel();
+});
+
+$('#settings-modal').on('hide.bs.modal', () => {
+  applyEngineSettingsChanges();
 });
 
 /** New engine selected */

@@ -738,184 +738,253 @@
                       </div>
                       <div class="modal-body">
                         <form id="basic-settings" class="settings-pane">
-                          <div class="form-group row">
-                            <div class="col">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="autopromote-toggle" checked>
-                                <label class="form-check-label" for="autopromote-toggle"><span id="autopromote-toggle-icon" class="fa fa-chess-queen dropdown-icon" aria-hidden="false"></span>Queen Auto-promote</label>
-                              </div>
-                            </div>
-                            <div class="col">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="wakelock-toggle" checked>
-                                <label class="form-check-label" for="wakelock-toggle"><span id="wakelock-toggle-icon" class="fa fa-lock dropdown-icon" aria-hidden="false"></span>Wake Lock</label>
-                              </div>
-                            </div>
-                          </div>
-                          <div class="form-group row">
-                            <div class="col">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="notifications-toggle" checked>
-                                <label class="form-check-label" for="notifications-toggle"><span id="notifications-toggle-icon" class="fa fa-bell dropdown-icon" aria-hidden="false"></span>Notifications</label>
-                              </div>
-                            </div>
-                            <div class="col">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="timestamp-toggle" checked>
-                                <label class="form-check-label" for="timestamp-toggle"><span id="timestamp-toggle-icon" class="fa fa-clock-o dropdown-icon" aria-hidden="false"></span>Timestamp</label>
-                              </div>
-                            </div>
-                          </div>
-                          <div class="form-group row" id="foreground-service-row">
-                            <div class="col">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="foreground-service-toggle" checked>
-                                <label class="form-check-label" for="foreground-service-toggle"><span id="foreground-service-toggle-icon" class="fa-solid fa-signal dropdown-icon" aria-hidden="false"></span>Foreground Service</label>
-                              </div>
-                            </div>
-                            <div class="col"></div>
-                          </div>
-                          <div class="form-group row">
-                            <div class="col">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="chattabs-toggle" checked>
-                                <label class="form-check-label" for="chattabs-toggle"><span id="chattabs-toggle-icon" class="fa-solid fa-comments dropdown-icon" aria-hidden="false"></span>Chat Tabs</label>
-                              </div>
-                            </div>
-                            <div class="col">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="multiboard-toggle" checked>
-                                <label class="form-check-label" for="multiboard-toggle"><span id="multiboard-toggle-icon" class="fa fa-window-restore dropdown-icon" aria-hidden="false"></span>Multi-board Mode</label>
-                              </div>
-                            </div>
-                          </div>
-                          <div class="form-group row">
-                            <div class="col">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="multiple-premoves-toggle" checked>
-                                <label class="form-check-label" for="multiple-premoves-toggle"><span id="multiple-premoves-toggle-icon" class="fa-solid fa-arrows-turn-to-dots dropdown-icon" aria-hidden="false"></span>Multiple Premoves
-                                  <svg class="ms-1 info-icon" data-bs-placement="top" data-bs-trigger="hover focus" data-bs-toggle="popover" data-bs-content="To cancel multiple premoves, use double click or right click." role="button"><use href="#icon-info"/></svg>
-                                </label>
-                              </div>
-                            </div>
-                            <div class="col">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="smartmove-toggle" checked>
-                                <label class="form-check-label" for="smartmove-toggle"><span id="smartmove-toggle-icon" class="fa-solid fa-brain dropdown-icon" aria-hidden="false"></span>Smart Move
-                                  <svg class="ms-1 info-icon" data-bs-placement="top" data-bs-trigger="hover focus" data-bs-toggle="popover" data-bs-content="Move a piece by clicking only its destination square. Only works if there is a single piece that can legally move there. Warning: Use with care." role="button"><use href="#icon-info"/></svg>
-                                </label>
-                              </div>
-                            </div>
-                          </div>
-                          <div id="advanced-settings-link" class="form-group pt-1">
-                            <a href="javascript:void(0)">Advanced >></a>
-                          </div>
-                          <hr/>
-                          <div class="form-group row">
-                            <div class="col">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="piece-glyphs-toggle" checked>
-                                <label class="form-check-label" for="piece-glyphs-toggle"><span id="piece-glyphs-toggle-icon" class="fa-solid fa-chess dropdown-icon" aria-hidden="false"></span>Movelist Piece Glyphs</label>
-                              </div>
-                            </div>
-                            <div class="col">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="highlights-toggle" checked>
-                                <label class="form-check-label" for="highlights-toggle"><span id="highlights-toggle-icon" class="fa fa-arrows-spin dropdown-icon" aria-hidden="false"></span>Board Highlights</label>
-                              </div>
-                            </div>
-                          </div>
-                          <div class="form-group row mt-1">
-                            <div class="col d-flex" id="textsize-control">
-                              <input type="range" class="custom-range me-2" value="1" min="0.8" max="1.4" step="0.2" id="textsize-range">
-                              <label for="textsize-range">Text Size</label>
-                            </div>
-                          </div>
-                          <div class="form-group row dropdown">
-                            <div class="col">
-                            <legend class="col-form-label">Themes</legend>  
-                            <button id="themes-button" class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" style="width: 200px" aria-expanded="false"></button>
-                            <ul class="dropdown-menu" id="themes-menu">
-                              <li class="dropdown-item noselect" id="theme-default"><div class="color-box" style="border: 1px solid currentColor; background-color: #DDE3E6"></div>Arctic Blue</li>
-                              <li class="dropdown-item noselect" id="theme-green"><div class="color-box" style="border: 1px solid currentColor; background-color: #E6FFEC"></div>Green Bean</li>
-                              <li class="dropdown-item noselect" id="theme-yellow"><div class="color-box" style="border: 1px solid currentColor; background-color: #F5EDE2"></div>Coffee & Cream</li>
-                              <li class="dropdown-item noselect" id="theme-gray"><div class="color-box" style="border: 1px solid currentColor; background-color: #424242"></div>Space Gray</li>
-                              <li class="dropdown-item noselect" id="theme-purple"><div class="color-box" style="border: 1px solid currentColor; background-color: #E1CFED"></div>Purple Haze</li>
-                              <li class="dropdown-item noselect" id="theme-ic"><div class="color-box" style="border: 1px solid currentColor; background-color: #ECECEC"></div>Stonewash</li>
-                              <li class="dropdown-item noselect" id="theme-newspaper"><div class="color-box" style="border: 1px solid currentColor; background-color: #DCDCDC"></div>Pressroom</li>
-                              <li class="dropdown-item noselect" id="theme-brown"><div class="color-box" style="border: 1px solid currentColor; background-color: #f0d9b5"></div>Brownie</li>
-                              <li class="dropdown-item noselect" id="theme-red"><div class="color-box" style="border: 1px solid currentColor; background-color: #ffc8c8"></div>Red Velvet</li>
-                            </ul>
-                            </div>
-                          </div>
-                          <div class="form-group row">
-                            <legend class="col-form-label">Boards</legend>
-                            <div id="boards-menu" class="btn-group" role="group" aria-label="Boards">
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #dee3e6 50%, #8ca2ad 50%)" id="board-blue"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #eaffea 50%, #7aab80 50%)" id="board-green"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #f4ede1 50%, #c6ab8e 50%)" id="board-yellow"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #d3d3d3 50%, #555555 50%)" id="board-gray"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #decfef 50%, #b160ca 50%)" id="board-purple"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #ececec 50%, #c1c18e 50%)" id="board-ic"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #dcdcdc 50%, #c9c9c9 50%)" id="board-newspaper"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #f0d9b5 50%, #b58863 50%)" id="board-brown"></button>
-                              <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #ffc8c8 50%, #d94e4e 50%)" id="board-red"></button>
-                            </div>
-                          </div>
-                          <div class="form-group row pe-2">
-                            <legend class="col-form-label">Pieces</legend>
-                            <div>
-                              <div class="d-flex flex-wrap gap-1" id="pieces-menu" aria-label="Pieces">
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-merida" data-bs-toggle="tooltip" title="Merida"><img src="assets/css/images/pieces/merida/wK.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-cburnett" data-bs-toggle="tooltip" title="Cburnett"><img src="assets/css/images/pieces/cburnett/wK.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-alpha" data-bs-toggle="tooltip" title="Alpha"><img src="assets/css/images/pieces/alpha/wK.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-cardinal" data-bs-toggle="tooltip" title="Cardinal"><img src="assets/css/images/pieces/cardinal/wK.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-leipzig" data-bs-toggle="tooltip" title="Leipzig"><img src="assets/css/images/pieces/leipzig/wK.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-maestro" data-bs-toggle="tooltip" title="Maestro"><img src="assets/css/images/pieces/maestro/wK.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-pirouetti" data-bs-toggle="tooltip" title="Pirouetti"><img src="assets/css/images/pieces/pirouetti/wK.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-spatial" data-bs-toggle="tooltip" title="Spatial"><img src="assets/css/images/pieces/spatial/wK.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-chessnut" data-bs-toggle="tooltip" title="Chessnut"><img src="assets/css/images/pieces/chessnut/wK.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-fantasy" data-bs-toggle="tooltip" title="Fantasy"><img src="assets/css/images/pieces/fantasy/wK.svg" width="36"/></button>
-                                <button type="button" class="btn btn-outline-secondary" id="pieces-pixel" data-bs-toggle="tooltip" title="Pixel"><img src="assets/css/images/pieces/pixel/wK.svg" width="36"/></button>
-                              </div>
-                            </div>
-                          </div>
-                        </form>
-                        <form id="advanced-settings" class="settings-pane" style="display: none;">
-                          <div class="mb-5">
-                            <button type="button" id="advanced-settings-back" class="settings-back btn btn-outline-secondary btn-transparent p-0" data-tooltip-hover-only data-bs-toggle="tooltip" title="Back to Basic Settings"><i class="fa-solid fa-arrow-left"></i></button>
-                          </div>
-                          <div class="d-flex flex-column align-items-center gap-2">
-                            <button type="button" id="engine-settings-advanced-btn" class="btn btn-outline-secondary" title="Engine Settings">
-                              <span class="fa fa-gear me-2" aria-hidden="false"></span>Engine Settings
-                            </button>
-                            <button type="button" id="custom-shortcuts-button" class="btn btn-outline-secondary" title="Custom Keyboard Shortcuts">Custom Keyboard Shortcuts</button>
-                          </div>
-                        </form>
-                        <form id="custom-shortcuts-settings" class="settings-pane" style="display: none;">
-                          <div class="d-flex flex-column h-100">
-                            <div class="mb-2">
-                              <button type="button" id="custom-shortcuts-back" class="settings-back btn btn-outline-secondary btn-transparent p-0" data-tooltip-hover-only data-bs-toggle="tooltip" title="Back to Advanced Settings"><i class="fa-solid fa-arrow-left"></i></button>
-                            </div>
-                            <label class="form-heading mb-1">Shortcuts:</label>
-                            <div class="d-flex flex-grow-1" style="min-height: 0; gap: 20px;">
-                              <ul id="shortcuts-list" class="dropdown-menu show">
-                              </ul>
-                              <div id="shortcut-settings-right-col" style="flex-shrink: 0;">
-                                <div id="shortcut-buttons" class="mb-3" style="white-space: nowrap; display: inline-block;">
-                                  <button type="button" id="new-shortcut" class="btn btn-outline-secondary btn-sm" title="New Shortcut">New Shortcut</button>
-                                  <button type="button" id="remove-shortcut" class="btn btn-outline-secondary btn-sm" title="Remove Shortcut">Remove Shortcut</button>
+                          <ul class="nav nav-tabs mb-3" id="settings-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                              <button class="nav-link active" id="settings-general-tab" data-bs-toggle="tab" data-bs-target="#settings-general" type="button" role="tab" aria-controls="settings-general" aria-selected="true">General</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                              <button class="nav-link" id="settings-appearance-tab" data-bs-toggle="tab" data-bs-target="#settings-appearance" type="button" role="tab" aria-controls="settings-appearance" aria-selected="false">Appearance</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                              <button class="nav-link" id="settings-gameplay-tab" data-bs-toggle="tab" data-bs-target="#settings-gameplay" type="button" role="tab" aria-controls="settings-gameplay" aria-selected="false">Gameplay</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                              <button class="nav-link" id="settings-engine-tab" data-bs-toggle="tab" data-bs-target="#settings-engine" type="button" role="tab" aria-controls="settings-engine" aria-selected="false">Engine</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                              <button class="nav-link" id="settings-shortcuts-tab" data-bs-toggle="tab" data-bs-target="#settings-shortcuts" type="button" role="tab" aria-controls="settings-shortcuts" aria-selected="false">Shortcuts</button>
+                            </li>
+                          </ul>
+
+                          <div class="tab-content" id="settings-tabs-content">
+                            <div class="tab-pane fade show active" id="settings-general" role="tabpanel" aria-labelledby="settings-general-tab" tabindex="0">
+                              <div class="form-group row">
+                                <div class="col">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="notifications-toggle" checked>
+                                    <label class="form-check-label" for="notifications-toggle"><span id="notifications-toggle-icon" class="fa fa-bell dropdown-icon" aria-hidden="false"></span>Notifications
+                                      <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Notifications" data-description="Shows in-app alerts for game events, chat activity, and system messages." role="button" aria-label="Notifications help"><use href="#icon-info"/></svg>
+                                    </label>
+                                    <div class="settings-toggle-help">Shows in-app alerts for game, chat, and system events.</div>
+                                  </div>
                                 </div>
-                                <div id="shortcut-input-group" class="input-group" style="margin-bottom: 0.75rem;">
-                                  <label id="shortcut-modifier-label" class="input-group-text">Ctrl + Shift + </label>
-                                  <input type="text" id="shortcut-key" class="form-control text-center" autocomplete="off" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="shortcut key">
-                                  <div id="shortcut-key-feedback" class="invalid-feedback"></div>
+                                <div class="col">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="wakelock-toggle" checked>
+                                    <label class="form-check-label" for="wakelock-toggle"><span id="wakelock-toggle-icon" class="fa fa-lock dropdown-icon" aria-hidden="false"></span>Wake Lock
+                                      <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Wake Lock" data-description="Prevents your screen from sleeping while the app is in use." role="button" aria-label="Wake Lock help"><use href="#icon-info"/></svg>
+                                    </label>
+                                    <div class="settings-toggle-help">Keeps your screen awake while you are playing.</div>
+                                  </div>
                                 </div>
-                                <textarea style="resize: none;" rows="10" id="shortcut-commands" class="form-control" type="text" placeholder="Enter server commands here" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
-                                <div class="mt-2" id="macros-key">
-                                  <div><span class="macros-key-name">%user%</span><span class="macros-key-description"> &ndash; Yourself</span></div>
-                                  <div><span class="macros-key-name">%opponent%</span><span class="macros-key-description"> &ndash; Current or last opponent</span></div>
-                                  <div><span class="macros-key-name">%game%</span><span class="macros-key-description"> &ndash; Game ID</span></div>
+                              </div>
+                              <div class="form-group row">
+                                <div class="col">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="chattabs-toggle" checked>
+                                    <label class="form-check-label" for="chattabs-toggle"><span id="chattabs-toggle-icon" class="fa-solid fa-comments dropdown-icon" aria-hidden="false"></span>Chat Tabs
+                                      <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Chat Tabs" data-description="Opens each channel or private conversation in separate tabs." role="button" aria-label="Chat Tabs help"><use href="#icon-info"/></svg>
+                                    </label>
+                                    <div class="settings-toggle-help">Opens each chat channel or PM in its own tab.</div>
+                                  </div>
+                                </div>
+                                <div class="col">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="multiboard-toggle" checked>
+                                    <label class="form-check-label" for="multiboard-toggle"><span id="multiboard-toggle-icon" class="fa fa-window-restore dropdown-icon" aria-hidden="false"></span>Multi-board Mode
+                                      <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Multi-board Mode" data-description="Shows all active games at once instead of a single-board view." role="button" aria-label="Multi-board Mode help"><use href="#icon-info"/></svg>
+                                    </label>
+                                    <div class="settings-toggle-help">Shows multiple active games at once instead of one board.</div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div class="form-group row">
+                                <div class="col">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="highlights-toggle" checked>
+                                    <label class="form-check-label" for="highlights-toggle"><span id="highlights-toggle-icon" class="fa fa-arrows-spin dropdown-icon" aria-hidden="false"></span>Board Highlights
+                                      <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Board Highlights" data-description="Shows board graphics such as highlights and move indicators." role="button" aria-label="Board Highlights help"><use href="#icon-info"/></svg>
+                                    </label>
+                                    <div class="settings-toggle-help">Shows arrows, highlights, and other board graphics.</div>
+                                  </div>
+                                </div>
+                                <div class="col"></div>
+                              </div>
+                              <div class="form-group row">
+                                <div class="col">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="timestamp-toggle" checked>
+                                    <label class="form-check-label" for="timestamp-toggle"><span id="timestamp-toggle-icon" class="fa fa-clock-o dropdown-icon" aria-hidden="false"></span>Timestamp
+                                      <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Timestamp" data-description="Displays the time beside each chat message." role="button" aria-label="Timestamp help"><use href="#icon-info"/></svg>
+                                    </label>
+                                    <div class="settings-toggle-help">Shows when each chat message was sent.</div>
+                                  </div>
+                                </div>
+                                <div id="foreground-service-row" class="col">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="foreground-service-toggle" checked>
+                                    <label class="form-check-label" for="foreground-service-toggle"><span id="foreground-service-toggle-icon" class="fa-solid fa-signal dropdown-icon" aria-hidden="false"></span>Foreground Service
+                                      <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Foreground Service" data-description="On Android, keeps the app connection active while running in the background." role="button" aria-label="Foreground Service help"><use href="#icon-info"/></svg>
+                                    </label>
+                                    <div class="settings-toggle-help">Keeps the connection active in the background on Android.</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="settings-gameplay" role="tabpanel" aria-labelledby="settings-gameplay-tab" tabindex="0">
+                              <div class="form-group row">
+                                <div class="col">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="autopromote-toggle" checked>
+                                    <label class="form-check-label" for="autopromote-toggle"><span id="autopromote-toggle-icon" class="fa fa-chess-queen dropdown-icon" aria-hidden="false"></span>Queen Auto-promote
+                                      <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Queen Auto-promote" data-description="Automatically promotes pawns to a queen without showing a promotion choice." role="button" aria-label="Queen Auto-promote help"><use href="#icon-info"/></svg>
+                                    </label>
+                                    <div class="settings-toggle-help">Automatically promotes to a queen when a pawn reaches rank 8.</div>
+                                  </div>
+                                </div>
+                                <div class="col">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="multiple-premoves-toggle" checked>
+                                    <label class="form-check-label" for="multiple-premoves-toggle"><span id="multiple-premoves-toggle-icon" class="fa-solid fa-arrows-turn-to-dots dropdown-icon" aria-hidden="false"></span>Multiple Premoves
+                                      <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Multiple Premoves" data-description="Queues several premoves before your turn. Cancel queued premoves with double-click or right-click." role="button" aria-label="Multiple Premoves help"><use href="#icon-info"/></svg>
+                                    </label>
+                                    <div class="settings-toggle-help">Queue several premoves in advance before your turn.</div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div class="form-group row">
+                                <div class="col">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="smartmove-toggle" checked>
+                                    <label class="form-check-label" for="smartmove-toggle"><span id="smartmove-toggle-icon" class="fa-solid fa-brain dropdown-icon" aria-hidden="false"></span>Smart Move
+                                      <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Smart Move" data-description="Allows destination-only clicks when exactly one legal piece can move there. Use with care." role="button" aria-label="Smart Move help"><use href="#icon-info"/></svg>
+                                    </label>
+                                    <div class="settings-toggle-help">Click destination only when one legal piece can move there.</div>
+                                  </div>
+                                </div>
+                                <div class="col"></div>
+                              </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="settings-appearance" role="tabpanel" aria-labelledby="settings-appearance-tab" tabindex="0">
+                              <div class="form-group row">
+                                <div class="col">
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="piece-glyphs-toggle" checked>
+                                    <label class="form-check-label" for="piece-glyphs-toggle"><span id="piece-glyphs-toggle-icon" class="fa-solid fa-chess dropdown-icon" aria-hidden="false"></span>Movelist Piece Glyphs
+                                      <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Movelist Piece Glyphs" data-description="Uses chess piece symbols in move list notation instead of letters." role="button" aria-label="Movelist Piece Glyphs help"><use href="#icon-info"/></svg>
+                                    </label>
+                                    <div class="settings-toggle-help">Shows chess piece symbols in the move list notation.</div>
+                                  </div>
+                                </div>
+                                <div class="col"></div>
+                              </div>
+                              <div class="form-group row mt-1">
+                                <div class="col d-flex" id="textsize-control">
+                                  <input type="range" class="custom-range me-2" value="1" min="0.8" max="1.4" step="0.2" id="textsize-range">
+                                  <label for="textsize-range">Text Size</label>
+                                </div>
+                              </div>
+                              <div class="form-group row dropdown">
+                                <div class="col">
+                                <legend class="col-form-label">Themes</legend>
+                                <button id="themes-button" class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" style="width: 200px" aria-expanded="false"></button>
+                                <ul class="dropdown-menu" id="themes-menu">
+                                  <li class="dropdown-item noselect" id="theme-default"><div class="color-box" style="border: 1px solid currentColor; background-color: #DDE3E6"></div>Arctic Blue</li>
+                                  <li class="dropdown-item noselect" id="theme-green"><div class="color-box" style="border: 1px solid currentColor; background-color: #E6FFEC"></div>Green Bean</li>
+                                  <li class="dropdown-item noselect" id="theme-yellow"><div class="color-box" style="border: 1px solid currentColor; background-color: #F5EDE2"></div>Coffee & Cream</li>
+                                  <li class="dropdown-item noselect" id="theme-gray"><div class="color-box" style="border: 1px solid currentColor; background-color: #424242"></div>Space Gray</li>
+                                  <li class="dropdown-item noselect" id="theme-purple"><div class="color-box" style="border: 1px solid currentColor; background-color: #E1CFED"></div>Purple Haze</li>
+                                  <li class="dropdown-item noselect" id="theme-ic"><div class="color-box" style="border: 1px solid currentColor; background-color: #ECECEC"></div>Stonewash</li>
+                                  <li class="dropdown-item noselect" id="theme-newspaper"><div class="color-box" style="border: 1px solid currentColor; background-color: #DCDCDC"></div>Pressroom</li>
+                                  <li class="dropdown-item noselect" id="theme-brown"><div class="color-box" style="border: 1px solid currentColor; background-color: #f0d9b5"></div>Brownie</li>
+                                  <li class="dropdown-item noselect" id="theme-red"><div class="color-box" style="border: 1px solid currentColor; background-color: #ffc8c8"></div>Red Velvet</li>
+                                </ul>
+                                </div>
+                              </div>
+                              <div class="form-group row">
+                                <legend class="col-form-label">Boards</legend>
+                                <div id="boards-menu" class="btn-group" role="group" aria-label="Boards">
+                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #dee3e6 50%, #8ca2ad 50%)" id="board-blue"></button>
+                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #eaffea 50%, #7aab80 50%)" id="board-green"></button>
+                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #f4ede1 50%, #c6ab8e 50%)" id="board-yellow"></button>
+                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #d3d3d3 50%, #555555 50%)" id="board-gray"></button>
+                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #decfef 50%, #b160ca 50%)" id="board-purple"></button>
+                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #ececec 50%, #c1c18e 50%)" id="board-ic"></button>
+                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #dcdcdc 50%, #c9c9c9 50%)" id="board-newspaper"></button>
+                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #f0d9b5 50%, #b58863 50%)" id="board-brown"></button>
+                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #ffc8c8 50%, #d94e4e 50%)" id="board-red"></button>
+                                </div>
+                              </div>
+                              <div class="form-group row pe-2">
+                                <legend class="col-form-label">Pieces</legend>
+                                <div>
+                                  <div class="d-flex flex-wrap gap-1" id="pieces-menu" aria-label="Pieces">
+                                    <button type="button" class="btn btn-outline-secondary" id="pieces-merida" data-bs-toggle="tooltip" title="Merida"><img src="assets/css/images/pieces/merida/wK.svg" width="36"/></button>
+                                    <button type="button" class="btn btn-outline-secondary" id="pieces-cburnett" data-bs-toggle="tooltip" title="Cburnett"><img src="assets/css/images/pieces/cburnett/wK.svg" width="36"/></button>
+                                    <button type="button" class="btn btn-outline-secondary" id="pieces-alpha" data-bs-toggle="tooltip" title="Alpha"><img src="assets/css/images/pieces/alpha/wK.svg" width="36"/></button>
+                                    <button type="button" class="btn btn-outline-secondary" id="pieces-cardinal" data-bs-toggle="tooltip" title="Cardinal"><img src="assets/css/images/pieces/cardinal/wK.svg" width="36"/></button>
+                                    <button type="button" class="btn btn-outline-secondary" id="pieces-leipzig" data-bs-toggle="tooltip" title="Leipzig"><img src="assets/css/images/pieces/leipzig/wK.svg" width="36"/></button>
+                                    <button type="button" class="btn btn-outline-secondary" id="pieces-maestro" data-bs-toggle="tooltip" title="Maestro"><img src="assets/css/images/pieces/maestro/wK.svg" width="36"/></button>
+                                    <button type="button" class="btn btn-outline-secondary" id="pieces-pirouetti" data-bs-toggle="tooltip" title="Pirouetti"><img src="assets/css/images/pieces/pirouetti/wK.svg" width="36"/></button>
+                                    <button type="button" class="btn btn-outline-secondary" id="pieces-spatial" data-bs-toggle="tooltip" title="Spatial"><img src="assets/css/images/pieces/spatial/wK.svg" width="36"/></button>
+                                    <button type="button" class="btn btn-outline-secondary" id="pieces-chessnut" data-bs-toggle="tooltip" title="Chessnut"><img src="assets/css/images/pieces/chessnut/wK.svg" width="36"/></button>
+                                    <button type="button" class="btn btn-outline-secondary" id="pieces-fantasy" data-bs-toggle="tooltip" title="Fantasy"><img src="assets/css/images/pieces/fantasy/wK.svg" width="36"/></button>
+                                    <button type="button" class="btn btn-outline-secondary" id="pieces-pixel" data-bs-toggle="tooltip" title="Pixel"><img src="assets/css/images/pieces/pixel/wK.svg" width="36"/></button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="settings-engine" role="tabpanel" aria-labelledby="settings-engine-tab" tabindex="0">
+                              <div class="align-items-center mb-3" style="display: flex;">
+                                <span class="me-2">Chess Engine:</span>
+                                <div class="btn-group">
+                                  <button id="engine-selector-btn" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"></button>
+                                  <ul id="engine-selector-menu" class="dropdown-menu"></ul>
+                                </div>
+                              </div>
+                              <div class="align-items-center mb-3" style="display: flex;">
+                                <span class="me-2" style="white-space: nowrap">Maximum Time:</span>
+                                <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-max-time-slider" min="0" max="5" value="0">
+                                <span id="engine-max-time-value" style="min-width: 9ch; white-space: nowrap;"></span>
+                              </div>
+                              <div class="align-items-center mb-3" style="display: flex;">
+                                <span class="me-2">Threads:</span>
+                                <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-threads-slider" min="1" max="8" value="1">
+                                <span id="engine-threads-value" style="min-width: 9ch; white-space: nowrap;"></span>
+                              </div>
+                              <div class="align-items-center mb-3" style="display: flex;">
+                                <span class="me-2">Memory:</span>
+                                <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-memory-slider" min="0" max="5" value="0">
+                                <span id="engine-memory-value" style="min-width: 9ch; white-space: nowrap;"></span>
+                              </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="settings-shortcuts" role="tabpanel" aria-labelledby="settings-shortcuts-tab" tabindex="0">
+                              <div class="d-flex flex-column settings-shortcuts-layout">
+                                <label class="form-heading mb-1">Shortcuts:</label>
+                                <div class="d-flex settings-shortcuts-body">
+                                  <ul id="shortcuts-list" class="dropdown-menu show">
+                                  </ul>
+                                  <div id="shortcut-settings-right-col">
+                                    <div id="shortcut-buttons" class="mb-3">
+                                      <button type="button" id="new-shortcut" class="btn btn-outline-secondary btn-sm" title="New Shortcut">New Shortcut</button>
+                                      <button type="button" id="remove-shortcut" class="btn btn-outline-secondary btn-sm" title="Remove Shortcut">Remove Shortcut</button>
+                                    </div>
+                                    <div id="shortcut-input-group" class="input-group">
+                                      <label id="shortcut-modifier-label" class="input-group-text">Ctrl + Shift + </label>
+                                      <input type="text" id="shortcut-key" class="form-control text-center" autocomplete="off" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="shortcut key">
+                                      <div id="shortcut-key-feedback" class="invalid-feedback"></div>
+                                    </div>
+                                    <textarea style="resize: none;" rows="10" id="shortcut-commands" class="form-control" type="text" placeholder="Enter server commands here" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+                                    <div class="mt-2" id="macros-key">
+                                      <div><span class="macros-key-name">%user%</span><span class="macros-key-description"> &ndash; Yourself</span></div>
+                                      <div><span class="macros-key-name">%opponent%</span><span class="macros-key-description"> &ndash; Current or last opponent</span></div>
+                                      <div><span class="macros-key-name">%game%</span><span class="macros-key-description"> &ndash; Game ID</span></div>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -1192,40 +1261,6 @@
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="modal fade" id="engine-settings-modal" tabindex="-1" aria-labelledby="engine-settings-modal-label" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="engine-settings-modal-label"><span class="fa fa-gear me-2" aria-hidden="false"></span><span id="engine-settings-title-text">Engine Settings</span></h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <div class="align-items-center mb-3" style="display: flex;">
-            <span class="me-2">Chess Engine:</span>
-            <div class="btn-group">
-              <button id="engine-selector-btn" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"></button>
-              <ul id="engine-selector-menu" class="dropdown-menu"></ul>
-            </div>
-          </div>
-          <div class="align-items-center mb-3" style="display: flex;">
-            <span class="me-2" style="white-space: nowrap">Maximum Time:</span>
-            <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-max-time-slider" min="0" max="5" value="0">
-            <span id="engine-max-time-value" style="min-width: 9ch; white-space: nowrap;"></span>
-          </div>
-          <div class="align-items-center mb-3" style="display: flex;">
-            <span class="me-2">Threads:</span>
-            <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-threads-slider" min="1" max="8" value="1">
-            <span id="engine-threads-value" style="min-width: 9ch; white-space: nowrap;"></span>
-          </div>
-          <div class="align-items-center mb-3" style="display: flex;">
-            <span class="me-2">Memory:</span>
-            <input type="range" class="form-range me-2" style="margin-top: 0.125rem" id="engine-memory-slider" min="0" max="5" value="0">
-            <span id="engine-memory-value" style="min-width: 9ch; white-space: nowrap;"></span>
           </div>
         </div>
       </div>
