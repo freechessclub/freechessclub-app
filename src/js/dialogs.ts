@@ -2,7 +2,7 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import { getTouchClickCoordinates, createTooltip } from './utils';
+import { getTouchClickCoordinates, createTooltip, isSmallWindow } from './utils';
 import { settings } from './settings';
 import { games } from './game';
 
@@ -13,33 +13,6 @@ let dialogCounter = 0;
  **************************************/
 
 /** DIALOG FUNCTIONS **/
-
-export function showBoardDialog(params: DialogParams): any {
-  const dialog = createDialog(params);
-  dialog.appendTo($('#game-requests'));
-  dialog.addClass('board-dialog');
-  dialog.toast('show');
-
-  dialog.on('hidden.bs.toast', function () {
-    $(this).remove();
-  });
-
-  return dialog;
-}
-
-export function showFixedDialog(params: DialogParams): any {
-  const dialog = createDialog(params);
-  const container = $('<div class="toast-container position-fixed top-50 start-50 translate-middle" style="z-index: 101">');
-  container.appendTo('body');
-  dialog.appendTo(container);
-  dialog.toast('show');
-
-  dialog.on('hidden.bs.toast', function () {
-    $(this).parent().remove();
-  });
-
-  return dialog;
-}
 
 export interface DialogParams {
   type?: string;
@@ -53,10 +26,80 @@ export interface DialogParams {
   htmlMsg?: boolean;
 }
 
+/** 
+ * Display a dialog 
+ * @param params The params of the dialog to display
+ * @param position A string indicating where on the screen the dialog should be placed.
+ * Options include: menus, board, chat to place the dialog over the left menus, main board or chat.
+ * top, bottom, middle to fix the dialog to the top, middle or bottom of the screen.
+ * 'modal' which is similar to 'middle' but displays the dialog above any modals showing.
+ * or 'game' which is intended for dialogs displayed when the user is playing a game, which are placed close
+ * to the board but not covering it. On desktop, 'game' dialogs are placed to the left of the board, 
+ * on mobile, they are fixed to the top of the screen. 
+ */
+export function showDialog(params: DialogParams, position = 'middle'): any {
+  const dialog = createDialog(params);
+
+  if(position === 'game') {
+    position = (isSmallWindow() ? 'top' : 'menus');  
+    dialog.addClass('game-dialog');
+  }
+
+  let containerID = null;
+  switch(position) {
+    case 'menus': 
+      containerID = '#left-col';
+      dialog.addClass('menus-dialog');
+      break;
+    case 'board':
+      containerID = '#mid-col';
+      dialog.addClass('board-dialog');
+      break;
+    case 'chat':
+      dialog.addClass('chat-dialog');
+      containerID = '#right-col';
+      break;
+  }
+
+  if(containerID)
+    dialog.appendTo($(`${containerID} .dialog-container`));
+  else if(position === 'modal') {
+    dialog.css({
+      position: 'fixed',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      'z-index': '1056',
+    });
+    dialog.addClass('above-modal-dialog');
+    dialog.appendTo('body');    
+  }
+  else if(position === 'top' || position === 'bottom') {
+    dialog.css({
+      position: 'fixed',
+      ...(position === 'top' && { top: '0' }),
+      ...(position === 'bottom' && { bottom: '0' }),
+      left: '50%',
+      transform: 'translate(-50%)',
+      'z-index': '101',
+    });
+    dialog.appendTo('body');
+  }
+  else
+    dialog.appendTo($('#fixed-dialog-container'));
+  
+  dialog.toast('show');
+  dialog.on('hidden.bs.toast', function () {
+    $(this).remove();
+  });
+
+  return dialog;
+}
+
 export function createDialog({type = '', title = '', msg = '', btnFailure, btnSuccess, useSessionSend = false, icons = true, progress = false, htmlMsg = false}: DialogParams): JQuery<HTMLElement> {
   const dialogId = `dialog${dialogCounter++}`;
   let req = `
-  <div id="${dialogId}" class="toast" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
+  <div id="${dialogId}" class="toast dialog" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
     <div class="toast-header">
       <strong class="header-text me-auto">${type}</strong>
       <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
@@ -133,7 +176,7 @@ export function createDialog({type = '', title = '', msg = '', btnFailure, btnSu
 }
 
 export function showInfoDialog(title: string, text: string) {
-  const dialog = $(`<div class="toast info-dialog" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
+  const dialog = $(`<div class="toast dialog info-dialog" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
     <div class="toast-header">
       <strong class="header-text me-auto">${title}</strong>
       <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
@@ -141,6 +184,8 @@ export function showInfoDialog(title: string, text: string) {
     <div class="toast-body font-monospace" style="max-height: 500px; overflow: auto; white-space: pre-wrap">${text}</div>
   </div>`);
   const modal = $('.modal.show');
+  if(modal.length)
+    dialog.addClass('above-modal-dialog');
   dialog.appendTo(modal.length ? modal : 'body');
   dialog.toast('show');
 }
@@ -155,6 +200,7 @@ export function createNotification(params: DialogParams): any {
   dialog.on('click', 'button', () => {
     removeNotification(dialog);
   });
+  dialog.removeClass('dialog');
   dialog.addClass('notification');
   dialog.addClass('notification-panel');
   $('#notifications-btn').prop('disabled', false);

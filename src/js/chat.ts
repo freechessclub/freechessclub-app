@@ -283,6 +283,7 @@ export class Chat {
         return;
 
       $('#collapse-chat').addClass('show');
+      $('#collapse-chat').trigger('show.bs.collapse');
       $('#secondary-board-area').hide();
       menuItem.find('.menu-label').text('Unmaximize Chat');
     }
@@ -757,17 +758,16 @@ export class Chat {
 
     const tabElement = this.createTab(tabName);
     let who = '';
-    if (data.user !== undefined) {
-      let textclass = '';
-      if (this.user === data.user) 
-        textclass = ' class="mine"';
-      else
-        textclass = ' class="clickable-user"'
+    if(data.user !== undefined) {
+      let textclass = 'class="clickable-user"'
+      if(this.user === data.user) 
+        textclass += ' class="mine"';
+
       let prompt = data.user;
       if (!settings.chattabsToggle && data.channel !== undefined) {
         prompt += `(${data.channel})`;
       }
-      who = `<strong${textclass}>${$('<span/>').text(prompt).html()}</strong>: `;
+      who = `<strong ${textclass}>${$('<span/>').text(prompt).html()}</strong>: `;
     }
 
     let text = data.message;

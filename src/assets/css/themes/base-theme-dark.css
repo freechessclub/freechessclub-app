@@ -384,6 +384,7 @@ a {
 .notification-panel {
   --bs-toast-bg: #333333;
   --bs-toast-border-color: #303030;
+  --bs-toast-header-border-color: rgba(0, 0, 0, 0.05);
 }
 #notifications-header {
   --bs-toast-bg: #383838;
@@ -421,8 +422,11 @@ a {
   color: white;
 }
 
+.modal-table {
+  --bs-emphasis-color: var(--bs-body-color);
+}
 .modal-table thead {
-  background: color-mix(in srgb, var(--bg-color) 85%, white 15%);
+  --bs-table-bg: color-mix(in srgb, var(--bg-color) 85%, white 15%);
   --box-shadow-color: color-mix(in srgb, var(--bg-color) 85%, white 15%);
 }
 

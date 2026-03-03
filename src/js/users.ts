@@ -5,6 +5,7 @@
 import { awaiting, storage } from './storage';
 import { createContextMenuTrigger, createContextMenu, getValue, removeWithTooltips, sortTable, scrollToTop, getTouchClickCoordinates } from './utils';
 import { showTab, setRematchUser } from './index';
+import { showDialog } from './dialogs';
 
 /** 
  * Users modal (friend list etc) and user context menu for clicking on a user's name and performing actions 
@@ -13,6 +14,7 @@ export class Users {
   private session = null;           // The current session
   private chat = null;              
   public userList: any[];           // The list of online users, from the 'who' command
+  public notifyList: any[];         // The user's notify list
   public friendList: any[] = [];
   public topPlayersList: any[];     // The list of top players from for each category, from the 'hbest' command 
   private updateUsersTimer = null;  // 1 minute timer that sends 'who' and 'hbest' commands when users modal is showing
@@ -27,7 +29,7 @@ export class Users {
 
       const target = $(event.target);
       const nameElem = target.closest('.clickable-user');
-      return nameElem.length && nameElem.text() && nameElem.text() !== this.session.getUser()
+      return nameElem.length && nameElem.text()
           && (event.type !== 'click' || !nameElem.closest('li').length);
     }, (e) => this.createUserActionsMenu(e), true, true, true);
 
@@ -43,9 +45,7 @@ export class Users {
         if(this.session?.isConnected()) {
           awaiting.set('userlist');
           this.session.send('who');
-          console.log('hello?');
           if($('#top-players-tab').hasClass('active')) {
-            console.log('hello 2');
             awaiting.set('hbest');
             this.session.send('hbest lbsxBzLSw');
           }
@@ -60,7 +60,7 @@ export class Users {
 
     $('#users-modal').on('hide.bs.modal', () => {
       clearInterval(this.updateUsersTimer);
-      $('.info-dialog').remove();
+      $('.above-modal-dialog').remove();
     });
 
     $('#add-friend').on('submit', (event) => {
@@ -114,12 +114,30 @@ export class Users {
       $(e.currentTarget).parent().css('display', ''); 
     });
 
-    $('.users-table').on('click', '.delete-user', (e) => {
+    $('.users-table').on('click', '.delete-user', (e) => {    
       const row = $(e.currentTarget).closest('tr');
       const name = row.attr('data-name');
+
       if($(e.currentTarget).closest('#friends-table').length) {
-        this.friendList = this.friendList.filter(item => item.name !== name);
-        this.saveFriends();
+        const removeFriend = () => {
+          if(this.notifyList.includes(name)) 
+            this.session.send(`-notify ${name}`);
+          
+          this.friendList = this.friendList.filter(item => item.name !== name);
+          this.saveFriends();
+          removeWithTooltips(row);
+        };
+
+        if(this.notifyList.includes(name)) {
+          const headerTitle = 'Remove Friend';
+          const bodyText = 'Remove friend from notify list?';
+          const button1 = [removeFriend, 'OK'];
+          const button2 = ['', 'Cancel'];
+          const dialog = showDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: true}, 'modal');
+          return;
+        } 
+        else 
+          removeFriend();
       }
       removeWithTooltips(row);
     });
@@ -334,14 +352,19 @@ export class Users {
   /**
    * Add a friend to the friend list
    * @param name The name plus titles of the friend, e.g. Kasparov(GM)(TD)
-   * @param the friend's rating (if known)
+   * @param rating the friend's rating (if known)
    * @param updateTable If true update the friends table after adding. We might want to defer this 
    * if adding many friends at once
+   * @param save If true save friend list to localstorage after adding
+   * @returns true if friend was added, false otherwise
    */
   public addFriend(name: string, rating = '', updateTable = true, save = true) {
     name = name.trim();
     if(!name || name.length > 17 || !/^[A-Za-z()]+$/.test(name)) // Test name is a valid username
-      return;
+      return false;
+
+    if(rating == null)
+      rating = '';
 
     // Split name into name and titles
     let title = '';
@@ -354,7 +377,7 @@ export class Users {
     let friend = this.friendList.find(item => item.name.toLowerCase() === name.toLowerCase());
     if(friend) {
       // name already exists
-      return;
+      return false;
     }
 
     const user = this.userList?.find(item => item.name.toLowerCase() === name.toLowerCase());
@@ -376,6 +399,8 @@ export class Users {
 
     if(updateTable)
       this.updateUsersTable($('#friends-table'), this.friendList); // update the friends table
+
+    return true;
   }
 
   /**
@@ -401,17 +426,15 @@ export class Users {
   }
 
   /**
-   * Add users from a notify list to the friends list
+   * Add a list of names to the friends list
    */
-  public addFriendsFromNotify(names: string[]) {
-    if(!names || !names.length)
+  public addFriendList(users: any[]) {
+    if(!users || !users.length)
       return;
 
     let added = false;
-    names.forEach((name) => {
-      const before = this.friendList.length;
-      this.addFriend(name, '', false, false);
-      if(this.friendList.length !== before)
+    users.forEach((user) => {
+      if(this.addFriend(user.name, user.rating, false, false))
         added = true;
     });
 
@@ -491,20 +514,24 @@ export class Users {
     let name = nameElement.length ? nameElement.attr('data-name') : $(e.target).text();
     name = name.trim().split('(')[0]; // Remove titles from end of username
 
-    const menu = $(`<ul class="dropdown-menu noselect user-actions-menu">
-      ${!this.friendList.find(friend => friend.name.toLowerCase() === name.toLowerCase()) ? '<li><a class="dropdown-item" data-action="add-friend">Add Friend</a></li>' : ''}   
-      <li><a class="dropdown-item" data-action="message">Message</a></li>
-      <li><a class="dropdown-item" data-action="challenge">Challenge</a></li>
-      <li><a class="dropdown-item" data-action="rematch">Rematch</a></li>
-      <li><a class="dropdown-item" data-action="observe">Observe</a></li>
-      <li><a class="dropdown-item" data-action="follow">Follow</a></li>
-      <li><a class="dropdown-item" data-action="unfollow">Unfollow</a></li>
-      <li><a class="dropdown-item" data-action="finger">Finger</a></li>
-      <li><a class="dropdown-item" data-action="history">History</a></li>
-      <li><a class="dropdown-item" data-action="h2h">Head to Head</a></li>
-      <li><a class="dropdown-item" data-action="noplay">Add to 'No Play'</a></li>
-      <li><a class="dropdown-item" data-action="censor">Censor</a></li>
-    </ul>`);
+    const menu = (name.toLowerCase() === this.session.getUser().toLowerCase())
+      ? $(`<ul class="dropdown-menu noselect user-actions-menu">
+          <li><a class="dropdown-item" data-action="finger">Finger</a></li>  
+        </ul>`)
+      : $(`<ul class="dropdown-menu noselect user-actions-menu">
+        ${!this.friendList.find(friend => friend.name.toLowerCase() === name.toLowerCase()) ? '<li><a class="dropdown-item" data-action="add-friend">Add Friend</a></li>' : ''}   
+        <li><a class="dropdown-item" data-action="message">Message</a></li>
+        <li><a class="dropdown-item" data-action="challenge">Challenge</a></li>
+        <li><a class="dropdown-item" data-action="rematch">Rematch</a></li>
+        <li><a class="dropdown-item" data-action="observe">Observe</a></li>
+        <li><a class="dropdown-item" data-action="follow">Follow</a></li>
+        <li><a class="dropdown-item" data-action="unfollow">Unfollow</a></li>
+        <li><a class="dropdown-item" data-action="finger">Finger</a></li>
+        <li><a class="dropdown-item" data-action="history">History</a></li>
+        <li><a class="dropdown-item" data-action="h2h">Head to Head</a></li>
+        <li><a class="dropdown-item" data-action="noplay">Add to 'No Play'</a></li>
+        <li><a class="dropdown-item" data-action="censor">Censor</a></li>
+      </ul>`);
 
     const userActionsItemSelected = (e2) => {
       const menuItem = $(e2.target).closest('.dropdown-item');

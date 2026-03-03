@@ -38,6 +38,13 @@ export const settings = {
   evalBarToggle: true,
   // toggle for showing the best move arrow when the engine is running
   bestMoveArrowToggle: true,
+  // toggle for showing an engine's move rating icon on the board 
+  moveRatingIconToggle: true,
+  // toggle for showing the previous best move arrow (the best alternative to the move played)
+  prevBestMoveArrowToggle: false,
+  // toggle for showing any engine visuals on the board including best move arrows and move rating icon
+  engineBoardVisualsToggle: true,
+
   // name of the chess engine to use
   analyzeEngineName: isMobile() && deviceMemory < 4 ? 'Stockfish MV 2019' : 'Stockfish 17.1 Lite',
   playEngineName: isMobile() && deviceMemory < 4 ? 'Stockfish MV 2019' : 'Stockfish 17.1 Lite',

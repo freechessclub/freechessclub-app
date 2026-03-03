@@ -107,6 +107,8 @@ let oldEngineName: string = '';
 let oldEngineMaxTime: number;
 let oldEngineThreads: number;
 let oldEngineMemory: number;
+let bestMoveBrush = 'yellow';
+let prevBestMoveBrush = 'purple';
 let lastOpponent: string = ''; // The opponent of the current or last game played 
 let prevSizeCategory = null;
 let layout = Layout.Desktop;
@@ -299,7 +301,7 @@ function showActiveSessionPrompt(activeSession: { user: string; tabId: string; t
   const connectHandler = () => {
     session?.reconnect();
   };
-  Dialogs.showFixedDialog({
+  Dialogs.showDialog({
     type: 'Active Session Detected',
     msg: bodyText,
     btnFailure: ['', 'Use active tab'],
@@ -857,7 +859,10 @@ function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: numb
   // Set card width
   const cardBorderWidth = card.outerWidth() - card.width();
   card.width(cardWidth - cardBorderWidth);
-  game.board.redrawAll();
+  
+  setTimeout(() => {
+    game.board.redrawAll(); // Redraw board coordinates
+  }, 0);
 
   return { width: cardWidth, height: cardHeight }
 }
@@ -1112,7 +1117,7 @@ function messageHandler(data: any) {
         updateForegroundServiceState();
       }
       else if(data.command === 4) { // Connecting
-        $('#game-requests').empty();
+        $('.game-dialog, .board-dialog').remove();
         $('.not-signed-in-notice').remove();
       }
       break;
@@ -1365,7 +1370,7 @@ function gameStart(game: Game) {
 
   if(game.isPlaying() || game.isExamining()) {
     clearMatchRequests();
-    $('#game-requests').html('');
+    $('.game-dialog, .board-dialog').remove();
     Dialogs.hideAllNotifications();
   }
 
@@ -1576,7 +1581,9 @@ function gameEnd(data: any) {
     if(data.reason !== Reason.Adjourn && data.reason !== Reason.Abort && game.history.length()) 
       analyze = ['analyze();', 'Analyze'];
 
-    Dialogs.showBoardDialog({type: 'Match Result', msg: dialogText, btnFailure: rematch, btnSuccess: analyze, icons: false});
+    $('.game-dialog').remove();
+
+    Dialogs.showDialog({type: 'Match Result', msg: dialogText, btnFailure: rematch, btnSuccess: analyze, icons: false}, 'board');
     if(data.extraText)
       chat.newMessage('console', { message: data.extraText });
     cleanupGame(game);
@@ -1707,7 +1714,7 @@ function handleOffers(offers: any[]) {
       if(displayType === 'notification')
         dialog = Dialogs.createNotification({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: [`decline ${item.id}`, 'Decline'], btnSuccess: [`accept ${item.id}`, 'Accept'], useSessionSend: true});
       else if(displayType === 'dialog')
-        dialog = Dialogs.showBoardDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: [`decline ${item.id}`, 'Decline'], btnSuccess: [`accept ${item.id}`, 'Accept'], useSessionSend: true});
+        dialog = Dialogs.showDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: [`decline ${item.id}`, 'Decline'], btnSuccess: [`accept ${item.id}`, 'Accept'], useSessionSend: true}, 'game');
       dialog.attr('data-offer-id', item.id);
     }
   });
@@ -1731,7 +1738,7 @@ function handleOffers(offers: any[]) {
         }
       }
       Dialogs.removeNotification($(`.notification[data-offer-id="${id}"]`)); // If match request was not ours, remove the Notification
-      $(`.board-dialog[data-offer-id="${id}"]`).toast('hide'); // if in-game request, hide the dialog
+      $(`.game-dialog[data-offer-id="${id}"]`).toast('hide'); // if in-game request, hide the dialog
       $(`.sent-offer[data-offer-id="${id}"]`).remove(); // If offer, match request or seek was sent by us, remove it from the Play pane
       $(`.lobby-entry[data-offer-id="${id}"]`).remove(); // Remove seek from lobby
     });
@@ -1962,9 +1969,15 @@ function handleMiscMessage(data: any) {
       const bodyText = `${tell.recipient} is not logged in. Send as message instead?`;
       const button1 = [okHandler, 'Yes'];
       const button2 = ['', 'No'];
-      Dialogs.showFixedDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1});
+      Dialogs.showDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1}, 'chat');
       return;
     }
+  }
+
+  if(/^\S+ declines the (draw|abort|takeback|adjourn) request\./m.test(msg)) {
+    Dialogs.showDialog({type: 'Offer Declined', msg}, 'game');
+    chat.newMessage('console', data);
+    return;
   }
 
   match = msg.match(/^Game (\d+): (\S+) has lagged for 30 seconds\./m);
@@ -1972,7 +1985,7 @@ function handleMiscMessage(data: any) {
     const game = games.findGame(+match[1]);
     if(game && game.isPlaying()) {
       const bodyText = `${match[2]} has lagged for 30 seconds.<br>You may courtesy adjourn the game.<br><br>If you believe your opponent has intentionally disconnected, you can request adjudication of an adjourned game. Type 'help adjudication' in the console for more info.`;
-      const dialog = Dialogs.showBoardDialog({type: 'Opponent Lagging', msg: bodyText, btnFailure: ['', 'Wait'], btnSuccess: ['adjourn', 'Adjourn'], useSessionSend: true});
+      const dialog = Dialogs.showDialog({type: 'Opponent Lagging', msg: bodyText, btnFailure: ['', 'Wait'], btnSuccess: ['adjourn', 'Adjourn'], useSessionSend: true}, 'game');
       dialog.attr('data-game-id', game.id);
     }
     chat.newMessage('console', data);
@@ -2019,7 +2032,7 @@ function handleMiscMessage(data: any) {
           break;
         }
       }
-      Dialogs.showFixedDialog({type: 'Unable to Rematch', msg: `Couldn't determine the last type of match played against ${rematchUser}. Use 'Challenge' instead.`, btnSuccess: ['', 'OK']});
+      Dialogs.showDialog({type: 'Unable to Rematch', msg: `Couldn't determine the last type of match played against ${rematchUser}. Use 'Challenge' instead.`, btnSuccess: ['', 'OK']});
     }
     else
       chat.newMessage('console', data);
@@ -2207,7 +2220,7 @@ function handleMiscMessage(data: any) {
 
   match = msg.match(/^(All players must be registered to adjourn a game.  Use "abort".)/m);
   if(match && match.length > 1) {
-    Dialogs.showBoardDialog({type: 'Can\'t Adjourn', msg: match[1]});
+    Dialogs.showDialog({type: 'Can\'t Adjourn', msg: match[1]}, 'game');
     return;
   }
 
@@ -2592,16 +2605,25 @@ function handleMiscMessage(data: any) {
     return;
   }
 
-  if(awaiting.has('notify-list')) {
-    const notifyUsers = parseNotifyList(msg);
-    if(notifyUsers !== null) {
-      awaiting.resolve('notify-list');
-      if(notifyUsers.length)
-        users.addFriendsFromNotify(notifyUsers);
-      return;
+  if(/^-- notify list:/m.test(msg) && awaiting.resolve('notify-list')) {
+    users.notifyList = parseNotifyList(msg);
+    users.addFriendList(users.notifyList.map(name => ({ name })));
+    return;
+  }
+  
+  match = msg.match(/^\[(\w+)\] added to your notify list\./m);
+  if(match) {
+    const user = match[1];
+    if(!users.notifyList.includes(user)) {
+      users.notifyList.push(user);
+      users.addFriend(user);
     }
-    if(/notify/i.test(msg))
-      awaiting.resolve('notify-list');
+  }
+
+  match = msg.match(/^\[(\w+)\] removed from your notify list\./m);
+  if(match) {
+    const user = match[1];
+    users.notifyList = users.notifyList.filter(item => item !== user);
   }
 
   match = msg.match(/Blitz\s+Standard\s+Lightning/m);
@@ -2692,49 +2714,16 @@ function parseUserList(msg: string): any[] {
 
 /**
  * Parse the result from the server '=notify' command into a list of usernames
- * Returns null if the message doesn't look like a notify list response.
  */
-function parseNotifyList(msg: string): string[] | null {
-  const lower = msg.toLowerCase();
-  if(!lower.includes('notify'))
-    return null;
-
-  if(/notify list\s*:\s*0\s+names/i.test(msg))
-    return [];
-
-  if(/notify list is empty|no users on your notify list|you have no one on your notify list|notify list empty/.test(lower))
-    return [];
-
-  let listText = '';
-  const colonMatch = msg.match(/notify list(?:\s+is)?\s*:\s*([\s\S]*)/i);
-  if(colonMatch && colonMatch[1]) {
-    listText = colonMatch[1];
+function parseNotifyList(msg: string): string[] {
+  const users: string[] = [];
+  for(let line of msg.split('\n').slice(1)) {
+    const userStrings = line.split(/\s+/);
+    userStrings.forEach((val) => {
+      users.push(val);
+    });
   }
-  else {
-    const lines = msg.split('\n');
-    const headerIndex = lines.findIndex(line => /notify list/i.test(line));
-    if(headerIndex !== -1) {
-      listText = lines.slice(headerIndex + 1).join(' ');
-    }
-  }
-
-  if(!listText)
-    return null;
-
-  listText = listText.replace(/^-+\s*/, '').replace(/\s*-+$/, '').trim();
-
-  const ignore = new Set(['notify', 'list', 'is', 'your', 'you', 'have', 'no', 'none', 'on', 'the', 'users', 'user', 'names', 'displayed', 'there', 'are', 'currently', 'empty']);
-  const tokens = listText.replace(/[;,]/g, ' ').split(/\s+/).filter(Boolean);
-  const names = tokens.filter(token => {
-    const normalized = token.toLowerCase();
-    if(ignore.has(normalized))
-      return false;
-    if(token.length > 17)
-      return false;
-    return /^[A-Za-z()]+$/.test(token);
-  });
-
-  return names;
+  return users;
 }
 
 /** *******************************************************
@@ -2753,7 +2742,7 @@ function updateBoardStatusText() {
       const nameRatingElement = $(element).find('.name-rating');
 
       const name = nameElement.text();
-      nameElement.toggleClass('clickable-user', name && name !== 'Computer' && name !== session?.getUser() && !name.includes(' '));
+      nameElement.toggleClass('clickable-user', name && name !== 'Computer' && !name.includes(' '));
 
       nameElement.css('font-size', '');
       ratingElement.css('width', '');
@@ -2952,7 +2941,7 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
 
   setClocks(game);
 
-  const premoveSquares = new Map();
+  const squareClasses = new Map();
 
   if((setBoard || game.setupBoard) && game.element.find('.promotion-panel').is(':visible')) {
     game.board.cancelPremove();
@@ -2967,9 +2956,9 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
       for(let i = 0; i < game.premoves.length; i++) {
         const premove = game.premoves[i];
         // Set premove square highlighting and numbering classes
-        if(premove.from && !premoveSquares.get(premove.from))
-          premoveSquares.set(premove.from, 'current-premove');
-        premoveSquares.set(premove.to, `current-premove premove-target premove-square-${premove.to}`);
+        if(premove.from && !squareClasses.get(premove.from))
+          squareClasses.set(premove.from, 'current-premove');
+        squareClasses.set(premove.to, `current-premove premove-target premove-square-${premove.to}`);
       }
     }   
 
@@ -3027,7 +3016,7 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
     highlight: {
       lastMove: settings.highlightsToggle,
       check: settings.highlightsToggle,
-      custom: premoveSquares
+      custom: squareClasses
     },
     predroppable: { enabled: game.category === 'crazyhouse' || game.category === 'bughouse' },
     check: !game.setupBoard && /[+#]/.test(move?.san) ? color : false,
@@ -3039,25 +3028,17 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
   showCapturedMaterial(game);
   showOpeningName(game);
   updateBoardStatusText();
+  updateMoveRatingIcon(game);
 
   if(playMove && !checkAtomicCapture(game) && settings.soundToggle && game === games.focused) {
     clearTimeout(soundTimer);
     soundTimer = setTimeout(() => {
-      if(/[+#]/.test(move?.san)) {
-        Sounds.checkSound.pause();
-        Sounds.checkSound.currentTime = 0;
-        Sounds.checkSound.play();
-      }
-      else if(move?.san.includes('x')) {
-        Sounds.captureSound.pause();
-        Sounds.captureSound.currentTime = 0;
-        Sounds.captureSound.play();
-      }
-      else {
-        Sounds.moveSound.pause();
-        Sounds.moveSound.currentTime = 0;
-        Sounds.moveSound.play();
-      }
+      if(/[+#]/.test(move?.san)) 
+        Utils.replaySound(Sounds.checkSound);
+      else if(move?.san.includes('x')) 
+        Utils.replaySound(Sounds.captureSound);
+      else 
+        Utils.replaySound(Sounds.moveSound);
     }, 50);
   }
 
@@ -3637,6 +3618,8 @@ function flipBoard(game: Game) {
   if(game.element.find('.promotion-panel').is(':visible'))
     showPromotionPanel(game);
 
+  positionMoveRatingIcon(game);
+
   // Swap player and opponent status panels
   if(game.element.find('.white-status').parent().hasClass('top-panel')) {
     game.element.find('.white-status').appendTo(game.element.find('.bottom-panel'));
@@ -3813,8 +3796,9 @@ function updateHistory(game: Game, move?: any, fen?: string, serverIssued = true
   }
 
   if(game.isObserving() && game.history.current() !== game.history.last() && serverIssued) {
-    game.history.highlightMove();
     updateBoard(game, false, false);
+    if(evalEngine)
+      evalEngine.evaluate();
     return; // User is currently viewing an earlier move in the move list, so don't display the new move
   }
 
@@ -3918,7 +3902,7 @@ export function setGameWithFocus(game: Game) {
       games.focused.moveTableElement.hide();
       games.focused.moveListElement.hide();
       games.focused.statusElement.hide();
-      games.focused.board.setAutoShapes([]);
+      removeAutoShape(games.focused, bestMoveBrush);
     }
 
     game.moveTableElement.show();
@@ -4061,7 +4045,7 @@ function closeGameDialog(game: Game) {
   const button1 = ['closeGameClickHandler(event)', 'OK'];
   const button2 = ['', 'Cancel'];
   const showIcons = true;
-  Dialogs.showFixedDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons});
+  Dialogs.showDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons});
 }
 
 function closeGame(game: Game) {
@@ -4140,7 +4124,7 @@ function cleanupGame(game: Game) {
   game.element.find($('[title="Close"]')).css('visibility', 'visible');
   game.element.find('.title-bar-text').text('');
   game.statusElement.find('.game-id').remove();
-  $(`.board-dialog[data-game-id="${game.id}"]`).toast('hide');
+  $(`.game-dialog[data-game-id="${game.id}"]`).toast('hide');
 
   if(chat)
     chat.closeGameTab(game.id);
@@ -4891,7 +4875,7 @@ function buildInviteLink(invite: InviteCreateState): string {
 function showInviteLinkDialog(link: string, token: string) {
   const inputId = `invite-link-${token}`;
   const buttonId = `invite-copy-${token}`;
-  const dialog = Dialogs.showFixedDialog({
+  const dialog = Dialogs.showDialog({
     type: 'Invite Link',
     htmlMsg: true,
     msg: `
@@ -5138,7 +5122,7 @@ function showInviteJoinDialog(invite: InviteJoinState) {
   const summary = summaryParts.length ? ` (${summaryParts.join(', ')})` : '';
   const inviter = invite.host ? ` by ${invite.host}` : '';
 
-  const dialog = Dialogs.showFixedDialog({
+  const dialog = Dialogs.showDialog({
     type: 'Game Invite',
     htmlMsg: true,
     msg: `
@@ -5279,12 +5263,12 @@ function initInviteFromUrl() {
     const sendHandler = () => {
       sendInviteToActiveTab(invite);
       window.history.replaceState({}, document.title, window.location.pathname);
-      Dialogs.showFixedDialog({type: 'Invite Sent', msg: 'Invite sent to your active tab.', btnSuccess: ['', 'OK']});
+      Dialogs.showDialog({type: 'Invite Sent', msg: 'Invite sent to your active tab.', btnSuccess: ['', 'OK']});
     };
     const continueHandler = () => {
       handleInviteJoinFromParams(invite, true);
     };
-    Dialogs.showFixedDialog({
+    Dialogs.showDialog({
       type: 'Active Session Detected',
       msg: bodyText,
       btnFailure: [continueHandler, 'Continue here'],
@@ -5857,7 +5841,7 @@ function clearAnalysisDialog(game: Game) {
   const button1 = ['clearAnalysisClickHandler(event)', 'OK'];
   const button2 = ['', 'Cancel'];
   const showIcons = true;
-  Dialogs.showFixedDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons});
+  Dialogs.showDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons});
 }
 
 /** GAME PANEL TOOLBAR AND TOOL MENU FUNCTIONS **/
@@ -6041,7 +6025,7 @@ function newGameDialog(game: Game, category = 'untimed') {
       button2 = ['', 'Cancel'];
       showIcons = true;
     }
-    Dialogs.showFixedDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons});
+    Dialogs.showDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons});
   }
   else if(settings.multiboardToggle)
     newGame(true, game, category);
@@ -6166,7 +6150,7 @@ function openGamesOverwriteDialog(game: Game, fileStrings: string[]) {
         button2 = ['', 'Cancel'];
         showIcons = true;
       }
-      Dialogs.showFixedDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons});
+      Dialogs.showDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons});
     }
     else
       parseGameFiles(game, fileStrings, false);
@@ -6194,7 +6178,7 @@ async function openGameFiles(files: any): Promise<string[]> {
         reader.onerror = (e) => {
           const error = e.target?.error;
           const errorMessage = error ? `${error.name} - ${error.message}` : 'An unknown error occurred';
-          Dialogs.showFixedDialog({type: 'Failed to open game file', msg: errorMessage, btnSuccess: ['', 'OK']});
+          Dialogs.showDialog({type: 'Failed to open game file', msg: errorMessage, btnSuccess: ['', 'OK']});
           reject(error);
         };
         reader.readAsText(file);
@@ -6256,7 +6240,7 @@ async function parseGameFiles(game: Game, gameFileStrings: string[], createNewBo
                 fenCount++;
               }
               else {
-                Dialogs.showFixedDialog({type: 'Invalid FEN', msg: err, btnSuccess: ['', 'OK']});
+                Dialogs.showDialog({type: 'Invalid FEN', msg: err, btnSuccess: ['', 'OK']});
                 return;
               }
             }
@@ -6283,7 +6267,7 @@ async function parsePGNMetadata(pgnStr: string) {
     return pgn.tags;
   }
   catch(err) {
-    Dialogs.showFixedDialog({type: 'Failed to parse PGN', msg: err.message, btnSuccess: ['', 'OK']});
+    Dialogs.showDialog({type: 'Failed to parse PGN', msg: err.message, btnSuccess: ['', 'OK']});
   }
 }
 
@@ -6298,7 +6282,7 @@ async function parsePGNMoves(game: Game, pgnStr: string) {
     game.history.goto(game.history.first());
   }
   catch(err) {
-    Dialogs.showFixedDialog({type: 'Failed to parse PGN', msg: err.message, btnSuccess: ['', 'OK']});
+    Dialogs.showDialog({type: 'Failed to parse PGN', msg: err.message, btnSuccess: ['', 'OK']});
   }
 }
 
@@ -6615,8 +6599,8 @@ function savePGN(game: Game, pgn: string) {
   const wname = metatags.White;
   const bname = metatags.Black;
   let event = metatags.Event;
-  let date = metatags.Date;
-  let time = metatags.Time;
+  let date = metatags.Date || metatags.UTCDate;
+  let time = metatags.Time || metatags.UTCTime;
   if(date) {
     date = date.replace(/\./g, '-');
     const match = date.match(/^\d+(-\d+)?(-\d+)?/);
@@ -6953,7 +6937,7 @@ function setupDone(game: Game) {
 
   const err = ChessHelper.validateFEN(fen, game.category);
   if(err) {
-    Dialogs.showFixedDialog({type: 'Invalid Position', msg: err, btnSuccess: ['', 'OK']});
+    Dialogs.showDialog({type: 'Invalid Position', msg: err, btnSuccess: ['', 'OK']});
     return;
   }
 
@@ -7031,7 +7015,7 @@ $('#game-tools-properties').on('click', () => {
       updateGameFromMetatags(games.focused);
     }
     catch(err) {
-      Dialogs.showFixedDialog({type: 'Failed to update properties', msg: err.message, btnSuccess: ['', 'OK']});
+      Dialogs.showDialog({type: 'Failed to update properties', msg: err.message, btnSuccess: ['', 'OK']});
       return;
     }
   };
@@ -7042,7 +7026,7 @@ $('#game-tools-properties').on('click', () => {
       + `${games.focused.history.metatagsToString()}</textarea>`;
   const button1 = [okHandler, 'Keep Changes'];
   const button2 = ['', 'Cancel'];
-  Dialogs.showFixedDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, htmlMsg: true});
+  Dialogs.showDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, htmlMsg: true});
 });
 
 /**
@@ -7187,8 +7171,10 @@ function showAnalysis() {
 }
 
 function hideAnalysis() {
+  removeAutoShape(games.focused, prevBestMoveBrush);
   stopEngine();
   stopEvalEngine();
+  removeMoveRatingIcon(games.focused);
   closeLeftBottomTab($('#engine-tab'));
   closeLeftBottomTab($('#eval-graph-tab'));
   showAnalyzeButton();
@@ -7281,8 +7267,7 @@ function stopEngine(temporary = false) {
       engine = null;
     }
 
-    game.board.setAutoShapes([]); 
-    game.board.redrawAll();
+    removeAutoShape(game, bestMoveBrush); 
     
     if(!temporary) {
       game.element.find('.eval-bar').hide();
@@ -7332,21 +7317,33 @@ $('#remove-pv').on('click', () => {
   }
 });
 
-function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: string) {
+function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: string, pvNodes: number) {
   $('#engine-pvs li').eq(pvNum - 1).html(`<b>(${pvEval})</b> ${pvMoves}<b/>`);
 
   if(pvNum === 1 && pvMoves) {
+    const currHEntry = game.history.current();
     const words = pvMoves.split(/\s+/);
     const san = words[0].split(/\.+/)[1];
-    const fen = game.setupBoard ? getSetupBoardFEN(game) : game.history.current().fen; 
+    const fen = game.setupBoard ? getSetupBoardFEN(game) : currHEntry.fen; 
     const parsed = parseGameMove(game, fen, san);
-    if(settings.bestMoveArrowToggle) {
-      game.board.setAutoShapes([{
+    if(settings.bestMoveArrowToggle && settings.engineBoardVisualsToggle) {
+      removeAutoShape(game, bestMoveBrush);      
+      let autoShapes = game.board.state.drawable.autoShapes;
+      autoShapes.push({ 
         orig: parsed.move.from || parsed.move.to, // For crazyhouse, just draw a circle on dest square
         dest: parsed.move.to,
-        brush: 'yellow',
-      }]);
+        brush: bestMoveBrush
+      });
+      game.board.setAutoShapes(autoShapes);
     }
+
+    if(!game.setupBoard && (!currHEntry.evalNodes || pvNodes >= currHEntry.evalNodes)) {
+      currHEntry.eval = pvEval;
+      currHEntry.evalBestMove = san[1] === '@' ? san : `${parsed.move.from}${parsed.move.to}`;
+      currHEntry.evalNodes = pvNodes;
+      debounceUpdateMoveRatingIcon(game);
+    }
+    
     updateEvalBar(game, pvEval);
   }
 }
@@ -7536,6 +7533,96 @@ function stopEvalEngine() {
   evalEngine = null;
 }
 
+const debounceUpdateMoveRatingIcon = Utils.debounce(updateMoveRatingIcon, 250);
+/**
+ * Adds a move rating icon to the corner of a square on the board, indicating the previous move's
+ * quality, e.g. inaccuracy, mistake, blunder, best engine move (star), book move.
+ * Also optionally adds an arrow showing the engine's best alternative to the move (Previous Best Move Arrow). 
+ */
+async function updateMoveRatingIcon(game: Game) {
+  const curr = game.history.current();
+  const prev = game.history.prev();
+  const square = curr.move?.to;
+
+  if(!game.setupBoard && game.analyzing && curr.eval != null && prev?.eval != null) {
+    let rating = '';
+    if((await getBookMoves(curr.fen)).length) 
+      rating = 'book';
+    else {
+      const mv = curr.move.san[1] === '@' ? curr.move.san : `${curr.move.from}${curr.move.to}`;
+      rating = (mv === prev.evalBestMove)
+        ? 'best'
+        : EvalEngine.rateMove(curr.eval, prev.eval, ChessHelper.swapColor(curr.turnColor));
+    }
+
+    // If the current move changed while we were looking up the opening book then bail out.
+    if(game.setupBoard || !game.analyzing || curr !== game.history?.current() || prev !== game.history?.prev())
+      return;
+    
+    removeMoveRatingIcon(game);
+
+    if(settings.moveRatingIconToggle && settings.engineBoardVisualsToggle) {
+      // Add new 'eval-icon'
+      const icon = $(`<square data-coords="${square}" class="eval-icon eval-icon-${rating}"></square>`);
+      game.element.find('.board-container').append(icon);
+      positionMoveRatingIcon(game);
+    }
+
+    // If current move is not the best move then indicate the alternative best move with an arrow
+    if(rating !== 'book' && rating !== 'best' 
+        && settings.prevBestMoveArrowToggle && settings.engineBoardVisualsToggle) {
+      const bestMove = prev.evalBestMove;
+      const dest = bestMove.slice(2,4);
+      const orig = bestMove[1] === '@' ? dest : bestMove.slice(0,2);
+      removeAutoShape(game, prevBestMoveBrush);  
+      let autoShapes = game.board.state.drawable.autoShapes;
+      autoShapes.push({ orig, dest, brush: prevBestMoveBrush });
+      game.board.setAutoShapes(autoShapes);
+    }
+  }
+  else {
+    removeMoveRatingIcon(game);
+    removeAutoShape(game, prevBestMoveBrush);
+  }
+}
+
+/**
+ * Position a move rating icon based on its data-coords attribute, e.g. 'e4'.
+ */
+function positionMoveRatingIcon(game: Game) {
+  const icon = game.element.find('.eval-icon');
+  if(icon.length) {
+    const orientation = game.board.state.orientation === 'white' ? 'w' : 'b';
+    const boardRect = game.element.find('.board')[0].getBoundingClientRect();
+    const square = icon.attr('data-coords');
+    const squareRect = ChessHelper.getSquareRect(boardRect, square, orientation, true);
+    const percentLeft = squareRect.left * 100 / boardRect.width;
+    const percentTop = squareRect.top * 100 / boardRect.height; 
+    icon.css({
+      left: `${percentLeft}%`,
+      top: `${percentTop}%`
+    });
+  }
+}
+
+/**
+ * Removes a move rating icon shown on the board.
+ */
+function removeMoveRatingIcon(game: Game) {
+  game.element.find('.eval-icon').remove();
+};
+
+/**
+ * Removes all Chessground AutoShapes from the board which match the specified brush name (usually a color). 
+ */
+function removeAutoShape(game: Game, brush: string) {   
+  let autoShapes = game.board.state.drawable.autoShapes;
+  if(!autoShapes)
+    return;
+  autoShapes = autoShapes.filter(shape => shape.brush !== brush);
+  game.board.setAutoShapes(autoShapes);
+} 
+
 /** STATUS PANEL SHOW/HIDE BUTTON **/
 
 $('#show-status-panel').on('click', () => {
@@ -7656,7 +7743,7 @@ $('#draw').on('click', () => {
         messageHandler(gameEndData);
       }
       else
-        Dialogs.showBoardDialog({type: 'Draw Offer Declined', msg: 'Computer declines the draw offer'});
+        Dialogs.showDialog({type: 'Draw Offer Declined', msg: 'Computer declines the draw offer'}, 'game');
     }
     else
       session.send('draw');
@@ -7808,15 +7895,40 @@ function initSettings() {
   settings.smartmoveToggle = (storage.get('smartmove') === 'true');
   $('#smartmove-toggle').prop('checked', settings.smartmoveToggle);
 
-  settings.evalBarToggle = (storage.get('evalbar') !== 'false');
-  $('#eval-bar-toggle').prop('checked', settings.evalBarToggle);
-  $('#eval-bar-toggle-icon').toggleClass('fa-eye', settings.evalBarToggle);
-  $('#eval-bar-toggle-icon').toggleClass('fa-eye-slash', !settings.evalBarToggle);
+  let setting = storage.get('engineboardvisuals');
+  if(setting != null)
+    settings.engineBoardVisualsToggle = (setting === 'true');
+  $('#engine-board-visuals-toggle').prop('checked', settings.engineBoardVisualsToggle);
+  $('#engine-board-visuals-toggle-icon').toggleClass('fa-eye', settings.engineBoardVisualsToggle);
+  $('#engine-board-visuals-toggle-icon').toggleClass('fa-eye-slash', !settings.engineBoardVisualsToggle);
 
-  settings.bestMoveArrowToggle = (storage.get('bestmovearrow') !== 'false');
+  setting = storage.get('evalbar');
+  if(setting != null)
+    settings.evalBarToggle = (setting === 'true');
+  $('#engine-panel-eval-bar-toggle, #eval-bar-toggle').prop('checked', settings.evalBarToggle);
+  $('#engine-panel-eval-bar-toggle-icon, #eval-bar-toggle-icon').toggleClass('fa-eye', settings.evalBarToggle);
+  $('#engine-panel-eval-bar-toggle-icon, #eval-bar-toggle-icon').toggleClass('fa-eye-slash', !settings.evalBarToggle);
+
+  setting = storage.get('moveratingicon');
+  if(setting != null)
+    settings.moveRatingIconToggle = (setting === 'true');
+  $('#move-rating-toggle').prop('checked', settings.moveRatingIconToggle);
+  $('#move-rating-toggle-icon').toggleClass('fa-eye', settings.moveRatingIconToggle);
+  $('#move-rating-toggle-icon').toggleClass('fa-eye-slash', !settings.moveRatingIconToggle);
+
+  setting = storage.get('bestmovearrow');
+  if(setting != null)
+    settings.bestMoveArrowToggle = (setting === 'true');
   $('#best-move-arrow-toggle').prop('checked', settings.bestMoveArrowToggle);
   $('#best-move-arrow-toggle-icon').toggleClass('fa-eye', settings.bestMoveArrowToggle);
   $('#best-move-arrow-toggle-icon').toggleClass('fa-eye-slash', !settings.bestMoveArrowToggle);
+
+  setting = storage.get('prevbestmovearrow');
+  if(setting != null)
+    settings.prevBestMoveArrowToggle = (setting === 'true');
+  $('#prev-best-move-arrow-toggle').prop('checked', settings.prevBestMoveArrowToggle);
+  $('#prev-best-move-arrow-toggle-icon').toggleClass('fa-eye', settings.prevBestMoveArrowToggle);
+  $('#prev-best-move-arrow-toggle-icon').toggleClass('fa-eye-slash', !settings.prevBestMoveArrowToggle);
 
   const engineName = storage.get('analyze-engine-name');
   if(engineName)
@@ -7933,11 +8045,11 @@ $('#smartmove-toggle').on('click', () => {
   storage.set('smartmove', String(settings.smartmoveToggle));
 });
 
-$('#eval-bar-toggle').on('change', () => {
+$('#engine-panel-eval-bar-toggle, #eval-bar-toggle').on('change', () => {
   settings.evalBarToggle = !settings.evalBarToggle;
 
-  $('#eval-bar-toggle-icon').toggleClass('fa-eye');
-  $('#eval-bar-toggle-icon').toggleClass('fa-eye-slash');
+  $('#engine-panel-eval-bar-toggle-icon, #eval-bar-toggle-icon').toggleClass('fa-eye');
+  $('#engine-panel-eval-bar-toggle-icon, #eval-bar-toggle-icon').toggleClass('fa-eye-slash');
 
   const game = games.focused;
   if(game.engineRunning) {
@@ -7950,6 +8062,22 @@ $('#eval-bar-toggle').on('change', () => {
   storage.set('evalbar', String(settings.evalBarToggle));
 });
 
+$('#move-rating-toggle').on('change', () => {
+  settings.moveRatingIconToggle = !settings.moveRatingIconToggle;
+
+  $('#move-rating-toggle-icon').toggleClass('fa-eye');
+  $('#move-rating-toggle-icon').toggleClass('fa-eye-slash');
+
+  for(const game of games) {
+    if(settings.moveRatingIconToggle) 
+      updateMoveRatingIcon(game);
+    else 
+      removeMoveRatingIcon(game);
+  }
+  
+  storage.set('moveratingicon', String(settings.moveRatingIconToggle));
+});
+
 $('#best-move-arrow-toggle').on('change', () => {
   settings.bestMoveArrowToggle = !settings.bestMoveArrowToggle;
 
@@ -7958,14 +8086,49 @@ $('#best-move-arrow-toggle').on('change', () => {
 
   if(settings.bestMoveArrowToggle) 
     updateEngine();
-  else {
-    if(games.focused.engineRunning) {
-      games.focused.board.setAutoShapes([]); 
-      games.focused.board.redrawAll();
-    }
-  }
+  else if(games.focused.engineRunning) 
+    removeAutoShape(games.focused, bestMoveBrush);  
   
   storage.set('bestmovearrow', String(settings.bestMoveArrowToggle));
+});
+
+$('#prev-best-move-arrow-toggle').on('change', () => {
+  settings.prevBestMoveArrowToggle = !settings.prevBestMoveArrowToggle;
+
+  $('#prev-best-move-arrow-toggle-icon').toggleClass('fa-eye');
+  $('#prev-best-move-arrow-toggle-icon').toggleClass('fa-eye-slash');
+
+  for(const game of games) {
+    if(settings.prevBestMoveArrowToggle) 
+      updateMoveRatingIcon(game);
+    else 
+      removeAutoShape(game, prevBestMoveBrush);  
+  }
+  
+  storage.set('prevbestmovearrow', String(settings.prevBestMoveArrowToggle));
+});
+
+$('#engine-board-visuals-toggle').on('change', () => {
+  settings.engineBoardVisualsToggle = !settings.engineBoardVisualsToggle;
+
+  $('#engine-board-visuals-toggle-icon').toggleClass('fa-eye');
+  $('#engine-board-visuals-toggle-icon').toggleClass('fa-eye-slash');
+
+  for(const game of games) {
+    if(settings.engineBoardVisualsToggle) 
+      updateMoveRatingIcon(game);
+    else {
+      removeMoveRatingIcon(game);
+      removeAutoShape(game, prevBestMoveBrush);  
+    }
+  }
+
+  if(settings.bestMoveArrowToggle) 
+    updateEngine();
+  else if(games.focused.engineRunning) 
+    removeAutoShape(games.focused, bestMoveBrush);  
+
+  storage.set('engineboardvisuals', String(settings.engineBoardVisualsToggle));
 });
 
 /** *****************************
@@ -8191,7 +8354,6 @@ async function playAtomicEffect(game: Game, squares: string[]) {
   const orientation = game.board.state.orientation === 'white' ? 'w' : 'b';
   const destRects = [];
   const canvasRect = canvas.getBoundingClientRect();
-  canvasRect.x = canvasRect.y = 0; // Convert to canvas coordinates
   
   // Get explosion sfx duration in order to sync animation duration with it
   const duration = await Utils.getAudioDuration(Sounds.atomicSound) * 1000;
@@ -8208,7 +8370,7 @@ async function playAtomicEffect(game: Game, squares: string[]) {
   squares.forEach(sq => {
     const sprite: Utils.Sprite = {
       spriteSheet: atomicSprite,
-      destRect: ChessHelper.getSquareRect(canvasRect, sq, orientation),
+      destRect: ChessHelper.getSquareRect(canvasRect, sq, orientation, true),
       frameWidth: 256,
       frameHeight: 256,
       totalFrames: 30,

@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import { awaiting, storage } from './storage';
-import { createNotification, removeNotification, showFixedDialog } from './dialogs';
+import { createNotification, removeNotification, showDialog } from './dialogs';
 import { convertToServerDate, convertToLocalDate, parseDate, getDiffDays, getNextWeekDayDate } from './utils';
 
 /**
@@ -1338,7 +1338,7 @@ export class Tournaments {
         const button1 = [`td withdraw ${tourney.id}`, 'OK'];
         const button2 = ['', 'Cancel'];
         const showIcons = true;
-        showFixedDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons, useSessionSend: true});
+        showDialog({type: headerTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons, useSessionSend: true});
       });
 
       /** 'Play Game' button */

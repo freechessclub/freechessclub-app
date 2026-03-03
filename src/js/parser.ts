@@ -343,6 +343,105 @@ export class Parser {
       };
     }
 
+    // offers info (seekinfo and pendinfo)
+    const index = msg.search(/^<(pt|pf|pr|s|sc|sn|sr)>/m)
+    if(index !== -1) {
+      // if plain text componenet, split into 2 messages
+      const plainText = msg.slice(0, index).trim();
+      if(plainText)
+        return [this._parse(plainText), this._parse(msg.slice(index))];
+
+      const offers = [];
+      const lines = msg.split('\n');
+      for(let line of lines) {
+        line = line.trim();
+        // parse pendinfo
+        match = line.match(/^<(pt|pf)> (\d+) w=(\S+) t=(\S+) p=((\S+)(?: \(\s*(\S+)\)(?: \[(black|white)\])? (\S+) \(\s*(\S+)\) (rated|unrated) (\S+)(?: (\d+) (\d+))?(?: Loaded from (\S+))?( \(adjourned\))?)?)/);
+        if(match) {
+          const type = match[1];
+          const subtype = match[4];
+
+          if(subtype === 'match') {
+            offers.push({
+              type: match[1],
+              id: match[2],
+              toFrom: match[3],
+              subtype: match[4],
+              asString: match[5],
+              player: (type === 'pt' ? match[6] : match[9]),
+              playerRating: (type === 'pt' ? match[7] : match[10]),
+              opponent: (type === 'pt' ? match[9] : match[6]),
+              opponentRating: (type === 'pt' ? match[10] : match[7]),
+              color: match[8],
+              ratedUnrated: match[11],
+              category: match[15] || match[12],
+              initialTime: +match[13],
+              increment: +match[14],
+              adjourned: !!match[16]
+            });
+          }
+          else {
+            offers.push({
+              type: match[1],
+              id: match[2],
+              toFrom: match[3],
+              subtype: match[4],
+              parameters: match[5]
+            });
+          }
+          continue;
+        }
+        // parse seekinfo
+        if(line === '<sc>') {
+          offers.push({ type: 'sc' });
+          continue;
+        }
+        match = line.match(/^<(s|sn)> (\d+) w=(\S+) ti=(\d+) rt=(\S+)\s+t=(\d+) i=(\d+) r=(\S+) tp=(\S+) c=(\S+) rr=(\S+) a=(\S+) f=(\S+)/);
+        if(match) {
+          offers.push({
+            type: match[1],
+            id: match[2],
+            toFrom: match[3],
+            title: titleToString[+match[4]],
+            rating: (match[5] === '0P' ? '' : match[5]),
+            initialTime: +match[6],
+            increment: +match[7],
+            ratedUnrated: match[8],
+            category: match[9],
+            color: match[10],
+            ratingRange: match[11],
+            automatic: match[12] === 't',
+            formula: match[13] === 't'
+          });
+          continue;
+        }
+        match = line.match(/^<(pr|sr)> (.+)/);
+        if(match) {
+          offers.push({
+            type: match[1],
+            ids: match[2].split(' ')
+          });
+        }
+      }
+      return {
+        offers,
+      }
+    }
+
+    match = msg.match(/^Your seeks have been removed\./m);
+    if(!match)
+      match = msg.match(/^Your seek (\d+) has been removed\./m);
+    if(match) {
+      const ids = match.length > 1 ? [match[1]] : [];
+      return {
+        offers: [{
+          type: 'sr',
+          ids: ids,
+        }],
+        raw: msg
+      };
+    }
+
     // held pieces (Crazyhouse/Bughouse)
     match = msg.match(/^<b1> game (\d+) white \[(\w*)\] black \[(\w*)\](?: <- (\w+))?/m);
     if (match != null && match.length > 3) {
@@ -475,105 +574,6 @@ export class Parser {
         messages,
         raw: msg
       }
-    }
-
-    // offers info (seekinfo and pendinfo)
-    const index = msg.search(/^<(pt|pf|pr|s|sc|sn|sr)>/m)
-    if(index !== -1) {
-      // if plain text componenet, split into 2 messages
-      const plainText = msg.slice(0, index).trim();
-      if(plainText)
-        return [this._parse(plainText), this._parse(msg.slice(index))];
-
-      const offers = [];
-      const lines = msg.split('\n');
-      for(let line of lines) {
-        line = line.trim();
-        // parse pendinfo
-        match = line.match(/^<(pt|pf)> (\d+) w=(\S+) t=(\S+) p=((\S+)(?: \(\s*(\S+)\)(?: \[(black|white)\])? (\S+) \(\s*(\S+)\) (rated|unrated) (\S+)(?: (\d+) (\d+))?(?: Loaded from (\S+))?( \(adjourned\))?)?)/);
-        if(match) {
-          const type = match[1];
-          const subtype = match[4];
-
-          if(subtype === 'match') {
-            offers.push({
-              type: match[1],
-              id: match[2],
-              toFrom: match[3],
-              subtype: match[4],
-              asString: match[5],
-              player: (type === 'pt' ? match[6] : match[9]),
-              playerRating: (type === 'pt' ? match[7] : match[10]),
-              opponent: (type === 'pt' ? match[9] : match[6]),
-              opponentRating: (type === 'pt' ? match[10] : match[7]),
-              color: match[8],
-              ratedUnrated: match[11],
-              category: match[15] || match[12],
-              initialTime: +match[13],
-              increment: +match[14],
-              adjourned: !!match[16]
-            });
-          }
-          else {
-            offers.push({
-              type: match[1],
-              id: match[2],
-              toFrom: match[3],
-              subtype: match[4],
-              parameters: match[5]
-            });
-          }
-          continue;
-        }
-        // parse seekinfo
-        if(line === '<sc>') {
-          offers.push({ type: 'sc' });
-          continue;
-        }
-        match = line.match(/^<(s|sn)> (\d+) w=(\S+) ti=(\d+) rt=(\S+)\s+t=(\d+) i=(\d+) r=(\S+) tp=(\S+) c=(\S+) rr=(\S+) a=(\S+) f=(\S+)/);
-        if(match) {
-          offers.push({
-            type: match[1],
-            id: match[2],
-            toFrom: match[3],
-            title: titleToString[+match[4]],
-            rating: (match[5] === '0P' ? '' : match[5]),
-            initialTime: +match[6],
-            increment: +match[7],
-            ratedUnrated: match[8],
-            category: match[9],
-            color: match[10],
-            ratingRange: match[11],
-            automatic: match[12] === 't',
-            formula: match[13] === 't'
-          });
-          continue;
-        }
-        match = line.match(/^<(pr|sr)> (.+)/);
-        if(match) {
-          offers.push({
-            type: match[1],
-            ids: match[2].split(' ')
-          });
-        }
-      }
-      return {
-        offers,
-      }
-    }
-
-    match = msg.match(/^Your seeks have been removed\./m);
-    if(!match)
-      match = msg.match(/^Your seek (\d+) has been removed\./m);
-    if(match) {
-      const ids = match.length > 1 ? [match[1]] : [];
-      return {
-        offers: [{
-          type: 'sr',
-          ids: ids,
-        }],
-        raw: msg
-      };
     }
 
     return { message: msg };

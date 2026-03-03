@@ -1120,16 +1120,17 @@ export function moveToCoordinateString(move: any): string {
  * @param boardRect The board element's bounding rect
  * @param the square coordinates, e.g "e4"
  * @param orientation the way the board is facing, "w" or "b"
+ * @param local if true coordinates are relative to (0, 0). If false, the bounding rect represents screen coordinates.
  * @returns the square's bounding rect 
  */
-export function getSquareRect(boardRect: DOMRect, square: string, orientation: string): DOMRect {
+export function getSquareRect(boardRect: DOMRect, square: string, orientation: string, local = false): DOMRect {
   const file = square.charAt(0).toLowerCase();
   const rank = square.charAt(1);
   const colIndex = orientation === 'w' ? file.charCodeAt(0) - 'a'.charCodeAt(0) : 7 - (file.charCodeAt(0) - 'a'.charCodeAt(0));
   const rowIndex = orientation === 'w' ? 8 - parseInt(rank, 10) : parseInt(rank, 10) - 1;
   const squareSize = boardRect.width / 8;
-  const top = boardRect.top + squareSize * rowIndex;
-  const left = boardRect.left + squareSize * colIndex;
+  const top = (local ? 0 : boardRect.top) + squareSize * rowIndex;
+  const left = (local ? 0 : boardRect.left) + squareSize * colIndex;
   return new DOMRect(left, top, squareSize, squareSize);
 }
 
