@@ -167,6 +167,7 @@ const tabId = (() => {
 let sessionChannel: BroadcastChannel | null = null;
 let activeSessionTimer: number | null = null;
 let activeSessionOnLoad: { user: string; tabId: string; ts: number } | null = null;
+let followedTarget: string | null = null;
 
 /**
  * Used to call session.send() from inline JS.
@@ -174,6 +175,45 @@ let activeSessionOnLoad: { user: string; tabId: string; ts: number } | null = nu
 (window as any).sessionSend = (cmd: string) => {
   session.send(cmd);
 };
+
+function updateFollowedUserStatus() {
+  const unfollowButton = $('#unfollow-following-btn');
+  if(!unfollowButton.length)
+    return;
+
+  const focusedGame = games?.focused;
+  const followingActive = !!followedTarget;
+  unfollowButton.text('Stop Following');
+  unfollowButton.attr('title', 'Stop Following');
+  unfollowButton.toggle(followingActive);
+
+  const shouldShowHeader = !Utils.isSmallWindow()
+    && (followingActive || !!focusedGame?.isObserving?.() || !!focusedGame?.isExamining?.());
+  if(shouldShowHeader)
+    showPanel('#left-panel-header-2');
+  else
+    hidePanel('#left-panel-header-2');
+}
+
+export function getFollowedUser(): string | null {
+  if(!followedTarget || followedTarget.startsWith('/'))
+    return null;
+  return followedTarget;
+}
+
+export function setFollowedUser(user: string | null) {
+  followedTarget = user ? user.trim() : null;
+  if(!followedTarget)
+    followedTarget = null;
+  updateFollowedUserStatus();
+}
+
+function setFollowedModeTarget(target: string | null) {
+  followedTarget = target ? target.trim() : null;
+  if(!followedTarget)
+    followedTarget = null;
+  updateFollowedUserStatus();
+}
 
 function isAndroidCapacitor() {
   return Utils.isCapacitor() && Capacitor.getPlatform && Capacitor.getPlatform() === 'android';
@@ -2045,6 +2085,45 @@ function handleMiscMessage(data: any) {
     return;
   }
 
+  match = msg.match(/^You will now be following strongest players' games\./m);
+  if(match) {
+    setFollowedModeTarget('/strongest');
+    const followMsg = match[0];
+    msg = Utils.removeLine(msg, followMsg);
+    if(msg) {
+      data.message = msg;
+    }
+    else {
+      return;
+    }
+  }
+
+  match = msg.match(/^You will now be following\s+(\S+)'s games\./m);
+  if(match && match.length > 1) {
+    setFollowedUser(match[1]);
+    const followMsg = match[0];
+    msg = Utils.removeLine(msg, followMsg);
+    if(msg) {
+      data.message = msg;
+    }
+    else {
+      return;
+    }
+  }
+
+  match = msg.match(/^You will not follow any player's games\./m);
+  if(match) {
+    setFollowedModeTarget(null);
+    const unfollowMsg = match[0];
+    msg = Utils.removeLine(msg, unfollowMsg);
+    if(msg) {
+      data.message = msg;
+    }
+    else {
+      return;
+    }
+  }
+
   if((msg.startsWith('Record for') || msg.startsWith('There is no (registered )?player matching the name') || msg === 'No player game stats to show.' || /^'\S+' is not a valid handle/.test(msg)) && awaiting.resolve('info-pstat')) {
     Dialogs.showInfoDialog('Head to Head', msg);
     return;
@@ -2411,13 +2490,24 @@ function handleMiscMessage(data: any) {
 
   match = msg.match(/^You are now observing game \d+\./m);
   if(match) {
+    const hasRemovalLine = /^Removing game \d+ from observation list\./m.test(msg)
+      || /^You are no longer examining game \d+\./m.test(msg);
+
+    if(hasRemovalLine) {
+      data.message = msg = Utils.removeLine(msg, match[0]);
+      if(!msg)
+        return;
+    }
+
     if(awaiting.resolve('obs')) {
       $('#observe-pane-status').hide();
       return;
     }
 
-    chat.newMessage('console', data);
-    return;
+    if(!hasRemovalLine) {
+      chat.newMessage('console', data);
+      return;
+    }
   }
 
   /* Parse score and termination reason for examined games */
@@ -2673,6 +2763,7 @@ export function cleanup() {
   chat?.cleanup();
   tournaments?.cleanup();
   awaiting.clearAll();
+  setFollowedModeTarget(null);
   partnerGameId = null;
   userVariables = {};
   pendingTells = [];
@@ -3895,6 +3986,9 @@ function createGame(): Game {
 }
 
 export function setGameWithFocus(game: Game) {
+  if(!game)
+    return;
+
   if(game !== games.focused) {
     if(games.focused) {
       games.focused.element.removeClass('game-focused');
@@ -3919,7 +4013,8 @@ export function setGameWithFocus(game: Game) {
 
     games.focused = game;
 
-    setMovelistViewMode();
+    if(game.history)
+      setMovelistViewMode();
     initGameControls(game);
 
     updateBoard(game);
@@ -3964,7 +4059,7 @@ function initGameControls(game: Game) {
 
   $('#takeback').prop('disabled', game.role === Role.PLAYING_COMPUTER);
 
-  if((game.isExamining() || game.isObserving()) && !Utils.isSmallWindow())
+  if((game.isExamining() || game.isObserving() || !!followedTarget) && !Utils.isSmallWindow())
     showPanel('#left-panel-header-2');
   else
     hidePanel('#left-panel-header-2');
@@ -4112,7 +4207,10 @@ function cleanupGame(game: Game) {
   if(game === games.focused) {
     Utils.hideButton($('#stop-observing'));
     Utils.hideButton($('#stop-examining'));
-    hidePanel('#left-panel-header-2');
+    if(followedTarget && !Utils.isSmallWindow())
+      showPanel('#left-panel-header-2');
+    else
+      hidePanel('#left-panel-header-2');
     $('#takeback').prop('disabled', false);
     $('#play-computer').prop('disabled', false);
     $('#playing-game-buttons').hide();
@@ -4157,6 +4255,9 @@ function cleanupGame(game: Game) {
 }
 
 async function getOpening(game: Game) {
+  if(!game?.history)
+    return;
+
   const historyItem = game.history.current();
 
   const fetchOpenings = async () => {
@@ -4187,6 +4288,9 @@ async function getOpening(game: Game) {
     fetchOpeningsPromise = fetchOpenings();
   }
   await fetchOpeningsPromise;
+
+  if(!game?.history)
+    return;
 
   const shortFen = historyItem.fen.split(' ').slice(0, -2).join(' '); // Remove ply counts
   const opening = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard'].includes(game.category)
@@ -4421,11 +4525,18 @@ function hidePanel(id: string) {
 }
 
 $('#stop-observing').on('click', () => {
-  session.send(`unobs ${games.focused.id}`);
+  const focusedGame = games.focused;
+  if(focusedGame?.isObserving?.())
+    session.send(`unobs ${focusedGame.id}`);
 });
 
 $('#stop-examining').on('click', () => {
   session.send('unex');
+});
+
+$('#unfollow-following-btn').on('click', () => {
+  session.send('follow');
+  setFollowedModeTarget(null);
 });
 
 /** ********************
@@ -5887,7 +5998,8 @@ function setViewModeTable() {
   $('#movelists').hide();
   $('#move-table').show();
   $('#game-table-view').prop('checked', true);
-  games.focused.history.highlightMove();
+  if(games.focused?.history)
+    games.focused.history.highlightMove();
 }
 
 /**
@@ -5899,13 +6011,17 @@ function setViewModeList() {
   $('#move-table').hide();
   $('#movelists').show();
   $('#game-list-view').prop('checked', true);
-  games.focused.history.highlightMove();
+  if(games.focused?.history)
+    games.focused.history.highlightMove();
 }
 
 /**
  * Sets the move list view mode based on which toggle button is currently selected
  */
 function setMovelistViewMode() {
+  if(!games.focused?.history)
+    return;
+
   if($('#game-table-view').is(':checked'))
     setViewModeTable();
   else
@@ -7185,6 +7301,11 @@ function initAnalysis(game: Game) {
   // Check if game category (variant) is supported by Engine
   if(game === games.focused) {
     stopEvalEngine();
+
+    if(!game.history) {
+      hideAnalysis();
+      return;
+    }
 
     if(game.category) {
       if(Engine.categorySupported(game.category)) {

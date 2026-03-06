@@ -4,7 +4,7 @@
 
 import { awaiting, storage } from './storage';
 import { createContextMenuTrigger, createContextMenu, getValue, removeWithTooltips, sortTable, scrollToTop, getTouchClickCoordinates } from './utils';
-import { showTab, setRematchUser } from './index';
+import { showTab, setRematchUser, getFollowedUser, setFollowedUser } from './index';
 import { showDialog } from './dialogs';
 
 /** 
@@ -513,6 +513,8 @@ export class Users {
     const nameElement = $(e.target).closest('[data-name]');
     let name = nameElement.length ? nameElement.attr('data-name') : $(e.target).text();
     name = name.trim().split('(')[0]; // Remove titles from end of username
+    const followedUser = getFollowedUser();
+    const isFollowingUser = !!followedUser && followedUser.toLowerCase() === name.toLowerCase();
 
     const menu = (name.toLowerCase() === this.session.getUser().toLowerCase())
       ? $(`<ul class="dropdown-menu noselect user-actions-menu">
@@ -524,8 +526,7 @@ export class Users {
         <li><a class="dropdown-item" data-action="challenge">Challenge</a></li>
         <li><a class="dropdown-item" data-action="rematch">Rematch</a></li>
         <li><a class="dropdown-item" data-action="observe">Observe</a></li>
-        <li><a class="dropdown-item" data-action="follow">Follow</a></li>
-        <li><a class="dropdown-item" data-action="unfollow">Unfollow</a></li>
+        <li><a class="dropdown-item" data-action="${isFollowingUser ? 'unfollow' : 'follow'}">${isFollowingUser ? 'Unfollow' : 'Follow'}</a></li>
         <li><a class="dropdown-item" data-action="finger">Finger</a></li>
         <li><a class="dropdown-item" data-action="history">History</a></li>
         <li><a class="dropdown-item" data-action="h2h">Head to Head</a></li>
@@ -584,9 +585,11 @@ export class Users {
             break;
           case 'follow':
             this.session.send(`follow ${name}`);
+            setFollowedUser(name);
             break;
           case 'unfollow':
             this.session.send(`follow`);
+            setFollowedUser(null);
             break;
           case 'finger':
             // Create an info dialog with the user's finger info
