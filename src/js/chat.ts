@@ -904,13 +904,18 @@ export class Chat {
     this.newMessage(currentTab, {message: msg}, true);
   }
 
+  /**
+   * Remove private tabs if they are empty and not the active tab
+   */
   public closeUnusedPrivateTabs() {
     $('#tabs .nav-link').each((index, element) => {
-      const id = $(element).attr('id');
-      if(id !== 'tab-console' && !/^tab-(game-|\d+)/.test(id)) {
-        const chatText = $($(element).attr('href')).find('.chat-text');
+      const tab = $(element);
+      const id = tab.attr('id');
+      if(id !== 'tab-console' && !/^tab-(game-|\d+)/.test(id) && !tab.hasClass('active')
+          && !this.getTabDataFromElement(tab).messages.length) {
+        const chatText = $(tab.attr('href')).find('.chat-text');
         if(chatText.html() === '')
-          this.closeTab($(element))
+          this.closeTab(tab) 
       }
     });
   }

@@ -2353,6 +2353,28 @@ function handleMiscMessage(data: any) {
     }
   }
 
+  match = msg.match(/^Removing game (\d+) from observation list./m);
+  if(!match)
+    match = msg.match(/^You are no longer examining game (\d+)./m);
+  if(match != null && match.length > 1) {
+    const game = games.findGame(+match[1]);
+    if(game) {
+      mexamineGame = game; // Stores the game in case a 'mexamine' is about to be issued.
+      if(game === games.focused)
+        stopEngine();
+      else
+        game.engineRunning = false;
+      cleanupGame(game);
+    }
+
+    const index = gameExitPending.indexOf(+match[1]);
+    if(index !== -1) {
+      gameExitPending.splice(index, 1);
+      if(!gameExitPending.length && !settings.multiboardToggle)
+        session.send('refresh');
+    }
+  }
+
   match = msg.match(/^(Creating|Game\s(\d+)): (\S+) \(([\d\+\-\s]+)\) (\S+) \(([\d\-\+\s]+)\) \S+ (\S+).+/m);
   if(match != null && match.length > 7) {
     let game: Game;
@@ -2410,29 +2432,6 @@ function handleMiscMessage(data: any) {
       game.history.setMetatags({Result: score, Termination: reason});
       return;
     }
-  }
-
-  match = msg.match(/^Removing game (\d+) from observation list./m);
-  if(!match)
-    match = msg.match(/^You are no longer examining game (\d+)./m);
-  if(match != null && match.length > 1) {
-    const game = games.findGame(+match[1]);
-    if(game) {
-      mexamineGame = game; // Stores the game in case a 'mexamine' is about to be issued.
-      if(game === games.focused)
-        stopEngine();
-      else
-        game.engineRunning = false;
-      cleanupGame(game);
-    }
-
-    const index = gameExitPending.indexOf(+match[1]);
-    if(index !== -1) {
-      gameExitPending.splice(index, 1);
-      if(!gameExitPending.length && !settings.multiboardToggle)
-        session.send('refresh');
-    }
-    return;
   }
 
   match = msg.match(/(?:^|\n)-- channel list: \d+ channels --\s*([\d\s]*)/);
