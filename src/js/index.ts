@@ -2490,24 +2490,13 @@ function handleMiscMessage(data: any) {
 
   match = msg.match(/^You are now observing game \d+\./m);
   if(match) {
-    const hasRemovalLine = /^Removing game \d+ from observation list\./m.test(msg)
-      || /^You are no longer examining game \d+\./m.test(msg);
-
-    if(hasRemovalLine) {
-      data.message = msg = Utils.removeLine(msg, match[0]);
-      if(!msg)
-        return;
-    }
-
     if(awaiting.resolve('obs')) {
       $('#observe-pane-status').hide();
       return;
     }
 
-    if(!hasRemovalLine) {
-      chat.newMessage('console', data);
-      return;
-    }
+    chat.newMessage('console', data);
+    return;
   }
 
   /* Parse score and termination reason for examined games */
@@ -3986,9 +3975,6 @@ function createGame(): Game {
 }
 
 export function setGameWithFocus(game: Game) {
-  if(!game)
-    return;
-
   if(game !== games.focused) {
     if(games.focused) {
       games.focused.element.removeClass('game-focused');
@@ -4013,8 +3999,7 @@ export function setGameWithFocus(game: Game) {
 
     games.focused = game;
 
-    if(game.history)
-      setMovelistViewMode();
+    setMovelistViewMode();
     initGameControls(game);
 
     updateBoard(game);
@@ -4255,9 +4240,6 @@ function cleanupGame(game: Game) {
 }
 
 async function getOpening(game: Game) {
-  if(!game?.history)
-    return;
-
   const historyItem = game.history.current();
 
   const fetchOpenings = async () => {
@@ -4288,9 +4270,6 @@ async function getOpening(game: Game) {
     fetchOpeningsPromise = fetchOpenings();
   }
   await fetchOpeningsPromise;
-
-  if(!game?.history)
-    return;
 
   const shortFen = historyItem.fen.split(' ').slice(0, -2).join(' '); // Remove ply counts
   const opening = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard'].includes(game.category)
@@ -4525,9 +4504,7 @@ function hidePanel(id: string) {
 }
 
 $('#stop-observing').on('click', () => {
-  const focusedGame = games.focused;
-  if(focusedGame?.isObserving?.())
-    session.send(`unobs ${focusedGame.id}`);
+  session.send(`unobs ${games.focused.id}`);
 });
 
 $('#stop-examining').on('click', () => {
@@ -5998,8 +5975,7 @@ function setViewModeTable() {
   $('#movelists').hide();
   $('#move-table').show();
   $('#game-table-view').prop('checked', true);
-  if(games.focused?.history)
-    games.focused.history.highlightMove();
+  games.focused.history.highlightMove();
 }
 
 /**
@@ -6011,17 +5987,13 @@ function setViewModeList() {
   $('#move-table').hide();
   $('#movelists').show();
   $('#game-list-view').prop('checked', true);
-  if(games.focused?.history)
-    games.focused.history.highlightMove();
+  games.focused.history.highlightMove();
 }
 
 /**
  * Sets the move list view mode based on which toggle button is currently selected
  */
 function setMovelistViewMode() {
-  if(!games.focused?.history)
-    return;
-
   if($('#game-table-view').is(':checked'))
     setViewModeTable();
   else
@@ -7301,11 +7273,6 @@ function initAnalysis(game: Game) {
   // Check if game category (variant) is supported by Engine
   if(game === games.focused) {
     stopEvalEngine();
-
-    if(!game.history) {
-      hideAnalysis();
-      return;
-    }
 
     if(game.category) {
       if(Engine.categorySupported(game.category)) {
