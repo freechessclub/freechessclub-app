@@ -168,6 +168,7 @@ let sessionChannel: BroadcastChannel | null = null;
 let activeSessionTimer: number | null = null;
 let activeSessionOnLoad: { user: string; tabId: string; ts: number } | null = null;
 let followedTarget: string | null = null;
+let pendingFollowModeTarget: string | null = null;
 
 /**
  * Used to call session.send() from inline JS.
@@ -177,22 +178,37 @@ let followedTarget: string | null = null;
 };
 
 function updateFollowedUserStatus() {
-  const unfollowButton = $('#unfollow-following-btn');
-  if(!unfollowButton.length)
+  const stopFollowButton = $('#follow-stop-btn');
+  const followTargetLabel = $('#follow-current-target');
+  if(!stopFollowButton.length)
     return;
 
-  const focusedGame = games?.focused;
   const followingActive = !!followedTarget;
-  unfollowButton.text('Stop Following');
-  unfollowButton.attr('title', 'Stop Following');
-  unfollowButton.toggle(followingActive);
+  stopFollowButton.text('Stop');
+  stopFollowButton.attr('title', 'Stop Following');
+  stopFollowButton.toggle(followingActive);
 
-  const shouldShowHeader = !Utils.isSmallWindow()
-    && (followingActive || !!focusedGame?.isObserving?.() || !!focusedGame?.isExamining?.());
-  if(shouldShowHeader)
-    showPanel('#left-panel-header-2');
-  else
-    hidePanel('#left-panel-header-2');
+  if(followTargetLabel.length) {
+    const modeNames: { [key: string]: string } = {
+      '/l': 'top lightning game',
+      '/b': 'top blitz game',
+      '/s': 'top standard game',
+      '/S': 'top suicide game',
+      '/w': 'top wild game',
+      '/z': 'top crazyhouse game',
+      '/B': 'top bughouse game',
+      '/L': 'top losers game',
+      '/x': 'top atomic game',
+      '/strongest': 'strongest players\' games',
+    };
+
+    if(!followedTarget)
+      followTargetLabel.text('Not following anyone.');
+    else if(followedTarget.startsWith('/'))
+      followTargetLabel.text(`Following: ${modeNames[followedTarget] || followedTarget}`);
+    else
+      followTargetLabel.text(`Following: ${followedTarget}`);
+  }
 }
 
 export function getFollowedUser(): string | null {
@@ -202,6 +218,7 @@ export function getFollowedUser(): string | null {
 }
 
 export function setFollowedUser(user: string | null) {
+  pendingFollowModeTarget = null;
   setFollowedTarget(user);
 }
 
@@ -2084,7 +2101,8 @@ function handleMiscMessage(data: any) {
 
   match = msg.match(/^You will now be following strongest players' games\./m);
   if(match) {
-    setFollowedTarget('/strongest');
+    setFollowedTarget(pendingFollowModeTarget || '/strongest');
+    pendingFollowModeTarget = null;
     const followMsg = match[0];
     msg = Utils.removeLine(msg, followMsg);
     if(msg) {
@@ -2097,6 +2115,7 @@ function handleMiscMessage(data: any) {
 
   match = msg.match(/^You will now be following\s+(\S+)'s games\./m);
   if(match && match.length > 1) {
+    pendingFollowModeTarget = null;
     setFollowedUser(match[1]);
     const followMsg = match[0];
     msg = Utils.removeLine(msg, followMsg);
@@ -2110,6 +2129,7 @@ function handleMiscMessage(data: any) {
 
   match = msg.match(/^You will not follow any player's games\./m);
   if(match) {
+    pendingFollowModeTarget = null;
     setFollowedTarget(null);
     const unfollowMsg = match[0];
     msg = Utils.removeLine(msg, unfollowMsg);
@@ -4041,7 +4061,7 @@ function initGameControls(game: Game) {
 
   $('#takeback').prop('disabled', game.role === Role.PLAYING_COMPUTER);
 
-  if((game.isExamining() || game.isObserving() || !!followedTarget) && !Utils.isSmallWindow())
+  if((game.isExamining() || game.isObserving()) && !Utils.isSmallWindow())
     showPanel('#left-panel-header-2');
   else
     hidePanel('#left-panel-header-2');
@@ -4189,10 +4209,7 @@ function cleanupGame(game: Game) {
   if(game === games.focused) {
     Utils.hideButton($('#stop-observing'));
     Utils.hideButton($('#stop-examining'));
-    if(followedTarget && !Utils.isSmallWindow())
-      showPanel('#left-panel-header-2');
-    else
-      hidePanel('#left-panel-header-2');
+    hidePanel('#left-panel-header-2');
     $('#takeback').prop('disabled', false);
     $('#play-computer').prop('disabled', false);
     $('#playing-game-buttons').hide();
@@ -4508,7 +4525,8 @@ $('#stop-examining').on('click', () => {
   session.send('unex');
 });
 
-$('#unfollow-following-btn').on('click', () => {
+$('#follow-stop-btn').on('click', () => {
+  pendingFollowModeTarget = null;
   session.send('follow');
   setFollowedTarget(null);
 });
@@ -5608,6 +5626,34 @@ function observe(id?: string) {
     session.send(`obs ${id}`);
   }
 }
+
+$('#follow-user-form').on('submit', (event) => {
+  event.preventDefault();
+  $('#follow-user-go').trigger('focus');
+  followUser();
+  return false;
+});
+
+function followUser() {
+  let user = Utils.getValue('#follow-username');
+  user = user.trim().split(/\s+/)[0];
+  $('#follow-username').val(user);
+  if(user.length > 0) {
+    pendingFollowModeTarget = null;
+    session.send(`follow ${user}`);
+    setFollowedUser(user);
+  }
+}
+
+$(document).on('click', '[data-follow-mode]', function() {
+  const mode = ($(this).attr('data-follow-mode') || '').trim();
+  if(!mode)
+    return;
+
+  pendingFollowModeTarget = mode;
+  session.send(`follow ${mode}`);
+  setFollowedTarget(mode);
+});
 
 function showGames(gamesStr: string) {
   if(!$('#pills-observe').hasClass('active'))
