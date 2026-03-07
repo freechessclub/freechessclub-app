@@ -167,6 +167,7 @@ const tabId = (() => {
 let sessionChannel: BroadcastChannel | null = null;
 let activeSessionTimer: number | null = null;
 let activeSessionOnLoad: { user: string; tabId: string; ts: number } | null = null;
+let followedTarget: string | null = null;
 
 /**
  * Used to call session.send() from inline JS.
@@ -174,6 +175,44 @@ let activeSessionOnLoad: { user: string; tabId: string; ts: number } | null = nu
 (window as any).sessionSend = (cmd: string) => {
   session.send(cmd);
 };
+
+function updateFollowedUserStatus() {
+  const stopFollowButton = $('#follow-stop-btn');
+  const followTargetLabel = $('#follow-current-target');
+  if(!stopFollowButton.length)
+    return;
+
+  const followingActive = !!followedTarget;
+  stopFollowButton.text('Stop');
+  stopFollowButton.attr('title', 'Stop Following');
+  stopFollowButton.toggle(followingActive);
+
+  if(followTargetLabel.length) {
+    if(!followedTarget)
+      followTargetLabel.text('Not following anyone.');
+    else if(followedTarget.startsWith('/'))
+      followTargetLabel.text('Following: strongest players\' games');
+    else
+      followTargetLabel.text(`Following: ${followedTarget}`);
+  }
+}
+
+export function getFollowedUser(): string | null {
+  if(!followedTarget || followedTarget.startsWith('/'))
+    return null;
+  return followedTarget;
+}
+
+export function setFollowedUser(user: string | null) {
+  setFollowedTarget(user);
+}
+
+function setFollowedTarget(target: string | null) {
+  followedTarget = target ? target.trim() : null;
+  if(!followedTarget)
+    followedTarget = null;
+  updateFollowedUserStatus();
+}
 
 function isAndroidCapacitor() {
   return Utils.isCapacitor() && Capacitor.getPlatform && Capacitor.getPlatform() === 'android';
@@ -2045,6 +2084,45 @@ function handleMiscMessage(data: any) {
     return;
   }
 
+  match = msg.match(/^You will now be following strongest players' games\./m);
+  if(match) {
+    setFollowedTarget('/strongest');
+    const followMsg = match[0];
+    msg = Utils.removeLine(msg, followMsg);
+    if(msg) {
+      data.message = msg;
+    }
+    else {
+      return;
+    }
+  }
+
+  match = msg.match(/^You will now be following\s+(\S+)'s games\./m);
+  if(match && match.length > 1) {
+    setFollowedUser(match[1]);
+    const followMsg = match[0];
+    msg = Utils.removeLine(msg, followMsg);
+    if(msg) {
+      data.message = msg;
+    }
+    else {
+      return;
+    }
+  }
+
+  match = msg.match(/^You will not follow any player's games\./m);
+  if(match) {
+    setFollowedTarget(null);
+    const unfollowMsg = match[0];
+    msg = Utils.removeLine(msg, unfollowMsg);
+    if(msg) {
+      data.message = msg;
+    }
+    else {
+      return;
+    }
+  }
+
   if((msg.startsWith('Record for') || msg.startsWith('There is no (registered )?player matching the name') || msg === 'No player game stats to show.' || /^'\S+' is not a valid handle/.test(msg)) && awaiting.resolve('info-pstat')) {
     Dialogs.showInfoDialog('Head to Head', msg);
     return;
@@ -2673,6 +2751,7 @@ export function cleanup() {
   chat?.cleanup();
   tournaments?.cleanup();
   awaiting.clearAll();
+  setFollowedTarget(null);
   partnerGameId = null;
   userVariables = {};
   pendingTells = [];
@@ -4428,6 +4507,11 @@ $('#stop-examining').on('click', () => {
   session.send('unex');
 });
 
+$('#follow-stop-btn').on('click', () => {
+  session.send('follow');
+  setFollowedTarget(null);
+});
+
 /** ********************
  * PLAY PANEL FUCTIONS *
  ***********************/
@@ -5523,6 +5607,32 @@ function observe(id?: string) {
     session.send(`obs ${id}`);
   }
 }
+
+$('#follow-user-form').on('submit', (event) => {
+  event.preventDefault();
+  $('#follow-user-go').trigger('focus');
+  followUser();
+  return false;
+});
+
+function followUser() {
+  let user = Utils.getValue('#follow-username');
+  user = user.trim().split(/\s+/)[0];
+  $('#follow-username').val(user);
+  if(user.length > 0) {
+    session.send(`follow ${user}`);
+    setFollowedUser(user);
+  }
+}
+
+$(document).on('click', '[data-follow-mode]', function() {
+  const mode = ($(this).attr('data-follow-mode') || '').trim();
+  if(!mode)
+    return;
+
+  session.send(`follow ${mode}`);
+  setFollowedTarget('/strongest');
+});
 
 function showGames(gamesStr: string) {
   if(!$('#pills-observe').hasClass('active'))

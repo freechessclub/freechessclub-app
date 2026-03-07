@@ -65,8 +65,10 @@
                 </div>
               </div>
               <div id="left-panel-header-2" class="card-header top-panel center" style="display: none">
-                <button type="button" id="stop-observing" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Observing"><span class="fa fa-times-circle me-2" aria-hidden="false"></span>Stop Observing</button>
-                <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Examining"><span class="fa fa-times-circle me-2" aria-hidden="false"></span>Stop Examining</button>
+                <div class="d-flex justify-content-center gap-1 w-100">
+                  <button type="button" id="stop-observing" style="display: none" class="btn btn-outline-secondary btn-sm" title="Stop Observing">Stop Observing</button>
+                  <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-sm" title="Stop Examining">Stop Examining</button>
+                </div>
               </div>
               <div class="card-body p-0">
                 <ul class="nav nav-pills nav-fill user-select-none" id="pills-tab" role="tablist">
@@ -74,7 +76,7 @@
                     <button class="nav-link py-2" id="pills-play-tab" data-bs-toggle="pill" data-bs-target="#pills-play" type="button" role="tab" aria-controls="pills-play" aria-selected="true">Play</button>
                   </li>
                   <li class="nav-item" role="presentation">
-                    <button class="nav-link py-2" id="pills-observe-tab" data-bs-toggle="pill" data-bs-target="#pills-observe" type="button" role="tab" aria-controls="pills-observe" aria-selected="false">Observe</button>
+                    <button class="nav-link py-2" id="pills-observe-tab" data-bs-toggle="pill" data-bs-target="#pills-observe" type="button" role="tab" aria-controls="pills-observe" aria-selected="false">Watch</button>
                   </li>
                   <li class="nav-item" role="presentation">
                     <button class="nav-link py-2" id="pills-history-tab" data-bs-toggle="pill" data-bs-target="#pills-history" type="button" role="tab" aria-controls="pills-history" aria-selected="false">History</button>
@@ -325,15 +327,56 @@
                       </div>
                       <div class="tab-pane pt-2 fade h-100" id="pills-observe" role="tabpanel" aria-labelledby="pills-observe-tab">
                         <div class="d-flex flex-column h-100">
-                          <div class="pane-status" id="observe-pane-status" style="display: none"></div>
-                          <form id="observe-user">
-                            <div class="input-group">
-                              <span class="input-group-text" id="observe-user-group">Observe</span>
-                              <input type="text" class="form-control" id="observe-username" placeholder="Player name" aria-describedby="observe-user" spellcheck="false">
-                              <button type="submit" class="btn btn-outline-secondary btn-md" id="observe-go">Go</button>
+                          <ul class="nav nav-tabs nav-fill" id="pills-watch-subtab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                              <button class="nav-link active" id="pills-watch-observe-tab" data-bs-toggle="tab" data-bs-target="#pills-watch-observe" type="button" role="tab" aria-controls="pills-watch-observe" aria-selected="true">Observe</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                              <button class="nav-link" id="pills-watch-follow-tab" data-bs-toggle="tab" data-bs-target="#pills-watch-follow" type="button" role="tab" aria-controls="pills-watch-follow" aria-selected="false">Follow</button>
+                            </li>
+                          </ul>
+                          <div id="watch-pane-subcontent" class="tab-content flex-grow-1 overflow-auto" style="min-height: 0">
+                            <div class="tab-pane fade show active h-100" id="pills-watch-observe" role="tabpanel" aria-labelledby="pills-watch-observe-tab">
+                              <div class="d-flex flex-column h-100">
+                                <div class="pane-status" id="observe-pane-status" style="display: none"></div>
+                                <form id="observe-user">
+                                  <div class="input-group">
+                                    <span class="input-group-text" id="observe-user-group">Observe</span>
+                                    <input type="text" class="form-control" id="observe-username" placeholder="Player name" aria-describedby="observe-user" spellcheck="false">
+                                    <button type="submit" class="btn btn-outline-secondary btn-md" id="observe-go">Go</button>
+                                  </div>
+                                </form>
+                                <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="games-table"></div>
+                              </div>
                             </div>
-                          </form>
-                          <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="games-table"></div>
+                            <div class="tab-pane fade h-100" id="pills-watch-follow" role="tabpanel" aria-labelledby="pills-watch-follow-tab">
+                              <div class="d-flex flex-column h-100">
+                                <div class="pane-status" id="follow-pane-status" style="display: none"></div>
+                                <div class="d-flex justify-content-center align-items-center gap-2 mt-2 pt-1 pb-2 mb-2">
+                                  <div class="small text-muted text-center m-0" id="follow-current-target">Not following anyone.</div>
+                                  <button type="button" id="follow-stop-btn" style="display: none" class="btn btn-outline-secondary btn-sm py-0 px-2" title="Stop Following">Stop</button>
+                                </div>
+                                <form id="follow-user-form">
+                                  <div class="input-group">
+                                    <span class="input-group-text" id="follow-user-group">Follow</span>
+                                    <input type="text" class="form-control" id="follow-username" placeholder="Player name" aria-describedby="follow-user-group" spellcheck="false">
+                                    <button type="submit" class="btn btn-outline-secondary btn-md" id="follow-user-go">Go</button>
+                                  </div>
+                                </form>
+                                <div class="btn-group-vertical w-100 mb-2" role="group" aria-label="Follow strongest modes">
+                                  <button type="button" class="btn btn-outline-secondary" data-follow-mode="/l">Follow top lightning game</button>
+                                  <button type="button" class="btn btn-outline-secondary" data-follow-mode="/b">Follow top blitz game</button>
+                                  <button type="button" class="btn btn-outline-secondary" data-follow-mode="/s">Follow top standard game</button>
+                                  <button type="button" class="btn btn-outline-secondary" data-follow-mode="/S">Follow top suicide game</button>
+                                  <button type="button" class="btn btn-outline-secondary" data-follow-mode="/w">Follow top wild game</button>
+                                  <button type="button" class="btn btn-outline-secondary" data-follow-mode="/z">Follow top crazyhouse game</button>
+                                  <button type="button" class="btn btn-outline-secondary" data-follow-mode="/B">Follow top bughouse game</button>
+                                  <button type="button" class="btn btn-outline-secondary" data-follow-mode="/L">Follow top losers game</button>
+                                  <button type="button" class="btn btn-outline-secondary" data-follow-mode="/x">Follow top atomic game</button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                       <div class="tab-pane pt-2 fade h-100" id="pills-history" role="tabpanel" aria-labelledby="pills-history-tab">
