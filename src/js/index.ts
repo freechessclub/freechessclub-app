@@ -168,7 +168,6 @@ let sessionChannel: BroadcastChannel | null = null;
 let activeSessionTimer: number | null = null;
 let activeSessionOnLoad: { user: string; tabId: string; ts: number } | null = null;
 let followedTarget: string | null = null;
-let pendingFollowModeTarget: string | null = null;
 
 /**
  * Used to call session.send() from inline JS.
@@ -189,23 +188,10 @@ function updateFollowedUserStatus() {
   stopFollowButton.toggle(followingActive);
 
   if(followTargetLabel.length) {
-    const modeNames: { [key: string]: string } = {
-      '/l': 'top lightning game',
-      '/b': 'top blitz game',
-      '/s': 'top standard game',
-      '/S': 'top suicide game',
-      '/w': 'top wild game',
-      '/z': 'top crazyhouse game',
-      '/B': 'top bughouse game',
-      '/L': 'top losers game',
-      '/x': 'top atomic game',
-      '/strongest': 'strongest players\' games',
-    };
-
     if(!followedTarget)
       followTargetLabel.text('Not following anyone.');
     else if(followedTarget.startsWith('/'))
-      followTargetLabel.text(`Following: ${modeNames[followedTarget] || followedTarget}`);
+      followTargetLabel.text('Following: strongest players\' games');
     else
       followTargetLabel.text(`Following: ${followedTarget}`);
   }
@@ -218,7 +204,6 @@ export function getFollowedUser(): string | null {
 }
 
 export function setFollowedUser(user: string | null) {
-  pendingFollowModeTarget = null;
   setFollowedTarget(user);
 }
 
@@ -2101,8 +2086,7 @@ function handleMiscMessage(data: any) {
 
   match = msg.match(/^You will now be following strongest players' games\./m);
   if(match) {
-    setFollowedTarget(pendingFollowModeTarget || '/strongest');
-    pendingFollowModeTarget = null;
+    setFollowedTarget('/strongest');
     const followMsg = match[0];
     msg = Utils.removeLine(msg, followMsg);
     if(msg) {
@@ -2115,7 +2099,6 @@ function handleMiscMessage(data: any) {
 
   match = msg.match(/^You will now be following\s+(\S+)'s games\./m);
   if(match && match.length > 1) {
-    pendingFollowModeTarget = null;
     setFollowedUser(match[1]);
     const followMsg = match[0];
     msg = Utils.removeLine(msg, followMsg);
@@ -2129,7 +2112,6 @@ function handleMiscMessage(data: any) {
 
   match = msg.match(/^You will not follow any player's games\./m);
   if(match) {
-    pendingFollowModeTarget = null;
     setFollowedTarget(null);
     const unfollowMsg = match[0];
     msg = Utils.removeLine(msg, unfollowMsg);
@@ -4526,7 +4508,6 @@ $('#stop-examining').on('click', () => {
 });
 
 $('#follow-stop-btn').on('click', () => {
-  pendingFollowModeTarget = null;
   session.send('follow');
   setFollowedTarget(null);
 });
@@ -5639,7 +5620,6 @@ function followUser() {
   user = user.trim().split(/\s+/)[0];
   $('#follow-username').val(user);
   if(user.length > 0) {
-    pendingFollowModeTarget = null;
     session.send(`follow ${user}`);
     setFollowedUser(user);
   }
@@ -5650,9 +5630,8 @@ $(document).on('click', '[data-follow-mode]', function() {
   if(!mode)
     return;
 
-  pendingFollowModeTarget = mode;
   session.send(`follow ${mode}`);
-  setFollowedTarget(mode);
+  setFollowedTarget('/strongest');
 });
 
 function showGames(gamesStr: string) {
