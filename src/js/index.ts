@@ -202,13 +202,10 @@ export function getFollowedUser(): string | null {
 }
 
 export function setFollowedUser(user: string | null) {
-  followedTarget = user ? user.trim() : null;
-  if(!followedTarget)
-    followedTarget = null;
-  updateFollowedUserStatus();
+  setFollowedTarget(user);
 }
 
-function setFollowedModeTarget(target: string | null) {
+function setFollowedTarget(target: string | null) {
   followedTarget = target ? target.trim() : null;
   if(!followedTarget)
     followedTarget = null;
@@ -2087,7 +2084,7 @@ function handleMiscMessage(data: any) {
 
   match = msg.match(/^You will now be following strongest players' games\./m);
   if(match) {
-    setFollowedModeTarget('/strongest');
+    setFollowedTarget('/strongest');
     const followMsg = match[0];
     msg = Utils.removeLine(msg, followMsg);
     if(msg) {
@@ -2113,7 +2110,7 @@ function handleMiscMessage(data: any) {
 
   match = msg.match(/^You will not follow any player's games\./m);
   if(match) {
-    setFollowedModeTarget(null);
+    setFollowedTarget(null);
     const unfollowMsg = match[0];
     msg = Utils.removeLine(msg, unfollowMsg);
     if(msg) {
@@ -2752,7 +2749,7 @@ export function cleanup() {
   chat?.cleanup();
   tournaments?.cleanup();
   awaiting.clearAll();
-  setFollowedModeTarget(null);
+  setFollowedTarget(null);
   partnerGameId = null;
   userVariables = {};
   pendingTells = [];
@@ -4513,7 +4510,7 @@ $('#stop-examining').on('click', () => {
 
 $('#unfollow-following-btn').on('click', () => {
   session.send('follow');
-  setFollowedModeTarget(null);
+  setFollowedTarget(null);
 });
 
 /** ********************
