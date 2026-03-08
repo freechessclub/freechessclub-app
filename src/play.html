@@ -1108,6 +1108,9 @@
                         <li class="nav-item" role="presentation">
                           <button class="nav-link" id="top-players-tab" data-bs-toggle="tab" data-bs-target="#top-players-panel" type="button" role="tab" aria-controls="top-players-panel" aria-selected="true">Top Players</button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                          <button class="nav-link" id="user-lists-tab" data-bs-toggle="tab" data-bs-target="#user-lists-panel" type="button" role="tab" aria-controls="user-lists-panel" aria-selected="true">Lists</button>
+                        </li>
                       </ul>
                       <div class="tab-content" id="users-content" style="height: 500px;">
                         <div class="tab-pane fade show active h-100 pt-3" id="friends-panel" role="tabpanel" aria-labelledby="friends-tab">
@@ -1178,6 +1181,28 @@
                                     <th scope="col" class="sortable-column" data-sort="asc" data-priority="2"><div class="sort-header-wrapper">Name<i class="fa fa-sort"></i></div></th>
                                     <th scope="col" class="sortable-column sort-primary text-end" data-sort="desc" data-priority="1"><div class="sort-header-wrapper"><i class="fa fa-sort"></i>Rating</div></th>
                                     <th scope="col" class="sortable-column" data-sort="asc" data-priority="3"><div class="sort-header-wrapper">Status<i class="fa fa-sort"></i></div></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="tab-pane fade h-100" id="user-lists-panel" role="tabpanel" aria-labelledby="user-lists-tab">
+                          <div class="d-flex flex-column h-100 pt-3">
+                            <button class="btn btn-outline-secondary dropdown-toggle" style="width: 15ch" id="user-lists-category-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">Censor</button>
+                            <ul class="dropdown-menu noselect" id="user-lists-category-menu">
+                              <li><a class="dropdown-item">Censor</a></li>
+                              <li><a class="dropdown-item">No Play</a></li>
+                            </ul>
+                            <div id="user-lists-table-container" class="mt-3 mb-1 flex-grow-1 overflow-auto" style="min-height: 0;">
+                              <table id="user-lists-table" class="table table-sm table-borderless table-striped modal-table users-table">
+                                <thead>
+                                  <tr>
+                                    <th scope="col" class="sortable-column" data-sort="asc" data-priority="2"><div class="sort-header-wrapper">Name<i class="fa fa-sort"></i></div></th>
+                                    <th scope="col" class="sortable-column text-end" data-sort="desc" data-priority="3"><div class="sort-header-wrapper"><i class="fa fa-sort"></i>Rating</div></th>
+                                    <th scope="col" class="sortable-column sort-primary" data-sort="asc" data-priority="1"><div class="sort-header-wrapper">Status<i class="fa fa-sort"></i></div></th>
                                   </tr>
                                 </thead>
                                 <tbody>

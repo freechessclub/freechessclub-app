@@ -1098,6 +1098,10 @@ function messageHandler(data: any) {
         awaiting.set('date');
         session.send('=notify'); // Get user's notify list to pre-populate friends
         awaiting.set('notify-list');
+        session.send('=censor'); // Get user's censor list for context-menu toggles
+        awaiting.set('censor-list');
+        session.send('=noplay'); // Get user's noplay list for context-menu toggles
+        awaiting.set('noplay-list');
         chat.connected(data.control);
         tournaments.connected(session);
 
@@ -2683,24 +2687,61 @@ function handleMiscMessage(data: any) {
   }
 
   if(/^-- notify list:/m.test(msg) && awaiting.resolve('notify-list')) {
-    users.notifyList = parseNotifyList(msg);
+    users.notifyList = parseUserListEntries(msg);
     users.addFriendList(users.notifyList.map(name => ({ name })));
     return;
   }
+
+  if(/^-- censor list:/m.test(msg) && awaiting.resolve('censor-list')) {
+    users.censorList = parseUserListEntries(msg);
+    users.updateUsers();
+    return;
+  }
+
+  if(/^-- noplay list:/m.test(msg) && awaiting.resolve('noplay-list')) {
+    users.noplayList = parseUserListEntries(msg);
+    users.updateUsers();
+    return;
+  }
   
-  match = msg.match(/^\[(\w+)\] added to your notify list\./m);
+  match = msg.match(/^\[([^\]]+)\] added to your (notify|censor|noplay) list\./m);
   if(match) {
     const user = match[1];
-    if(!users.notifyList.includes(user)) {
-      users.notifyList.push(user);
-      users.addFriend(user);
+    const listName = match[2].toLowerCase();
+    if(listName === 'notify') {
+      if(!users.notifyList.includes(user)) {
+        users.notifyList.push(user);
+        users.addFriend(user);
+      }
+    }
+    else if(listName === 'censor') {
+      if(!users.censorList.some(item => item.toLowerCase() === user.toLowerCase())) {
+        users.censorList.push(user);
+        users.updateUsers();
+      }
+    }
+    else if(listName === 'noplay') {
+      if(!users.noplayList.some(item => item.toLowerCase() === user.toLowerCase())) {
+        users.noplayList.push(user);
+        users.updateUsers();
+      }
     }
   }
 
-  match = msg.match(/^\[(\w+)\] removed from your notify list\./m);
+  match = msg.match(/^\[([^\]]+)\] removed from your (notify|censor|noplay) list\./m);
   if(match) {
     const user = match[1];
-    users.notifyList = users.notifyList.filter(item => item !== user);
+    const listName = match[2].toLowerCase();
+    if(listName === 'notify')
+      users.notifyList = users.notifyList.filter(item => item !== user);
+    else if(listName === 'censor') {
+      users.censorList = users.censorList.filter(item => item.toLowerCase() !== user.toLowerCase());
+      users.updateUsers();
+    }
+    else if(listName === 'noplay') {
+      users.noplayList = users.noplayList.filter(item => item.toLowerCase() !== user.toLowerCase());
+      users.updateUsers();
+    }
   }
 
   match = msg.match(/Blitz\s+Standard\s+Lightning/m);
@@ -2791,12 +2832,12 @@ function parseUserList(msg: string): any[] {
 }
 
 /**
- * Parse the result from the server '=notify' command into a list of usernames
+ * Parse the result from server list commands such as '=notify', '=censor' and '=noplay'
  */
-function parseNotifyList(msg: string): string[] {
+function parseUserListEntries(msg: string): string[] {
   const users: string[] = [];
   for(let line of msg.split('\n').slice(1)) {
-    const userStrings = line.split(/\s+/);
+    const userStrings = line.split(/\s+/).filter(Boolean);
     userStrings.forEach((val) => {
       users.push(val);
     });

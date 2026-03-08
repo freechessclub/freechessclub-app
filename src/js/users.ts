@@ -14,7 +14,9 @@ export class Users {
   private session = null;           // The current session
   private chat = null;              
   public userList: any[];           // The list of online users, from the 'who' command
-  public notifyList: any[];         // The user's notify list
+  public notifyList: any[] = [];    // The user's notify list
+  public censorList: string[] = []; // The user's censor list
+  public noplayList: string[] = []; // The user's no play list
   public friendList: any[] = [];
   public topPlayersList: any[];     // The list of top players from for each category, from the 'hbest' command 
   private updateUsersTimer = null;  // 1 minute timer that sends 'who' and 'hbest' commands when users modal is showing
@@ -192,6 +194,13 @@ export class Users {
         $('#top-players-table-container').scrollTop(0); 
       }
     });
+
+    $('#user-lists-category-menu').on('click', '.dropdown-item', (e) => {
+      const category = $(e.target).text();
+      $('#user-lists-category-btn').text(category);
+      this.updateSelectedUserListTable();
+      $('#user-lists-table-container').scrollTop(0);
+    });
   }
 
   /**
@@ -252,6 +261,37 @@ export class Users {
       const category = $('#top-players-category-btn').text();
       this.updateUsersTable($('#top-players-table'), this.topPlayersList.filter(player => player.category === category));
     }
+
+    this.updateSelectedUserListTable();
+  }
+
+  private updateSelectedUserListTable() {
+    const category = $('#user-lists-category-btn').text();
+    this.updateUsersTable($('#user-lists-table'), this.getUserListEntries(category));
+  }
+
+  private getUserListEntries(category: string) {
+    const names = category === 'Censor' ? this.censorList : this.noplayList;
+    return names.map(name => this.getKnownUser(name));
+  }
+
+  private getKnownUser(name: string) {
+    const lowerName = name.toLowerCase();
+    const user = this.userList?.find(item => item.name.toLowerCase() === lowerName)
+      || this.friendList.find(item => item.name.toLowerCase() === lowerName);
+    if(user)
+      return { ...user };
+
+    return {
+      name,
+      title: '',
+      rating: '',
+      status: this.userList ? 'x' : ''
+    };
+  }
+
+  private isUserInList(list: string[], name: string) {
+    return list.some(item => item.toLowerCase() === name.toLowerCase());
   }
 
   /**
@@ -515,23 +555,29 @@ export class Users {
     name = name.trim().split('(')[0]; // Remove titles from end of username
     const followedUser = getFollowedUser();
     const isFollowingUser = !!followedUser && followedUser.toLowerCase() === name.toLowerCase();
+    const isFriend = !!this.friendList.find(friend => friend.name.toLowerCase() === name.toLowerCase());
+    const isCensored = this.isUserInList(this.censorList, name);
+    const isNoPlay = this.isUserInList(this.noplayList, name);
 
     const menu = (name.toLowerCase() === this.session.getUser().toLowerCase())
       ? $(`<ul class="dropdown-menu noselect user-actions-menu">
           <li><a class="dropdown-item" data-action="finger">Finger</a></li>  
         </ul>`)
       : $(`<ul class="dropdown-menu noselect user-actions-menu">
-        ${!this.friendList.find(friend => friend.name.toLowerCase() === name.toLowerCase()) ? '<li><a class="dropdown-item" data-action="add-friend">Add Friend</a></li>' : ''}   
+        ${!isFriend ? '<li><a class="dropdown-item" data-action="add-friend">Add Friend</a></li>' : ''}
         <li><a class="dropdown-item" data-action="message">Message</a></li>
+        <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" data-action="challenge">Challenge</a></li>
         <li><a class="dropdown-item" data-action="rematch">Rematch</a></li>
         <li><a class="dropdown-item" data-action="observe">Observe</a></li>
         <li><a class="dropdown-item" data-action="${isFollowingUser ? 'unfollow' : 'follow'}">${isFollowingUser ? 'Unfollow' : 'Follow'}</a></li>
+        <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" data-action="finger">Finger</a></li>
         <li><a class="dropdown-item" data-action="history">History</a></li>
         <li><a class="dropdown-item" data-action="h2h">Head to Head</a></li>
-        <li><a class="dropdown-item" data-action="noplay">Add to 'No Play'</a></li>
-        <li><a class="dropdown-item" data-action="censor">Censor</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" data-action="${isNoPlay ? 'remove-noplay' : 'add-noplay'}">${isNoPlay ? "Remove from 'No Play'" : "Add to 'No Play'"}</a></li>
+        <li><a class="dropdown-item" data-action="${isCensored ? 'uncensor' : 'censor'}">${isCensored ? 'Uncensor' : 'Censor'}</a></li>
       </ul>`);
 
     const userActionsItemSelected = (e2) => {
@@ -612,11 +658,17 @@ export class Users {
             awaiting.set('info-pstat');
             this.session.send(`oldpstat ${name}`);
             break;
-          case 'noplay':
+          case 'add-noplay':
             this.session.send(`+noplay ${name}`);
+            break;
+          case 'remove-noplay':
+            this.session.send(`-noplay ${name}`);
             break;
           case 'censor':
             this.session.send(`+censor ${name}`);
+            break;
+          case 'uncensor':
+            this.session.send(`-censor ${name}`);
             break;
         }
       }
