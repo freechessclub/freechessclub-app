@@ -759,15 +759,15 @@ export class Chat {
     const tabElement = this.createTab(tabName);
     let who = '';
     if(data.user !== undefined) {
-      let textclass = 'class="clickable-user"'
-      if(this.user === data.user) 
-        textclass += ' class="mine"';
+      const classes = ['clickable-user'];
+      if(this.user === data.user)
+        classes.push('mine');
 
       let prompt = data.user;
       if (!settings.chattabsToggle && data.channel !== undefined) {
         prompt += `(${data.channel})`;
       }
-      who = `<strong ${textclass}>${$('<span/>').text(prompt).html()}</strong>: `;
+      who = `<strong class="${classes.join(' ')}">${$('<span/>').text(prompt).html()}</strong>: `;
     }
 
     let text = data.message;
