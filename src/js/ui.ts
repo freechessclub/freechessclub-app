@@ -21,66 +21,67 @@ type Shortcut = {
 const themes = {};
 let shortcuts: Shortcut[] = [];
 
-// text size controls
-const textSize = storage.get('text-size');
-if (textSize != null) {
-  $('.tab-content').css('font-size', `${textSize}em`);
-  $('#textsize-range').val(parseInt(textSize, 10));
-}
+export function initUi() {
+  const textSize = storage.get('text-size');
+  if (textSize != null) {
+    $('.tab-content').css('font-size', `${textSize}em`);
+    $('#textsize-range').val(parseInt(textSize, 10));
+  }
 
-$('#textsize-range').on('change', (event) => {
-  $('.tab-content').css('font-size', `${String($(event.target).val())}em`);
-  storage.set('text-size', String($(event.target).val()));
-});
-
-initStyles();
-initShortcuts();
-
-$('#themes-menu li').on('click', (event) => {
-  $('#themes-button').text($(event.currentTarget).text());
-  $('#board-style').remove();
-  storage.remove('board');
-
-  const theme = $(event.currentTarget).attr('id').split('theme-')[1];
-  setTheme(theme);
-});
-
-$('#boards-menu button').on('click', (event) => {
-  const board = $(event.target).attr('id').split('board-')[1];
-  injectBoardStyle(board);
-  storage.set('board', board);
-});
-
-$('#pieces-merida').on('click', () => { setStyle('piece', 'default') });
-$('#pieces-cburnett').on('click', () => { setStyle('piece', 'cburnett') });
-$('#pieces-alpha').on('click', () => { setStyle('piece', 'alpha') });
-$('#pieces-cardinal').on('click', () => { setStyle('piece', 'cardinal') });
-$('#pieces-leipzig').on('click', () => { setStyle('piece', 'leipzig') });
-$('#pieces-maestro').on('click', () => { setStyle('piece', 'maestro') });
-$('#pieces-pirouetti').on('click', () => { setStyle('piece', 'pirouetti') });
-$('#pieces-spatial').on('click', () => { setStyle('piece', 'spatial') });
-$('#pieces-chessnut').on('click', () => { setStyle('piece', 'chessnut') });
-$('#pieces-fantasy').on('click', () => { setStyle('piece', 'fantasy') });
-$('#pieces-pixel').on('click', () => { setStyle('piece', 'pixel') });
-
-$('#settings-modal').on('show.bs.modal', () => {
-  $('.settings-pane').hide();
-  $('#settings-title-text').text('Settings');
-  $('#basic-settings').show();
-  $('#settings-general-tab').tab('show');
-});
-
-$('#settings-modal').on('shown.bs.modal', () => {
-  const basicSettingsHeight = $('#basic-settings').outerHeight() || 0;
-  $('.settings-pane').css({
-    height: 'auto',
-    'min-height': `${basicSettingsHeight}px`,
+  $('#textsize-range').on('change', (event) => {
+    $('.tab-content').css('font-size', `${String($(event.target).val())}em`);
+    storage.set('text-size', String($(event.target).val()));
   });
-});
 
-$('#settings-modal').on('hide.bs.modal', () => {
-  updateCustomShortcuts();
-});
+  initStyles();
+  initShortcuts();
+
+  $('#themes-menu li').on('click', (event) => {
+    $('#themes-button').text($(event.currentTarget).text());
+    $('#board-style').remove();
+    storage.remove('board');
+
+    const theme = $(event.currentTarget).attr('id').split('theme-')[1];
+    setTheme(theme);
+  });
+
+  $('#boards-menu button').on('click', (event) => {
+    const board = $(event.target).attr('id').split('board-')[1];
+    injectBoardStyle(board);
+    storage.set('board', board);
+  });
+
+  $('#pieces-merida').on('click', () => { setStyle('piece', 'default') });
+  $('#pieces-cburnett').on('click', () => { setStyle('piece', 'cburnett') });
+  $('#pieces-alpha').on('click', () => { setStyle('piece', 'alpha') });
+  $('#pieces-cardinal').on('click', () => { setStyle('piece', 'cardinal') });
+  $('#pieces-leipzig').on('click', () => { setStyle('piece', 'leipzig') });
+  $('#pieces-maestro').on('click', () => { setStyle('piece', 'maestro') });
+  $('#pieces-pirouetti').on('click', () => { setStyle('piece', 'pirouetti') });
+  $('#pieces-spatial').on('click', () => { setStyle('piece', 'spatial') });
+  $('#pieces-chessnut').on('click', () => { setStyle('piece', 'chessnut') });
+  $('#pieces-fantasy').on('click', () => { setStyle('piece', 'fantasy') });
+  $('#pieces-pixel').on('click', () => { setStyle('piece', 'pixel') });
+
+  $('#settings-modal').on('show.bs.modal', () => {
+    $('.settings-pane').hide();
+    $('#settings-title-text').text('Settings');
+    $('#basic-settings').show();
+    $('#settings-general-tab').tab('show');
+  });
+
+  $('#settings-modal').on('shown.bs.modal', () => {
+    const basicSettingsHeight = $('#basic-settings').outerHeight() || 0;
+    $('.settings-pane').css({
+      height: 'auto',
+      'min-height': `${basicSettingsHeight}px`,
+    });
+  });
+
+  $('#settings-modal').on('hide.bs.modal', () => {
+    updateCustomShortcuts();
+  });
+}
 
 export function getShortcuts() {
   return shortcuts;

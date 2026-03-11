@@ -26,7 +26,7 @@ import * as Sounds from './sounds';
 import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
 import { Reason } from './parser';
-import { getShortcuts } from './ui';
+import { getShortcuts, initUi } from './ui';
 import './ui';
 import packageInfo from '../../package.json';
 
@@ -459,6 +459,7 @@ async function onDeviceReady() {
   cleanup();
 
   await storage.init();
+  initUi();
   initSettings();
 
   initSessionSharing();
