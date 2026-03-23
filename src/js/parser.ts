@@ -442,24 +442,6 @@ export class Parser {
       };
     }
 
-    // held pieces (Crazyhouse/Bughouse)
-    match = msg.match(/^<b1> game (\d+) white \[(\w*)\] black \[(\w*)\](?: <- (\w+))?/m);
-    if (match != null && match.length > 3) {
-      const holdings = {P: 0, R: 0, B: 0, N: 0, Q: 0, K: 0, p: 0, r: 0, b: 0, n: 0, q: 0, k: 0};
-
-      for(const piece of match[2])
-        holdings[piece.toUpperCase()]++;
-
-      for(const piece of match[3])
-        holdings[piece.toLowerCase()]++;
-
-      return {
-        game_id: +match[1],
-        holdings,
-        new_holding: match[4],
-      };
-    }
-
     // game start
     match = msg.match(/^\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s(?:Creating|Continuing)[^\}]*\}.*/m);
     if (match != null && match.length > 2) {
@@ -475,27 +457,45 @@ export class Parser {
     }
 
     // game end
-    match = msg.match(/^\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)(?:' game|'s)?\s([^\}]+)\}\s(\*|[012/]+-[012/]+).*/m);
-    if (match != null && match.length > 5) {
+    match = msg.match(/^(\{Game\s([0-9]+)\s\(([a-zA-Z]+)\svs\.\s([a-zA-Z]+)\)\s([a-zA-Z]+)(?:' game|'s)?\s([^\}]+)\}\s(\*|[012/]+-[012/]+).*)([\s\S]*)/m);
+    if (match != null && match.length > 7) {
       const parts = this.splitBeforeAfterMatch(msg, match); // split the matching line from any additional text
-      
-      const p1 = match[2];
-      const p2 = match[3];
-      const who = match[4];
-      const action = match[5];
-      const score = match[6];
+      if(parts.before) 
+        return [this._parse(parts.before), this._parse(parts.matching)].flat();
+
+      const p1 = match[3];
+      const p2 = match[4];
+      const who = match[5];
+      const action = match[6];
+      const score = match[7];
 
       const [winner, loser, reason] = this.getGameResult(p1, p2, who, action);
       return {
-        game_id: +match[1],
+        game_id: +match[2],
         winner,
         loser,
         reason,
         score,
-        message: parts.matching,
-        extraText: parts.before && parts.after
-          ? `${parts.before}\n${parts.after}`
-          : `${parts.before}${parts.after}`
+        message: match[1],
+        extraText: match[8].trim()
+      };
+    }
+
+    // held pieces (Crazyhouse/Bughouse)
+    match = msg.match(/^<b1> game (\d+) white \[(\w*)\] black \[(\w*)\](?: <- (\w+))?/m);
+    if(match != null && match.length > 3) {
+      const holdings = {P: 0, R: 0, B: 0, N: 0, Q: 0, K: 0, p: 0, r: 0, b: 0, n: 0, q: 0, k: 0};
+
+      for(const piece of match[2])
+        holdings[piece.toUpperCase()]++;
+
+      for(const piece of match[3])
+        holdings[piece.toLowerCase()]++;
+
+      return {
+        game_id: +match[1],
+        holdings,
+        new_holding: match[4],
       };
     }
 
