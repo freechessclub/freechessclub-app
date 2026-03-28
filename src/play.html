@@ -104,13 +104,34 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                   </div>
                                   <div class="modal-body">
-                                    <div class="mb-3" id="difficulty-selector">
+                                    <div class="mb-3">
+                                      <label class="form-heading">Play Against:</label>
+                                      <div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-engine" id="play-computer-engine-stockfish" checked>
+                                          <label class="form-check-label" for="play-computer-engine-stockfish">Stockfish</label>
+                                        </div>
+                                        <div class="form-check form-check-inline" data-bs-toggle="tooltip" title="Maia is a neural network engine which plays in a very human-like way.">
+                                          <input class="form-check-input" type="radio" name="play-computer-engine" id="play-computer-engine-maia">
+                                          <label class="form-check-label" for="play-computer-engine-maia">Maia</label>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div class="mb-3" id="play-computer-difficulty-selector">
                                       <label class="form-heading" for="play-computer-level-slider">Difficulty Level:</label>
                                       <div class="d-flex align-items-center gap-2">
                                         <input type="range" class="form-range" id="play-computer-level-slider" min="1" max="12" step="1" value="1">
                                         <span id="play-computer-level-value" style="min-width: 3ch; text-align: right;">1</span>
                                       </div>
                                       <div class="small text-muted" id="play-computer-level-desc">Beginner</div>
+                                    </div>
+                                    <div class="mb-3" id="play-computer-maia-difficulty-selector">
+                                      <label class="form-heading" for="play-computer-maia-elo-slider">Difficulty ELO:</label>
+                                      <div class="d-flex align-items-center gap-2">
+                                        <input type="range" class="form-range" id="play-computer-maia-elo-slider" min="600" max="2600" step="100" value="600">
+                                        <span id="play-computer-maia-elo-value" style="min-width: 4ch; text-align: right;">600</span>
+                                      </div>
+                                      <div class="small text-muted" id="play-computer-level-desc" style="visibility: hidden;">Placeholder</div>
                                     </div>
                                     <div class="mb-3">
                                       <label class="form-heading">Player Time:</label>

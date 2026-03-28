@@ -44,6 +44,7 @@ export class GameData {
   brating = '';                 // black's rating
   category = '';                // category or variant
   color = 'w';
+  engine = 'Stockfish'          // computer engine to play against
   difficulty = 0;               // computer difficulty level
  
   public isPlaying() { return this.role === Role.MY_MOVE || this.role === Role.OPPONENTS_MOVE || this.role === Role.PLAYING_COMPUTER; }

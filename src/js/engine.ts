@@ -7,6 +7,7 @@ import { getTurnColorFromFEN, getMoveNoFromFEN, parseMove } from './chess-helper
 import { gotoMove } from './index';
 import { Game } from './game';
 import { hasMultiThreading } from './utils';
+import Maia from './maia/maia';
 
 const SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'wild/fr', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
 
@@ -27,22 +28,24 @@ export class Engine {
   protected game: Game;
   protected bestMoveCallback: (game: Game, move: string, score: string, nodes: number) => void;
   protected pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string, pvNodes: number) => void;
+  protected errorCallback: (game: Game, err: string | Error) => void;
   protected moveParams: string;
   
-  constructor(game: Game, bestMoveCallback: (game: Game, move: string, score: string, nodes: number) => void, pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string, pvNodes: number) => void, engineName: string, options?: object, moveParams?: string) {
+  constructor(game: Game, bestMoveCallback: (game: Game, move: string, score: string, nodes: number) => void, pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string, pvNodes: number) => void, errorCallback: (game: Game, err: string | Error) => void, engineName: string, options?: object, moveParams?: string) {
     this.moveParams = moveParams;
     this.currFen = null;
     this.game = game;
     this.bestMoveCallback = bestMoveCallback;
     this.pvCallback = pvCallback;
+    this.errorCallback = errorCallback;
 
     if(!this.moveParams)
       this.moveParams = 'infinite';
 
     this.workerPromise = this.init(game, engineName, options); // Create engine worker
     void this.workerPromise.catch(err => { 
-      if(err.name !== "AbortError") 
-        console.error(err);
+      if(errorCallback)
+        errorCallback(game, err);
     });
   }
 
@@ -404,7 +407,7 @@ export class EvalEngine extends Engine {
     if(!moveParams)
       moveParams = 'movetime 100';
 
-    super(game, null, null, engineName, options, moveParams);
+    super(game, null, null, null, engineName, options, moveParams);
     this.bestMoveCallback = this.bestMove;
     this.evalMoveCallback = evalMoveCallback;
   }
@@ -782,4 +785,89 @@ export class EvalEngine extends Engine {
   }
 }
 
+/**
+ * Class for playing against Maia chess engine
+ */
+export class MaiaEngine {
+  protected maia: any = null;
+  protected evaluateCallback: (game: Game, policy: [string, number][], value: number) => void;
+  protected errorCallback: (game: Game, err: string | Error) => void;
+  protected workerPromise: any = null; // For waiting until engine worker is created and initialised
+  protected game: Game;
+  protected options: {
+    eloSelf: number, // Maia's playing strength
+    eloOppo: number // The opponent's playing strength (usually the same as eloSelf)
+  } = null;
+
+  constructor(game: Game, evaluateCallback: (game: Game, policy: [string, number][], value: number) => void, errorCallback: (game: Game, err: string | Error) => void, options = { eloSelf: 2600, eloOppo: 2600}) {
+    this.game = game;
+    this.evaluateCallback = evaluateCallback;
+    this.errorCallback = errorCallback;
+    this.options = options;
+    this.workerPromise = this.init();
+  }
+
+  public async init() {
+    return new Promise<void>((resolve, reject) => {
+      this.maia = new Maia({
+        model: 'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/0af39b3/public/maia3/maia3_simplified.onnx',
+        modelVersion: '3',
+        setStatus: async (status: string) => {
+          if(status === 'no-cache') 
+            await this.maia.downloadModel(); // the weights file is downloaded and stored in indexDB
+          else if(status === 'ready') 
+            resolve();
+          else if(status === 'error')
+            reject();
+        },
+        setProgress: (progress: number) => {},
+        setError: (e) => {
+          if(this.errorCallback)
+            this.errorCallback(this.game, e);
+        }
+      });
+    });
+  }
+
+  public async move(hEntry: HEntry) {
+    if(!await this.ready())
+      return;
+
+    const fen = hEntry.fen;
+
+    const evaluation = await this.maia.evaluateMaia3(
+      fen,
+      this.options.eloSelf,
+      this.options.eloOppo,
+    );
+
+    const maiaPolicy: Record<string, number> = evaluation.policy; // maiaPolicy contains the likelihood of each move, e.g. ['e2e4', 0.8]
+
+    if(maiaPolicy) {
+      let cumulative = 0;
+      const sortedMaiaMoves = Object.entries(maiaPolicy) // Sort the moves by likelihood
+        .filter(([, prob]) => Number.isFinite(prob) && prob > 0)
+        .sort(([, a], [, b]) => b - a);
+
+      this.evaluateCallback(this.game, sortedMaiaMoves, evaluation.value);
+    }
+  }
+
+  public async ready() {
+    try {
+      await this.workerPromise;
+      return true;
+    }
+    catch(err) {
+      return false;
+    };
+  }
+
+  public async terminate() {
+    if(!await this.ready())
+      return;
+
+    this.maia.worker.terminate();
+  }
+}
 export default Engine;
