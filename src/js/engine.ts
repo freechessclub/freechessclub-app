@@ -398,13 +398,15 @@ export class EvalEngine extends Engine {
   private _redraw = true;
   private numGraphMoves = 0;
   private currMove: any;
+  private evalMoveCallback: (game: Game, move: string, score: string, nodes: number) => void = null;
 
-  constructor(game: Game, engineName: string, options?: any, moveParams?: string) {
+  constructor(game: Game, evalMoveCallback: (game: Game, move: string, score: string, nodes: number) => void, engineName: string, options?: any, moveParams?: string) {
     if(!moveParams)
       moveParams = 'movetime 100';
 
     super(game, null, null, engineName, options, moveParams);
     this.bestMoveCallback = this.bestMove;
+    this.evalMoveCallback = evalMoveCallback;
   }
 
   public bestMove(game: Game, move: string, score: string, nodes: number) {
@@ -414,6 +416,7 @@ export class EvalEngine extends Engine {
     this.currMove = undefined;
     this._redraw = true;
     this.evaluate();
+    this.evalMoveCallback(game, move, score, nodes);
   }
 
   public evaluate() {
@@ -712,15 +715,15 @@ export class EvalEngine extends Engine {
     // winning to equal. Only the positive side of the curve is defined, but it is treated as
     // symmetrical around 0
     const bands = [
-      { start: 5, end: 10, weight: 0.05 },
-      { start: 3, end: 5, weight: 0.25 },
-      { start: 2, end: 3, weight: 1.75 },
-      { start: 1, end: 2, weight: 1.5 },
+      { start: 5, end: 10, weight: 0.25 },
+      { start: 3, end: 5, weight: 0.5 },
+      { start: 2, end: 3, weight: 1.4 },
+      { start: 1, end: 2, weight: 1.25 },
       { start: 0, end: 1, weight: 1 },
     ];
     
-    evaluation.replace('=', '');
-    reference.replace('=', '');
+    evaluation = evaluation.replace('=', '');
+    reference = reference.replace('=', '');
 
     // Treat all "mate in X" as having an eval of 10
     if(evaluation.includes('#')) 

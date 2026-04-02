@@ -182,7 +182,7 @@ body {
 }
 
 #left-panel {
-  height: 502px;
+  height: 546px;
 }
 #left-panel.list-view-showing {
   height: 200px;
@@ -993,6 +993,10 @@ body {
 
 #settings-modal .modal-body {
   max-height: calc(100vh - 180px);
+}
+
+#settings-modal .tab-pane {
+  overflow-x: hidden;
   overflow-y: auto;
 }
 

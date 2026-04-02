@@ -7675,7 +7675,7 @@ function createEvalEngine(game: Game) {
       ? settings.variantsEngineName
       : settings.analyzeEngineName;
     
-    evalEngine = new EvalEngine(game, engineName, options);
+    evalEngine = new EvalEngine(game, updateMoveRatingIcon, engineName, options);
   }
 }
 
