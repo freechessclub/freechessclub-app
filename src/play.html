@@ -319,22 +319,36 @@
                                 <div class="pane-status" id="lobby-pane-status" style="display: none"></div>
                                 <div id="lobby" class="flex-grow-1" style="min-height: 0">
                                   <div class="d-flex flex-column h-100">
-                                    <div class="center p-2 justify-content-around">
-                                      <div class="eye-toggle">
-                                        <input type="checkbox" class="btn-check" id="lobby-show-computers" autocomplete="off">
-                                        <label class="btn btn-default border-0" for="lobby-show-computers">
-                                          <span id="lobby-show-computers-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Computers
-                                        </label>
+                                    <div class="d-flex align-items-center gap-5 py-2">
+                                      <div class="flex-grow-1 center justify-content-evenly" style="min-width: 0;">
+                                        <div class="eye-toggle">
+                                          <input type="checkbox" class="btn-check" id="lobby-show-computers" autocomplete="off">
+                                          <label class="btn btn-default border-0" for="lobby-show-computers">
+                                            <span id="lobby-show-computers-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Computers
+                                          </label>
+                                        </div>
+                                        <div class="eye-toggle">
+                                          <input type="checkbox" class="btn-check" id="lobby-show-unrated" autocomplete="off">
+                                          <label class="btn btn-default border-0" for="lobby-show-unrated">
+                                            <span id="lobby-show-unrated-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Unrated
+                                          </label>
+                                        </div>
                                       </div>
-                                      <div class="eye-toggle">
-                                        <input type="checkbox" class="btn-check" id="lobby-show-unrated" autocomplete="off">
-                                        <label class="btn btn-default border-0" for="lobby-show-unrated">
-                                          <span id="lobby-show-unrated-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Unrated
+                                      <div class="btn-group" style="padding-right: 0.75rem;">
+                                        <input type="radio" checked class="btn-check" name="lobby-view-mode" id="lobby-list-view" autocomplete="off">
+                                        <label class="btn btn-outline-secondary btn-sm" for="lobby-list-view" data-bs-toggle="tooltip" data-bs-placement="top" data-tooltip-hover-only data-fallback-placements="left,right" title="List View">
+                                          <span class="fa-solid fa-list" aria-hidden="false"></span>
+                                        </label>
+                                        <input type="radio" class="btn-check" name="lobby-view-mode" id="lobby-graph-view" autocomplete="off">
+                                        <label class="btn btn-outline-secondary btn-sm" for="lobby-graph-view" data-bs-toggle="tooltip" data-bs-placement="top" data-tooltip-hover-only data-fallback-placements="right,left" title="Graph View">
+                                          <span class="fa-solid fa-chart-line" aria-hidden="false"></span>
                                         </label>
                                       </div>
                                     </div>
                                     <div class="flex-grow-1 overflow-auto" id="lobby-table-container" style="min-height: 0;">
                                       <div class="btn-group-vertical w-100" id="lobby-table"></div>
+                                    </div>
+                                    <div class="flex-grow-1 overflow-hidden" id="lobby-graph-container" style="display: none; min-height: 0;">
                                     </div>
                                   </div>
                                 </div>

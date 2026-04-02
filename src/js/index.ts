@@ -27,6 +27,7 @@ import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
 import { Reason } from './parser';
 import { getShortcuts, initUi } from './ui';
+import { SeekGraph } from './seek-graph';
 import './ui';
 import packageInfo from '../../package.json';
 
@@ -93,6 +94,7 @@ let engine: Engine | null;
 let evalEngine: EvalEngine | null;
 let playEngine: Engine | MaiaEngine | null;
 let playEngineNames: string[] = ['Stockfish', 'Maia'];
+let seekGraph: SeekGraph | null;
 let userVariables: any = {};
 let pendingTells: any[] = [];
 let gameExitPending = [];
@@ -466,6 +468,7 @@ async function onDeviceReady() {
 
   initSessionSharing();
 
+  seekGraph = new SeekGraph();
   chat = new Chat();
   tournaments = new Tournaments();
   users = new Users();
@@ -863,6 +866,8 @@ function setLeftColumnSizes() {
       if(leftPanelHeight < 0)
         $('#left-panel-bottom').height($('#left-panel-bottom').height() + leftPanelHeight);
     }
+
+    seekGraph.update();
   }
 }
 
@@ -1647,8 +1652,10 @@ function handleOffers(offers: any[]) {
   tournaments?.handleOffers(offers);
 
   // Clear the lobby
-  if(offers[0]?.type === 'sc')
+  if(offers[0]?.type === 'sc') {
     $('#lobby-table').html('');
+    seekGraph.removeAllPoints();
+  }
 
   // Add seeks to the lobby
   const seeks = offers.filter((item) => item.type === 's');
@@ -1659,10 +1666,13 @@ function handleOffers(offers: any[]) {
       if(!settings.lobbyShowUnratedToggle && item.ratedUnrated === 'u')
         return;
 
-      const lobbyEntryText = formatLobbyEntry(item);
+      item.text = formatLobbyEntry(item);
+
       $('#lobby-table').append(
         `<button type="button" data-offer-id="${item.id}" class="btn btn-outline-secondary lobby-entry"`
-          + ` onclick="acceptSeek(${item.id});">${lobbyEntryText}</button>`);
+          + ` onclick="acceptSeek(${item.id});">${item.text}</button>`);
+    
+      seekGraph.addPoint(item);
     });
 
     if(lobbyScrolledToBottom) {
@@ -1792,6 +1802,7 @@ function handleOffers(offers: any[]) {
       $(`.game-dialog[data-offer-id="${id}"]`).toast('hide'); // if in-game request, hide the dialog
       $(`.sent-offer[data-offer-id="${id}"]`).remove(); // If offer, match request or seek was sent by us, remove it from the Play pane
       $(`.lobby-entry[data-offer-id="${id}"]`).remove(); // Remove seek from lobby
+      seekGraph.removePoint(id);
     });
     
     if(item.type === 'sr' && !item.ids.length) // remove all seeks
@@ -2317,7 +2328,7 @@ function handleMiscMessage(data: any) {
   match = msg.match(/^(Issuing match request since the seek was set to manual\.)/m);
   if(match && match.length > 1 && awaiting.has('lobby')) {
     $('#lobby-pane-status').text(match[1]);
-    $('#lobby-pane-status').show();
+    showLobbyStatus();
   }
 
   match = msg.match(/^Your seek has been posted with index \d+\./m);
@@ -4245,7 +4256,7 @@ function cleanupGame(game: Game) {
     $('#play-computer').prop('disabled', false);
     $('#playing-game-buttons').hide();
     $('#viewing-game-buttons').show();
-    $('#lobby-pane-status').hide();
+    hideLobbyStatus();
   }
 
   game.element.find($('[title="Close"]')).css('visibility', 'visible');
@@ -5655,11 +5666,14 @@ function initLobbyPane() {
       $('#lobby-pane-status').text('Can\'t enter lobby while examining a game.');
     else
       $('#lobby-pane-status').text('Can\'t enter lobby while playing a game.');
-    $('#lobby-pane-status').show();
+    showLobbyStatus();
     $('#lobby').hide();
   }
   else {
-    $('#lobby-pane-status').hide();
+    hideLobbyStatus();
+    $('#lobby').show();
+    setLobbyViewMode();
+
     if(session.isRegistered())
       $('#lobby-show-unrated').parent().show();
     else
@@ -5685,7 +5699,6 @@ function initLobbyPane() {
 
     $('#lobby-show-computers').prop('checked', settings.lobbyShowComputersToggle);
     $('#lobby-show-unrated').prop('checked', settings.lobbyShowUnratedToggle);
-    $('#lobby').show();
     $('#lobby-table').html('');
     lobbyScrolledToBottom = true;
     awaiting.set('lobby');
@@ -5709,6 +5722,16 @@ function leaveLobbyPane() {
   }
 }
 
+function showLobbyStatus() {
+  $('#lobby-pane-status').show();
+  seekGraph.update();
+}
+
+function hideLobbyStatus() {
+  $('#lobby-pane-status').hide();
+  seekGraph.update();
+}
+
 $('#lobby-show-computers').on('change', function () {
   settings.lobbyShowComputersToggle = $(this).is(':checked');
   storage.set('lobbyshowcomputers', String(settings.lobbyShowComputersToggle));
@@ -5720,6 +5743,30 @@ $('#lobby-show-unrated').on('change', function () {
   storage.set('lobbyshowunrated', String(settings.lobbyShowUnratedToggle));
   initLobbyPane();
 });
+
+$('[name="lobby-view-mode"').on('change', function () {
+  setLobbyViewMode($('#lobby-list-view').is(':checked') ? 'list' : 'graph');
+});
+
+function setLobbyViewMode(mode?: string) {
+  if(!mode) 
+    mode = settings.lobbyViewMode;
+
+  if(mode === 'list') {
+    settings.lobbyViewMode = 'list';
+    $('#lobby-list-view').prop('checked', true);
+    $('#lobby-graph-container').hide();
+    $('#lobby-table-container').show();
+  }
+  else {
+    settings.lobbyViewMode = 'graph';
+    $('#lobby-graph-view').prop('checked', true);
+    $('#lobby-table-container').hide();
+    $('#lobby-graph-container').show();
+    seekGraph.update();
+  }
+  storage.set('lobby-view-mode', mode);
+}
 
 $('#lobby-table-container').on('scroll', () => {
   const container = $('#lobby-table-container')[0];
@@ -8238,6 +8285,10 @@ function initSettings() {
 
   settings.lobbyShowComputersToggle = (storage.get('lobbyshowcomputers') === 'true');
   settings.lobbyShowUnratedToggle = (storage.get('lobbyshowunrated') !== 'false');
+
+  const lobbyViewMode = storage.get('lobby-view-mode');
+  if(lobbyViewMode)
+    settings.lobbyViewMode = lobbyViewMode;
 
   $('#formula-toggle').prop('checked', (storage.get('seeks-use-formula') === 'true'));
   $('#custom-control-min').val(storage.get('pairing-custom-min') || '0');

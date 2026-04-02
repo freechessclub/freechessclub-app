@@ -15,6 +15,8 @@ export const settings = {
   lobbyShowComputersToggle: false,
   // toggle for showing Rated games in the lobby
   lobbyShowUnratedToggle: true,
+  // lobby view mode -- list or graph
+  lobbyViewMode: 'list',
   // toggle for automatically showing new slide-down notifications or notifications in chat channels
   notificationsToggle: true,
   // toggle for showing highlights/graphics on the board
