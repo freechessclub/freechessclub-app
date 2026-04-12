@@ -3,8 +3,10 @@
 // license that can be found in the LICENSE file.
 
 import { awaiting, storage } from './storage';
-import { createNotification, removeNotification, showDialog } from './dialogs';
-import { convertToServerDate, convertToLocalDate, parseDate, getDiffDays, getNextWeekDayDate } from './utils';
+import { createNotification, removeNotification, showDialog, showInfoDialog } from './dialogs';
+import { removeWithPoppers, createTooltip, convertToServerDate, convertToLocalDate, parseDate, getDiffDays, getNextWeekDayDate, splitIntoColumns } from './utils';
+import { users, Users } from './users';
+import { session } from './session';
 
 /**
  * Controls the Play->Tournaments pane.
@@ -21,7 +23,6 @@ export class Tournaments {
 
   private tdMessage = '';                       // Stores long responses from td (tournament bot) so we can join them together before parsing them
   private tdVariables: any = {};                // Stores user's td variables 
-  private session = null;                       // The current session
   private alerts: any = {};                     // Keeps track of whether a tournament or KoTH should alert the user (by making the Tournaments tab red)
   private kothShowNotifications = false;        // If true, will show slide-down notifications when the King changes in KoTH
   private kothReceiveInfo = null;               // If true, will show KOTHInfo messages in the Console (this is required in order to show slide-down notifications)
@@ -30,17 +31,20 @@ export class Tournaments {
   private tournamentsReceiveInfo = null;        // If true, will show TourneyInfo messages in the Console (this is required in order to show slide-down notifications)
   private notifyList = {};                      // Whether to show slide-down notifications when a specific tournaments start, i.e. if the user click the 'Notify Me' button on a tournament
   private pendingTournaments = [];              // Stores the tournament data from 'td listtourneys' temporarily until the title and other data is retrieved from 'td players' or 'td standardgrid'
+  private selectedBlitzTourney: string = '';    // id of the blitztourney currnetly being interacted with
+  private blitzTourneyRemainingID: string = ''; // id of the blitztourney that we are currently parsing 't blitztourneys remaining' for 
+  private userList = null;                       // Store a copy of the user list in order to tell if tournament members are online or offline
 
   constructor() {
     /** Tournament pane shown */
     $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-tournaments"]', (e) => {
       $('button[data-bs-target="#pills-tournaments"]').removeClass('tournaments-unviewed');
-      this.initTournamentsPane(this.session);
+      this.initTournamentsPane();
     });
     $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-play"]', () => {
       if($('#pills-tournaments').hasClass('active')) {
         $('button[data-bs-target="#pills-tournaments"]').removeClass('tournaments-unviewed');
-        this.initTournamentsPane(this.session);
+        this.initTournamentsPane();
       }
     });
 
@@ -83,24 +87,22 @@ export class Tournaments {
   /**
    * Called after connecting to the server
    */
-  public connected(session: any) {
-    this.session = session;
-    
+  public connected() {   
     // Restore the user's original KOTHInfo, TourneyInfo and TourneyUpdates 
     // td variables in case they were over-written 
 
     if(typeof this.kothReceiveInfo === 'boolean') {
       awaiting.set('td-set');
-      this.session.send(`td set KOTHInfo ${this.kothReceiveInfo ? 1 : 0}`);
+      session.send(`td set KOTHInfo ${this.kothReceiveInfo ? 1 : 0}`);
     }
 
     if(typeof this.tournamentsReceiveInfo === 'boolean') {
       awaiting.set('td-set'); 
-      this.session.send(`td set TourneyInfo ${this.tournamentsReceiveInfo ? 1 : 0}`);
+      session.send(`td set TourneyInfo ${this.tournamentsReceiveInfo ? 1 : 0}`);
     }
     
     if($('#pills-tournaments').hasClass('active'))
-      this.initTournamentsPane(session);
+      this.initTournamentsPane();
   }
 
   // Called when disconnected from the server
@@ -113,7 +115,7 @@ export class Tournaments {
    * Build the tournaments pane
    * Add the Tournament, KoTH and Team League cards 
    */
-  public initTournamentsPane(session: any) {
+  public initTournamentsPane() {
     if(!session || !session.isConnected())
       return;
     
@@ -124,10 +126,10 @@ export class Tournaments {
     // Set td line height to 999 so we don't have to issue 'td next' commands
     // We restore it to the default height 24 after retrieving all the tournament data
     awaiting.set('td-set');
-    this.session.send('td set height 999'); 
+    session.send('td set height 999'); 
     
     awaiting.set('td-variables');
-    this.session.send('td variables'); // Retrieve the user's td variables, so we can store and restore their KOTHInfo, TourneyInfo and TourneyUpdates settings
+    session.send('td variables'); // Retrieve the user's td variables, so we can store and restore their KOTHInfo, TourneyInfo and TourneyUpdates settings
 
     // Add the scheduled tournaments (e.g. the Nightly 5 0)
     this.scheduledTournaments.forEach(tourney => {
@@ -153,34 +155,37 @@ export class Tournaments {
     // Set TourneyInfo and TourneyUpdates td variables to On while Tournaments panel 
     // is showing so that we can update the tournament cards in real time
     awaiting.set('td-set');
-    this.session.send('td set tourneyinfo 1');
+    session.send('td set tourneyinfo 1');
     awaiting.set('td-set');
-    this.session.send('td set tourneyupdates 1');
+    session.send('td set tourneyupdates 1');
 
     // Retrieve the list of running/completed tournaments
     awaiting.set('td-listtourneys');
-    this.session.send('td listtourneys');
+    session.send('td listtourneys');
 
     // Set KOTHInfo td variable to On while Tournaments panel 
     // is showing so that we can update the KoTH cards in real time
     awaiting.set('td-set');
-    this.session.send('td set kothinfo 1');
+    session.send('td set kothinfo 1');
 
     // Retrieve the list of available KoTHs
     awaiting.set('td-listkoths');
-    this.session.send('td listkoths');
+    session.send('td listkoths');
+
+    awaiting.set('finger-blitztourneys');
+    session.send('finger blitztourneys');
   }
 
   public leaveTournamentsPane() {
-    if(this.session && this.session.isConnected()) {
+    if(session && session.isConnected()) {
       // Restore user's original td variables
       if(typeof this.kothReceiveInfo === 'boolean') {
         awaiting.set('td-set');
-        this.session.send(`td set kothinfo ${this.kothReceiveInfo ? 'On' : 'Off'}`);
+        session.send(`td set kothinfo ${this.kothReceiveInfo ? 'On' : 'Off'}`);
       }
       if(typeof this.tournamentsReceiveInfo === 'boolean') {
         awaiting.set('td-set');
-        this.session.send(`td set tourneyinfo ${this.tournamentsReceiveInfo ? 'On' : 'Off'}`);
+        session.send(`td set tourneyinfo ${this.tournamentsReceiveInfo ? 'On' : 'Off'}`);
       }
       // We no longer need to store these, since we've restored the user's variables
       storage.remove('tournaments-receive-info');
@@ -196,7 +201,8 @@ export class Tournaments {
     let match, pattern;
   
     // Ignore any messages which aren't tournament related
-    if(!msg.startsWith(':') && !awaiting.has('get-koth-game') && !awaiting.has('get-private-variable'))
+    if(!msg.startsWith(':') && !awaiting.has('get-koth-game') && !awaiting.has('get-private-variable')
+        && !awaiting.has('finger-blitztourneys'))
       return false;
 
     // Update our local copy of the td variables when they get changed
@@ -263,7 +269,7 @@ export class Tournaments {
       const king = match[2];
       const id = +match[4];
       removeNotification($(`.notification[data-koth-id="${id}"`));
-      if(this.kothShowNotifications && king !== this.session.getUser()) {
+      if(this.kothShowNotifications && king !== session.getUser()) {
         const kingQueenStr = match[3].charAt(0).toUpperCase() + match[3].slice(1);
         const nElement = createNotification({
           type: `Long live the ${kingQueenStr}!`, 
@@ -281,7 +287,7 @@ export class Tournaments {
         isFemale: match[3] === 'queen'
       }, true);
       awaiting.set('td-kingstats');
-      this.session.send(`td kingstats ${id}`);
+      session.send(`td kingstats ${id}`);
       return false;
     }
 
@@ -372,11 +378,11 @@ export class Tournaments {
             const data = card.data('tournament-data');
             data.kingStats = null;
             awaiting.set('td-kingstats'); // Retrieve the kingstats for the current king
-            this.session.send(`td kingstats ${koth.id}`);
+            session.send(`td kingstats ${koth.id}`);
           }
           if(koth.game !== '-') {
             awaiting.set('get-koth-game'); // Retrieve the name of the opponent
-            this.session.send(`games ${koth.game}`);
+            session.send(`games ${koth.game}`);
           }
         });
 
@@ -412,7 +418,7 @@ export class Tournaments {
       koths.each((index, element) => {
         // First we have to figure out which KoTH we are king of
         const kothData = $(element).data('tournament-data');
-        if(kothData.king === this.session.getUser() && !kothData.kingStats) {
+        if(kothData.king === session.getUser() && !kothData.kingStats) {
           this.updateKoTH(kothData.id, {
             kingStats: {
               wins: match[1], 
@@ -435,7 +441,7 @@ export class Tournaments {
     // or perhaps if the user is banned.
     match = msg.match(/^:Unable to comply. (Access to command (\w+) denied.)/);
     if(match) {
-      if(this.session.isRegistered())
+      if(session.isRegistered())
         $('#tournaments-pane-status').text(match[1]);
       else {
         const isKoTH = match[2] === 'ClaimThrone' || match[2] === 'MatchKing';
@@ -465,11 +471,11 @@ export class Tournaments {
           const kothData = $(element).data('tournament-data');
           if(kothData.offer) {
             if(priv === '1') {
-              this.session.send(`decline ${kothData.offer}`);
+              session.send(`decline ${kothData.offer}`);
               kothData.offer = null;
             }
             else if(kothData.seek) 
-              this.session.send(`accept ${kothData.offer}`);
+              session.send(`accept ${kothData.offer}`);
             return false;
           }
         });
@@ -495,7 +501,7 @@ export class Tournaments {
       return true;
     match = msg.match(/^:You are no longer observing tourney #(\d+)./m);
     if(match && awaiting.has('td-observetourney')) {
-      this.session.send(`td observetourney ${match[1]}`);
+      session.send(`td observetourney ${match[1]}`);
       return true;
     }
 
@@ -519,7 +525,7 @@ export class Tournaments {
 
       if($('#pills-tournaments').hasClass('active')) {
         awaiting.set('td-observetourney');
-        this.session.send(`td observetourney ${id}`); // ObserveTourney must be set in order to receive real time tourney updates
+        session.send(`td observetourney ${id}`); // ObserveTourney must be set in order to receive real time tourney updates
       }
 
       const data = card.data('tournament-data');
@@ -572,9 +578,9 @@ export class Tournaments {
 
       // Retrieve the tournament list in order to display the last time this tournament was held, winner and standings etc
       awaiting.set('td-set');
-      this.session.send('td set height 999');
+      session.send('td set height 999');
       awaiting.set('td-listtourneys');
-      this.session.send('td listtourneys');
+      session.send('td listtourneys');
 
       removeNotification($(`.notification[data-tournament-id="${id}"]`));
       return false;
@@ -625,7 +631,7 @@ export class Tournaments {
     // Check when user's game starts
     match = msg.match(/:mamer TOURNEY (?:INFO|#\d+ UPDATE): The game on board #\d+ \((\S+) vs. (\S+?)\) just started/m);
     if(match) {
-      const user = this.session.getUser();
+      const user = session.getUser();
       if(match[1] === user || match[2] === user) {
         this.updateAllTournaments({ paired: false });
         removeNotification($('.notification[data-tournament-id]'));
@@ -638,7 +644,8 @@ export class Tournaments {
     // No tourneys to list
     if(msg === ':There are no tourneys right now.' && awaiting.resolve('td-listtourneys')) {
       awaiting.set('td-set');
-      this.session.send('td set height 24');
+      session.send('td set height 24');
+      return true;
     }
 
     pattern = ':mamer\'s tourney list:';
@@ -676,30 +683,30 @@ export class Tournaments {
             // Tournament is open but not started yet, so there is no standard grid yet, 
             // get players list instead
             awaiting.set('td-players');
-            this.session.send(`td players ${tourney.id}`);
+            session.send(`td players ${tourney.id}`);
             if(tourney.joined && tourney.status === 'started') {
               awaiting.set('td-games');
-              this.session.send(`td games ${tourney.id}`);
+              session.send(`td games ${tourney.id}`);
             }
           }
           else {
             // Tournament hasn't started or has ended, get the standard grid, 
             // so we can display the winner (if there is one)
             awaiting.set('td-standardgrid');
-            this.session.send(`td standardgrid ${tourney.id}`);
+            session.send(`td standardgrid ${tourney.id}`);
           }
 
           if(tourney.running) {
             // Start observing this tourney in order to receive Tourney Updates
             awaiting.set('td-observetourney');
-            this.session.send(`td observetourney ${tourney.id}`);
+            session.send(`td observetourney ${tourney.id}`);
           }
         });
 
         this.tdMessage = '';
         // We're done, so restore default td line height
         awaiting.set('td-set');
-        this.session.send('td set height 24');
+        session.send('td set height 24');
       }
       return true;
     }
@@ -741,7 +748,7 @@ export class Tournaments {
                 </div>
                 <div class="modal-body">
                   <div class="tournament-players tournament-table-container" class="mb-1">
-                    <table class="table table-sm table-borderless table-striped modal-table">
+                    <table class="table table-sm table-borderless table-striped modal-table tournament-table">
                       <thead>
                         <tr>
                           <th scope="col" class="text-end">Seed</th>
@@ -789,7 +796,7 @@ export class Tournaments {
             cell.innerHTML = checkCrossIcon;
           });
           
-          playersModal.on('hidden.bs.modal', () => playersModal.remove());
+          playersModal.on('hidden.bs.modal', () => removeWithPoppers(playersModal));
           playersModal.appendTo('body').modal('show');        
         }
         this.tdMessage = '';
@@ -801,7 +808,7 @@ export class Tournaments {
     if(match && awaiting.resolve('td-players')) {
       awaiting.resolve('tourney-players-dialog');
       awaiting.set('td-listtourneyvariables');
-      this.session.send(`td listtourneyvariables ${match[1]}`);
+      session.send(`td listtourneyvariables ${match[1]}`);
       return true;
     }
 
@@ -868,7 +875,7 @@ export class Tournaments {
         if(awaiting.resolve('tourney-standings-dialog')) {
           // Get date of tournament to display in the title
           let dateStr = '';
-          const card = $(`.tournament-card[data-tournament-id="${id}"]`);
+          const card = $(`.tournament-card[data-tournament-type="tournament"][data-tournament-id="${id}"]`);
           if(card.length) {
             const data = card.data('tournament-data');
             if(data.date) {
@@ -888,12 +895,12 @@ export class Tournaments {
                 </div>
                 <div class="modal-body">
                   <div class="tournament-standings tournament-table-container" class="mb-1">
-                    <table class="table table-sm table-borderless table-striped modal-table">
+                    <table class="table table-sm table-borderless table-striped modal-table tournament-table">
                       <thead>
                         <tr>
                           <th scope="col" class="text-end">Pos</th>
                           <th scope="col">Player</th>
-                          <th scope="col" class="text-end">Score</th>
+                          <th scope="col" class="text-end">Points</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -958,7 +965,7 @@ export class Tournaments {
             }); 
           });
           
-          standingsModal.on('hidden.bs.modal', () => standingsModal.remove());
+          standingsModal.on('hidden.bs.modal', () => removeWithPoppers(standingsModal));
           standingsModal.appendTo('body').modal('show');        
         }
       }
@@ -982,8 +989,8 @@ export class Tournaments {
         const games = this.parseTDGames(this.tdMessage);
         const pairing = games.find(game => 
           // User has been paired for their next match but hasn't yet started their game
-          game.result?.startsWith('-') && (game.whiteName === this.session.getUser() 
-              || game.blackName === this.session.getUser())
+          game.result?.startsWith('-') && (game.whiteName === session.getUser() 
+              || game.blackName === session.getUser())
         );
         this.updateTournament(id, { paired: !!pairing });
         if(awaiting.resolve('tourney-games-dialog')) {
@@ -996,7 +1003,7 @@ export class Tournaments {
                 </div>
                 <div class="modal-body">
                   <div class="tournament-games tournament-table-container" class="mb-1">
-                    <table class="table table-sm table-borderless table-striped modal-table">
+                    <table class="table table-sm table-borderless table-striped modal-table tournament-table">
                       <thead>
                         <tr>
                           <th scope="col" class="text-end">Board</th>
@@ -1026,7 +1033,7 @@ export class Tournaments {
             cell.innerHTML = `<span class="tournament-table-name">${game.blackName}</span>  <span class="tournament-table-seed">[${game.blackSeed}]</span>`;
 
             // Display the game # and an 'Observe' for games in progress
-            const obsGameStr = game.gameID && game.whiteName !== this.session.getUser() && game.blackName !== this.session.getUser()
+            const obsGameStr = game.gameID && game.whiteName !== session.getUser() && game.blackName !== session.getUser()
                 ? `  <a href="javascript:void(0)" onClick="sessionSend('obs ${game.gameID.slice(1)}')">Observe</a>` 
                 : ''; 
             cell = row.insertCell();
@@ -1037,12 +1044,12 @@ export class Tournaments {
           if(byes) 
             gamesModal.find('.modal-body').append(`<div class="mt-1" style="white-space: pre-wrap"><span class="tournament-card-label">Byes:</span>  ${byes}</div>`);
           
-          gamesModal.on('hidden.bs.modal', () => gamesModal.remove());
+          gamesModal.on('hidden.bs.modal', () => removeWithPoppers(gamesModal));
           gamesModal.appendTo('body').modal('show');        
         }
         else if(pairing && !wasAwaiting && !$(`.notification[data-tournament-id="${id}"]`).length) {
-          const color = (pairing.whiteName === this.session.getUser() ? 'white' : 'black');
-          const opponent = (pairing.whiteName === this.session.getUser() ? pairing.blackName : pairing.whiteName);
+          const color = (pairing.whiteName === session.getUser() ? 'white' : 'black');
+          const opponent = (pairing.whiteName === session.getUser() ? pairing.blackName : pairing.whiteName);
           const nElement = createNotification({
             type: 'Play Next Game',
             msg: `You play ${color} against ${opponent} in this round of tourney #${id}.`,
@@ -1067,8 +1074,145 @@ export class Tournaments {
       this.addTeamLeague({ interested });
       return false;
     }
+
+    // Add blitztourney cards from 'finger Blitztourneys'
+    if(/^\s*Finger of BlitzTourneys\(TD\):/m.test(msg) && awaiting.resolve('finger-blitztourneys')) {
+      this.parseBlitzTourneys(msg);
+      return true;
+    }
+
+    // Response to Join/Withdraw button on cards for future blitztourneys
+    match = msg.match(/^:Congrats. You \(\w+\) have been (added to|removed from) the list for future tournaments of '(.*?)' (\w+)\./m);
+    if(match && awaiting.resolve('blitztourney-interested')) {
+      const id = `${match[2]}${match[3] !== 'Chess' ? ` ${match[3]}` : ''}` // the tourney id, e.g. '3 0'
+      const interested = match[1] === 'added to';
+      this.updateBlitzTourney(id, { interested });
+      return false;
+    }
+
+    // When uses presses 'Play Game' button if all game completed.
+    match = msg.match(/^:Congrats!\s+You've completed all your games for tourney '#(\d+)'/m);
+    if(match && (awaiting.has('blitztourney-remaining') || $('#blitztourney-play-game-modal').length)) {
+      if(match[1] === this.selectedBlitzTourney) {
+        awaiting.resolve('blitztourney-remaining');
+        showDialog({ type: 'No games remaining', msg: 'Congrats! You\'ve completed all your games for this tourney'});
+      }
+      return true;
+    }
+
+    // Response to 't blitztourneys remaining' triggered by 'Play Game' button on Blitztourneys cards
+    match = msg.match(/^:Remaining games for tourney #(\d+) \(.*?\), YOU \S+ need to play:/m);
+    if(match && (awaiting.has('blitztourney-remaining') || $('#blitztourney-play-game-modal').length)) {
+      this.blitzTourneyRemainingID = match[1]; // Keep track of which tournament ID we are currently parsing
+      if(this.blitzTourneyRemainingID === this.selectedBlitzTourney) {
+        awaiting.resolve('blitztourney-remaining');
+        if(!$('#blitztourney-play-game-modal').length) {
+          const modal = $(`<div id="blitztourney-play-game-modal" class="modal fade" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Remaining Games</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="pane-status" id="blitztourney-play-game-status" style="display: none; max-width: 400px;"></div>
+                  <div class="tournament-table-container" class="mb-1">
+                    <table id="blitztourney-play-game-table" class="table table-sm table-borderless table-striped modal-table tournament-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Opponent</th>
+                          <th scope="col" class="text-center">Games</th>
+                          <th scope="col" class="text-center">Status</th>
+                          <th scope="col" class="text-center"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>`);        
+          modal.on('hidden.bs.modal', () => {
+            users.stopRequestUsersTimer();
+            removeWithPoppers(modal);
+          });
+          modal.appendTo('body').modal('show');   
+        }
+      }
+      return true;
+    }
+
+    // A 'Remaining opponent' returned by 't blitztourneys remaining'. Note these are split across multiple
+    // server messages, so we need to keep track of which tournament ID we are currently parsing.
+    if(this.blitzTourneyRemainingID === this.selectedBlitzTourney && $('#blitztourney-play-game-modal').length) {
+      const tbody = $('#blitztourney-play-game-modal').find('tbody')[0];
+      
+      let tourneyData = null;
+      const tourney = $('.tournament-card[data-tournament-type="blitztourney"').each((index, element) => {
+        const data = $(element).data('tournament-data');  
+        if(this.selectedBlitzTourney === data.id)
+          tourneyData = data;
+      });
+    
+      const currMatches = msg.matchAll(/^:\(as (white|black|white and black)\) v (\S+)/gm);
+      let wasMatch = false;
+      for(const m of currMatches) {
+        wasMatch = true;
+        const remaining = m[1];
+        const opponent = m[2];
+        const opponentNoTitle = opponent.split('(')[0]; // remove title
+        const status = this.userList.find(u => u.name.toLowerCase() === opponentNoTitle.toLowerCase())?.status || 'x'; // get user status (offline/playing etc) from userlist
+
+        // Opponent name column
+        const row = tbody.insertRow();     
+        row.setAttribute('data-opponent', opponentNoTitle);
+        let cell = row.insertCell();
+        cell.innerHTML = `<span class="tournament-table-name clickable-user">${opponent}</span>`; 
+
+        // Games remaining column, display a white square for game as white remaining, black square for game as black
+        cell = row.insertCell();   
+        cell.classList.add('text-center');
+        let remainingHtml = '';
+        if(remaining.includes('white'))
+          remainingHtml += '<div class="color-box" style="border: 1px solid currentColor; background-color: white;"></div>';
+        if(remaining.includes('black'))
+          remainingHtml += '<div class="color-box" style="border: 1px solid currentColor; background-color: black;"></div>';
+        cell.innerHTML = remainingHtml;
+
+        // User status
+        cell = row.insertCell();
+        cell.classList.add('text-center', 'status-col');
+        if(status === 'x')
+          cell.classList.add('offline');
+        cell.innerHTML = users.userStatusCodeToName(status);
+
+        // Challenge link
+        cell = row.insertCell();
+        cell.classList.add('text-center');
+        cell.innerHTML = `<a class="blitztourney-challenge" href="javascript:void(0)" onClick="sessionSend('t blitztourneys game ${opponentNoTitle} ${tourneyData.type}')">Challenge</a>`;
+      }
+      return wasMatch;
+    }
   }
   
+  /**
+   * Display reason for failed match requests, such as from 'Challenge' in the 
+   * BlitzTourneys, 'Play Game' modal. E.g. '<name> is currently playing a game.'
+   */
+  public handleCommandError(msg: string): boolean {
+    if($('#blitztourney-play-game-modal').hasClass('show')) {
+      if(msg.startsWith(':Too frequent'))
+        msg = 'Too frequent. Please wait 60 seconds';
+      const status = $('#blitztourney-play-game-modal #blitztourney-play-game-status');
+      status.text(msg);
+      status.show();
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Parse and store 'td variables'. Mainly used to store the user's
    * TourneyInfo, TourneyUpdates and KOTHInfo variables. We set these variables
@@ -1249,7 +1393,7 @@ export class Tournaments {
     if(data.title) // Find the tournament card based on the title
       card = $(`.tournament-card[data-tournament-title="${data.title}"]`);
     else if(data.id) // Find the tournament card based on id
-      card = $(`.tournament-card[data-tournament-id="${data.id}"]`);
+      card = $(`.tournament-card[data-tournament-type="tournament"][data-tournament-id="${data.id}"]`);
     if(!card || !card.length) { // No match so create new card
       card = $(`
         <div class="card tournament-card" data-tournament-type="tournament">
@@ -1298,7 +1442,7 @@ export class Tournaments {
         const tourney = card.data('tournament-data');
         awaiting.set('td-players');
         awaiting.set('tourney-players-dialog');
-        this.session.send(`td players ${tourney.id}`);
+        session.send(`td players ${tourney.id}`);
       });
 
       /** 'Standings' button or link */
@@ -1309,7 +1453,7 @@ export class Tournaments {
         const tourney = card.data('tournament-data');
         awaiting.set('td-standardgrid');
         awaiting.set('tourney-standings-dialog');
-        this.session.send(`td standardgrid ${tourney.id}`);
+        session.send(`td standardgrid ${tourney.id}`);
       });
 
       /** 'Games' button */
@@ -1320,14 +1464,14 @@ export class Tournaments {
         const tourney = card.data('tournament-data');
         awaiting.set('td-games');
         awaiting.set('tourney-games-dialog');
-        this.session.send(`td games ${tourney.id}`);
+        session.send(`td games ${tourney.id}`);
       });
 
       /** 'Join' button */
       card.find('.tournament-join').on('click', () => {
         const tourney = card.data('tournament-data');
-        this.session.send(`td join ${tourney.id}`);
-        this.session.send('+ch 49'); // Subscribe user to Mamer Tournament channel
+        session.send(`td join ${tourney.id}`);
+        session.send('+ch 49'); // Subscribe user to Mamer Tournament channel
       });
 
       /** 'Withdraw' button */
@@ -1344,7 +1488,7 @@ export class Tournaments {
       /** 'Play Game' button */
       card.find('.tournament-play-game').on('click', () => {
         const tourney = card.data('tournament-data');
-        this.session.send(`td play ${tourney.id}`);
+        session.send(`td play ${tourney.id}`);
         removeNotification($('.notification[data-tournament-id]'));
       });
     }
@@ -1531,7 +1675,7 @@ export class Tournaments {
     let card;
     if(id != null) {
       data.id = id;
-      card = $(`.tournament-card[data-tournament-id="${id}"]`);
+      card = $(`.tournament-card[data-tournament-type="tournament"][data-tournament-id="${id}"]`);
     }
     else if(data.title) 
       card = $(`.tournament-card[data-tournament-title="${data.title}"]`);
@@ -1596,9 +1740,9 @@ export class Tournaments {
 
       card.on('click', '.koth-abdicate', () => {
         const data = card.data('tournament-data');
-        this.session.send(`td abdicate ${data.id}`);
+        session.send(`td abdicate ${data.id}`);
         if(data.seek != null) 
-          this.session.send(`unseek ${data.seek}`);
+          session.send(`unseek ${data.seek}`);
       });
     }
 
@@ -1609,7 +1753,7 @@ export class Tournaments {
       koth.challenge = koth.seek = undefined;
    
     const gameInProgress = !!koth.opponent || koth.game !== '-';
-    const user = this.session.getUser();
+    const user = session.getUser();
 
     // Change styling of card to show it's active when there is currently a king
     card.toggleClass('tournament-card-active', koth.king !== '-'); 
@@ -1680,14 +1824,14 @@ export class Tournaments {
     const challengeBtn = nElement.find('.button-success');
     const followBtn = nElement.find('.button-failure');
 
-    if(data.king === '-' || data.opponent === this.session.getUser()
+    if(data.king === '-' || data.opponent === session.getUser()
         || data.following || data.challenge) {
       removeNotification(nElement);
       return;
     }
 
     if(data.hasOwnProperty('opponent'))
-      challengeBtn.toggle(!data.opponent && this.session.isRegistered());
+      challengeBtn.toggle(!data.opponent && session.isRegistered());
     followBtn.toggle(this.kothFollowKing !== id);
   }
 
@@ -1703,6 +1847,577 @@ export class Tournaments {
       const kothData = $(element).data('tournament-data');
       this.updateKoTH(kothData.id, data, alert);
     });
+  }
+
+  /**
+   * Parse 'finger blitztourneys' to construct a tournament card 
+   */
+  public parseBlitzTourneys(msg: string) {
+    const tourneys = [];
+    // Parse current tournaments
+    // EXAMPLE
+    // 5: tourney #11 '2-19-blitz-apr-2026' SOLO-RR2 '2 19' 2026-04-10 12:00 END-DATE=2026-04-21 23:59 EDT; STATUS: ONGOING (games progress=7/20) ===STANDINGS==> Position:Name,Points,Win-Draw-Loss 1:atlasNTST,3,3-0-2 2:Naomi,2,2-0-2 3=:pingupenguin,1,1-0-0 3=:splokk,1,1-0-3 5:patriotscout,0,0-0-0; ===LATEST-GAMES==>; 2026-04-12-11:48,atlasNTST-splokk,1-0 2026-04-12-09:32,Naomi-atlasNTST,0-1 2026-04-12-08:51,atlasNTST-Naomi,1-0 2026-04-12-07:20,splokk-atlasNTST,1-0 2026-04-11-07:35,Naomi-splokk,1-0 2026-04-11-07:28,splokk-Naomi,0-1; ===REMAINING-GAMES==>; patriotscout-Naomi Naomi-pingupenguin pingupenguin-splokk Naomi-patriotscout pingupenguin-atlasNTST pingupenguin-Naomi atlasNTST-patriotscout patriotscout-atlasNTST; (and 5 other(s))
+    const currMatches = msg.matchAll(/^\s*\d+: tourney #(\d+) \'([\w\-]+)\' ([\w\-]+) \'(.*?)\' ([\d\-]+ [\d:]+) END-DATE=([\d\-]+ [\d:]+) [A-Z]+; STATUS: (\w+)(?: \(games progress=(\d+\/\d+)\))? ===STANDINGS==> Position:Name,Points,Win-Draw-Loss ([^;]+); ===LATEST-GAMES==>; ([^;]+)(?:; ===REMAINING-GAMES==>; (.*))?/gm);
+    for(const m of currMatches) {
+      const standingsStrings = m[9].split(/\s+/);       
+      const standings = [];
+      standingsStrings.forEach(st => {
+        st = st.trim();
+        // Parse standings
+        // EXAMPLE
+        // 1=:**JOINT-WINNER**krell,7,7-0-3
+        const sMatch = st.match(/^(\d+)=?:(?:\*\*[\w\-]+\*\*)?([^,]+),([\d.]+),(\d+)-(\d+)-(\d+)/);
+        const points = +sMatch[3];
+        const wins = +sMatch[4];
+        const draws = +sMatch[5];
+        const losses = +sMatch[6];
+        const played = wins + draws + losses;
+        const pointsPercent = played ? points / played : 0;
+        standings.push({
+          name: sMatch[2],
+          pos: sMatch[1],
+          points,
+          wins,
+          draws,
+          losses,
+          played,
+          pointsPercent 
+        });
+      });
+
+      const gameStrings = m[10].split(/\s+/); 
+      const games = [];
+      gameStrings.forEach(g => {
+        // Parse recent games
+        // EXAMPLE
+        // 2026-04-12-11:29,krell-FZi,1-0
+        const gMatch = g.match(/^(\d+)-(\d+)-(\d+)-(\d+):(\d+),([^\-]+)-([^,]+),([\w\-]+)/);
+        if(gMatch) {
+          const date = parseDate({
+            year: gMatch[1],
+            month: gMatch[2],
+            day: gMatch[3],
+            hour: gMatch[4],
+            minute: gMatch[5],
+          }, true);
+          games.push({
+            date,
+            whiteName: gMatch[6],
+            blackName: gMatch[7],
+            result: gMatch[8]
+          });
+        }
+      });
+
+      let dateMatch = m[5].match(/(\d+)-(\d+)-(\d+) (\d+):(\d+)/);
+      const date = parseDate({
+        year: dateMatch[1],
+        month: dateMatch[2],
+        day: dateMatch[3],
+        hour: dateMatch[4],
+        minute: dateMatch[5],
+      }, true);
+
+      dateMatch = m[6].match(/(\d+)-(\d+)-(\d+) (\d+):(\d+)/);
+      const endDate = parseDate({
+        year: dateMatch[1],
+        month: dateMatch[2],
+        day: dateMatch[3],
+        hour: dateMatch[4],
+        minute: dateMatch[5],
+      }, true);
+
+      const title = m[2].split('-').map(word => word ? word[0].toUpperCase() + word.slice(1) : '').join(' ');
+
+      standings.sort((a, b) => b.pointsPercent - a.pointsPercent);
+      tourneys.push({
+        id: m[1],
+        format: m[3],
+        type: m[4],
+        title,
+        date,
+        endDate,
+        status: m[7],
+        progress: m[8],
+        standings,
+        games,
+        remaining: m[11]
+      });
+    }
+
+    // Parse future tournaments
+    // EXAMPLE
+    //  2: THE NEXT TOURNAMENTS ==1=> '2 19' starting 1200 EDT (6pm CET) Friday 10 April 2026 : "tell BlitzTourneys interested 2 19" . ==2=> '3 0' starting 1200 EDT (6pm CET) Thursday 16 April 2026 : "tell BlitzTourneys interested 3 0" . .
+    const nextMatch = msg.match(/\s*\d+: THE NEXT TOURNAMENTS (.*)/m);
+    if(nextMatch) {
+      const nextStrings = nextMatch[1].split('.');
+      nextStrings.forEach(s => {
+        s = s.trim();
+        // EXAMPLE
+        // '3 0' starting 1200 EDT (5pm CET) Thursday 2 April 2026 : "tell BlitzTourneys interested 3 0" . .
+        const sMatch = s.match(/^==\d*=> \'(.*?)\' starting (\d{2})(\d{2}) [A-Z]+ \(\w+ \w+\) \w+ (\d+) (\w+) (\d+)/);
+        if(sMatch) {
+          const type = sMatch[1]; 
+          const day = sMatch[4];
+          const month = sMatch[5].slice(0, 3).toLowerCase();
+          const year = sMatch[6];
+          const date = parseDate({
+            year,
+            month,
+            day,
+            hour: sMatch[2],
+            minute: sMatch[3],
+          }, true);
+
+          if(!tourneys.some(t => t.type === type && (t.date.getTime() === date.getTime || (t.endDate && date.getTime() < t.endDate.getTime())))) {   
+            tourneys.push({
+              id: type,
+              type,
+              title: `Next ${type}`,
+              date,
+              status: 'FUTURE',
+            });
+          }
+        }
+      });
+    }     
+
+    // Parse interested lists and assign to tournament cards
+    // EXAMPLE
+    // 6: (Chess) interested in 3 0: (7 player(s)) Naomi+, patriotscout+, FZi+, krell+, atlasNTST+, GotreksAxe+, adcool+ (+ players for future '3 0' Chess) ..... interested in 12 4: (6 player(s)) atlasNTST*, patriotscout*, Naomi*, Plebusan*, adcool*, blore* (* players locked to current '12 4 tourney')
+    const intMatches = msg.matchAll(/^\s*\d+: \((.*?)\) (interested in.*)$/gm);
+    for(const intMatch of intMatches) {
+      const variant = intMatch[1];
+      const intStrings = intMatch[2].split('.....');
+      intStrings.forEach(s => {
+        s = s.trim();
+        // interested in 2 19: (5 player(s)) Naomi*, patriotscout*, atlasNTST*, splokk*, pingupenguin* (* players locked to current '2 19 tourney')
+        const sMatch = s.match(/^interested in (\d+ \d+): \(\d+ player\(s\)\) ([^(]+)/);
+        const type = `${sMatch[1]}${variant !== 'Chess' ? ` ${variant}` : ''}`; 
+        const playerStrings = sMatch[2].split(/[,\s]+/);
+        const currentTourneyPlayers = playerStrings.filter(p => p.slice(-1) === '*').map(p => p.slice(0, -1)); 
+        const currentTourney = tourneys.find(t => t.type === type && t.status !== 'FUTURE');
+        if(currentTourney)
+          currentTourney.players = currentTourneyPlayers; 
+        const nextTourneyPlayers = playerStrings.map(p => p.slice(0, -1)); 
+        const nextTourney = tourneys.find(t => t.type === type && t.status === 'FUTURE');
+        if(nextTourney)
+          nextTourney.players = nextTourneyPlayers; 
+      });
+    }
+
+    tourneys.forEach(t => this.addBlitzTourney(t));
+
+    // Remove obsolete cards
+    $('.tournament-card[data-tournament-type="blitztourney"').each((index, element) => {
+      const data = $(element).data('tournament-data');
+      if(!tourneys.some(k => k.id === data.id))
+        $(element).remove();
+    });
+
+    if(awaiting.resolve('blitztourney-standings-dialog')) 
+      this.showBlitzTourneyStandings(this.selectedBlitzTourney);
+    if(awaiting.resolve('blitztourney-games-dialog')) 
+      this.showBlitzTourneyGames(this.selectedBlitzTourney);
+    if(awaiting.resolve('blitztourney-players-dialog')) 
+      this.showBlitzTourneyPlayers(this.selectedBlitzTourney);
+  }
+
+    /**
+   * Adds a new BlitzTourneys tournament card or updates the state of a card
+   * @param data The properties to add/update
+   * @returns The tournament card
+   */
+  public addBlitzTourney(data: any) {
+    let card = $(`.tournament-card[data-tournament-type="blitztourney"][data-tournament-id="${data.id}"]`);
+    if(!card.length) { // No match so create new card
+      card = $(`
+        <div class="card tournament-card" data-tournament-id="${data.id}" data-tournament-type="blitztourney">
+          <div class="card-body">
+            <div class="d-flex">
+              <div class="flex-grow-1 pe-2" style="min-width: 0;">
+                <div class="tournament-title" style="font-weight: bold;"></div>
+                <div class="tournament-type" style="white-space: pre-wrap;"></div>
+                <div class="tournament-start" style="white-space: pre-wrap;"></div>
+                <div class="tournament-end" style="white-space: pre-wrap;"></div>
+                <div class="tournament-num-players" style="white-space: pre-wrap;"></div>
+                <div class="tournament-winners" style="white-space: pre-wrap;"></div>
+              </div>
+              <div class="d-flex" style="justify-content: end; align-items: center">
+                <div class="btn-group-vertical" style="gap: 10px">
+                  <button type="button" class="btn btn-outline-secondary btn-md tournament-join" title="Join" style="display: none; white-space: nowrap;">Join</button>
+                  <button type="button" class="btn btn-outline-secondary btn-md tournament-play-game" title="Play Game" style="display: none; white-space: nowrap;">Play Game</button>
+                  <button type="button" class="btn btn-outline-secondary btn-md tournament-games" title="Games" style="display: none; white-space: nowrap;">Games</button>
+                  <button type="button" class="btn btn-outline-secondary btn-md tournament-standings-button" title="Standings" style="display: none; white-space: nowrap;">Standings</button>
+                  <button type="button" class="btn btn-outline-secondary btn-md tournament-withdraw" title="Withdraw" style="display: none; white-space: nowrap;">Withdraw</button>
+                  </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `);
+      card.data('tournament-data', {}); // Stores the tournament state
+
+      /** 'Player List' link */
+      card.on('click', '.tournament-players-link', () => {
+        if(awaiting.has('finger-blitztourneys')) // Request already pending
+          return;
+
+        const tourney = card.data('tournament-data');
+        this.selectedBlitzTourney = tourney.id;
+
+        awaiting.set('finger-blitztourneys');
+        awaiting.set('blitztourney-players-dialog');
+        session.send(`finger blitztourneys`);
+      });
+
+      /** 'Standings' button or link */
+      card.on('click', '.tournament-standings-button, .tournament-standings-link', () => {
+        if(awaiting.has('finger-blitztourneys'))
+          return;
+
+        const tourney = card.data('tournament-data');
+        this.selectedBlitzTourney = tourney.id;
+
+        awaiting.set('finger-blitztourneys');
+        awaiting.set('blitztourney-standings-dialog');
+        session.send('finger blitztourneys');
+      });
+
+      /** 'Games' button */
+      card.find('.tournament-games').on('click', () => {
+        if(awaiting.has('finger-blitztourneys'))
+          return;
+
+        const tourney = card.data('tournament-data');
+        this.selectedBlitzTourney = tourney.id;
+
+        awaiting.set('finger-blitztourneys');
+        awaiting.set('blitztourney-games-dialog');
+        session.send('finger blitztourneys');
+      });
+
+      /** 'Join' button */
+      card.find('.tournament-join').on('click', () => {
+        const tourney = card.data('tournament-data');
+        awaiting.set('blitztourney-interested');
+        session.send(`tell blitztourneys interested ${tourney.type}`);
+      });
+
+      /** 'Withdraw' button */
+      card.find('.tournament-withdraw').on('click', () => {
+        const tourney = card.data('tournament-data');
+        awaiting.set('blitztourney-interested');
+        session.send(`tell blitztourneys uninterested ${tourney.type}`);
+      });
+
+      /** 'Play Game' button */
+      card.find('.tournament-play-game').on('click', () => {
+        if(awaiting.has('blitztourney-remaining'))
+          return;
+
+        const tourney = card.data('tournament-data');
+        this.selectedBlitzTourney = tourney.id;
+        users.startRequestUsersTimer(); // Send 'who' command every 60 seconds while Play Game modal showing, in order to show user online status
+        awaiting.set('blitztourney-remaining');
+        session.send(`tell blitztourneys remaining`);
+      });
+    }
+
+    const tourney = card.data('tournament-data');
+   
+    // Update the tourney state with the new data
+    Object.assign(tourney, data);
+
+    // Add/Remove player from player list when they press 'Join' or 'Withdraw'
+    if(!tourney.players)
+      tourney.players = [];
+    if(tourney.interested === true && !tourney.players.includes(session.getUser())) 
+      tourney.players.push(session.getUser());
+    else if(tourney.interested === false) 
+      tourney.players = tourney.players?.filter(p => p !== session.getUser());
+    tourney.interested = undefined;
+
+    tourney.joinable = (tourney.status === 'FUTURE');
+    tourney.joined = !!tourney.players?.includes(session.getUser());
+    tourney.running = tourney.status === 'ONGOING' && tourney.joined; // Used for ordering tournaments
+    // Change the styling of the tournament card if it's running (active)
+    card.toggleClass('tournament-card-active', tourney.running && tourney.joined); 
+
+    card.find('.tournament-title').text(tourney.title);
+
+    // Display tourney format, e.g. 'SOLO-RR2'
+    const formatStr = tourney.status !== 'FUTURE'
+        ? `<span class="tournament-card-label">Type:</span>  ${tourney.format}`
+        : '';
+    card.find('.tournament-type').html(formatStr);
+
+    const startDate = tourney.date;
+    tourney.timestamp = startDate.getTime(); // timestamp is used for ordering cards in the Tournaments panel
+    
+    // Display start time
+    if(tourney.status !== 'FINISHED') {
+      const startDateStr = this.formatDateRelative(startDate);
+      const startTimeStr = startDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const wrappedStartStr = `<span class="tournament-card-label">${tourney.status === 'FUTURE' ? 'Starts:' : 'Started:'}</span>  ${startDateStr}, ${startTimeStr} <i class="chat-text-suffix">(local time)</i>`;
+      card.find('.tournament-start').html(wrappedStartStr);
+    }
+    else
+      card.find('.tournament-start').html('');
+    
+    // Display end time
+    if(tourney.endDate) {
+      const endDate = tourney.endDate;
+      const endDateStr = this.formatDateRelative(endDate);
+      const endTimeStr = endDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const wrappedEndStr = `<span class="tournament-card-label">${tourney.status !== 'FINISHED' ? 'Ends:' : 'Ended:'}</span>  ${endDateStr}, ${endTimeStr} <i class="chat-text-suffix">(local time)</i>`;
+      card.find('.tournament-end').html(wrappedEndStr);
+    }
+    else
+      card.find('.tournament-end').html('');
+
+    // Display the number of players and a 'Player List' link which opens the Player List modal
+    tourney.numPlayers = tourney.players.length;
+    const numPlayersStr = tourney.numPlayers != null && tourney.status !== 'FINISHED'
+        ? `<span class="tournament-card-label">Num of Players:</span>  ${tourney.numPlayers}${tourney.numPlayers > 0 ? '  <a class="tournament-players-link" href="javascript:void(0)">(Player List)</a>' : ''}`
+        : '';
+    card.find('.tournament-num-players').html(numPlayersStr);
+    
+    // Display the winners of the last held edition
+    if(tourney.status === 'FINISHED') 
+      tourney.winners = tourney.standings.filter(st => st.pos === '1').map(st => st.name);
+        
+    const wrappedWinners = tourney.winners 
+      ? tourney.winners    
+        .map(name => `<span class="clickable-user">${name}</span>`) 
+        .join(', ')
+      : '';
+    const winnersStr = wrappedWinners
+        ? `<span class="tournament-card-label">Winner${wrappedWinners.includes(',') ? 's' : ''}:</span>  ${wrappedWinners}</a>`
+        : '';
+    card.find('.tournament-winners').html(winnersStr);
+  
+    // Show or hide buttons on the tournament card based on the current tournament 
+    // state or user settings
+    card.find('.tournament-join').toggle(tourney.joinable && !tourney.joined);
+    card.find('.tournament-play-game').toggle(tourney.status === 'ONGOING' && tourney.joined);
+    card.find('.tournament-games').toggle(tourney.status !== 'FUTURE');
+    card.find('.tournament-standings-button').toggle(tourney.status !== 'FUTURE');
+    card.find('.tournament-withdraw').toggle(tourney.joinable && tourney.joined);
+    
+    // Add the tournament card to the panel (if not there already)
+    this.addTournamentCard(card, 'blitztourney');
+
+    return card;
+  }
+
+  /**
+   * Update the state of an existing blitztourney card. 
+   * @param id The id of the tournament
+   * @param data New state properties 
+
+   */
+  public updateBlitzTourney(id: string, data: any) {
+    const card = $(`.tournament-card[data-tournament-type="blitztourney"][data-tournament-id="${id}"]`);
+    if(card && card.length) {
+      data.id = id;
+      this.addBlitzTourney(data);
+    }      
+  }
+
+  /**
+   * Display blitztourney Standings modal 
+   */
+  public showBlitzTourneyStandings(id: string) {
+    const card = $(`.tournament-card[data-tournament-type="blitztourney"][data-tournament-id="${id}"]`);
+    if(!card)
+      return;
+    const data = card.data('tournament-data');
+    const standings = data.standings;
+    
+    const standingsModal = $(`<div class="modal fade tournament-standings-modal tournament-table-modal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">${data.status === 'FINISHED' ? 'Final Standings' : 'Standings'} (${data.progress} Completed)</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="tournament-standings tournament-table-container" class="mb-1">
+              <table class="table table-sm table-borderless table-striped modal-table tournament-table">
+                <thead>
+                  <tr>
+                    <th scope="col" class="text-end">Pos</th>
+                    <th scope="col">Player</th>
+                    <th scope="col" class="text-end">Points</th>
+                    <th scope="col" class="text-end">Played</th>
+                    <th scope="col" class="text-end">Pct</th>
+                    <th scope="col" class="text-end">W-D-L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`);
+         
+    const tbody = standingsModal.find('tbody')[0];
+    // Display the position of each player by points %
+    let lastPointsPercent = 0;
+    let position = 1;
+    standings.forEach(player => {
+      let posStr = '';
+      if(player.pointsPercent !== lastPointsPercent) { // If points % is the same as previous player don't display their position
+        posStr = position.toString();
+        lastPointsPercent = player.pointsPercent;
+      }
+      position++;  
+            
+      let row = tbody.insertRow();
+      let cell = row.insertCell();
+      cell.classList.add('text-end');
+      cell.innerHTML = `<span class="tournament-table-pos">${posStr}</span>`;            
+      cell = row.insertCell();
+      cell.innerHTML = `<span class="tournament-table-name clickable-user">${player.name}</span>`; 
+      cell = row.insertCell();
+      cell.classList.add('text-end');
+      cell.innerHTML = `<span class="tournament-table-score">${player.points}</span>`;
+      cell = row.insertCell();
+      cell.classList.add('text-end');
+      cell.innerHTML = `<span>${player.played}</span>`;
+      cell = row.insertCell();
+      cell.classList.add('text-end');
+      cell.innerHTML = `<span>${player.pointsPercent.toPrecision(3).replace(/^0\./, '.')}</span>`;
+      cell = row.insertCell();
+      cell.classList.add('text-end');
+      cell.innerHTML = `<span>${player.wins}-${player.draws}-${player.losses}</span>`;
+    });
+    
+    standingsModal.on('hidden.bs.modal', () => removeWithPoppers(standingsModal));
+    standingsModal.appendTo('body').modal('show');        
+  }
+
+  /**
+   * Display blitztourney Games modal
+   */
+  public showBlitzTourneyGames(id: string) {
+    const card = $(`.tournament-card[data-tournament-type="blitztourney"][data-tournament-id="${id}"]`);
+    if(!card)
+      return;
+    const data = card.data('tournament-data');
+    const games = data.games;
+
+    const gamesModal = $(`<div id="blitztourney-games-modal" class="modal fade tournament-games-modal tournament-table-modal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Recent Games (${data.progress} Completed)</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="tournament-games tournament-table-container" class="mb-1">
+              <table class="table table-sm table-borderless table-striped modal-table tournament-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Time</th>
+                    <th scope="col">White</th>
+                    <th scope="col">Black</th>
+                    <th scope="col" class="text-center">Result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`);        
+    const tbody = gamesModal.find('tbody')[0];
+    games.forEach(game => {          
+      let row = tbody.insertRow();    
+      
+      let cell = row.insertCell();
+      const dateStr = this.formatDateRelative(game.date);
+      const timeStr = game.date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+      cell.innerHTML = `<span class="tournament-table-date">${dateStr}, ${timeStr}</span>`;
+
+      cell = row.insertCell();
+      cell.innerHTML = `<span class="tournament-table-name">${game.whiteName}</span>`;
+      cell = row.insertCell();
+      cell.innerHTML = `<span class="tournament-table-name">${game.blackName}</span>`;
+
+      cell = row.insertCell();
+      cell.classList.add('text-center');
+      cell.innerHTML = `<span class="tournament-table-result">${game.result === 'DRAW' ? '&frac12-&frac12' : game.result}</span>`;       
+    });
+
+    // Remaining Games link
+    if(data.remaining) {
+      const link = $('<a href="javascript:void(0)" id="remaining-games-link">Remaining Games</a>');
+      const body = gamesModal.find('.modal-body');
+      body.append(link);
+      link.on('click', () => {
+        showInfoDialog('Remaining Games', data.remaining);
+      });
+    }
+
+    gamesModal.on('hidden.bs.modal', () => removeWithPoppers(gamesModal));
+    gamesModal.appendTo('body').modal('show');    
+  }
+
+  /**
+   * Display blitztourney player list dialog 
+   */
+  public showBlitzTourneyPlayers(id: string) {
+    const card = $(`.tournament-card[data-tournament-type="blitztourney"][data-tournament-id="${id}"]`);
+    if(!card)
+      return;
+    const data = card.data('tournament-data');
+    const playersModal = $(`<div class="modal fade tournament-players-modal tournament-table-modal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Player List</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="d-flex blitztourney-player-list gap-5">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`);        
+    const playerlist = playersModal.find('.blitztourney-player-list');
+    const playerCols = splitIntoColumns(data.players, 3);
+    playerCols.forEach(col => {
+      const colElement = $('<div></div>').appendTo(playerlist);
+      col.forEach(player => {          
+        colElement.append(`<div class="clickable-user">${player}</div>`); 
+      });
+    });
+    playersModal.on('hidden.bs.modal', () => removeWithPoppers(playersModal));
+    playersModal.appendTo('body').modal('show');      
+  }
+
+  /**
+   * Update 'Play Game' modal with user statuses returned from 'who' command
+   */
+  public updateBlitzTourneyUsers() {
+    const modal = $('#blitztourney-play-game-modal');
+    if(modal.hasClass('show')) {
+      const rows = modal.find('tr[data-opponent]');
+      rows.each((_, elem) => {
+        const opponent = $(elem).data('opponent');
+        const status = this.userList.find(u => u.name.toLowerCase() === opponent.toLowerCase())?.status || 'x';
+        const statusCell = $(elem).find('.status-col');
+        statusCell.toggleClass('offline', status === 'x');
+        statusCell.html(users.userStatusCodeToName(status));
+      });   
+    }
   }
 
   /** 
@@ -1736,14 +2451,14 @@ export class Tournaments {
         const data = card.data('tournament-data');
         const interested = !data.interested;
         if(interested) {
-          this.session.send('t teamleague join');
-          this.session.send('t teamleague set interested 1');
+          session.send('t teamleague join');
+          session.send('t teamleague set interested 1');
           // Send auto-message
-          this.session.send('+ch 101');
-          this.session.send('t 101 (Auto Message) I\'m interested in joining Team League. Please tell me how to get invovlved.');
+          session.send('+ch 101');
+          session.send('t 101 (Auto Message) I\'m interested in joining Team League. Please tell me how to get invovlved.');
         }
         else
-          this.session.send('t teamleague set interested 0');
+          session.send('t teamleague set interested 0');
       });
 
       card.data('tournament-data', {});
@@ -1863,9 +2578,12 @@ export class Tournaments {
         });
       }
       else if(groupName === 'koth') {
-        // Insert KoTH group after the Tournaments group
+        // Insert KoTH group after BlitzTourneys or Tournaments group
+        const blitzTourneyGroup = $('[data-group-name="blitztourney"]');
         const tourneyGroup = $('[data-group-name="tournament"]');
-        if(tourneyGroup.length)
+        if(blitzTourneyGroup.length) 
+          blitzTourneyGroup.after(group);
+        else if(tourneyGroup.length) 
           tourneyGroup.after(group);
         else
           $('#tournaments-pane-status').after(group);
@@ -1911,8 +2629,17 @@ export class Tournaments {
           e.stopPropagation();
 
           const isFemale = !checkMark.hasClass('invisible');
-          this.session.send(`td set female ${isFemale ? '1' : '0'}`);
+          session.send(`td set female ${isFemale ? '1' : '0'}`);
         });
+      }
+      else if(groupName === 'blitztourney') {
+        const tourneyGroup = $('[data-group-name="tournament"]');
+        if(tourneyGroup.length) 
+          tourneyGroup.after(group);
+        else
+          $('#tournaments-pane-status').after(group);
+        group.find('.tournament-group-title').html('<span class="d-flex align-items-center">BlitzTourneys 11-day Tournaments<svg class="ms-3 info-icon" data-bs-placement="top" data-bs-trigger="hover focus" data-bs-toggle="popover" data-bs-content="Groups of 4 to 8 similarly-ranked players in a DOUBLE ROUND-ROBIN (each player plays \'rated\' as black and white). Games for any tournament will be played over 11 days. 1. Try to play around 1-2 GAMES PER DAY. 2. You need to play everyone twice (as white and as black) 3. Clear your messages! 4. Set noescape 0 for anything above 3 0 5. If you don\'t finish your games by the deadline, NONE of your games for the tournament will count 6. see \'tell BlitzTourneys help\'" role="button"><use href="#icon-info" /></svg></span>');        
+        group.find('[data-bs-toggle="popover"]').popover();
       }
       else if(groupName === 'other') {
         group.appendTo('#pills-tournaments'); // Append as the last group
@@ -1936,7 +2663,7 @@ export class Tournaments {
   public insertChronological(card, container) {
     const newData = card.data('tournament-data');
     const newTimestamp = newData.timestamp;
-    
+  
     // Cards with no timestamp are simply appended to the end of the group
     if(newData.timestamp == null) {
       container.append(card);
@@ -2124,7 +2851,7 @@ export class Tournaments {
             challenge: offer.id,
           });
         }
-        else if(offer.type === 'pf' && type === kothData.type && kothData.king === this.session.getUser()) {
+        else if(offer.type === 'pf' && type === kothData.type && kothData.king === session.getUser()) {
           // If we are the King and 'Seek Game', a manual seek is sent. When an offer comes in, we get the variables
           // of the challenger and decline if they have private=1, and auto-accept if they have private=0. This is 
           // because mamer does not allow private KoTH games. 
@@ -2132,7 +2859,7 @@ export class Tournaments {
             offers.splice(offers.indexOf(offer), 1);
           
           awaiting.set('get-private-variable');
-          this.session.send(`variables ${offer.opponent}`);
+          session.send(`variables ${offer.opponent}`);
           kothData.offer = offer.id;
         }
         else if(offer.type === 'sn' && type === kothData.type) {
@@ -2142,9 +2869,27 @@ export class Tournaments {
             seek: offer.id,
           });
           if(kothData.offer) 
-            this.session.send(`accept ${kothData.offer}`);
+            session.send(`accept ${kothData.offer}`);
         }
       });
+
+      // For blitztourney 'Play Game' modal. Display popover confirming match request was sent 
+      // after user clicks 'Challenge'.
+      const btModal = $('#blitztourney-play-game-modal');
+      if(btModal.hasClass('show')) {
+        $('#blitztourney-play-game-status').hide();
+        const challengeLink = btModal.find(`[data-opponent="${offer.opponent}"] .blitztourney-challenge`);
+        if(challengeLink.length) {
+          btModal.find('[data-bs-toggle="popover"]').popover('dispose');
+          challengeLink.attr('data-bs-toggle', 'popover');
+          challengeLink.popover({
+            content: "Match request sent",
+            placement: "left",
+            trigger: "manual"
+          }).popover('show');
+          setTimeout(() => challengeLink.popover('dispose'), 1500);
+        }
+      }
     });
    
     // Removals
@@ -2180,6 +2925,20 @@ export class Tournaments {
       });
     });
   }
+
+  /**
+   * Called when 'who' command response is received in order to update tournament modals with user 
+   * status information
+   */
+  public updateUserList(userList: any[]) {
+    this.userList = userList;
+    this.updateBlitzTourneyUsers();
+  }
+}
+
+export let tournaments: Tournaments;
+export function createTournaments() {
+  tournaments = new Tournaments();
 }
 
 export default Tournaments;

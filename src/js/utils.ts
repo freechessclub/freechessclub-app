@@ -341,8 +341,9 @@ document.addEventListener('touchstart', (event) => {
 /**
  * Removes an element from the DOM with any tooltips associated with it
  */
-export function removeWithTooltips(element: JQuery<HTMLElement>) {
+export function removeWithPoppers(element: JQuery<HTMLElement>) {
   element.find('[data-bs-toggle="tooltip"]').tooltip('dispose');
+  element.find('[data-bs-toggle="popover"]').popover('dispose');
   element.remove();
 }
 
@@ -675,7 +676,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
         || event.shiftKey || event.altKey || event.metaKey))
       return;
 
-    removeWithTooltips(menu);
+    removeWithPoppers(menu);
 
     $(document).off('wheel.closeMenu mousedown.closeMenu keydown.closeMenu touchend.closeMenu touchmove.closeMenu');
     if(itemSelectedCallback)
@@ -695,7 +696,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
     if(((event.type === 'touchstart' || event.type === 'mousedown') && !$(event.target).closest('.dropdown-menu').length)
         || (event.type === 'keydown' && event.key === 'Escape')
         || event.type === 'wheel' || event.type === 'touchmove') {
-      removeWithTooltips(menu);
+      removeWithPoppers(menu);
       $(document).off('wheel.closeMenu mousedown.closeMenu keydown.closeMenu touchend.closeMenu touchmove.closeMenu');
       document.removeEventListener('touchstart', closeMenuEventHandler);
       if(menuClosedCallback)

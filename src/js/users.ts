@@ -3,16 +3,16 @@
 // license that can be found in the LICENSE file.
 
 import { awaiting, storage } from './storage';
-import { createContextMenuTrigger, createContextMenu, getValue, removeWithTooltips, sortTable, scrollToTop, getTouchClickCoordinates } from './utils';
+import { createContextMenuTrigger, createContextMenu, getValue, removeWithPoppers, sortTable, scrollToTop, getTouchClickCoordinates } from './utils';
 import { showTab, setRematchUser, getFollowedUser, setFollowedUser } from './index';
 import { showDialog } from './dialogs';
+import { chat } from './chat';
+import { session } from './session';
 
 /** 
  * Users modal (friend list etc) and user context menu for clicking on a user's name and performing actions 
  */
-export class Users {
-  private session = null;           // The current session
-  private chat = null;              
+export class Users {         
   public userList: any[];           // The list of online users, from the 'who' command
   public notifyList: any[] = [];    // The user's notify list
   public censorList: string[] = []; // The user's censor list
@@ -26,7 +26,7 @@ export class Users {
 
     /** Create events for triggering 'User actions' context menu when a user's name is clicked */
     createContextMenuTrigger((event) => {
-      if(!this.session || !this.session.isConnected())
+      if(!session || !session.isConnected())
         return false;
 
       const target = $(event.target);
@@ -40,28 +40,13 @@ export class Users {
     });
 
     $('#users-modal').on('shown.bs.modal', () => {
+      this.startRequestUsersTimer();
       $('#add-friend-input').val('');
       $('#friends-table tr').removeClass('highlighted');
-
-      const requestUsers = () => {
-        if(this.session?.isConnected()) {
-          awaiting.set('userlist');
-          this.session.send('who');
-          if($('#top-players-tab').hasClass('active')) {
-            awaiting.set('hbest');
-            this.session.send('hbest lbsxBzLSw');
-          }
-        }
-      };
-
-      requestUsers();
-      this.updateUsersTimer = setInterval(() => {
-        requestUsers();
-      }, 60000);  
     });
 
     $('#users-modal').on('hide.bs.modal', () => {
-      clearInterval(this.updateUsersTimer);
+      this.stopRequestUsersTimer();
       $('.above-modal-dialog').remove();
     });
 
@@ -90,7 +75,7 @@ export class Users {
       const inputText = ($('#add-friend-input').val() as string).trim().toLowerCase();
       $('#add-friend-suggestions').html('');
       if(inputText.length && this.userList) {
-        let matchingUsers = this.userList.filter(user => user.name.toLowerCase().startsWith(inputText) && user.name !== this.session.getUser());
+        let matchingUsers = this.userList.filter(user => user.name.toLowerCase().startsWith(inputText) && user.name !== session.getUser());
         if(matchingUsers.length) {
           matchingUsers = matchingUsers.slice(0,6).sort((a, b) => a.name.localeCompare(b.name));
           matchingUsers.forEach(m => $('#add-friend-suggestions').append(
@@ -123,11 +108,11 @@ export class Users {
       if($(e.currentTarget).closest('#friends-table').length) {
         const removeFriend = () => {
           if(this.notifyList.includes(name)) 
-            this.session.send(`-notify ${name}`);
+            session.send(`-notify ${name}`);
           
           this.friendList = this.friendList.filter(item => item.name !== name);
           this.saveFriends();
-          removeWithTooltips(row);
+          removeWithPoppers(row);
         };
 
         if(this.notifyList.includes(name)) {
@@ -141,7 +126,7 @@ export class Users {
         else 
           removeFriend();
       }
-      removeWithTooltips(row);
+      removeWithPoppers(row);
     });
 
     $('.users-table').on('click', '.sortable-column', (e) => {
@@ -180,9 +165,9 @@ export class Users {
     });
 
     $('#top-players-tab').on('show.bs.tab', () => {
-      if(this.session?.isConnected()) {
+      if(session?.isConnected()) {
         awaiting.set('hbest');
-        this.session.send('hbest lbsxBzLSw');
+        session.send('hbest lbsxBzLSw');
       }
     });
 
@@ -206,18 +191,37 @@ export class Users {
   /**
    * Called after connecting to the server
    */
-  public connected(session: any, chat: any) {
-    this.session = session;
-    this.chat = chat;
-
+  public connected() {
     if($('#users-modal').hasClass('show')) {
       awaiting.set('userlist');
-      this.session.send('who');
+      session.send('who');
       if($('#top-players-tab').hasClass('active')) {
         awaiting.set('hbest');
-        this.session.send('hbest lbsxBzLSw');
+        session.send('hbest lbsxBzLSw');
       }
     }
+  }
+
+  public requestUsers() {
+    if(session?.isConnected()) {
+      awaiting.set('userlist');
+      session.send('who');
+      if($('#top-players-tab').hasClass('active')) {
+        awaiting.set('hbest');
+        session.send('hbest lbsxBzLSw');
+      }
+    }
+  }
+
+  public startRequestUsersTimer() {
+    this.requestUsers();
+    this.updateUsersTimer = setInterval(() => {
+      this.requestUsers();
+    }, 60000);  
+  }
+
+  public stopRequestUsersTimer() {
+    clearInterval(this.updateUsersTimer);
   }
 
   /**
@@ -344,7 +348,7 @@ export class Users {
     // Remove entries that no longer have a matching user in the user list
     table.find('tbody tr').each((_, elem) => {
       if(!users.find(user => $(elem).attr('data-name') === user.name))
-        removeWithTooltips($(elem));
+        removeWithPoppers($(elem));
     });
 
     sortTable(table);
@@ -362,7 +366,7 @@ export class Users {
   /**
    * Convert 'who' status codes to names
    */
-  private userStatusCodeToName(code: string) {
+  public userStatusCodeToName(code: string) {
     const statusNames = {
       'x': 'Offline',
       ' ': 'Online',
@@ -559,7 +563,7 @@ export class Users {
     const isCensored = this.isUserInList(this.censorList, name);
     const isNoPlay = this.isUserInList(this.noplayList, name);
 
-    const menu = (name.toLowerCase() === this.session.getUser().toLowerCase())
+    const menu = (name.toLowerCase() === session.getUser().toLowerCase())
       ? $(`<ul class="dropdown-menu noselect user-actions-menu">
           <li><a class="dropdown-item" data-action="finger">Finger</a></li>  
         </ul>`)
@@ -600,7 +604,7 @@ export class Users {
               modal.modal('hide'); // If the context menu is in a modal, then hide it
             setRematchUser(name);
             awaiting.set('history-rematch');
-            this.session.send('history');
+            session.send('history');
             break;
           case 'challenge':
             // Navigates to the 'Play -> Pairing' pane and adds the user's name to the 'Play Against' input
@@ -619,28 +623,28 @@ export class Users {
             if(modal.length)
               modal.modal('hide');
             if($('#collapse-chat').hasClass('show'))
-              this.chat.scrollToChat();
+              chat.scrollToChat();
             else
               $('#collapse-chat').collapse('show');
-            this.chat.createTab(name, true);
+            chat.createTab(name, true);
             break;
           case 'observe':
             if(modal.length)
               modal.modal('hide');
-            this.session.send(`obs ${name}`);
+            session.send(`obs ${name}`);
             break;
           case 'follow':
-            this.session.send(`follow ${name}`);
+            session.send(`follow ${name}`);
             setFollowedUser(name);
             break;
           case 'unfollow':
-            this.session.send(`follow`);
+            session.send(`follow`);
             setFollowedUser(null);
             break;
           case 'finger':
             // Create an info dialog with the user's finger info
             awaiting.set('info-finger');
-            this.session.send(`finger ${name}`);
+            session.send(`finger ${name}`);
             break;
           case 'history':
             // Navigates to the history pane and retrieves the user's history
@@ -652,23 +656,23 @@ export class Users {
             else
               $('#collapse-menus').collapse('show');
             awaiting.set('history');
-            this.session.send(`history ${name}`);
+            session.send(`history ${name}`);
             break;
           case 'h2h':
             awaiting.set('info-pstat');
-            this.session.send(`oldpstat ${name}`);
+            session.send(`oldpstat ${name}`);
             break;
           case 'add-noplay':
-            this.session.send(`+noplay ${name}`);
+            session.send(`+noplay ${name}`);
             break;
           case 'remove-noplay':
-            this.session.send(`-noplay ${name}`);
+            session.send(`-noplay ${name}`);
             break;
           case 'censor':
-            this.session.send(`+censor ${name}`);
+            session.send(`+censor ${name}`);
             break;
           case 'uncensor':
-            this.session.send(`-censor ${name}`);
+            session.send(`-censor ${name}`);
             break;
         }
       }
@@ -699,6 +703,11 @@ export class Users {
       createContextMenu(menu, coords.x, coords.y, userActionsItemSelected, null);
     }
   }
+}
+
+export let users: Users;
+export function createUsers() {
+  users = new Users();
 }
 
 export default Users;
