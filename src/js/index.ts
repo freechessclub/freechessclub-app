@@ -14,14 +14,14 @@ import NoSleep from '@uriopass/nosleep.js'; // Prevent screen dimming
 import * as Utils from './utils';
 import * as ChessHelper from './chess-helper';
 import * as Dialogs from './dialogs';
-import Tournaments from './tournaments';
-import Users from './users';
-import Chat from './chat';
+import { tournaments, createTournaments } from './tournaments';
+import { users, createUsers } from './users';
+import { chat, createChat } from './chat';
 import { Clock } from './clock';
 import { Engine, EvalEngine, MaiaEngine } from './engine';
 import { Game, GameData, Role, NewVariationMode, games } from './game';
 import { History, HEntry } from './history';
-import { GetMessageType, MessageType, Session } from './session';
+import { GetMessageType, MessageType, session, createSession } from './session';
 import * as Sounds from './sounds';
 import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
@@ -85,10 +85,6 @@ type InviteGameInfo = {
   updatedAt: number;
 };
 
-let session: Session;
-let chat: Chat;
-let tournaments: Tournaments;
-let users: Users;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
 let playEngine: Engine | MaiaEngine | null;
@@ -468,9 +464,9 @@ async function onDeviceReady() {
   initSessionSharing();
 
   seekGraph = new SeekGraph();
-  chat = new Chat();
-  tournaments = new Tournaments();
-  users = new Users();
+  createChat();
+  createTournaments();
+  createUsers();
   
   const game = createGame();
   game.role = Role.NONE;
@@ -519,19 +515,18 @@ async function onDeviceReady() {
   const autoConnect = !hasInvite && !activeSessionOnLoad;
   if(settings.rememberMeToggle) {
      // Get the username/password from secure storage (if the user has previously ticked Remember Me)
-    credential.retrieve().then(() => {
-      if(credential.username != null && credential.password != null) 
-        session = new Session(messageHandler, credential.username, credential.password, autoConnect);
-      else 
-        session = new Session(messageHandler, undefined, undefined, autoConnect);
-      if(activeSessionOnLoad)
-        showActiveSessionPrompt(activeSessionOnLoad);
-    });
+    await credential.retrieve();
+    if(credential.username != null && credential.password != null) 
+      createSession(messageHandler, credential.username, credential.password, autoConnect);
+    else 
+      createSession(messageHandler, undefined, undefined, autoConnect);
+    if(activeSessionOnLoad)
+      showActiveSessionPrompt(activeSessionOnLoad);
   }
   else {
     $('#login-user').val('');
     $('#login-pass').val('');
-    session = new Session(messageHandler, undefined, undefined, autoConnect);
+    createSession(messageHandler, undefined, undefined, autoConnect);
     if(activeSessionOnLoad)
       showActiveSessionPrompt(activeSessionOnLoad);
   }
@@ -1113,8 +1108,8 @@ function messageHandler(data: any) {
         awaiting.set('censor-list');
         session.send('=noplay'); // Get user's noplay list for context-menu toggles
         awaiting.set('noplay-list');
-        chat.connected(data.control);
-        tournaments.connected(session);
+        chat.connected();
+        tournaments.connected();
 
         if($('#pills-observe').hasClass('active'))
           initObservePane();
@@ -1135,7 +1130,7 @@ function messageHandler(data: any) {
         session.sendPostConnectCommands();
         $('#sign-in-alert').removeClass('show');
 
-        users.connected(session, chat);
+        users.connected();
 
         updateForegroundServiceNotification();
 
@@ -1568,6 +1563,8 @@ function gameStart(game: Game) {
     if(game.role !== Role.NONE)
       showStatusPanel();
   }
+  if(game.isPlayingOnline())
+    $('.tournament-table-modal').modal('hide');
 
   if(!mainGame || game.id !== mainGame.partnerGameId)
     scrollToBoard(game);
@@ -2179,6 +2176,10 @@ function handleMiscMessage(data: any) {
     match = msg.match(/^Your opponent has no partner for bughouse\./m);
   if(!match)
     match = msg.match(/^You have no partner for bughouse\./m);
+  if(!match) 
+    match = msg.match(/^:Too frequent\. Can't send a '[^']+' game request to \S+ for another \d+ seconds/m);
+  if(match) 
+    tournaments?.handleCommandError(match[0]);
   if(match && (awaiting.has('history') || awaiting.has('obs') || awaiting.has('match') || awaiting.has('allobs'))) {
     if(pendingInviteObserve && match[0] === 'There is no such game.') {
       const host = pendingInviteObserve.host;
@@ -2692,6 +2693,7 @@ function handleMiscMessage(data: any) {
     users.userList = parseUserList(msg);
     users.updateUsers();
     chat.updateUserList(users.userList);
+    tournaments.updateUserList(users.userList);
     return;
   }
 
@@ -4063,7 +4065,7 @@ function initGameControls(game: Game) {
   if(game !== games.focused)
     return;
 
-  Utils.removeWithTooltips($('.context-menu'));
+  Utils.removeWithPoppers($('.context-menu'));
   initAnalysis(game);
   initGameTools(game);
 
@@ -5454,7 +5456,7 @@ function showInviteJoinDialog(invite: InviteJoinState) {
           session.disconnect();
           session.destroy();
         }
-        session = new Session(messageHandler, desiredHandle);
+        createSession(messageHandler, desiredHandle);
       }
       else
         completeInviteJoin();
@@ -5467,7 +5469,7 @@ function showInviteJoinDialog(invite: InviteJoinState) {
         session.disconnect();
         session.destroy();
       }
-      session = new Session(messageHandler);
+      createSession(messageHandler);
     }
     dialog.toast('hide');
   });
@@ -8173,7 +8175,7 @@ $('#login-form').on('submit', (event) => {
     session.disconnect();
     session.destroy();
   }
-  session = new Session(messageHandler, user, pass);
+  createSession(messageHandler, user, pass);
   settings.rememberMeToggle = $('#remember-me').prop('checked');
   storage.set('rememberme', String(settings.rememberMeToggle));
   if(settings.rememberMeToggle)
@@ -8223,7 +8225,7 @@ $('#login-pass').on('change', () => {
       if(session) {
         session.disconnect();
         session.destroy();
-        session = new Session(messageHandler, credential.username, credential.password);
+        createSession(messageHandler, credential.username, credential.password);
       }
     }
     $('#login-user').val('');
@@ -8236,7 +8238,7 @@ $('#connect-guest').on('click', () => {
     session.disconnect();
     session.destroy();
   }
-  session = new Session(messageHandler);
+  createSession(messageHandler);
 });
 
 $('#login-as-guest').on('click', () => {

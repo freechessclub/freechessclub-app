@@ -281,4 +281,9 @@ export class Session {
   }
 }
 
+export let session: Session;
+export function createSession(onRecv: (msg: any) => void, user?: string, pass?: string, autoConnect = true) {
+  session = new Session(onRecv, user, pass, autoConnect);
+}
+
 export default Session;

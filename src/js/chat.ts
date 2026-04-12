@@ -4,11 +4,12 @@
 
 import '@formatjs/intl-segmenter/polyfill-force.js';
 import { autoLink } from 'autolink-js';
-import { createTooltip, safeScrollTo, isSmallWindow, removeWithTooltips, insertAtCursor } from './utils';
+import { createTooltip, safeScrollTo, isSmallWindow, removeWithPoppers, insertAtCursor } from './utils';
 import { setGameWithFocus, maximizeGame, scrollToBoard } from './index';
 import { settings } from './settings';
 import { storage, awaiting } from './storage';
 import { games } from './game';
+import { session } from './session';
 
 // list of channels
 const channels = {
@@ -297,7 +298,8 @@ export class Chat {
     $(window).trigger('resize');
   }
 
-  public connected(user: string): void {
+  public connected(): void {
+    const user = session.getUser();
     this.isConnected = true;
 
     if(this.user !== user) {
@@ -320,10 +322,10 @@ export class Chat {
 
   public createInChannelTimer(tabName: string) {
     if(/^\d+$/.test(tabName)) {
-      (window as any).sessionSend(`inchannel ${tabName}`);
+      session.send(`inchannel ${tabName}`);
       awaiting.set('inchannel');
       this.inChannelTimer = setInterval(() => {
-        (window as any).sessionSend(`inchannel ${tabName}`);
+        session.send(`inchannel ${tabName}`);
         awaiting.set('inchannel');
       }, 60000);
     }
@@ -445,7 +447,7 @@ export class Chat {
     tab.parent().tooltip('dispose');
     tab.parent().remove();
     this.deleteTab(tab);
-    removeWithTooltips($(`#content-${name}`));
+    removeWithPoppers($(`#content-${name}`));
   }
 
   public createTab(name: string, showTab = false) {
@@ -987,7 +989,7 @@ export class Chat {
 
       // If user opens a channel tab, also subscribe to that channel (if not already)
       if(Number.isInteger(+chan) && +chan <= 255 && !this.subscribedChannels.includes(chan))
-        (window as any).sessionSend(`+ch ${chan}`);
+        session.send(`+ch ${chan}`);
     });
 
     $('#start-chat-button').on('shown.bs.dropdown', () => {
@@ -1018,7 +1020,7 @@ export class Chat {
         }
 
         if(Number.isInteger(+val) && +val <= 255 && !this.subscribedChannels.includes(val))
-          (window as any).sessionSend(`+ch ${val}`);
+          session.send(`+ch ${val}`);
 
         if(settings.chattabsToggle) {
           this.createTab(val, true);
@@ -1060,7 +1062,7 @@ export class Chat {
       if(!this.userListHasBeenRequested) {
         this.userList = null;
         awaiting.set('userlist');
-        (window as any).sessionSend('who');
+        session.send('who');
         this.userListHasBeenRequested = true; // Only request the user list once for each time the menu is shown
       }      
       else if(this.userList)
@@ -1097,9 +1099,9 @@ export class Chat {
     $('#channels-modal').on('click', '[type="checkbox"]', (event) => {
       const elem = $(event.target);
       if(elem.prop('checked'))
-        (window as any).sessionSend(`+ch ${elem.attr('data-channel')}`);
+        session.send(`+ch ${elem.attr('data-channel')}`);
       else
-        (window as any).sessionSend(`-ch ${elem.attr('data-channel')}`);
+        session.send(`-ch ${elem.attr('data-channel')}`);
     });  
   }
 
@@ -1268,6 +1270,11 @@ export class Chat {
       $('#emoji-button').tooltip('hide');
     });
   }
+}
+
+export let chat: Chat;
+export function createChat() {
+  chat = new Chat();
 }
 
 export default Chat;

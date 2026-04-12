@@ -341,8 +341,9 @@ document.addEventListener('touchstart', (event) => {
 /**
  * Removes an element from the DOM with any tooltips associated with it
  */
-export function removeWithTooltips(element: JQuery<HTMLElement>) {
+export function removeWithPoppers(element: JQuery<HTMLElement>) {
   element.find('[data-bs-toggle="tooltip"]').tooltip('dispose');
+  element.find('[data-bs-toggle="popover"]').popover('dispose');
   element.remove();
 }
 
@@ -675,7 +676,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
         || event.shiftKey || event.altKey || event.metaKey))
       return;
 
-    removeWithTooltips(menu);
+    removeWithPoppers(menu);
 
     $(document).off('wheel.closeMenu mousedown.closeMenu keydown.closeMenu touchend.closeMenu touchmove.closeMenu');
     if(itemSelectedCallback)
@@ -695,7 +696,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
     if(((event.type === 'touchstart' || event.type === 'mousedown') && !$(event.target).closest('.dropdown-menu').length)
         || (event.type === 'keydown' && event.key === 'Escape')
         || event.type === 'wheel' || event.type === 'touchmove') {
-      removeWithTooltips(menu);
+      removeWithPoppers(menu);
       $(document).off('wheel.closeMenu mousedown.closeMenu keydown.closeMenu touchend.closeMenu touchmove.closeMenu');
       document.removeEventListener('touchstart', closeMenuEventHandler);
       if(menuClosedCallback)
@@ -1217,4 +1218,23 @@ export class SpritePlayer {
       sp.destRect.height
     );
   }
+}
+
+export function splitIntoColumns(items, cols = 3) {
+  const sorted = [...items].sort((a, b) => a.localeCompare(b));
+
+  const n = sorted.length;
+  const base = Math.floor(n / cols);
+  const remainder = n % cols;
+
+  const result = [];
+  let index = 0;
+
+  for(let col = 0; col < cols; col++) {
+    const size = base + (col < remainder ? 1 : 0);
+    result.push(sorted.slice(index, index + size));
+    index += size;
+  }
+
+  return result;
 }

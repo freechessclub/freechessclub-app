@@ -407,7 +407,7 @@ cg-board {
 .users-table .btn-outline-secondary {
   --bs-btn-active-color: var(--bs-btn-hover-color);
 }
-.users-table .offline {
+.users-table .offline, .tournament-table .offline {
   color: color-mix(in srgb, var(--bs-table-striped-color) 60%, white 40%);
 }
 
