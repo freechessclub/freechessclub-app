@@ -18,7 +18,7 @@ import Tournaments from './tournaments';
 import Users from './users';
 import Chat from './chat';
 import { Clock } from './clock';
-import { Engine, EvalEngine } from './engine';
+import { Engine, EvalEngine, MaiaEngine } from './engine';
 import { Game, GameData, Role, NewVariationMode, games } from './game';
 import { History, HEntry } from './history';
 import { GetMessageType, MessageType, Session } from './session';
@@ -27,6 +27,7 @@ import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
 import { Reason } from './parser';
 import { getShortcuts, initUi } from './ui';
+import { SeekGraph } from './seek-graph';
 import './ui';
 import packageInfo from '../../package.json';
 
@@ -91,7 +92,9 @@ let tournaments: Tournaments;
 let users: Users;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
-let playEngine: Engine | null;
+let playEngine: Engine | MaiaEngine | null;
+let playEngineNames: string[] = ['Stockfish', 'Maia'];
+let seekGraph: SeekGraph | null;
 let userVariables: any = {};
 let pendingTells: any[] = [];
 let gameExitPending = [];
@@ -107,6 +110,7 @@ let oldEngineName: string = '';
 let oldEngineMaxTime: number;
 let oldEngineThreads: number;
 let oldEngineMemory: number;
+let oldPlayComputerType: string = 'Standard';
 let bestMoveBrush = 'yellow';
 let prevBestMoveBrush = 'purple';
 let lastOpponent: string = ''; // The opponent of the current or last game played 
@@ -464,6 +468,7 @@ async function onDeviceReady() {
 
   initSessionSharing();
 
+  seekGraph = new SeekGraph();
   chat = new Chat();
   tournaments = new Tournaments();
   users = new Users();
@@ -861,6 +866,8 @@ function setLeftColumnSizes() {
       if(leftPanelHeight < 0)
         $('#left-panel-bottom').height($('#left-panel-bottom').height() + leftPanelHeight);
     }
+
+    seekGraph.update();
   }
 }
 
@@ -1386,7 +1393,7 @@ function gameStart(game: Game) {
       gameStatus.prepend(`<span class="game-id">Game ${game.id}: </span>`);
   }
   else if(game.role === Role.PLAYING_COMPUTER)
-    game.element.find('.title-bar-text').text('Computer (Playing)');
+    game.element.find('.title-bar-text').text(`${game.engine} (Playing)`);
 
   updateBoardStatusText();
 
@@ -1502,13 +1509,18 @@ function gameStart(game: Game) {
       }
 
       if(game.role === Role.PLAYING_COMPUTER) { // Play Computer mode
-        const options = getPlayComputerEngineOptions(game);
-        
-        const engineName = options.hasOwnProperty('UCI_Variant')
-          ? settings.variantsEngineName
-          : settings.playEngineName;
+        if(game.engine === 'Maia') 
+          playEngine = new MaiaEngine(game, playMaiaMove, playEngineError, { eloSelf: game.difficulty, eloOppo: game.difficulty });
+        else {
+          const options = getPlayComputerEngineOptions(game);
 
-        playEngine = new Engine(game, playComputerBestMove, null, engineName, options, getPlayComputerMoveParams(game));
+          const engineName = options.hasOwnProperty('UCI_Variant')
+            ? settings.variantsEngineName
+            : settings.playEngineName;    
+
+          playEngine = new Engine(game, playComputerBestMove, null, playEngineError, engineName, options, getPlayComputerMoveParams(game));
+        }
+
         if(game.turn !== game.color)
           getComputerMove(game);
       }
@@ -1640,8 +1652,10 @@ function handleOffers(offers: any[]) {
   tournaments?.handleOffers(offers);
 
   // Clear the lobby
-  if(offers[0]?.type === 'sc')
+  if(offers[0]?.type === 'sc') {
     $('#lobby-table').html('');
+    seekGraph.removeAllPoints();
+  }
 
   // Add seeks to the lobby
   const seeks = offers.filter((item) => item.type === 's');
@@ -1652,10 +1666,13 @@ function handleOffers(offers: any[]) {
       if(!settings.lobbyShowUnratedToggle && item.ratedUnrated === 'u')
         return;
 
-      const lobbyEntryText = formatLobbyEntry(item);
+      item.text = formatLobbyEntry(item);
+
       $('#lobby-table').append(
         `<button type="button" data-offer-id="${item.id}" class="btn btn-outline-secondary lobby-entry"`
-          + ` onclick="acceptSeek(${item.id});">${lobbyEntryText}</button>`);
+          + ` onclick="acceptSeek(${item.id});">${item.text}</button>`);
+    
+      seekGraph.addPoint(item);
     });
 
     if(lobbyScrolledToBottom) {
@@ -1785,6 +1802,7 @@ function handleOffers(offers: any[]) {
       $(`.game-dialog[data-offer-id="${id}"]`).toast('hide'); // if in-game request, hide the dialog
       $(`.sent-offer[data-offer-id="${id}"]`).remove(); // If offer, match request or seek was sent by us, remove it from the Play pane
       $(`.lobby-entry[data-offer-id="${id}"]`).remove(); // Remove seek from lobby
+      seekGraph.removePoint(id);
     });
     
     if(item.type === 'sr' && !item.ids.length) // remove all seeks
@@ -2310,7 +2328,7 @@ function handleMiscMessage(data: any) {
   match = msg.match(/^(Issuing match request since the seek was set to manual\.)/m);
   if(match && match.length > 1 && awaiting.has('lobby')) {
     $('#lobby-pane-status').text(match[1]);
-    $('#lobby-pane-status').show();
+    showLobbyStatus();
   }
 
   match = msg.match(/^Your seek has been posted with index \d+\./m);
@@ -2856,13 +2874,13 @@ function parseUserListEntries(msg: string): string[] {
 function updateBoardStatusText() {
   setTimeout(() => {
     // Resize fonts for player and opponent name to fit
-    $('.status').each((index, element) => {
+    $('.game-card .status').each((index, element) => {
       const nameElement = $(element).find('.name');
       const ratingElement = $(element).find('.rating');
       const nameRatingElement = $(element).find('.name-rating');
 
       const name = nameElement.text();
-      nameElement.toggleClass('clickable-user', name && name !== 'Computer' && !name.includes(' '));
+      nameElement.toggleClass('clickable-user', name && !playEngineNames.includes(name) && !name.includes(' '));
 
       nameElement.css('font-size', '');
       ratingElement.css('width', '');
@@ -2880,7 +2898,7 @@ function updateBoardStatusText() {
       else
         ratingElement.css('visibility', 'visible');
     });
-  });
+  }, 0);
 }
 
 function showCapturedMaterial(game: Game) {
@@ -4238,7 +4256,7 @@ function cleanupGame(game: Game) {
     $('#play-computer').prop('disabled', false);
     $('#playing-game-buttons').hide();
     $('#viewing-game-buttons').show();
-    $('#lobby-pane-status').hide();
+    hideLobbyStatus();
   }
 
   game.element.find($('[title="Close"]')).css('visibility', 'visible');
@@ -4579,12 +4597,44 @@ $('#quick-game').on('click', () => {
 
 $('#play-computer-modal').on('show.bs.modal', () => {
   $('#play-computer-start-from-pos').removeClass('is-invalid');
+  updatePlayComputerEngine();
   updatePlayComputerDifficultyDisplay();
+});
+
+$('input[name="play-computer-engine"]').on('change', (e) => {
+  updatePlayComputerEngine();
 });
 
 $('#play-computer-level-slider').on('input', () => {
   updatePlayComputerDifficultyDisplay();
 });
+
+$('#play-computer-maia-elo-slider').on('input', () => {
+  updatePlayComputerDifficultyDisplay();
+});
+
+$('input[name="play-computer-type"]').on('change', (e) => {
+  oldPlayComputerType = $(e.target).next().text();
+});
+
+function updatePlayComputerEngine() {
+  const engine = $('[name="play-computer-engine"]:checked').next().text();
+  if(engine === 'Maia') {
+    $('#play-computer-difficulty-selector').hide();
+    $('#play-computer-maia-difficulty-selector').show();
+    $('[name="play-computer-type"]:not(#play-computer-type-standard)').prop('disabled', true);
+    $('#play-computer-type-standard').prop('checked', true);
+  }
+  else {
+    $('#play-computer-maia-difficulty-selector').hide();
+    $('#play-computer-difficulty-selector').show();
+    $('[name="play-computer-type"]').prop('disabled', false);
+    $('[name="play-computer-type"]').each((index, elem) => {
+      if($(elem).next().text() === oldPlayComputerType) 
+        $(elem).prop('checked', true);
+    });
+  }
+}
 
 function updatePlayComputerDifficultyDisplay() {
   const difficultyLabels = [
@@ -4602,22 +4652,34 @@ function updatePlayComputerDifficultyDisplay() {
     'Engine'
   ];
 
-  const slider = $('#play-computer-level-slider');
-  const level = +(slider.val() as string);
-  $('#play-computer-level-value').text(String(level));
-  $('#play-computer-level-desc').text(difficultyLabels[level - 1] || '');
+  const engine = $('[name="play-computer-engine"]:checked').next().text();
+
+  if(engine === 'Maia') {
+    const slider = $('#play-computer-maia-elo-slider');
+    const level = +(slider.val() as string);
+    $('#play-computer-maia-elo-value').text(String(level));
+  }
+  else {
+    const slider = $('#play-computer-level-slider');
+    const level = +(slider.val() as string);
+    $('#play-computer-level-value').text(String(level));
+    $('#play-computer-level-desc').text(difficultyLabels[level - 1] || '');
+  }
 }
 
 $('#play-computer-form').on('submit', (event) => {
   event.preventDefault();
+
+  const engine = $('[name="play-computer-engine"]:checked').next().text();
 
   const params = {
     playerColorOption: $('[name="play-computer-color"]:checked').next().text(),
     playerColor: '',
     playerTime: +$('#play-computer-min').val(),
     playerInc: +$('#play-computer-inc').val(),
+    engine,
     gameType: $('[name="play-computer-type"]:checked').next().text(),
-    difficulty: +$('#play-computer-level-slider').val(),
+    difficulty: engine === 'Maia' ? +$('#play-computer-maia-elo-slider').val() : +$('#play-computer-level-slider').val(),
     fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
   };
 
@@ -4688,8 +4750,8 @@ function playComputer(params: any) {
       playerTimeRemaining = 10000; // if initial player time is 0, player gets 10 seconds
   }
 
-  let wname = (params.playerColor === 'White' ? playerName : 'Computer');
-  let bname = (params.playerColor === 'Black' ? playerName : 'Computer');
+  let wname = (params.playerColor === 'White' ? playerName : params.engine);
+  let bname = (params.playerColor === 'Black' ? playerName : params.engine);
   const category = params.gameType === 'Chess960' ? 'wild/fr' : params.gameType.toLowerCase();
   const turnColor = ChessHelper.getTurnColorFromFEN(params.fen);
 
@@ -4711,11 +4773,12 @@ function playComputer(params: any) {
     flip: (params.playerColor === 'White' ? false : true), // whether game starts with board flipped
     category,                               // game variant or type
     color: params.playerColor === 'White' ? 'w' : 'b',
+    engine: params.engine,                  // Computer engine
     difficulty: params.difficulty,          // Computer difficulty level
   }
 
   // Show game status mmessage
-  const computerName = `Computer (Lvl ${params.difficulty})`;
+  const computerName = `${params.engine} (${params.engine !== 'Maia' ? 'Lvl ' : ''}${params.difficulty})`;
   if(params.playerColor === 'White')
     bname = computerName;
   else
@@ -4753,9 +4816,14 @@ function getPlayComputerMoveParams(game: Game): string {
   return moveParams;
 }
 
-function playComputerBestMove(game: Game, bestMove: string, score = '=0.00') {
+function playComputerBestMove(game: Game, bestMove: string, score?: string) {
   if(!bestMove)
     return;
+
+  if(score === undefined)
+    score = playEngine instanceof MaiaEngine 
+      ? '0.5'
+      : '=0.00';
 
   const move = bestMove[1] === '@' // Crazyhouse/bughouse
     ? {
@@ -4787,10 +4855,82 @@ function playComputerBestMove(game: Game, bestMove: string, score = '=0.00') {
   messageHandler(moveData);
 }
 
+/**
+ * Callback function used to abort a game against the computer when an error occurs, 
+ * for example when downloading the engine. 
+ */
+function playEngineError(game: Game, err: string | Error) {
+  playEngine.terminate();
+  playEngine = null;
+  cleanupGame(game);
+  console.error(err);
+  Dialogs.showDialog({type: 'Engine Error', msg: 'Unable to download engine', btnSuccess: ['', 'OK']});
+}
+
+/**
+ * Callback function, called by MaiaEngine when a move has been evaluated
+ * @param game The game evaluated
+ * @param policy An array of [move, probability] pairs, sorted in descending order by probability
+ * e.g. ['e2e4', 0.8]
+ * @param value The predicted win-rate, e.g. 0.6
+ */
+function playMaiaMove(game: Game, policy: [string, number][], value: number) {
+  const fen = game.history.last().fen;
+  const moveNo = ChessHelper.getMoveNoFromFEN(fen);
+
+  // Cooldown function based on move number. In the opening we allow Maia to select from a wider choice 
+  // of moves in order to make the opening less predictable. But in the middle-game it will almost always 
+  // pick the first choice.
+  const a = 0.3;
+  const b = 4.0;
+  const topP = 1 / (1 + Math.exp(a * moveNo - b));
+
+  const candidates: [string, number][] = [];
+  let cumulative = 0;
+
+  // Select a number of candidates depending on the cooldown function
+  for(const [move, prob] of policy) {
+    const moveParam = {
+      from: move.slice(0, 2),
+      to: move.slice(2, 4),
+      promotion: move.length === 5 ? move.charAt(4) : undefined
+    };
+
+    // We must check if the move is legal
+    if(!parseGameMove(game, fen, moveParam)) 
+      continue;
+
+    candidates.push([move, prob]);
+    cumulative += prob;
+
+    if(cumulative >= topP)
+      break;
+  }
+
+  if(candidates.length === 0) {
+    console.warn("No valid moves from policy");
+    return;
+  }
+
+  // Choose a move to play from the candidates, based on the move's policy probability
+  const r = Math.random();
+  let acc = 0;
+  for(const [move, prob] of candidates) {
+    acc += prob / cumulative;
+    if(r <= acc) {
+      playComputerBestMove(game, move, String(value));
+      return;
+    }
+  }
+
+  // fallback
+  playComputerBestMove(game, candidates[candidates.length - 1][0], String(value));
+}
+
 // Get Computer's next move either from the opening book or engine
 async function getComputerMove(game: Game) {
   let bookMove = '';
-  if(game.category === 'standard') { // only use opening book with normal chess
+  if(game.category === 'standard' && !(playEngine instanceof MaiaEngine)) { // only use opening book with normal chess
     const fen = game.history.last().fen;
     const moveNo = ChessHelper.getMoveNoFromFEN(fen);
     // Cool-down function for deviating from the opening book. The chances of staying in book
@@ -5526,11 +5666,14 @@ function initLobbyPane() {
       $('#lobby-pane-status').text('Can\'t enter lobby while examining a game.');
     else
       $('#lobby-pane-status').text('Can\'t enter lobby while playing a game.');
-    $('#lobby-pane-status').show();
+    showLobbyStatus();
     $('#lobby').hide();
   }
   else {
-    $('#lobby-pane-status').hide();
+    hideLobbyStatus();
+    $('#lobby').show();
+    setLobbyViewMode();
+
     if(session.isRegistered())
       $('#lobby-show-unrated').parent().show();
     else
@@ -5556,7 +5699,6 @@ function initLobbyPane() {
 
     $('#lobby-show-computers').prop('checked', settings.lobbyShowComputersToggle);
     $('#lobby-show-unrated').prop('checked', settings.lobbyShowUnratedToggle);
-    $('#lobby').show();
     $('#lobby-table').html('');
     lobbyScrolledToBottom = true;
     awaiting.set('lobby');
@@ -5580,6 +5722,16 @@ function leaveLobbyPane() {
   }
 }
 
+function showLobbyStatus() {
+  $('#lobby-pane-status').show();
+  seekGraph.update();
+}
+
+function hideLobbyStatus() {
+  $('#lobby-pane-status').hide();
+  seekGraph.update();
+}
+
 $('#lobby-show-computers').on('change', function () {
   settings.lobbyShowComputersToggle = $(this).is(':checked');
   storage.set('lobbyshowcomputers', String(settings.lobbyShowComputersToggle));
@@ -5591,6 +5743,30 @@ $('#lobby-show-unrated').on('change', function () {
   storage.set('lobbyshowunrated', String(settings.lobbyShowUnratedToggle));
   initLobbyPane();
 });
+
+$('[name="lobby-view-mode"').on('change', function () {
+  setLobbyViewMode($('#lobby-list-view').is(':checked') ? 'list' : 'graph');
+});
+
+function setLobbyViewMode(mode?: string) {
+  if(!mode) 
+    mode = settings.lobbyViewMode;
+
+  if(mode === 'list') {
+    settings.lobbyViewMode = 'list';
+    $('#lobby-list-view').prop('checked', true);
+    $('#lobby-graph-container').hide();
+    $('#lobby-table-container').show();
+  }
+  else {
+    settings.lobbyViewMode = 'graph';
+    $('#lobby-graph-view').prop('checked', true);
+    $('#lobby-table-container').hide();
+    $('#lobby-graph-container').show();
+    seekGraph.update();
+  }
+  storage.set('lobby-view-mode', mode);
+}
 
 $('#lobby-table-container').on('scroll', () => {
   const container = $('#lobby-table-container')[0];
@@ -7386,7 +7562,7 @@ function startEngine() {
       : settings.analyzeEngineName;
    
     if(!engine)
-      engine = new Engine(game, null, displayEnginePV, engineName, options, moveParams);
+      engine = new Engine(game, null, displayEnginePV, null, engineName, options, moveParams);
     
     if(game.setupBoard)
       engine.evaluateFEN(getSetupBoardFEN(game));
@@ -7675,7 +7851,7 @@ function createEvalEngine(game: Game) {
       ? settings.variantsEngineName
       : settings.analyzeEngineName;
     
-    evalEngine = new EvalEngine(game, engineName, options);
+    evalEngine = new EvalEngine(game, updateMoveRatingIcon, engineName, options);
   }
 }
 
@@ -7879,7 +8055,10 @@ $('#draw').on('click', () => {
       if(gameEval === null)
         gameEval = '';
       gameEval = gameEval.replace(/[#+=]/, '');
-      if(gameEval !== '' && game.history.length() >= 60 && (game.color === 'w' ? +gameEval >= 0 : +gameEval <= 0)) {
+      const isMaia = playEngine instanceof MaiaEngine;
+      const isDrawnOrLosing = (isMaia && +gameEval <= 0.5) || 
+        (!isMaia && (game.color === 'w' ? +gameEval >= 0 : +gameEval <= 0));
+      if(gameEval !== '' && game.history.length() >= 60 && isDrawnOrLosing) {
         const gameStr = `(${game.wname} vs. ${game.bname})`;
         const reasonStr = 'Game drawn by mutual agreement';
         const scoreStr = '1/2-1/2';
@@ -7894,7 +8073,7 @@ $('#draw').on('click', () => {
         messageHandler(gameEndData);
       }
       else
-        Dialogs.showDialog({type: 'Draw Offer Declined', msg: 'Computer declines the draw offer'}, 'game');
+        Dialogs.showDialog({type: 'Draw Offer Declined', msg: `${game.engine} declines the draw offer`}, 'game');
     }
     else
       session.send('draw');
@@ -8106,6 +8285,10 @@ function initSettings() {
 
   settings.lobbyShowComputersToggle = (storage.get('lobbyshowcomputers') === 'true');
   settings.lobbyShowUnratedToggle = (storage.get('lobbyshowunrated') !== 'false');
+
+  const lobbyViewMode = storage.get('lobby-view-mode');
+  if(lobbyViewMode)
+    settings.lobbyViewMode = lobbyViewMode;
 
   $('#formula-toggle').prop('checked', (storage.get('seeks-use-formula') === 'true'));
   $('#custom-control-min').val(storage.get('pairing-custom-min') || '0');

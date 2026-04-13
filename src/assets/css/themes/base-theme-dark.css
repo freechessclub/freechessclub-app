@@ -512,3 +512,33 @@ a {
 .macros-key-description {
   color: #AAAAAA;
 }
+
+.seek-graph-border {
+  stroke: #888888;
+}
+.seek-graph-label {
+  fill: var(--fg-color);
+}
+.seek-graph-grid-line {
+  stroke: #666666;
+}
+.seek-graph-guest-separator {
+  stroke: #777777;
+}
+.seek-graph-point {
+  fill: var(--fg-color);
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 1px;
+}
+.seek-graph-point-human-unrated {
+  fill: hsl(210, 70%, 60%); 
+}
+.seek-graph-point-computer-unrated {
+  fill: hsl(35, 80%, 40%);  
+}
+.seek-graph-point-human-rated {
+  fill: hsl(210, 90%, 80%); 
+}
+.seek-graph-point-computer-rated {
+  fill: hsl(35, 95%, 50%);  
+}

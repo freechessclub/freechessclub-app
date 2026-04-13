@@ -104,13 +104,34 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                   </div>
                                   <div class="modal-body">
-                                    <div class="mb-3" id="difficulty-selector">
+                                    <div class="mb-3">
+                                      <label class="form-heading">Play Against:</label>
+                                      <div>
+                                        <div class="form-check form-check-inline">
+                                          <input class="form-check-input" type="radio" name="play-computer-engine" id="play-computer-engine-stockfish" checked>
+                                          <label class="form-check-label" for="play-computer-engine-stockfish">Stockfish</label>
+                                        </div>
+                                        <div class="form-check form-check-inline" data-bs-toggle="tooltip" title="Maia is a neural network engine which plays in a very human-like way.">
+                                          <input class="form-check-input" type="radio" name="play-computer-engine" id="play-computer-engine-maia">
+                                          <label class="form-check-label" for="play-computer-engine-maia">Maia</label>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div class="mb-3" id="play-computer-difficulty-selector">
                                       <label class="form-heading" for="play-computer-level-slider">Difficulty Level:</label>
                                       <div class="d-flex align-items-center gap-2">
                                         <input type="range" class="form-range" id="play-computer-level-slider" min="1" max="12" step="1" value="1">
                                         <span id="play-computer-level-value" style="min-width: 3ch; text-align: right;">1</span>
                                       </div>
                                       <div class="small text-muted" id="play-computer-level-desc">Beginner</div>
+                                    </div>
+                                    <div class="mb-3" id="play-computer-maia-difficulty-selector">
+                                      <label class="form-heading" for="play-computer-maia-elo-slider">Difficulty ELO:</label>
+                                      <div class="d-flex align-items-center gap-2">
+                                        <input type="range" class="form-range" id="play-computer-maia-elo-slider" min="600" max="2600" step="100" value="600">
+                                        <span id="play-computer-maia-elo-value" style="min-width: 4ch; text-align: right;">600</span>
+                                      </div>
+                                      <div class="small text-muted" id="play-computer-level-desc" style="visibility: hidden;">Placeholder</div>
                                     </div>
                                     <div class="mb-3">
                                       <label class="form-heading">Player Time:</label>
@@ -298,22 +319,36 @@
                                 <div class="pane-status" id="lobby-pane-status" style="display: none"></div>
                                 <div id="lobby" class="flex-grow-1" style="min-height: 0">
                                   <div class="d-flex flex-column h-100">
-                                    <div class="center p-2 justify-content-around">
-                                      <div class="eye-toggle">
-                                        <input type="checkbox" class="btn-check" id="lobby-show-computers" autocomplete="off">
-                                        <label class="btn btn-default border-0" for="lobby-show-computers">
-                                          <span id="lobby-show-computers-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Computers
-                                        </label>
+                                    <div class="d-flex align-items-center gap-5 py-2">
+                                      <div class="flex-grow-1 center justify-content-evenly" style="min-width: 0;">
+                                        <div class="eye-toggle">
+                                          <input type="checkbox" class="btn-check" id="lobby-show-computers" autocomplete="off">
+                                          <label class="btn btn-default border-0" for="lobby-show-computers">
+                                            <span id="lobby-show-computers-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Computers
+                                          </label>
+                                        </div>
+                                        <div class="eye-toggle">
+                                          <input type="checkbox" class="btn-check" id="lobby-show-unrated" autocomplete="off">
+                                          <label class="btn btn-default border-0" for="lobby-show-unrated">
+                                            <span id="lobby-show-unrated-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Unrated
+                                          </label>
+                                        </div>
                                       </div>
-                                      <div class="eye-toggle">
-                                        <input type="checkbox" class="btn-check" id="lobby-show-unrated" autocomplete="off">
-                                        <label class="btn btn-default border-0" for="lobby-show-unrated">
-                                          <span id="lobby-show-unrated-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Unrated
+                                      <div class="btn-group" style="padding-right: 0.75rem;">
+                                        <input type="radio" checked class="btn-check" name="lobby-view-mode" id="lobby-list-view" autocomplete="off">
+                                        <label class="btn btn-outline-secondary btn-sm" for="lobby-list-view" data-bs-toggle="tooltip" data-bs-placement="top" data-tooltip-hover-only data-fallback-placements="left,right" title="List View">
+                                          <span class="fa-solid fa-list" aria-hidden="false"></span>
+                                        </label>
+                                        <input type="radio" class="btn-check" name="lobby-view-mode" id="lobby-graph-view" autocomplete="off">
+                                        <label class="btn btn-outline-secondary btn-sm" for="lobby-graph-view" data-bs-toggle="tooltip" data-bs-placement="top" data-tooltip-hover-only data-fallback-placements="right,left" title="Graph View">
+                                          <span class="fa-solid fa-chart-line" aria-hidden="false"></span>
                                         </label>
                                       </div>
                                     </div>
                                     <div class="flex-grow-1 overflow-auto" id="lobby-table-container" style="min-height: 0;">
                                       <div class="btn-group-vertical w-100" id="lobby-table"></div>
+                                    </div>
+                                    <div class="flex-grow-1 overflow-hidden" id="lobby-graph-container" style="display: none; min-height: 0;">
                                     </div>
                                   </div>
                                 </div>
@@ -906,7 +941,7 @@
                                   <label for="textsize-range">Text Size</label>
                                 </div>
                               </div>
-                              <div class="form-group row dropdown">
+                              <div class="form-group row">
                                 <div class="col">
                                 <legend class="col-form-label">Themes</legend>
                                 <button id="themes-button" class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" style="width: 200px" aria-expanded="false"></button>
@@ -925,16 +960,19 @@
                               </div>
                               <div class="form-group row">
                                 <legend class="col-form-label">Boards</legend>
-                                <div id="boards-menu" class="btn-group" role="group" aria-label="Boards">
-                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #dee3e6 50%, #8ca2ad 50%)" id="board-blue"></button>
-                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #eaffea 50%, #7aab80 50%)" id="board-green"></button>
-                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #f4ede1 50%, #c6ab8e 50%)" id="board-yellow"></button>
-                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #d3d3d3 50%, #555555 50%)" id="board-gray"></button>
-                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #decfef 50%, #b160ca 50%)" id="board-purple"></button>
-                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #ececec 50%, #c1c18e 50%)" id="board-ic"></button>
-                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #dcdcdc 50%, #c9c9c9 50%)" id="board-newspaper"></button>
-                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #f0d9b5 50%, #b58863 50%)" id="board-brown"></button>
-                                  <button type="button" class="btn btn-outline-dark col p-3" style="background: linear-gradient(to right, #ffc8c8 50%, #d94e4e 50%)" id="board-red"></button>
+                                <div id="boards-menu" class="d-flex flex-wrap" style="gap: 0.25rem;" aria-label="Boards">
+                                  <button type="button" class="btn btn-outline-dark py-3" style="background: linear-gradient(to right, #dee3e6 50%, #8ca2ad 50%)" id="board-blue"></button>
+                                  <button type="button" class="btn btn-outline-dark py-3" style="background: linear-gradient(to right, #eaffea 50%, #7aab80 50%)" id="board-green"></button>
+                                  <button type="button" class="btn btn-outline-dark py-3" style="background: linear-gradient(to right, #f4ede1 50%, #c6ab8e 50%)" id="board-yellow"></button>
+                                  <button type="button" class="btn btn-outline-dark py-3" style="background: linear-gradient(to right, #d3d3d3 50%, #555555 50%)" id="board-gray"></button>
+                                  <button type="button" class="btn btn-outline-dark py-3" style="background: linear-gradient(to right, #decfef 50%, #b160ca 50%)" id="board-purple"></button>
+                                  <button type="button" class="btn btn-outline-dark py-3" style="background: linear-gradient(to right, #ececec 50%, #c1c18e 50%)" id="board-ic"></button>
+                                  <button type="button" class="btn btn-outline-dark py-3" style="background: linear-gradient(to right, #dcdcdc 50%, #c9c9c9 50%)" id="board-newspaper"></button>
+                                  <button type="button" class="btn btn-outline-dark py-3" style="background: linear-gradient(to right, #f0d9b5 50%, #b58863 50%)" id="board-brown"></button>
+                                  <button type="button" class="btn btn-outline-dark py-3" style="background: linear-gradient(to right, #ffc8c8 50%, #d94e4e 50%)" id="board-red"></button>
+                                  <button type="button" class="btn btn-outline-dark py-3" style="background: linear-gradient(to right, #b49c8a 50%, #63534b 50%)" id="board-oak"></button>
+                                  <button type="button" class="btn btn-outline-dark py-3" style="background: linear-gradient(to right, #cc9f87 50%, #93584b 50%)" id="board-clay"></button>
+                                  <button type="button" class="btn btn-outline-dark py-3" style="background: linear-gradient(to right, #8C8681 50%, #57534E 50%)" id="board-slate"></button>
                                 </div>
                               </div>
                               <div class="form-group row pe-2">
