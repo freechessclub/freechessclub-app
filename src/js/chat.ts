@@ -2,6 +2,7 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
+import '@formatjs/intl-segmenter/polyfill-force.js';
 import { autoLink } from 'autolink-js';
 import { createTooltip, safeScrollTo, isSmallWindow, removeWithTooltips, insertAtCursor } from './utils';
 import { setGameWithFocus, maximizeGame, scrollToBoard } from './index';

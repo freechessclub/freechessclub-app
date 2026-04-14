@@ -1484,6 +1484,31 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@formatjs/fast-memoize@npm:3.1.2":
+  version: 3.1.2
+  resolution: "@formatjs/fast-memoize@npm:3.1.2"
+  checksum: 10c0/25af387ebb53146c8c09af34cda4ce82768f0855227ec854fb315d6dc2e7859e16724860fdea7991b3c7c5741154e3fcdd5169ef7a11ba1afb3ffd860613931c
+  languageName: node
+  linkType: hard
+
+"@formatjs/intl-localematcher@npm:0.8.3":
+  version: 0.8.3
+  resolution: "@formatjs/intl-localematcher@npm:0.8.3"
+  dependencies:
+    "@formatjs/fast-memoize": "npm:3.1.2"
+  checksum: 10c0/4693548ee9df74deb5f548635242ede0254507a531e04bb52d0983a653e7103bd4bfa1024e0b5b784fce1dadab57a31062bd7412b142f954c6614a7c9ee4cae7
+  languageName: node
+  linkType: hard
+
+"@formatjs/intl-segmenter@npm:^12.2.2":
+  version: 12.2.2
+  resolution: "@formatjs/intl-segmenter@npm:12.2.2"
+  dependencies:
+    "@formatjs/intl-localematcher": "npm:0.8.3"
+  checksum: 10c0/0599854f115f7ba523641bf5754c4390e7d51828dad0bbf93e16a02e7fbecbdfa68db5b6abdfbaa4f5d9885a8c1db7fb651dd86f00298ef63fc8e7ab1438fda7
+  languageName: node
+  linkType: hard
+
 "@gar/promise-retry@npm:^1.0.0":
   version: 1.0.3
   resolution: "@gar/promise-retry@npm:1.0.3"
@@ -6984,6 +7009,7 @@ __metadata:
     "@capacitor/preferences": "npm:^8.0.1"
     "@capacitor/status-bar": "npm:^8.0.1"
     "@capawesome-team/capacitor-android-foreground-service": "npm:^8.0.1"
+    "@formatjs/intl-segmenter": "npm:^12.2.2"
     "@mliebelt/pgn-parser": "npm:^1.4.15"
     "@mliebelt/pgn-types": "npm:^1.0.4"
     "@popperjs/core": "npm:^2.11.6"

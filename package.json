@@ -61,6 +61,7 @@
     "@capacitor/preferences": "^8.0.1",
     "@capacitor/status-bar": "^8.0.1",
     "@capawesome-team/capacitor-android-foreground-service": "^8.0.1",
+    "@formatjs/intl-segmenter": "^12.2.2",
     "@mliebelt/pgn-parser": "^1.4.15",
     "@popperjs/core": "^2.11.6",
     "@uriopass/nosleep.js": "^0.12.2",
