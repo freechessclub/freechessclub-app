@@ -23,7 +23,8 @@ module.exports = (env, argv) => {
       $: 'jquery',
 	    d3: 'd3',
       '@popperjs/core': 'Popper',
-      bootstrap: 'Bootstrap'
+      bootstrap: 'Bootstrap',
+      'onnxruntime-web': 'null',
     },
     resolve: {
       // Add '.ts' and '.tsx' as a resolvable extension.
