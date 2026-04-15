@@ -144,6 +144,7 @@ export class Chat {
   private virtualScrollerPromise: Promise<typeof import('virtual-scroller/dom')>;
   private subscribedChannels: string[];
   private userList: any[];
+  private playingUsers = new Set<string>();
   private userListHasBeenRequested: boolean = false;
   private inChannelTimer: any = null;
   private emojiUnicodeToShortcodes = new Map(); // Mapping from emoji unicodes to ids (shortcodes)
@@ -312,6 +313,8 @@ export class Chat {
 
   public cleanup() {
     this.isConnected = false;
+    this.playingUsers.clear();
+    this.updateAllPrivateTabIndicators();
     clearInterval(this.inChannelTimer);
     this.inChannelTimer = null;
   }
@@ -628,6 +631,7 @@ export class Chat {
     }
 
     const tabElement = $('#tabs').find(`#tab-${from}`);
+    this.updatePrivateTabIndicator(tabElement);
     if(showTab) 
       tabElement.tab('show');
  
@@ -693,6 +697,54 @@ export class Chat {
     return $('#tabs button.active').attr('id').split(/-(.*)/)[1];
   }
 
+  private normalizeUserName(name: string) {
+    return name?.trim().toLowerCase() || '';
+  }
+
+  private isPrivateTabName(tabName: string) {
+    return !!tabName && tabName !== 'console' && !tabName.startsWith('game-') && !/^\d+$/.test(tabName);
+  }
+
+  private isUserPlaying(name: string) {
+    return this.playingUsers.has(this.normalizeUserName(name));
+  }
+
+  private updatePrivateTabIndicator(tab: any) {
+    if(!tab?.length)
+      return;
+
+    const tabName = this.getTabName(tab);
+    if(!this.isPrivateTabName(tabName))
+      return;
+
+    const label = tab.text().trim();
+    const isPlaying = this.isUserPlaying(label);
+    tab.toggleClass('chat-user-playing', isPlaying);
+    if(isPlaying)
+      tab.attr('title', `${label} is playing`);
+    else
+      tab.removeAttr('title');
+  }
+
+  private updateAllPrivateTabIndicators() {
+    $('#tabs .nav-link').each((_, element) => {
+      this.updatePrivateTabIndicator($(element));
+    });
+  }
+
+  public setUserPlaying(name: string, playing: boolean) {
+    const normalizedName = this.normalizeUserName(name);
+    if(!normalizedName)
+      return;
+
+    if(playing)
+      this.playingUsers.add(normalizedName);
+    else
+      this.playingUsers.delete(normalizedName);
+
+    this.updatePrivateTabIndicator($(`#tab-${normalizedName.replace(/\s+/g, '-')}`));
+  }
+
   public addChannelList(chans: string[]) {
     $('#subscribed-channels .dropdown-item').closest('li').remove();
     this.subscribedChannels = [];
@@ -753,6 +805,7 @@ export class Chat {
 
   public newMessage(from: string, data: any, html = false) {
     const tabName = settings.chattabsToggle ? from : 'console';
+    const isPrivateMessage = data.channel === undefined && this.isPrivateTabName(from);
 
     if(!/^[\w- ]+$/.test(from))
       return;
@@ -763,6 +816,8 @@ export class Chat {
       const classes = ['clickable-user'];
       if(this.user === data.user)
         classes.push('mine');
+      if(isPrivateMessage && this.isUserPlaying(data.user))
+        classes.push('chat-user-playing');
 
       let prompt = data.user;
       if (!settings.chattabsToggle && data.channel !== undefined) {
@@ -1092,6 +1147,10 @@ export class Chat {
    */
   public updateUserList(users: any[]) {
     this.userList = users;
+    this.playingUsers = new Set(users
+      .filter(user => user.status === '^')
+      .map(user => this.normalizeUserName(user.name)));
+    this.updateAllPrivateTabIndicators();
     this.updateStartChatMenuFilter();
   }
 

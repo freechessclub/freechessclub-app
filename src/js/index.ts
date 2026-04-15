@@ -2009,9 +2009,11 @@ function handleMiscMessage(data: any) {
     return;
   }
 
-  match = msg.match(/^\(told (.+)\)/m);
+  match = msg.match(/^\(told ([^,)]+?)(?:, who is ([^)]+))?\)/m);
   if(match) {
-    const index = pendingTells.findIndex(item => item.recipient.toLowerCase() === match[1].trim().toLowerCase());
+    const recipient = match[1].trim();
+    chat.setUserPlaying(recipient, match[2]?.trim().toLowerCase() === 'playing');
+    const index = pendingTells.findIndex(item => item.recipient.toLowerCase() === recipient.toLowerCase());
     if(index !== -1) 
       pendingTells.splice(index, 1);
     return;
