@@ -1025,7 +1025,7 @@ function calculateFontSize(container: any, containerMaxWidth: number, minWidth?:
 
 // If on small screen device displaying 1 column, move the navigation buttons so they are near the board
 function useMobileLayout() {
-  swapLeftRightPanelHeaders();
+  setPanelHeaderOrder(true);
   moveLeftPanelSetupBoard();
 
   $('#chat-toggle-btn').removeAttr('data-bs-toggle');
@@ -1042,11 +1042,11 @@ function useMobileLayout() {
 }
 
 function useDesktopLayout() {
-  swapLeftRightPanelHeaders();
+  setPanelHeaderOrder(false);
   moveLeftPanelSetupBoard();
 
   $('#chat-toggle-btn').attr('data-bs-toggle', 'dropdown');
-  
+
   $('#stop-observing').appendTo($('#left-panel-header-2').last());
   $('#stop-examining').appendTo($('#left-panel-header-2').last());
   if(games.focused.isObserving() || games.focused.isExamining())
@@ -1057,19 +1057,23 @@ function useDesktopLayout() {
   layout = Layout.Desktop;
 }
 
-function swapLeftRightPanelHeaders() {
-  // Swap top left and top right panels to bring navigation buttons closer to board
-  const leftHeaderContents = $('#left-panel-header').children();
-  const rightHeaderContents = $('#right-panel-header').children();
-  rightHeaderContents.appendTo($('#left-panel-header'));
-  leftHeaderContents.appendTo($('#right-panel-header'));
+function setPanelHeaderOrder(swapped: boolean) {
+  const headersAreSwapped = $('#navigation-toolbar').parent().is('#right-panel-header');
 
-  const leftHeaderClass = $('#left-panel-header').attr('class');
-  const rightHeaderClass = $('#right-panel-header').attr('class');
-  $('#left-panel-header').attr('class', rightHeaderClass);
-  $('#right-panel-header').attr('class', leftHeaderClass);
+  if(headersAreSwapped !== swapped) {
+    // Bring the navigation buttons closer to the board on mobile by swapping the header contents.
+    const leftHeaderContents = $('#left-panel-header').children();
+    const rightHeaderContents = $('#right-panel-header').children();
+    rightHeaderContents.appendTo($('#left-panel-header'));
+    leftHeaderContents.appendTo($('#right-panel-header'));
 
-  if(Utils.isSmallWindow()) 
+    const leftHeaderClass = $('#left-panel-header').attr('class');
+    const rightHeaderClass = $('#right-panel-header').attr('class');
+    $('#left-panel-header').attr('class', rightHeaderClass);
+    $('#right-panel-header').attr('class', leftHeaderClass);
+  }
+
+  if(Utils.isSmallWindow())
     $('#chat-toggle-btn').parent().appendTo($('#chat-collapse-toolbar').last());
   else
     $('#chat-toggle-btn').parent().appendTo($('#right-panel-header .btn-toolbar').last());
