@@ -195,6 +195,17 @@ body {
 .chat-text strong.mine {
   font-weight: bold;
 }
+.chat-user-playing::after {
+  content: '';
+  display: inline-block;
+  width: 0.45em;
+  height: 0.45em;
+  margin-left: 0.35em;
+  border-radius: 50%;
+  background-color: currentColor;
+  opacity: 0.55;
+  vertical-align: middle;
+}
 .chat-text strong.mention {
   font-weight: bold;
 }
