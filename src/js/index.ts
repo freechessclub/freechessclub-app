@@ -2016,10 +2016,13 @@ function handleMiscMessage(data: any) {
     return;
   }
 
-  match = msg.match(/^\(told ([^,)]+?)(?:, who is ([^)]+))?\)/m);
+  match = msg.match(/^\(told (.+)\)/m);
   if(match) {
-    const recipient = match[1].trim();
-    chat.setUserPlaying(recipient, match[2]?.trim().toLowerCase() === 'playing');
+    const toldText = match[1].trim();
+    const toldMatch = toldText.match(/^(.+?)(?:, who (.+))?$/);
+    const recipient = toldMatch?.[1]?.trim() || toldText;
+    const statusText = toldMatch?.[2]?.trim() || '';
+    chat.setUserPlaying(recipient, statusText.toLowerCase() === 'is playing', statusText);
     const index = pendingTells.findIndex(item => item.recipient.toLowerCase() === recipient.toLowerCase());
     if(index !== -1) 
       pendingTells.splice(index, 1);

@@ -695,13 +695,15 @@ export class Chat {
     return $('#tabs button.active').attr('id').split(/-(.*)/)[1];
   }
 
-  public setUserPlaying(name: string, playing: boolean) {
+  public setUserPlaying(name: string, playing: boolean, statusText = '') {
     const tab = $(`#tab-${name.toLowerCase().trim().replace(/\s+/g, '-')}`);
     if(!tab.length)
       return;
 
     tab.toggleClass('chat-user-playing', playing);
-    if(playing)
+    if(statusText)
+      tab.attr('title', `${name} ${statusText}`);
+    else if(playing)
       tab.attr('title', `${name} is playing`);
     else
       tab.removeAttr('title');
