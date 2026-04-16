@@ -34,7 +34,6 @@ import packageInfo from '../../package.json';
 export const enum Layout {
   Desktop = 0,
   Mobile,
-  ChatMaximized
 }
 
 // The game categories (variants) that we support independantly of FICS, i.e. for offline analysis
@@ -758,15 +757,12 @@ console.log = (...args) => {
  *******************************/
 
 $(window).on('resize', () => {
-  if(!$('#mid-col').is(':visible'))
-    layout = Layout.ChatMaximized;
-  else if(layout === Layout.ChatMaximized)
-    layout = Layout.Desktop;
-
-  if(Utils.isSmallWindow() && layout === Layout.Desktop)
-    useMobileLayout();
-  else if(!Utils.isSmallWindow() && layout === Layout.Mobile)
-    useDesktopLayout();
+  if(!$('#mid-col').hasClass('d-none')) {
+    if(Utils.isSmallWindow() && layout !== Layout.Mobile)
+      useMobileLayout();
+    else if(!Utils.isSmallWindow() && layout !== Layout.Desktop)
+      useDesktopLayout();
+  }
 
   setPanelSizes();
   updateBoardStatusText();
@@ -1025,6 +1021,8 @@ function calculateFontSize(container: any, containerMaxWidth: number, minWidth?:
 
 // If on small screen device displaying 1 column, move the navigation buttons so they are near the board
 function useMobileLayout() {
+  layout = Layout.Mobile;
+
   setPanelHeaderOrder(true);
   moveLeftPanelSetupBoard();
 
@@ -1038,10 +1036,16 @@ function useMobileLayout() {
   $('#input-text').attr('placeholder', 'Type message here and press Enter');
 
   Utils.createTooltips();
-  layout = Layout.Mobile;
 }
 
 function useDesktopLayout() {
+  layout = Layout.Desktop;
+
+  if(!$('#collapse-chat').hasClass('show')) {
+    $('#collapse-chat').addClass('show');
+    $('#collapse-chat').trigger('show.bs.collapse');
+  }
+
   setPanelHeaderOrder(false);
   moveLeftPanelSetupBoard();
 
@@ -1054,7 +1058,6 @@ function useDesktopLayout() {
   $('#input-text').attr('placeholder', 'Type message here and press Enter to send!');
 
   Utils.createTooltips();
-  layout = Layout.Desktop;
 }
 
 function setPanelHeaderOrder(swapped: boolean) {

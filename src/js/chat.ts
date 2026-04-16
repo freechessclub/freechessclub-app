@@ -251,18 +251,20 @@ export class Chat {
     $('#chat-maximize-btn').on('click', () => {
       this.toggleMaximizeChat();
     });
-    
+
     $('#chat-toggle-btn').on('click', () => {
-      if(isSmallWindow())
+      if(!$('#chat-toggle-btn').attr('data-bs-toggle'))
         $('#collapse-chat').collapse('toggle');
     });
 
     $('#chat-toggle-menu').on('click', '.dropdown-item', (e) => {
       const action = $(e.currentTarget).attr('data-action');
-      if(action === 'maximize') 
-        this.toggleMaximizeChat();
-      else if(action === 'show-hide') 
-        $('#collapse-chat').collapse('toggle');
+      setTimeout(() => {
+        if(action === 'maximize') 
+          this.toggleMaximizeChat();
+        else if(action === 'show-hide') 
+          $('#collapse-chat').collapse('toggle');
+      }, 0);
     });
 
     this.initStartChatMenu();
