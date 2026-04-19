@@ -596,9 +596,12 @@ function variantToDests(fen: string, startFen: string, category: string, variant
   const piece = chess.get(kingSquare);
   if(piece && piece.type === 'k' && piece.color === getTurnColorFromFEN(fen)) {
     let kingDests = dests.get(kingSquare);
-    if(kingDests)
+    if(kingDests) {
       kingDests = adjustKingDests(kingDests, fen, startFen, category);
-    dests.set(kingSquare, kingDests);    
+      dests.set(kingSquare, kingDests);    
+    }
+    else 
+      dests.delete(kingSquare);
   }
   return dests;
 }
@@ -1167,3 +1170,174 @@ export function isCapture(fen: string, src: string, dest: string) {
   // and moved diagonally (handles en passant).
   return (destPiece && srcPiece.color !== destPiece.color) || (srcPiece.type === 'p' && src[0] !== dest[0])
 }
+
+export function isPromotion(fen: string, from: string, to: string): boolean { 
+  if(!from)
+    return false;
+
+  const turnColor = getTurnColorFromFEN(fen);
+  if(from.charAt(1) === (turnColor === 'w' ? '7' : '2') && (!to || to.charAt(1) === (turnColor === 'w' ? '8' : '1'))) {
+    const pos = new Position(fen);
+    return pos.get(from)?.type === 'p';
+  }
+  return false;
+}; 
+
+/**
+ * Get the number of legal moves in the position specified by fen, including unique promotions and piece placements for crazyhouse/bughouse
+ * @param fen the position to check
+ * @param dests legal moves returned by toDests (not including promotions or piece placements)
+ * @param category the variant
+ * @param variantData variant data for the position
+ * @returns number of legal moves
+ */
+export function getNumLegalMoves(fen: string, dests: Map<string, string[]>, category = 'standard', variantData?: Partial<VariantData>): number {
+  return moveToLegalMoveIndex(null, fen, dests, category, variantData);
+}
+
+/**
+ * Get a unique index for the specified move out of all legal moves in the position specified by fen,
+ * including all possible promotions and piece placements
+ * @param fen the position to check
+ * @param dests legal moves returned by toDests (not including promotions or piece placements)
+ * @param category variant
+ * @param variantData variant data for the position
+ * @returns an index
+ */
+export function moveToLegalMoveIndex(move: { from: string, to: string, piece?: string, promotion?: string }, fen: string, dests: Map<string, string[]>, category = 'standard', variantData?: Partial<VariantData>): number {
+  const promotionTypes = ['q', 'r', 'b', 'n', 'k'];
+  const numPromotionTypes = category === 'suicide' ? 5 : 4;
+
+  // check if this move is a promotion or not
+  let promotion = null;
+  if(move && isPromotion(fen, move.from, move.to))
+    promotion = move.promotion || 'q';
+  
+  // get index if move is a regular move or promotion
+  let index = 0;
+  for(const [from, arr] of dests) {
+    if(from !== move?.from && !isPromotion(fen, from, null)) {
+      index += arr.length;
+      continue;
+    }
+    for(const to of arr) {
+      if(from === move?.from && to === move?.to) {
+        if(promotion) 
+          index += promotionTypes.indexOf(promotion);
+        return index;
+      }
+      index++;
+      if(isPromotion(fen, from, to)) 
+        index += numPromotionTypes - 1;
+    }
+  }
+
+  if(!move?.from && variantData?.holdings) {
+    // piece placements (crazyhouse / bughouse)
+    
+    // get empty squares where it's possible to place a piece or pwwn
+    const emptySquares = [];
+    const emptyPawnSquares = [];
+
+    const pos = new Position(fen);
+    for(const sq of Position.SQUARES) {
+      if(!pos.get(sq)) {
+        emptySquares.push(sq);
+        if(sq.charAt(1) !== '1' && sq.charAt(1) !== '8')
+          emptyPawnSquares.push(sq);
+      }
+    }
+
+    const turnColor = getTurnColorFromFEN(fen);
+    const pieceType = move?.piece?.toLowerCase();
+    for(const [key, value] of Object.entries(variantData.holdings)) {
+      if(value && ((key.toUpperCase() === key && turnColor === 'w') || (key.toLowerCase() === key && turnColor === 'b'))) {
+        if(pieceType !== key.toLowerCase()) {
+          index += (key.toLowerCase() === 'p') ? emptyPawnSquares.length : emptySquares.length; 
+          continue;
+        }
+
+        const squareIndex = (pieceType === 'p')
+          ? emptyPawnSquares.indexOf(move.to)
+          : emptySquares.indexOf(move.to);
+        if(squareIndex !== -1) {
+          index += squareIndex;
+          return index;
+        }       
+      }
+    }
+  }
+
+  return move ? -1 : index;
+}
+
+/**
+ * Get the move corresponding to the specified index out of all legal moves in the position specified by fen.
+ * @param fen the position to check
+ * @param dests legal moves returned by toDests (not including promotions or piece placements)
+ * @param category variant
+ * @param variantData variant data for the position
+ * @returns a move object
+ */
+export function legalMoveIndexToMove(moveIndex: number, fen: string, dests: Map<string, string[]>, category = 'standard', variantData?: Partial<VariantData>): { from: string, to: string, piece?: string, promotion?: string } {
+  const promotionTypes = ['q', 'r', 'b', 'n', 'k'];
+  const numPromotionTypes = category === 'suicide' ? 5 : 4;
+  
+  // get move when index is a regular move or promotion
+  let index = 0;
+  for(const [from, arr] of dests) {
+    if(moveIndex >= index + arr.length && !isPromotion(fen, from, null)) {
+      index += arr.length;
+      continue;
+    }
+    for(const to of arr) {
+      const isProm = isPromotion(fen, from, to);
+      if(isProm) 
+        index += numPromotionTypes - 1;
+
+      if(moveIndex <= index) {
+        const promotion = isProm ? promotionTypes[numPromotionTypes - (index - moveIndex) - 1] : undefined;      
+        return { from, to, promotion };
+      }
+      index++;
+    }
+  }
+
+  if(variantData?.holdings) {
+    // piece placements (crazyhouse / bughouse)
+    
+    // get empty squares where it's possible to place a piece or pwwn
+    const emptySquares = [];
+    const emptyPawnSquares = [];
+
+    const pos = new Position(fen);
+    for(const sq of Position.SQUARES) {
+      if(!pos.get(sq)) {
+        emptySquares.push(sq);
+        if(sq.charAt(1) !== '1' && sq.charAt(1) !== '8')
+          emptyPawnSquares.push(sq);
+      }
+    }
+
+    const turnColor = getTurnColorFromFEN(fen);
+    for(const [key, value] of Object.entries(variantData.holdings)) {
+      if(value && ((key.toUpperCase() === key && turnColor === 'w') || (key.toLowerCase() === key && turnColor === 'b'))) {
+        const piece = key.toLowerCase();
+        const squares = (piece === 'p') ? emptyPawnSquares : emptySquares; 
+        if(moveIndex >= index + squares.length) {
+          index += squares.length;
+          continue;
+        }
+
+        for(const to of squares) {
+          if(moveIndex === index) 
+            return { from: null, to, piece };
+          index++;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
