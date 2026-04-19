@@ -1218,3 +1218,113 @@ export class SpritePlayer {
     );
   }
 }
+
+export function splitIntoColumns(items, cols = 3) {
+  const sorted = [...items].sort((a, b) => a.localeCompare(b));
+
+  const n = sorted.length;
+  const base = Math.floor(n / cols);
+  const remainder = n % cols;
+
+  const result = [];
+  let index = 0;
+
+  for(let col = 0; col < cols; col++) {
+    const size = base + (col < remainder ? 1 : 0);
+    result.push(sorted.slice(index, index + size));
+    index += size;
+  }
+
+  return result;
+}
+
+export class BitWriter {
+  private buffer = 0;
+  private bitCount = 0;
+  private output: number[] = [];
+
+  public write(value: number, bits: number) {
+    this.buffer = ((this.buffer << bits) | value) >>> 0;
+    this.bitCount += bits;
+
+    while (this.bitCount >= 8) {
+      this.bitCount -= 8;
+
+      const byte = (this.buffer >> this.bitCount) & 0xFF;
+      this.output.push(byte);
+    }
+
+    this.buffer &= (1 << this.bitCount) - 1;
+  }
+
+  public writeMax(value: number, maxValue: number) {
+    const bits = Math.ceil(Math.log2(maxValue + 1));
+    this.write(value, bits);
+  }
+
+  public finish(): Uint8Array {
+    if (this.bitCount > 0) {
+      this.output.push((this.buffer << (8 - this.bitCount)) & 0xFF);
+    }
+    return new Uint8Array(this.output);
+  }
+
+  public writeVarint(value: number) {
+    while(value >= 0x80) {
+      // Write 7 bits + continuation flag (1)
+      this.write((value & 0x7F) | 0x80, 8);
+      value >>>= 7;
+    }
+    this.write(value, 8);
+  }
+}
+
+export class BitReader {
+  private buffer = 0;
+  private bitCount = 0;
+  private inputIndex = 0;
+
+  constructor(private input: Uint8Array) {}
+
+  public read(bits: number): number {
+    while (this.bitCount < bits) {
+      if (this.inputIndex >= this.input.length) {
+        throw new Error("BitReader: unexpected end of stream");
+      }
+
+      this.buffer = ((this.buffer << 8) | this.input[this.inputIndex++]) >>> 0;
+      this.bitCount += 8;
+    }
+
+    this.bitCount -= bits;
+
+    return (this.buffer >> this.bitCount) &
+      (bits === 32 ? 0xFFFFFFFF : (1 << bits) - 1);
+  }
+
+  public readMax(maxValue: number): number {
+    const bits = Math.ceil(Math.log2(maxValue + 1));
+    return this.read(bits);
+  }
+
+  public readVarint(): number {
+    let result = 0;
+    let shift = 0;
+    while (true) {
+      const byte = this.read(8);
+      result |= (byte & 0x7F) << shift;
+
+      if ((byte & 0x80) === 0) break;
+      shift += 7;
+    }
+    return result;
+  }
+}
+
+export function zigzagEncode(n: number): number {
+  return (n << 1) ^ (n >> 31);
+}
+
+export function zigzagDecode(n: number): number {
+  return (n >>> 1) ^ -(n & 1);
+}
