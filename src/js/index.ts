@@ -120,8 +120,6 @@ let newGameVariant = '';
 const lobbyEntries = new Map();
 let lobbyScrolledToBottom;
 const noSleep = new NoSleep(); // Prevent screen dimming
-let openings; // Opening names with corresponding moves
-let fetchOpeningsPromise = null;
 let book; // Opening book used in 'Play Computer' mode
 let isRegistered = false;
 let lastComputerGame = null; // Attributes of the last game played against the Computer. Used for Rematch and alternating colors each game.
@@ -511,7 +509,8 @@ async function onDeviceReady() {
 
   credential = new CredentialStorage();
   const hasInvite = hasInviteParams();
-  activeSessionOnLoad = hasInvite ? null : getOtherActiveSession();
+  const hasSharedGame = hasSharedGameParams();
+  activeSessionOnLoad = hasInvite || hasSharedGame ? null : getOtherActiveSession();
   const autoConnect = !hasInvite && !activeSessionOnLoad;
   if(settings.rememberMeToggle) {
      // Get the username/password from secure storage (if the user has previously ticked Remember Me)
@@ -531,7 +530,10 @@ async function onDeviceReady() {
       showActiveSessionPrompt(activeSessionOnLoad);
   }
 
-  initInviteFromUrl();
+  if(hasSharedGame)
+    initSharedGameFromUrl();
+  else if(hasInvite)
+    initInviteFromUrl();
 
   document.addEventListener('visibilitychange', updateForegroundServiceState);
 }
@@ -3789,11 +3791,6 @@ function gameToDests(game: Game) {
   return ChessHelper.toDests(hEntry.fen, game.history.first().fen, game.category, hEntry.variantData);
 }
 
-/** Wrapper function for updateVariantMoveData */
-function updateGameVariantMoveData(game: Game) {
-  game.history.current().variantData = ChessHelper.updateVariantMoveData(game.history.prev().fen, game.history.current().move, game.history.prev().variantData, game.category);
-}
-
 export function parseMovelist(game: Game, movelist: string) {
   let found: RegExpMatchArray | null;
   let n = 1;
@@ -3828,8 +3825,6 @@ export function parseMovelist(game: Game, movelist: string) {
           break;
         fen = parsedMove.fen;
         game.history.add(parsedMove.move, parsedMove.fen, false, wtime, btime);
-        getOpening(game);
-        updateGameVariantMoveData(game);
       }
       if(found.length > 5 && found[5]) {
         const m2 = found[5].trim();
@@ -3839,8 +3834,6 @@ export function parseMovelist(game: Game, movelist: string) {
           break;
         fen = parsedMove.fen;
         game.history.add(parsedMove.move, parsedMove.fen, false, wtime, btime);
-        getOpening(game);
-        updateGameVariantMoveData(game);
       }
       n++;
     }
@@ -3889,8 +3882,6 @@ function updateHistory(game: Game, move?: any, fen?: string, serverIssued = true
       }
 
       game.history.add(move, fen, newSubvariation, game.wtime, game.btime);
-      getOpening(game);
-      updateGameVariantMoveData(game);
 
       if(currMove) 
         game.history.goto(currMove);   
@@ -4288,45 +4279,6 @@ function cleanupGame(game: Game) {
   game.removeMoveRequested = null;
   game.pendingMoves = [];
   game.restoreMove = null;
-}
-
-async function getOpening(game: Game) {
-  const historyItem = game.history.current();
-
-  const fetchOpenings = async () => {
-    const inputFilePath = 'assets/data/openings.tsv';
-    openings = new Map();
-    await fetch(inputFilePath)
-      .then(response => response.text())
-      .then(data => {
-        const rows = data.split('\n');
-        for(const row of rows) {
-          const cols = row.split('\t');
-          if(cols.length === 4 && cols[2].startsWith('1.')) {
-            const eco = cols[0];
-            const name = cols[1];
-            const moves = cols[2];
-            const fen = cols[3];
-            const fenNoPlyCounts = fen.split(' ').slice(0, -2).join(' ');
-            openings.set(fenNoPlyCounts, {eco, name, moves});
-          }
-        }
-      })
-      .catch(error => {
-        Utils.logError('Couldn\'t fetch opening:', error);
-      });
-  };
-
-  if(!openings && !fetchOpeningsPromise) {
-    fetchOpeningsPromise = fetchOpenings();
-  }
-  await fetchOpeningsPromise;
-
-  const shortFen = historyItem.fen.split(' ').slice(0, -2).join(' '); // Remove ply counts
-  const opening = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard'].includes(game.category)
-    ? openings.get(shortFen) : null;
-  historyItem.opening = opening;
-  game.history.updateOpeningMetatags();
 }
 
 /** *********************
@@ -4922,6 +4874,11 @@ function playMaiaMove(game: Game, policy: [string, number][], value: number) {
   playComputerBestMove(game, candidates[candidates.length - 1][0], String(value));
 }
 
+/**
+ * Shows a progress bar while the Maia weights file is downloading
+ * @param game The game we are attempting to start
+ * @param progress A percentage value between 0 and 100
+ */
 function downloadMaiaProgress(game: Game, progress: number) {
   if(progress === 100) {
     $('#download-maia-dialog').remove();
@@ -5128,7 +5085,7 @@ function generateInviteToken(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function getInviteBaseUrl(): string {
+function getBaseUrl(): string {
   const fallbackOrigin = 'https://freechess.org';
   const protocol = window.location.protocol;
   const hostname = window.location.hostname;
@@ -5161,7 +5118,7 @@ function buildInviteLink(invite: InviteCreateState): string {
   params.set('inc', String(invite.inc));
   params.set('rated', invite.rated === 'r' ? '1' : '0');
   params.set('color', invite.color);
-  const baseUrl = getInviteBaseUrl();
+  const baseUrl = getBaseUrl();
   return `${baseUrl}?${params.toString()}`;
 }
 
@@ -5577,6 +5534,63 @@ function initInviteFromUrl() {
 function hasInviteParams(): boolean {
   const params = new URLSearchParams(window.location.search);
   return params.has('invite') || params.has('seek');
+}
+
+/**
+ * Check if the URL search params contains a shared game 
+ */
+function hasSharedGameParams(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.has('g');
+}
+
+/**
+ * Loads a game from a URL that was created with Share Game button 
+ */
+function initSharedGameFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const gameParam = params.get('g'); // encoded move list
+  if(!gameParam)
+    return null;
+  const game = games.focused;
+
+  let category = 'standard';
+  const variantParam = params.get('v'); 
+  if(variantParam) {
+    const variants = {
+      x: 'atomic',
+      z: 'crazyhouse',
+      B: 'bughouse',
+      L: 'losers',
+      S: 'suicide', 
+      fr: 'wild/fr',
+      w0: 'wild/0', 
+      w1: 'wild/1', 
+      w2: 'wild/2', 
+      w3: 'wild/3', 
+      w4: 'wild/4', 
+      w5: 'wild/5', 
+      w8: 'wild/8', 
+      w8a: 'wild/8a'
+    }
+    category = variants[variantParam];
+  }
+
+  const fen = params.get('f');
+  newGame(false, game, category, fen);
+  const metatags = game.history.metatags;
+  metatags.White = params.get('w') || '';
+  metatags.Black = params.get('b') || '';
+  metatags.WhiteElo = params.get('wr') || '';
+  metatags.BlackElo = params.get('br') || '';
+  let time = params.get('t');
+  if(time) {
+    const splitTime = time.split(' ');
+    metatags.TimeControl = `${+splitTime[0] * 60}+${splitTime[1]}`  
+  }
+  updateGameFromMetatags(game);
+  game.history.decode(gameParam);
+  game.history.display();
 }
 
 function clearMatchRequests() {
@@ -6210,6 +6224,9 @@ function initGameTools(game: Game) {
     updateGamePreserved(game);
     updateEditMode(game);
     $('#game-open-chat').prop('disabled', !canOpenAssociatedChat(game));
+
+    $('#game-share').prop('disabled', !SupportedCategories.includes(game.category));
+
     $('#game-tools-clone').parent().toggle(settings.multiboardToggle); // Only show 'Duplicate GAme' option in multiboard mode
     $('#game-tools-clone').toggleClass('disabled', game.isPlaying()); // Don't allow cloning of a game while playing (could allow cheating)
 
@@ -6358,6 +6375,62 @@ function updateGamePreserved(game: Game, preserved?: boolean) {
     label.hide();
   }
 }
+
+/** Create and display a share game URL */
+$('#game-share').on('click', () => {
+  const game = games.focused;
+  const moves = game.history.encode(); // Encode moves as a URL safe string
+  
+  const variants = {
+    'atomic': 'x',
+    'crazyhouse': 'z',
+    'bughouse': 'B',
+    'losers': 'L',
+    'suicide': 'S',
+    'wild/fr': 'fr',
+    'wild/0': 'w0',
+    'wild/1': 'w1',
+    'wild/2': 'w2',
+    'wild/3': 'w3',
+    'wild/4': 'w4',
+    'wild/5': 'w5',
+    'wild/8': 'w8',
+    'wild/8a': 'w8a'
+  }
+
+  const metatags = game.history.metatags;
+  const params = new URLSearchParams();
+  if(metatags.White || game.wname) 
+    params.set('w', metatags.White || game.wname || '');
+  if(game.wrating)
+    params.set('wr', game.wrating);
+  if(metatags.Black || game.bname) 
+    params.set('b', metatags.Black || game.bname || '');
+  if(game.brating)
+    params.set('br', game.brating);
+  if(game.time !== 0 || game.inc !== 0) 
+    params.set('t', `${game.time} ${game.inc}`);
+  if(variants[game.category]) 
+    params.set('v', variants[game.category]);
+  if(game.history.first().fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+    params.set('f', game.history.first().fen);
+  params.set('g', moves);
+  const url = `${getBaseUrl()}?${params.toString()}`;
+  
+  const dialogHtml = `
+  <div class="position-relative">
+    <input type="text" class="share-game-input form-control" value="${url}" style="padding-right: 2.5rem;" spellcheck="false" readonly>
+    <button type="button" class="share-game-copy btn btn-outline-secondary btn-transparent" style="position: absolute; top: 0; right: 0;" data-bs-toggle="tooltip" title="Copy to Clipboard"><span class="fa-regular fa-clone"></span></button>
+  </div>`;
+  const dialog = Dialogs.showDialog({type: 'Share Game Link', msg: dialogHtml, btnFailure: null, btnSuccess: null, htmlMsg: true});
+  const button = dialog.find('.share-game-copy');
+  const input = dialog.find('.share-game-input');
+  Utils.createTooltip(button);
+  Utils.selectOnFocus(input);
+  button.on('click', (event) => {
+    Utils.copyToClipboard(input, $(event.currentTarget));
+  });
+});
 
 /** New Game menu item selected */
 $('#game-tools-new').on('click', () => {
@@ -6712,8 +6785,6 @@ function parsePGNVariation(game: Game, variation: any) {
     game.history.setCommentAfter(currHEntry, move.commentAfter);
     if(move.nag)
       move.nag.forEach((nag) => game.history.setAnnotation(currHEntry, nag));
-    getOpening(game);
-    updateGameVariantMoveData(game);
     newSubvariation = false;
 
     for(const subvariation of move.variations) {
@@ -7525,7 +7596,7 @@ function showStatusMsg(game: Game, msg: string) {
 }
 
 async function showOpeningName(game: Game) {
-  await fetchOpeningsPromise; // Wait for the openings file to be loaded
+  await History.fetchOpeningsPromise; // Wait for the openings file to be loaded
 
   if(!game.history)
     return;
