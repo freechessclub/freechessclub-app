@@ -6199,11 +6199,12 @@ function openAssociatedChatTab(game: Game, showTab = false) {
     return null;
 
   const mainGame = games.getMainGame();
+  const bughousePartnerGameId = game.category === 'bughouse' ? (game.partnerGameId ?? partnerGameId) : null;
   let tab = null;
 
   if(game.isPlayingOnline()) {
-    if(game.category === 'bughouse' && game.partnerGameId != null)
-      tab = chat.createTab(`Game ${game.id} and ${game.partnerGameId}`, showTab); // Open chat room for all bughouse participants
+    if(bughousePartnerGameId != null)
+      tab = chat.createTab(`Game ${game.id} and ${bughousePartnerGameId}`, showTab); // Open chat room for all bughouse participants
     else if(game.color === 'w')
       tab = chat.createTab(game.bname, showTab);
     else
