@@ -1487,25 +1487,7 @@ function gameStart(game: Game) {
   if(chat)
     chat.closeUnusedPrivateTabs();
 
-  // Open chat tabs
-  if(game.isPlayingOnline()) {
-    if(game.category === 'bughouse' && partnerGameId !== null)
-      chat.createTab(`Game ${game.id} and ${partnerGameId}`); // Open chat room for all bughouse participants
-    else if(game.color === 'w')
-      chat.createTab(game.bname);
-    else
-      chat.createTab(game.wname);
-  }
-  else if(game.isObserving() || game.isExamining()) {
-    if(mainGame && game.id === mainGame.partnerGameId) { // Open chat to bughouse partner
-      if(game.color === 'w')
-        chat.createTab(game.wname);
-      else
-        chat.createTab(game.bname);
-    }
-    else
-      chat.createTab(`Game ${game.id}`);
-  }
+  openAssociatedChatTab(game);
 
   if(game.isPlaying() || game.isObserving()) {
     // Adjust settings for game category (variant)
@@ -6193,6 +6175,7 @@ function initGameTools(game: Game) {
   if(game === games.focused) {
     updateGamePreserved(game);
     updateEditMode(game);
+    $('#game-open-chat').prop('disabled', !canOpenAssociatedChat(game));
     $('#game-tools-clone').parent().toggle(settings.multiboardToggle); // Only show 'Duplicate GAme' option in multiboard mode
     $('#game-tools-clone').toggleClass('disabled', game.isPlaying()); // Don't allow cloning of a game while playing (could allow cheating)
 
@@ -6207,10 +6190,54 @@ function initGameTools(game: Game) {
   }
 }
 
+function canOpenAssociatedChat(game: Game) {
+  return !!chat && game.id != null && (game.isPlayingOnline() || game.isObserving() || game.isExamining());
+}
+
+function openAssociatedChatTab(game: Game, showTab = false) {
+  if(!canOpenAssociatedChat(game))
+    return null;
+
+  const mainGame = games.getMainGame();
+  const bughousePartnerGameId = game.category === 'bughouse' ? (game.partnerGameId ?? partnerGameId) : null;
+  let tab = null;
+
+  if(game.isPlayingOnline()) {
+    if(bughousePartnerGameId != null)
+      tab = chat.createTab(`Game ${game.id} and ${bughousePartnerGameId}`, showTab); // Open chat room for all bughouse participants
+    else if(game.color === 'w')
+      tab = chat.createTab(game.bname, showTab);
+    else
+      tab = chat.createTab(game.wname, showTab);
+  }
+  else if(mainGame && game.id === mainGame.partnerGameId) { // Open chat to bughouse partner
+    if(game.color === 'w')
+      tab = chat.createTab(game.wname, showTab);
+    else
+      tab = chat.createTab(game.bname, showTab);
+  }
+  else
+    tab = chat.createTab(`Game ${game.id}`, showTab);
+
+  if(showTab) {
+    $('#collapse-chat').collapse('show');
+    setTimeout(() => chat.scrollToChat(), 300);
+  }
+  return tab;
+}
+
 /** Triggered when Table View button is toggled on/off */
 $('#game-table-view').on('change', () => {
   if($('#game-table-view').is(':checked'))
     setViewModeTable();
+});
+
+$('#game-open-chat').on('click', () => {
+  const game = games.focused;
+  if(!game || !canOpenAssociatedChat(game))
+    return;
+
+  openAssociatedChatTab(game, true);
 });
 
 /** Triggered when List View button is toggled on/off */

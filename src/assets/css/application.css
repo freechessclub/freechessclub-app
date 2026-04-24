@@ -556,6 +556,8 @@ body {
   --bs-btn-hover-border-color: transparent;
   --bs-btn-border-color: transparent;
   --bs-btn-active-border-color: transparent;
+  --bs-btn-disabled-bg: transparent;
+  --bs-btn-disabled-border-color: transparent;
 }
 
 #game-toolbar {
