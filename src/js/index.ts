@@ -902,10 +902,6 @@ function setGameCardSize(game: Game, cardMaxWidth?: number, cardMaxHeight?: numb
   // Set card width
   const cardBorderWidth = card.outerWidth() - card.width();
   card.width(cardWidth - cardBorderWidth);
-  
-  setTimeout(() => {
-    game.board.redrawAll(); // Redraw board coordinates
-  }, 0);
 
   return { width: cardWidth, height: cardHeight }
 }
@@ -1499,7 +1495,7 @@ function gameStart(game: Game) {
 
       if(game.role === Role.PLAYING_COMPUTER) { // Play Computer mode
         if(game.engine === 'Maia') 
-          playEngine = new MaiaEngine(game, playMaiaMove, playEngineError, { eloSelf: game.difficulty, eloOppo: game.difficulty });
+          playEngine = new MaiaEngine(game, playMaiaMove, playEngineError, downloadMaiaProgress, { eloSelf: game.difficulty, eloOppo: game.difficulty });
         else {
           const options = getPlayComputerEngineOptions(game);
 
@@ -3962,6 +3958,7 @@ function createGame(): Game {
     leaveSetupBoard(game);
     makeSecondaryBoard(game);
     game.element.find('.eval-bar').hide();
+    game.element.find('.title-bar-text').empty();
     $(window).trigger('resize');
     game.element.find($('[title="Close"]')).css('visibility', 'visible');
     $('#secondary-board-area').css('display', 'flex');
@@ -4130,6 +4127,7 @@ function makeMainBoard(game: Game) {
   game.element.find('.title-bar').css('display', 'none');
   game.element.appendTo('#main-board-area');
   game.board.set({ coordinates: true });
+  game.board.redrawAll(); // Redraw board coordinates
 }
 
 function makeSecondaryBoard(game: Game) {
@@ -4139,6 +4137,7 @@ function makeSecondaryBoard(game: Game) {
   game.element.find('.title-bar').css('display', 'block');
   game.element.appendTo('#secondary-board-area');
   game.board.set({ coordinates: false });
+  game.board.redrawAll(); // Redraw board coordinates
   if(!Utils.isSmallWindow()) {
     $('body').removeClass('chat-hidden');
   }
@@ -4919,6 +4918,39 @@ function playMaiaMove(game: Game, policy: [string, number][], value: number) {
 
   // fallback
   playComputerBestMove(game, candidates[candidates.length - 1][0], String(value));
+}
+
+function downloadMaiaProgress(game: Game, progress: number) {
+  if(progress === 100) {
+    $('#download-maia-progress').remove();
+    return;
+  }
+
+  if(progress === 0 && !$('#download-maia-progress').length) {
+    const msg = `
+      <div class="center w-100" style="height: 50px">
+        <div class="progress h-100 w-100">
+          <div class="progress-bar" role="progressbar" aria-label="Downloading Maia" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+        </div>
+      </div>`;
+    const abortHandler = () => {
+      playEngine.terminate();
+      playEngine = null;
+      cleanupGame(game);
+    };
+    const dialog = Dialogs.showDialog({
+      type: 'Downloading Maia',
+      msg,
+      btnFailure: [abortHandler, 'Abort'],
+      htmlMsg: true
+    });
+    dialog.attr('id', 'download-maia-progress');
+  }
+  
+  $('#download-maia-progress .progress-bar')
+    .css('width', `${progress}%`)
+    .text(`${progress}%`)
+    .attr('aria-valuenow', progress);
 }
 
 // Get Computer's next move either from the opening book or engine
@@ -6571,6 +6603,7 @@ async function openGameFiles(files: any): Promise<string[]> {
  */
 async function parseGameFiles(game: Game, gameFileStrings: string[], createNewBoard = false) {
   game = newGame(createNewBoard, game);
+  let pgnLoaded = false;
 
   for(const gameStr of gameFileStrings) {
     const regex = /(((?:\s*\[[^\]]+\]\s+)+)([^\[]+?(?=\n\s*(?:[\w]+\/){7}[\w-]+|\[|$))|\s*(?:[\w]+\/){7}[^\n]+)/g; // Splits up the PGN games or FENs in the string (yes there is probably a less ghastly way to do this than a big regex)
@@ -6595,6 +6628,7 @@ async function parseGameFiles(game: Game, gameFileStrings: string[], createNewBo
                 history.setMetatags(metatags, true);
                 game.historyList.push(history);
               }
+              pgnLoaded = true;
             }
             else { // match is a FEN
               const fen = match[1].trim();
@@ -6617,10 +6651,11 @@ async function parseGameFiles(game: Game, gameFileStrings: string[], createNewBo
     }
   }
 
-  if(game.historyList.length) {
+  if(game.historyList.length > 1 || pgnLoaded) 
     updateGamePreserved(game, true);
+
+  if(game.historyList.length) 
     setCurrentHistory(game, 0); // Display the first game from the PGN file(s)
-  }
 }
 
 /**
@@ -7021,7 +7056,6 @@ function cloneGame(game: Game): Game {
   clonedGame.history.display();
   clonedGame.statusElement.find('.game-watchers').empty();
   clonedGame.statusElement.find('.game-id').remove();
-  clonedGame.element.find('.title-bar-text').empty();
 
   scrollToBoard(clonedGame);
   return clonedGame;
@@ -7608,9 +7642,10 @@ function startEngine() {
     else if(!game.movelistRequested)
       engine.move(game.history.current());
 
-    if(settings.evalBarToggle)
+    if(settings.evalBarToggle) {
       game.element.find('.eval-bar').css('display', 'flex');
-    setPanelSizes();
+      setPanelSizes();
+    }
 
     game.engineRunning = true;
   }
@@ -7638,9 +7673,8 @@ function stopEngine(temporary = false) {
     if(!temporary) {
       game.element.find('.eval-bar').hide();
       game.engineRunning = false;
+      setPanelSizes();
     }
-    
-    setPanelSizes();
   }
 }
 

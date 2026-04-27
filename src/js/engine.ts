@@ -792,6 +792,7 @@ export class MaiaEngine {
   protected maia: any = null;
   protected evaluateCallback: (game: Game, policy: [string, number][], value: number) => void;
   protected errorCallback: (game: Game, err: string | Error) => void;
+  protected progressCallback: (game: Game, progress: number) => void;
   protected workerPromise: any = null; // For waiting until engine worker is created and initialised
   protected game: Game;
   protected options: {
@@ -799,10 +800,11 @@ export class MaiaEngine {
     eloOppo: number // The opponent's playing strength (usually the same as eloSelf)
   } = null;
 
-  constructor(game: Game, evaluateCallback: (game: Game, policy: [string, number][], value: number) => void, errorCallback: (game: Game, err: string | Error) => void, options = { eloSelf: 2600, eloOppo: 2600}) {
+  constructor(game: Game, evaluateCallback: (game: Game, policy: [string, number][], value: number) => void, errorCallback: (game: Game, err: string | Error) => void, progressCallback: (game: Game, progress: number) => void, options = { eloSelf: 2600, eloOppo: 2600}) {
     this.game = game;
     this.evaluateCallback = evaluateCallback;
     this.errorCallback = errorCallback;
+    this.progressCallback = progressCallback;
     this.options = options;
     this.workerPromise = this.init();
   }
@@ -820,7 +822,10 @@ export class MaiaEngine {
           else if(status === 'error')
             reject();
         },
-        setProgress: (progress: number) => {},
+        setProgress: (progress: number) => {
+          if(this.progressCallback) 
+            this.progressCallback(this.game, progress);
+        },
         setError: (e) => {
           if(this.errorCallback)
             this.errorCallback(this.game, e);
