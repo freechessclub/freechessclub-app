@@ -1,5 +1,5 @@
 import type * as d3 from 'd3';
-import { createContextMenu, isMobile } from './utils';
+import { createContextMenu, isMobile, isTouchscreen } from './utils';
 declare const d3: typeof import("d3");
 
 // Seek data used by graph points
@@ -307,7 +307,8 @@ export class SeekGraph {
     const hits = nodes.filter(node => {
       const d = d3.select(node).datum();
 
-      const radius = d.radius + 2; // Use a circle around the shape for hit testing
+      const hitExpansion = isTouchscreen() ? 12 : 2; // Touchable area outside the point
+      const radius = d.radius + hitExpansion; // Use a circle around the shape for hit testing
 
       const dx = mx - d.px;
       const dy = my - d.py;

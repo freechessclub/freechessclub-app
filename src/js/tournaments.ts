@@ -365,6 +365,9 @@ export class Tournaments {
         awaiting.resolve('td-listkoths');
         const koths = this.parseTDListKoTHs(msg);
         koths.forEach(koth => { 
+          if(!koth.open && koth.king === '-')
+            return;
+
           if(koth.game === '-')
             koth.opponent = null;
           const card = this.addKoTH(koth);

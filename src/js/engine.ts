@@ -21,7 +21,7 @@ export class Engine {
   protected static abortLoad: AbortController; // For aborting an engine fetch 
   public multiThreaded: boolean = false; // Is this instance a multi-threading engine?
   public thinking: boolean = false; // If the engine is currently in 'go' mode
-  public stopping: boolean = false; // Has 'stop' command been called? Ignore any late 'info' messages
+  public stopping: number = 0; // Has 'stop' command been called? Ignore any late 'info' messages
   protected currFen: string;
   protected currEval: string;
   protected currNodes: number;
@@ -144,7 +144,7 @@ export class Engine {
                 this.terminate();
                 return;
               }
-
+              
               const turnColor = getTurnColorFromFEN(currFen);
               const moveNumber = getMoveNoFromFEN(currFen);
               let moveNumStr = '';
@@ -172,7 +172,7 @@ export class Engine {
         }
         else if(response.data.startsWith('bestmove')) {
           if(this.stopping) {
-            this.stopping = false;
+            this.stopping--;
             return;
           }
           this.thinking = false;
@@ -317,7 +317,7 @@ export class Engine {
       return;
 
     this.thinking = false;
-    this.stopping = true;
+    this.stopping++;
 
     if(!await this.ready())
       return;
