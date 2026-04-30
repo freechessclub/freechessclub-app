@@ -830,7 +830,7 @@ function setPanelSizes() {
   bottomPanel.css('--panel-height', bottomPanel.css('height'));
   bottomPanel.css('--panel-width', bottomPanel.css('width'));
 
-  setLeftColumnSizes();
+  setLeftColumnSizes(false);
   setRightColumnSizes();
 
   // Adjust Notifications drop-down width
@@ -842,7 +842,7 @@ function setPanelSizes() {
     $('#notifications').width($(document).outerWidth(true) - $('#left-col').outerWidth(true) - $('#mid-col').outerWidth(true));
 }
 
-function setLeftColumnSizes() {
+function setLeftColumnSizes(redrawBoard = true) {
   const boardHeight = $('#main-board-area .board').innerHeight();
 
   // set height of left menu panel inside collapsable
@@ -863,6 +863,9 @@ function setLeftColumnSizes() {
         $('#left-panel-bottom').height($('#left-panel-bottom').height() + leftPanelHeight);
     }
 
+    if(redrawBoard && Utils.isSmallWindow()) 
+      setTimeout(() => { games.getMainGame()?.board?.redrawAll(); }, 0);
+  
     seekGraph.update();
   }
 }
@@ -3737,7 +3740,7 @@ function createNewVariationMenu(game: Game) {
 }
 
 function flipBoard(game: Game) {
-  game.board.toggleOrientation();
+  setTimeout(() => { game.board.toggleOrientation() }, 0);
 
   // Flip eval bar
   game.element.find('.eval-bar-segment:first-child').appendTo(game.element.find('.eval-bar'));
@@ -4127,7 +4130,7 @@ function makeMainBoard(game: Game) {
   game.element.find('.title-bar').css('display', 'none');
   game.element.appendTo('#main-board-area');
   game.board.set({ coordinates: true });
-  game.board.redrawAll(); // Redraw board coordinates
+  setTimeout(() => { game.board.redrawAll() }, 0); // Redraw board coordinates
 }
 
 function makeSecondaryBoard(game: Game) {
@@ -4137,7 +4140,7 @@ function makeSecondaryBoard(game: Game) {
   game.element.find('.title-bar').css('display', 'block');
   game.element.appendTo('#secondary-board-area');
   game.board.set({ coordinates: false });
-  game.board.redrawAll(); // Redraw board coordinates
+  setTimeout(() => { game.board.redrawAll() }, 0); // Redraw board coordinates
   if(!Utils.isSmallWindow()) {
     $('body').removeClass('chat-hidden');
   }
@@ -4488,6 +4491,8 @@ $('#collapse-menus').on('hidden.bs.collapse', () => {
   $('#pills-placeholder-tab').tab('show'); // switch to a hidden tab in order to hide the active one
 
   $('#collapse-menus').removeClass('collapse-init');
+
+  setLeftColumnSizes();
 });
 
 $('#collapse-menus').on('show.bs.collapse', () => {
@@ -4528,11 +4533,16 @@ export function showTab(tab: any) {
     activeTab = tab;
 }
 
-function showPanel(id: string) {
-  const elem = $(id);
-  elem.show();
+function showPanel(elem: string | JQuery<HTMLElement>, flex = false) {
+  if(typeof elem === 'string')
+    elem = $(elem);
 
-  if(elem.closest('#left-col'))
+  if(flex)
+    elem.css('display', 'flex');
+  else  
+    elem.show();
+
+  if(elem.closest('#left-col')) 
     setLeftColumnSizes();
   else if(elem.closest('#right-col'))
     setRightColumnSizes();
@@ -4540,11 +4550,12 @@ function showPanel(id: string) {
     setPanelSizes();
 }
 
-function hidePanel(id: string) {
-  const elem = $(id);
+function hidePanel(elem: string | JQuery<HTMLElement>) {
+  if(typeof elem === 'string')
+    elem = $(elem);
   elem.hide();
 
-  if(elem.closest('#left-col'))
+  if(elem.closest('#left-col')) 
     setLeftColumnSizes();
   else if(elem.closest('#right-col'))
     setRightColumnSizes();
@@ -4922,13 +4933,13 @@ function playMaiaMove(game: Game, policy: [string, number][], value: number) {
 
 function downloadMaiaProgress(game: Game, progress: number) {
   if(progress === 100) {
-    $('#download-maia-progress').remove();
+    $('#download-maia-dialog').remove();
     return;
   }
 
-  if(progress === 0 && !$('#download-maia-progress').length) {
+  if(progress === 0 && !$('#download-maia-dialog').length) {
     const msg = `
-      <div class="center w-100" style="height: 50px">
+      <div id="download-maia-progress" class="center w-100" style="height: 50px">
         <div class="progress h-100 w-100">
           <div class="progress-bar" role="progressbar" aria-label="Downloading Maia" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
         </div>
@@ -4944,7 +4955,7 @@ function downloadMaiaProgress(game: Game, progress: number) {
       btnFailure: [abortHandler, 'Abort'],
       htmlMsg: true
     });
-    dialog.attr('id', 'download-maia-progress');
+    dialog.attr('id', 'download-maia-dialog');
   }
   
   $('#download-maia-progress .progress-bar')
@@ -6423,7 +6434,7 @@ function newGameDialog(game: Game, category = 'untimed') {
       button2 = ['', 'Cancel'];
       showIcons = true;
     }
-    Dialogs.showDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons});
+    Dialogs.showDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons, htmlMsg: true});
   }
   else if(settings.multiboardToggle)
     newGame(true, game, category);
@@ -7960,6 +7971,7 @@ async function updateMoveRatingIcon(game: Game) {
       return;
     
     removeMoveRatingIcon(game);
+    removeAutoShape(game, prevBestMoveBrush);  
 
     if(settings.moveRatingIconToggle && settings.engineBoardVisualsToggle) {
       // Add new 'eval-icon'
@@ -7974,7 +7986,6 @@ async function updateMoveRatingIcon(game: Game) {
       const bestMove = prev.evalBestMove;
       const dest = bestMove.slice(2,4);
       const orig = bestMove[1] === '@' ? dest : bestMove.slice(0,2);
-      removeAutoShape(game, prevBestMoveBrush);  
       let autoShapes = game.board.state.drawable.autoShapes;
       autoShapes.push({ orig, dest, brush: prevBestMoveBrush });
       game.board.setAutoShapes(autoShapes);

@@ -275,6 +275,13 @@ export function isMobile() {
 }
 
 /**
+ * Is touch screen
+ */
+export function isTouchscreen() {
+  return navigator.maxTouchPoints > 0;
+}
+
+/**
  * Server and browser support multi-threading
  */
 export function hasMultiThreading() {

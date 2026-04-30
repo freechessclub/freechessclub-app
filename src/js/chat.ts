@@ -932,7 +932,7 @@ export class Chat {
       // Remove a private tab if it's 1) empty 2) not active 3) not a player from the game currently being played
       if(id !== 'tab-console' && !/^tab-(game-|\d+)/.test(id) && !tab.hasClass('active')
           && !this.getTabDataFromElement(tab).messages.length
-          && (!game.isPlayingOnline() || (game.wname !== tab.text() && game.bname !== tab.text()))) {
+          && (!game?.isPlayingOnline() || (game?.wname !== tab.text() && game?.bname !== tab.text()))) {
         const chatText = $(tab.attr('href')).find('.chat-text');
         if(chatText.html() === '')
           this.closeTab(tab) 

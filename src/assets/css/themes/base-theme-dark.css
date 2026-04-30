@@ -356,10 +356,10 @@ a {
 .eval-hover-line {
   stroke: lightgray;
 }
-#eval-progress .progress {
+#download-maia-progress .progress, #eval-progress .progress {
   --bs-progress-bg: #555555;
 }
-#eval-progress .progress-bar {
+#download-maia-progress, .progress-bar, #eval-progress .progress-bar {
   --bs-progress-bar-bg: #0d6efd;
 }
 

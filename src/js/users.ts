@@ -252,7 +252,7 @@ export class Users {
     this.updateUsersTable($('#friends-table'), this.friendList);
     if(this.userList) {
       const humans = this.userList.filter(user => !user.title.includes('(C)') && !user.title.includes('(TD)'));
-      $('#online-users-count').text(`${humans.length} online users.`);
+      $('#online-users-count').text(`${humans.length} users online.`);
       $('#online-users-count').show();
       const filter = $('#search-online-users').val() as string;
       this.updateUsersTable($('#online-users-table'), humans.filter(user => user.name.toLowerCase().startsWith(filter.toLowerCase())));
