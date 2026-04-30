@@ -307,7 +307,7 @@ export class SeekGraph {
     const hits = nodes.filter(node => {
       const d = d3.select(node).datum();
 
-      const radius = d.radius + 2; // Use a circle around the shape for hit testing
+      const radius = d.radius + 12; // Use a circle around the shape for hit testing
 
       const dx = mx - d.px;
       const dy = my - d.py;
