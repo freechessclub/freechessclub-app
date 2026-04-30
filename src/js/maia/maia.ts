@@ -5,7 +5,7 @@ export type MaiaStatus =
   | 'ready'
   | 'error'
 
-import { Tensor } from 'onnxruntime-web'
+import type { Tensor } from 'onnxruntime-web';
 
 import {
   mirrorMove,
@@ -35,6 +35,8 @@ interface PendingDownload {
   reject: (error: Error) => void
 }
 
+let ort;
+
 class Maia {
   private worker: Worker | null = null
   private options: MaiaOptions
@@ -50,7 +52,10 @@ class Maia {
     this.initialize(options.model, options.modelVersion)
   }
 
-  private initialize(modelUrl: string, modelVersion: string) {
+  private async initialize(modelUrl: string, modelVersion: string) {
+    // @ts-ignore
+    ort = await import(/* webpackIgnore: true */ "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/ort.min.mjs");
+
     if (typeof window === 'undefined' || typeof Worker === 'undefined') {
       return
     }
@@ -186,8 +191,8 @@ class Maia {
       1,
     )
 
-    const policyTensor = new Tensor('float32', logitsMove, [logitsMove.length])
-    const valueTensor = new Tensor('float32', logitsValue, [logitsValue.length])
+    const policyTensor = new ort.Tensor('float32', logitsMove, [logitsMove.length])
+    const valueTensor = new ort.Tensor('float32', logitsValue, [logitsValue.length])
 
     return processOutputsMaia3(board, policyTensor, valueTensor, legalMoves)
   }
@@ -234,7 +239,7 @@ class Maia {
         moveStart,
         moveStart + moveLogitsPerItem,
       )
-      const policyTensor = new Tensor('float32', policyLogits, [
+      const policyTensor = new ort.Tensor('float32', policyLogits, [
         moveLogitsPerItem,
       ])
 
@@ -243,7 +248,7 @@ class Maia {
         valueStart,
         valueStart + valueLogitsPerItem,
       )
-      const valueTensor = new Tensor('float32', valueLogitsSlice, [
+      const valueTensor = new ort.Tensor('float32', valueLogitsSlice, [
         valueLogitsPerItem,
       ])
 

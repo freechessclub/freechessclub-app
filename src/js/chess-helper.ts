@@ -87,8 +87,7 @@ export function stalemate(fen: string, variantData?: VariantData): boolean {
     const holdings = variantData.holdings;
     for(const [key, value] of Object.entries(holdings)) {
       // Can't be in stalemate if the player has holdings (captured pieces) in crazyhouse/bughouse
-      if((key.toUpperCase() === key && turnColor === 'w') || (key.toLowerCase() === key && turnColor === 'b')
-          && value)
+      if(value && ((key.toUpperCase() === key && turnColor === 'w') || (key.toLowerCase() === key && turnColor === 'b')))
         return false;
     }
   }
