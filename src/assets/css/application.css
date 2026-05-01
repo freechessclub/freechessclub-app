@@ -104,19 +104,24 @@ body {
   --bs-btn-border-radius: 0.9rem;
 }
 
-.modal-table th {
+.table-standard th {
   user-select: none;
 }
-.modal-table td,
-.modal-table th {
+.table-standard td,
+.table-standard th {
   white-space: pre;
   padding-inline-start: 1rem;
   padding-inline-end: 1rem;
 }
-.modal-table th.text-end,
-.modal-table td.text-end {
+.table-standard th.text-end,
+.table-standard td.text-end {
   padding-inline-start: 1rem; 
   padding-inline-end: 1rem;
+}
+.table-standard thead {
+ position: sticky; 
+ top: 0;
+ box-shadow: 0 1px 0 var(--box-shadow-color);
 }
 
 .sort-header-wrapper {
@@ -131,14 +136,15 @@ body {
 .sortable-column i {
   opacity: 0.3;
 }
-.sortable-column.sort-primary i {
-  opacity: 0.6;
+.sortable-column.sort-primary[data-sort="asc"] i {
+  opacity: 1;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.8) 50%, rgba(0,0,0,0.3) 50%);
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,0.8) 50%, rgba(0,0,0,0.3) 50%);
 }
-
-.modal-table thead {
- position: sticky; 
- top: 0;
- box-shadow: 0 1px 0 var(--box-shadow-color);
+.sortable-column.sort-primary[data-sort="desc"] i {
+  opacity: 1;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.8) 50%);
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.8) 50%);
 }
 
 #channels-modal table td:nth-child(2),
@@ -585,15 +591,23 @@ body {
 #game-list-dropdown {
   min-width: 100%;
   max-width: 100vw;
-  width: 1000px;
+  width: 1400px;
 }
 #game-list-scroll-container {
   list-style: none;
   overflow: auto;
   max-height: calc(100vh - 300px);
 }
-#game-list-menu {
-  padding: 0;
+
+#game-list-menu th,
+#game-list-menu td {
+  overflow: hidden;
+  white-space: nowrap;
+  width: 1%;
+}
+#game-list-menu th:nth-child(8),
+#game-list-menu td:nth-child(8) {
+  width: auto;
 }
 
 #move-table {
@@ -1431,3 +1445,53 @@ input[type="number"]:focus {
 #boards-menu .btn {
   flex: 0 0 40px; 
 }
+
+
+
+.clickable-row {
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+.table-hover .clickable-row:hover > * {
+  background-color: color-mix(in srgb, var(--bs-table-bg) 82%, rgb(var(--bs-primary-rgb)) 18%);
+}
+.clickable-row:active > *,
+.clickable-row.table-active > * {
+  background-color: color-mix(in srgb, var(--bs-table-bg) 72%, rgb(var(--bs-primary-rgb)) 28%);
+}
+.clickable-row:focus {
+  outline: 2px solid var(--bs-primary);
+}
+
+#lobby-table {
+  table-layout: fixed;
+  width: 100%;
+}
+#lobby-table th,
+#lobby-table td {
+  padding-left: 0.75rem; 
+  padding-right: 0.75rem;
+  overflow: hidden;
+}
+#lobby-table th:nth-child(2),
+#lobby-table td:nth-child(2) {
+  width: 8ch;
+}
+#lobby-table th:nth-child(3),
+#lobby-table td:nth-child(3) {
+  width: 9ch; 
+}
+#lobby-table th:nth-child(4),
+#lobby-table td:nth-child(4) {
+  width: 14ch;
+}
+.table-head-sm th {
+  padding-top: 0.25rem; 
+  padding-bottom: 0.25rem; 
+}
+
+#lobby-filter-menu .form-check-input,
+#lobby-filter-menu .form-check-label {
+  cursor: pointer;
+}
+
