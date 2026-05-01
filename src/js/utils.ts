@@ -989,69 +989,153 @@ export function animateBoundingRects(fromElement: any, toElement: any, color = '
  * data-priority="<number>": Which column is the primary column to sort by, which is secondary etc.
  * 1 is highest priority 
  * The primary column should also have the 'sort-primary' class
- * data-sort="<asc|desc>": The current sort order, ascending or descending
+ * data-default-sort="<asc|desc>": The initial order to use when a column becomes the primary sort column
+ * data-sort="<asc|desc|[none]>": The current sort order, ascending, descending or none for tri-state tables
  * The columns will be sorted based on their <td> text, either lexicographically or numerically
  * if the text can be converted to a number. However if the <td> has a data-sort-value="<value>" attribute
- * then the column is sorted by this value instead
+ * then the column is sorted by this value instead.
+ * If the thead > tr element has data-sort="<asc|desc>" set, then the table rows will instead be sorted by the
+ * data-sort-value attr on each tbody > tr element. Otherwise it will be sorted as usual. 
  * @param table The table element (JQuery) to sort
  * @param column Optional <th> element, if specified, makes this column the primary sort column or
  * if it is already the primary column, reverses its sort order (asc or desc). 
  * (Basically what happens when you click on a sort header) 
+ * @param triState if true, then the primary sort column alternates between 3 states: asc, desc and none. 
+ * When a column is set to none, if thead > tr has a data-default-sort="<asc|desc>" then the table is 
+ * sorted by the data-sort-value="<value>" on the <tr> elmeents using the sort order defined by 
+ * data-default-sort. 
  */
-export function sortTable(table: any, column?: any) {
+export function sortTable(table: any, column?: any, triState = false, data?: any[]) {
+  const headRow = table.find('> thead > tr');
+  if(!headRow.attr('data-sort'))
+    headRow.attr('data-sort', 'none');
+  if(!headRow.attr('data-default-sort'))
+    headRow.attr('data-default-sort', headRow.attr('data-sort'));    
+
+  const cols = table.find('.sortable-column');
+  cols.each((index, elem) => {  
+    if(!$(elem).attr('data-sort'))
+      $(elem).attr('data-sort', 'none');
+
+    if(!$(elem).attr('data-default-sort') && $(elem).attr('data-sort') !== 'none')
+      $(elem).attr('data-default-sort', $(elem).attr('data-sort'));    
+  });
+
   if(column) {
-    const priority = +column.attr('data-priority');
-    if(priority !== 1) {
-      table.find('.sortable-column').each((index, elem) => {
+    const priority = +column.attr('data-priority') || Infinity;
+    const dataSort = column.attr('data-sort');
+    if(priority !== 1 || headRow.attr('data-sort') !== 'none') {
+      cols.each((index, elem) => {
         $(elem).removeClass('sort-primary');
         const otherPriority = +$(elem).attr('data-priority');
-        if(otherPriority < priority)
+        if(otherPriority && otherPriority < priority)
           $(elem).attr('data-priority', otherPriority + 1);
       });
       column.attr('data-priority', 1);
       column.addClass('sort-primary');
+      column.attr('data-sort', column.attr('data-default-sort') || 'asc');
+      headRow.attr('data-sort', 'none');
     } 
-    else
-      column.attr('data-sort', column.attr('data-sort') === 'asc' ? 'desc' : 'asc');
+    else {
+      if(triState) {
+        const defSort = column.attr('data-default-sort') || 'asc';
+        if(defSort === 'desc') // order goes desc -> asc -> none
+          column.attr('data-sort', column.attr('data-sort') === 'asc' ? 'none' : 'asc');  
+        else // order goes asc -> desc -> none
+          column.attr('data-sort', column.attr('data-sort') === 'asc' ? 'desc' : 'none');  
+        
+        if(column.attr('data-sort') === 'none') {
+          column.removeClass('sort-primary');
+          cols.each((index, elem) => {
+            $(elem).attr('data-priority', +$(elem).attr('data-priority') - 1);
+          });
+          column.attr('data-priority', cols.length);
+          headRow.attr('data-sort', headRow.attr('data-default-sort'));
+        }
+      }
+      else
+        column.attr('data-sort', column.attr('data-sort') === 'asc' ? 'desc' : 'asc');
+    }
   }
 
-  const tbody = table.find('tbody');
-  const rows = tbody.find('tr').toArray();
+  const compareVals = (textA: string, textB: string) => {
+    // Try numeric comparison before alphabetical
+    const numA = parseFloat(textA);
+    const numB = parseFloat(textB);
+
+    let cmp = 0;
+    if(!isNaN(numA) && !isNaN(numB)) 
+      cmp = numA - numB;
+    else 
+      cmp = String(textA).localeCompare(textB); // fallback string comparison
+    return cmp;
+  }; 
 
   // Get all sortable columns, sorted by priority (ascending)
-  const columns = table.find('.sortable-column')
+  const colArray = cols.filter('[data-sort="asc"], [data-sort="desc"]')
     .toArray()
     .sort((a, b) => {
       return +$(a).attr('data-priority') - +$(b).attr('data-priority');
     });
 
-  // Sort rows
-  rows.sort((rowA: any, rowB: any) => {
-    for (const col of columns) {
-      const index = $(col).index(); 
-      const sortOrder = $(col).attr('data-sort'); 
+  if(data) {
+    data.sort((rowA: any, rowB: any) => {
+      if(headRow.attr('data-sort') !== 'none') {
+        const textA = rowA[cols.length] ?? '';
+        const textB = rowB[cols.length] ?? '';   
+        let sortOrder = headRow.attr('data-sort');
+        const cmp = compareVals(textA, textB);
+        if(cmp !== 0)
+          return sortOrder === 'asc' ? cmp : -cmp;
+      }
+      else {
+        for(const col of colArray) {
+          const index = $(col).index(); 
+          let sortOrder = $(col).attr('data-sort'); 
 
-      const cellA = $(rowA).children().eq(index);
-      const cellB = $(rowB).children().eq(index);
-      const textA = cellA.attr('data-sort-value') || cellA.text();
-      const textB = cellB.attr('data-sort-value') || cellB.text();      
-   
-      // Try numeric comparison before alphabetical
-      const numA = parseFloat(textA);
-      const numB = parseFloat(textB);
+          const textA = rowA[index] ?? '';
+          const textB = rowB[index] ?? ''; 
 
-      let cmp = 0;
-      if(!isNaN(numA) && !isNaN(numB)) 
-        cmp = numA - numB;
-      else 
-        cmp = textA.localeCompare(textB); // fallback string comparison
-      if (cmp !== 0) 
-        return sortOrder === 'asc' ? cmp : -cmp;
-    }
-    return 0;
-  });
+          const cmp = compareVals(textA, textB);
+          if(cmp !== 0) 
+            return sortOrder === 'asc' ? cmp : -cmp;
+        }
+      }
+      return 0;    
+    });
+  }
+  else {
+    const tbody = table.find('tbody');
+    const rows = tbody.find('tr').toArray();
+    // Sort rows
+    rows.sort((rowA: any, rowB: any) => {
+      if(headRow.attr('data-sort') !== 'none') {
+        const textA = $(rowA).attr('data-sort-value') || '';
+        const textB = $(rowB).attr('data-sort-value') || '';   
+        let sortOrder = headRow.attr('data-sort');
+        const cmp = compareVals(textA, textB);
+        if(cmp !== 0)
+          return sortOrder === 'asc' ? cmp : -cmp;
+      }
+      else {
+        for(const col of colArray) {
+          const index = $(col).index(); 
+          let sortOrder = $(col).attr('data-sort'); 
 
-  tbody.append(rows);
+          const cellA = $(rowA).children().eq(index);
+          const cellB = $(rowB).children().eq(index);
+          const textA = cellA.attr('data-sort-value') || cellA.text();
+          const textB = cellB.attr('data-sort-value') || cellB.text();      
+
+          const cmp = compareVals(textA, textB);
+          if(cmp !== 0) 
+            return sortOrder === 'asc' ? cmp : -cmp;
+        }
+      }
+      return 0;
+    });
+    tbody.append(rows);
+  }
 }
 
 /**

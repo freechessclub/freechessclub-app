@@ -1640,7 +1640,7 @@ function handleOffers(offers: any[]) {
 
   // Clear the lobby
   if(offers[0]?.type === 'sc') {
-    $('#lobby-table').html('');
+    $('#lobby-table-body').html('');
     seekGraph.removeAllPoints();
   }
 
@@ -1648,20 +1648,51 @@ function handleOffers(offers: any[]) {
   const seeks = offers.filter((item) => item.type === 's');
   if(seeks.length && awaiting.has('lobby')) {
     seeks.forEach((item) => {
-      if(!settings.lobbyShowComputersToggle && item.title === 'C')
+      if(!settings.lobbyFilter.computers && item.title === 'C')
         return;
-      if(!settings.lobbyShowUnratedToggle && item.ratedUnrated === 'u')
+      if(!settings.lobbyFilter.humans && item.title !== 'C')
         return;
+      if(session.isRegistered() && !settings.lobbyFilter.unrated && item.ratedUnrated === 'u')
+        return;
+      if(session.isRegistered() && !settings.lobbyFilter.rated && item.ratedUnrated === 'r')
+        return;
+      if(item.category === 'wild/fr') {
+        if(!settings.lobbyFilter.chess960)
+          return;
+      }
+      else if(item.category.startsWith('wild')) {
+        if(!settings.lobbyFilter.wild)
+          return;
+      } 
+      else if(settings.lobbyFilter.hasOwnProperty(item.category) && !settings.lobbyFilter[item.category])
+        return;
+
+      const timestamp = Date.now();
+      const lobbyTableRow = $(`<tr data-sort-value="${timestamp}" data-offer-id="${item.id}" class="lobby-entry clickable-row" tabindex="0" role="button">
+          <td>${item.toFrom}${item.title !== '' ? `(${item.title})` : ''}</td>
+          <td>${item.rating}</td>
+          <td data-sort-value="${item.initialTime + item.increment * 2/3}">${item.initialTime} ${item.increment}</td>
+          <td>${item.ratedUnrated} ${item.category === 'wild/fr' ? 'chess960' : item.category}${item.color !== '?' ? ` ${item.color}` : ''}</td>
+        </tr>`);
+      $('#lobby-table-body').append(lobbyTableRow);
+
+      lobbyTableRow.on('click', function() {
+        acceptSeek(item.id);
+      });
+
+      lobbyTableRow.on('keydown', function (e) {
+        if(e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          $(this).trigger('click');
+        }
+      });
 
       item.text = formatLobbyEntry(item);
-
-      $('#lobby-table').append(
-        `<button type="button" data-offer-id="${item.id}" class="btn btn-outline-secondary lobby-entry"`
-          + ` onclick="acceptSeek(${item.id});">${item.text}</button>`);
-    
       seekGraph.addPoint(item);
     });
 
+    Utils.sortTable($('#lobby-table'));
+    
     if(lobbyScrolledToBottom) {
       const container = $('#lobby-table-container')[0];
       container.scrollTop = container.scrollHeight;
@@ -5719,7 +5750,7 @@ function initLobbyPane() {
     else
       $('#lobby-show-unrated').parent().hide();
 
-    if(settings.lobbyShowComputersToggle) {
+    if(settings.lobbyFilter.computers) {
       $('#lobby-show-computers-icon').removeClass('fa-eye-slash');
       $('#lobby-show-computers-icon').addClass('fa-eye');
     }
@@ -5728,7 +5759,7 @@ function initLobbyPane() {
       $('#lobby-show-computers-icon').addClass('fa-eye-slash');
     }
 
-    if(settings.lobbyShowUnratedToggle) {
+    if(settings.lobbyFilter.unrated) {
       $('#lobby-show-unrated-icon').removeClass('fa-eye-slash');
       $('#lobby-show-unrated-icon').addClass('fa-eye');
     }
@@ -5736,10 +5767,17 @@ function initLobbyPane() {
       $('#lobby-show-unrated-icon').removeClass('fa-eye');
       $('#lobby-show-unrated-icon').addClass('fa-eye-slash');
     }
+    
+    $('#lobby-show-computers').prop('checked', settings.lobbyFilter.computers);
+    $('#lobby-show-unrated').prop('checked', settings.lobbyFilter.unrated);
+    for(const [key, value] of Object.entries(settings.lobbyFilter)) {
+      const checkBox = $(`#lobby-filter-menu [data-filter-name="${key}"]`);
+      checkBox.prop('checked', value);
+    }
+    $('#lobby-filter-menu [data-filter-name="rated"]').parent().toggle(session.isRegistered());
+    $('#lobby-filter-menu [data-filter-name="unrated"]').parent().toggle(session.isRegistered());
 
-    $('#lobby-show-computers').prop('checked', settings.lobbyShowComputersToggle);
-    $('#lobby-show-unrated').prop('checked', settings.lobbyShowUnratedToggle);
-    $('#lobby-table').html('');
+    $('#lobby-table-body').html('');
     lobbyScrolledToBottom = true;
     awaiting.set('lobby');
     lobbyEntries.clear();
@@ -5754,7 +5792,7 @@ $(document).on('hidden.bs.tab', 'button[data-bs-target="#pills-lobby"]', () => {
 
 function leaveLobbyPane() {
   if(awaiting.resolve('lobby')) {
-    $('#lobby-table').html('');
+    $('#lobby-table-body').html('');
     if(session && session.isConnected()) {
       session.send('iset seekremove 0');
       session.send('iset seekinfo 0');
@@ -5773,14 +5811,24 @@ function hideLobbyStatus() {
 }
 
 $('#lobby-show-computers').on('change', function () {
-  settings.lobbyShowComputersToggle = $(this).is(':checked');
-  storage.set('lobbyshowcomputers', String(settings.lobbyShowComputersToggle));
+  settings.lobbyFilter.computers = $(this).is(':checked');
+  $('#lobby-filter-menu [data-filter-name="computers"').prop('checked', settings.lobbyFilter.computers);
+  storage.set('lobby-filter', JSON.stringify(settings.lobbyFilter));
   initLobbyPane();
 });
 
 $('#lobby-show-unrated').on('change', function () {
-  settings.lobbyShowUnratedToggle = $(this).is(':checked');
-  storage.set('lobbyshowunrated', String(settings.lobbyShowUnratedToggle));
+  settings.lobbyFilter.unrated = $(this).is(':checked');
+  $('#lobby-filter-menu [data-filter-name="unrated"').prop('checked', settings.lobbyFilter.unrated);
+  storage.set('lobby-filter', JSON.stringify(settings.lobbyFilter));
+  initLobbyPane();
+});
+
+$('#lobby-filter-menu').on('change', '.form-check-input', (e) => {
+  const checkbox = $(e.currentTarget);
+  const name = checkbox.data('filter-name');
+  settings.lobbyFilter[name] = checkbox.is(':checked');
+  storage.set('lobby-filter', JSON.stringify(settings.lobbyFilter));
   initLobbyPane();
 });
 
@@ -5813,18 +5861,35 @@ $('#lobby-table-container').on('scroll', () => {
   lobbyScrolledToBottom = container.scrollHeight - container.clientHeight < container.scrollTop + 1.5;
 });
 
+$('#lobby-table').on('click', '.sortable-column', (e) => {
+  let defaultSortAttr = $('#lobby-table > thead > tr').attr('data-sort');
+  const defaultSortBefore = defaultSortAttr === 'asc' || defaultSortAttr === 'desc';
+
+  const col = $(e.currentTarget);
+  Utils.sortTable($('#lobby-table'), col, true);
+
+  defaultSortAttr = $('#lobby-table > thead > tr').attr('data-sort');
+  const defaultSortAfter = defaultSortAttr === 'asc' || defaultSortAttr === 'desc';
+  
+  const container = $('#lobby-table-container')[0];
+  if(defaultSortAfter) 
+    container.scrollTop = container.scrollHeight;
+  else if(defaultSortBefore) 
+    container.scrollTop = 0;
+});
+
 function formatLobbyEntry(seek: any): string {
   const title = (seek.title !== '' ? `(${seek.title})` : '');
   const color = (seek.color !== '?' ? ` ${seek.color}` : '');
   const rating = (seek.rating !== '' ? `(${seek.rating})` : '');
   return `${seek.toFrom}${title}${rating} ${seek.initialTime} ${seek.increment} `
-    + `${seek.ratedUnrated} ${seek.category}${color}`;
+    + `${seek.ratedUnrated} ${seek.category === 'wild/fr' ? 'chess960' : seek.category}${color}`;
 }
 
-(window as any).acceptSeek = (id: number) => {
+function acceptSeek(id: number) {
   awaiting.set('match');
   session.send(`play ${id}`);
-};
+}
 
 /** ************************
  * OBSERVE PANEL FUNCTIONS *
@@ -6925,17 +6990,51 @@ $('#game-list-filter').on('input', gameListFilterHandler);
  */
 async function addGameListItems(game: Game) {
   let listItems = [];
+
+  const filter = game.gameListFilter
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .trim()
+    .split(/\s+/);
+
   for(let i = 0; i < game.historyList.length; i++) {
     const h = game.historyList[i];
-    const description = getGameListDescription(h, true);
-    if(description.toLowerCase().includes(game.gameListFilter.toLowerCase()))
-      listItems.push([i, description]);
+    const info = getGameListInfo(h);
+
+    const order = ['dateTime', 'wname', 'wrating', 'bname', 'brating', "result", 'timeControl', 'opening'];
+    if(info.id)
+      order[1] = 'id';
+    if(info.fen)
+      order[3] = 'fen';
+    const infoArr = order.map(key => info[key]);
+
+    const matches = filter.every(filterWord => {
+      return infoArr.some(item => item && String(item).toLowerCase().includes(filterWord));
+    });
+
+    if(matches) {
+      infoArr.push(i);
+      listItems.push(infoArr);
+    }
   }
+
+  Utils.sortTable($('#game-list-menu'), null, true, listItems);
 
   if(!gameListVirtualScroller) {
     const { default: VirtualScroller } = await import('virtual-scroller/dom');
-    gameListVirtualScroller = new VirtualScroller($('#game-list-menu')[0], listItems, (item: [number, string]) => {
-      const elem = $(`<li style="width: max-content;" class="game-list-item"><a class="dropdown-item" data-index="${item[0]}">${item[1]}</a></li>`);
+    gameListVirtualScroller = new VirtualScroller($('#game-list-body')[0], listItems, (item: any) => {
+      const index = item[item.length - 1];
+      const elem = $(
+        `<tr class="game-list-item clickable-row" data-sort-value="${index}" data-index="${index}">
+          <td>${item[0]}</td>
+          <td>${item[1]}</td>
+          <td class="text-end">${item[2]}</td>
+          <td>${item[3]}</td>
+          <td class="text-end">${item[4]}</td>
+          <td class="text-center">${item[5]}</td>
+          <td>${item[6]}</td>
+          <td>${item[7]}</td>
+        </tr>`);
       return elem[0];
     }, {
       scrollableContainer: $('#game-list-scroll-container')[0],
@@ -6947,54 +7046,94 @@ async function addGameListItems(game: Game) {
   }
 }
 
+function getGameListInfo(history: History) {
+  const tags = history.metatags;
+  let id = '', fen = '', dateTime= '', wname = '', bname = '', wrating = '', brating = '', result = '', opening = '', timeControl = '';
+
+  if(/FEN \d+/.test(tags.Event)) {
+    id = tags.Event;
+    fen = history.first().fen;
+    return {
+      id, fen, dateTime, wname, bname, wrating, brating, result, timeControl, opening,
+    }
+  }
+
+  dateTime = (tags.Date || tags.UTCDate || '');
+  if(tags.Time || tags.UTCTime)
+    dateTime += `${tags.Date || tags.UTCDate ? ' - ' : ''}${tags.Time || tags.UTCTime}`;
+
+  if(tags.White || tags.Black) {
+    wname = tags.White || 'unknown';
+    if(tags.WhiteElo && +tags.WhiteElo !== 0 && tags.WhiteElo !== '-' && tags.WhiteElo !== '?') 
+      wrating = tags.WhiteElo;
+    
+    bname = tags.Black || 'unknown';
+    if(tags.BlackElo && +tags.BlackElo !== 0 && tags.BlackElo !== '-' && tags.BlackElo !== '?') 
+      brating = tags.BlackElo;  
+    
+    if(tags.Result) {
+      result = tags.Result;
+      result = result.replaceAll('1/2', '½');
+    }
+  }
+  else 
+    id = tags.Event || 'Analysis';
+
+  if(tags.timeControl)
+    timeControl = tags.timeControl;
+
+  if(tags.ECO || tags.Opening || tags.Variation || tags.SubVariation) {
+    if(tags.ECO)
+      opening += `[${tags.ECO}]`;
+    if(tags.Opening)
+      opening += ` ${tags.Opening}`;
+    else if(tags.Variation)
+      opening += ` ${tags.Variation}${tags.SubVariation ? `: ${tags.SubVariation}` : ''}`;
+  }
+
+  return {
+    id, fen, dateTime, wname, bname, wrating, brating, result, timeControl, opening,
+  };
+}
+
 /**
  * Get the text to be displayed for an item in the game list or in the game list dropdown button
  * @param longDescription the long description is used in the list itself, the short version is used
  * in the dropdown button text
  */
 function getGameListDescription(history: History, longDescription = false) {
-  const tags = history.metatags;
+  const info = getGameListInfo(history);
+  
   let description = '';
 
-  if(/FEN \d+/.test(tags.Event)) {
-    description = tags.Event;
+  if(/FEN \d+/.test(info.id)) {
+    description = info.id;
     if(longDescription)
-      description += `, ${history.first().fen}`;
+      description += `, ${info.fen}`;
     return description;
   }
 
-  let dateTimeStr = (tags.Date || tags.UTCDate || '');
-  if(tags.Time || tags.UTCTime)
-    dateTimeStr += `${tags.Date || tags.UTCDate ? ' - ' : ''}${tags.Time || tags.UTCTime}`;
-
-  if(tags.White || tags.Black) {
-    description = tags.White || 'unknown';
-    if(tags.WhiteElo && tags.WhiteElo !== '0' && tags.WhiteElo !== '-' && tags.WhiteElo !== '?')
-      description += ` (${tags.WhiteElo})`;
-    description += ` - ${tags.Black || 'unknown'}`;
-    if(tags.BlackElo && tags.BlackElo !== '0' && tags.BlackElo !== '-' && tags.BlackElo !== '?')
-      description += ` (${tags.BlackElo})`;
-    if(tags.Result)
-      description += ` [${tags.Result}]`;
+  if(info.wname || info.bname) {
+    description = info.wname;
+    if(info.wrating)
+      description += ` (${info.wrating})`;
+    description += ` - ${info.bname}`;
+    if(info.brating)
+      description += ` (${info.brating})`;
+    if(info.result)
+      description += ` [${info.result}]`;
   }
   else {
-    description = tags.Event || 'Analysis';
+    description = info.id;
     if(!longDescription)
-      description += ` ${dateTimeStr}`;
+      description += ` ${info.dateTime}`;
   }
 
   if(longDescription) {
-    if(dateTimeStr)
-      description += `, ${dateTimeStr}`;
-    if(tags.ECO || tags.Opening || tags.Variation || tags.SubVariation) {
-      description += ',';
-      if(tags.ECO)
-        description += ` [${tags.ECO}]`;
-      if(tags.Opening)
-        description += ` ${tags.Opening}`;
-      else if(tags.Variation)
-        description += ` ${tags.Variation}${tags.SubVariation ? `: ${tags.SubVariation}` : ''}`;
-    }
+    if(info.dateTime)
+      description += `, ${info.dateTime}`;
+    if(info.opening) 
+      description += `, ${info.opening}`;
   }
 
   return description;
@@ -7006,12 +7145,20 @@ function getGameListDescription(history: History, longDescription = false) {
 $('#game-list-button').on('hidden.bs.dropdown', () => {
   gameListVirtualScroller?.stop();
   gameListVirtualScroller = null;
-  $('#game-list-menu').html('');
+  $('#game-list-body').html('');
+});
+
+$('#game-list-menu').on('click', '.sortable-column', (e) => {
+  const col = $(e.currentTarget);
+  const data = [...gameListVirtualScroller.virtualScroller.getState().items];
+  Utils.sortTable($('#game-list-menu'), col, true, data);
+  gameListVirtualScroller.setItems(data);
 });
 
 /** Triggered when a game is selected from the game list */
-$('#game-list-dropdown').on('click', '.dropdown-item', (event) => {
-  const index = +$(event.target).attr('data-index');
+$('#game-list-menu').on('click', '.clickable-row', (event) => {
+  $('#game-list-button').dropdown('hide');
+  const index = +$(event.currentTarget).attr('data-index');
   setCurrentHistory(games.focused, index);
 });
 
@@ -8427,8 +8574,9 @@ function initSettings() {
   settings.rememberMeToggle = (storage.get('rememberme') === 'true');
   $('#remember-me').prop('checked', settings.rememberMeToggle);
 
-  settings.lobbyShowComputersToggle = (storage.get('lobbyshowcomputers') === 'true');
-  settings.lobbyShowUnratedToggle = (storage.get('lobbyshowunrated') !== 'false');
+  const lobbyFilter = storage.get('lobby-filter');
+  if(lobbyFilter) 
+    settings.lobbyFilter = JSON.parse(lobbyFilter);
 
   const lobbyViewMode = storage.get('lobby-view-mode');
   if(lobbyViewMode)
