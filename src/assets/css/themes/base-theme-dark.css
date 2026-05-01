@@ -422,10 +422,10 @@ a {
   color: white;
 }
 
-.modal-table {
+.table-standard {
   --bs-emphasis-color: var(--bs-body-color);
 }
-.modal-table thead {
+.table-standard thead {
   --bs-table-bg: color-mix(in srgb, var(--bg-color) 85%, white 15%);
   --box-shadow-color: color-mix(in srgb, var(--bg-color) 85%, white 15%);
 }

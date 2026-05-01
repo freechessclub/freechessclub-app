@@ -744,7 +744,7 @@ export class Tournaments {
                 </div>
                 <div class="modal-body">
                   <div class="tournament-players tournament-table-container" class="mb-1">
-                    <table class="table table-sm table-borderless table-striped modal-table">
+                    <table class="table table-sm table-borderless table-striped table-standard">
                       <thead>
                         <tr>
                           <th scope="col" class="text-end">Seed</th>
@@ -891,7 +891,7 @@ export class Tournaments {
                 </div>
                 <div class="modal-body">
                   <div class="tournament-standings tournament-table-container" class="mb-1">
-                    <table class="table table-sm table-borderless table-striped modal-table">
+                    <table class="table table-sm table-borderless table-striped table-standard">
                       <thead>
                         <tr>
                           <th scope="col" class="text-end">Pos</th>
@@ -999,7 +999,7 @@ export class Tournaments {
                 </div>
                 <div class="modal-body">
                   <div class="tournament-games tournament-table-container" class="mb-1">
-                    <table class="table table-sm table-borderless table-striped modal-table">
+                    <table class="table table-sm table-borderless table-striped table-standard">
                       <thead>
                         <tr>
                           <th scope="col" class="text-end">Board</th>
