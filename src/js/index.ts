@@ -849,9 +849,9 @@ function setLeftColumnSizes(redrawBoard = true) {
   const boardHeight = $('#main-board-area .board').innerHeight();
 
   // set height of left menu panel inside collapsable
-  if (boardHeight) {
+  if(boardHeight) {
     if($('#left-panel').height() === 0)
-      $('#left-panel-bottom').css('height', '');
+      $('#left-panel-bottom-content').css('height', '');
 
     if(Utils.isSmallWindow())
       $('#left-panel').css('height', ''); // Reset back to CSS defined height
@@ -863,7 +863,7 @@ function setLeftColumnSizes(redrawBoard = true) {
       // If we've made the left panel height as small as possible, reduce size of status panel instead
       // Note leftPanelHeight is negative in that case
       if(leftPanelHeight < 0)
-        $('#left-panel-bottom').height($('#left-panel-bottom').height() + leftPanelHeight);
+        $('#left-panel-bottom-content').height($('#left-panel-bottom-content').height() + leftPanelHeight);
     }
 
     if(redrawBoard && Utils.isSmallWindow()) 
@@ -1035,6 +1035,7 @@ function useMobileLayout() {
   $('#stop-examining').appendTo($('#viewing-game-buttons').last());
   $('#viewing-games-buttons:visible:last').addClass('me-0'); // This is so visible buttons in the btn-toolbar center properly
   hidePanel('#left-panel-header-2');
+  
   $('#input-text').attr('placeholder', 'Type message here and press Enter');
 
   Utils.createTooltips();
@@ -1055,10 +1056,11 @@ function useDesktopLayout() {
 
   $('#stop-observing').appendTo($('#left-panel-header-2').last());
   $('#stop-examining').appendTo($('#left-panel-header-2').last());
-  if(games.focused.isObserving() || games.focused.isExamining())
-    showPanel('#left-panel-header-2');
+  if($('#left-panel-header-2').find('.btn:visible').length)
+    $('#left-panel-header-2').show();
+  $('#left-panel-footer').css('display', 'flex');  
+  
   $('#input-text').attr('placeholder', 'Type message here and press Enter to send!');
-
   Utils.createTooltips();
 }
 
@@ -4120,30 +4122,22 @@ function initGameControls(game: Game) {
 
   $('#takeback').prop('disabled', game.role === Role.PLAYING_COMPUTER);
 
-  if((game.isExamining() || game.isObserving()) && !Utils.isSmallWindow())
-    showPanel('#left-panel-header-2');
-  else
-    hidePanel('#left-panel-header-2');
-
   if(game.setupBoard)
     showPanel('#left-panel-setup-board');
   else
     hidePanel('#left-panel-setup-board');
 
   if(game.isExamining())
-    Utils.showButton($('#stop-examining'));
+    showHeaderFooterButton($('#stop-examining'));
   else if(game.isObserving())
-    Utils.showButton($('#stop-observing'));
+    showHeaderFooterButton($('#stop-observing'));
 
   if(!game.isExamining())
-    Utils.hideButton($('#stop-examining'));
+    hideHeaderFooterButton($('#stop-examining'));
   if(!game.isObserving())
-    Utils.hideButton($('#stop-observing'));
+    hideHeaderFooterButton($('#stop-observing'));
 
-  if(game.isPlaying())
-    showStatusPanel();
-  else
-    initStatusPanel();
+  initStatusPanel();
 }
 
 function makeMainBoard(game: Game) {
@@ -4268,8 +4262,8 @@ function cleanupGame(game: Game) {
   game.role = Role.NONE;
 
   if(game === games.focused) {
-    Utils.hideButton($('#stop-observing'));
-    Utils.hideButton($('#stop-examining'));
+    hideHeaderFooterButton($('#stop-observing'));
+    hideHeaderFooterButton($('#stop-examining'));
     hidePanel('#left-panel-header-2');
     $('#takeback').prop('disabled', false);
     $('#play-computer').prop('disabled', false);
@@ -4545,6 +4539,26 @@ function hidePanel(elem: string | JQuery<HTMLElement>) {
     setRightColumnSizes();
   else
     setPanelSizes();
+}
+
+/**
+ * Makes sure the containing header/footer panel is showing when showing a child button
+ */
+function showHeaderFooterButton(button: JQuery<HTMLElement>) {
+  showPanel(button.closest('.card-header, .card-footer'), true);
+  Utils.showButton(button);
+}
+
+/**
+ * After hiding a button within a header/footer. Check to see if the parent panel should be hidden
+ * when there are no longer any visible buttons. (to save room on mobile etc)
+ */
+function hideHeaderFooterButton(button: JQuery<HTMLElement>) {
+  if(!Utils.hideButton(button))
+    return;
+  const panel = button.closest('.card-header, .card-footer');
+  if((panel.attr('id') === 'left-panel-header-2' || Utils.isSmallWindow()) && !panel.find('.btn:visible').length) 
+    hidePanel(panel);
 }
 
 $('#stop-observing').on('click', () => {
@@ -6623,6 +6637,7 @@ function newGame(createNewBoard: boolean, game?: Game, category = 'untimed', fen
   }
   Object.assign(game, data);
   game.statusElement.find('.game-status').html('');
+  game.statusElement.find('.info-panel-status').show();
   gameStart(game);
 
   return game;
@@ -6968,6 +6983,7 @@ function updateGameFromMetatags(game: Game) {
         }
       }
 
+      game.statusElement.find('.info-panel-status').hide();
       game.statusElement.find('.game-status').text(status);
     }
   }
@@ -7684,12 +7700,10 @@ $('#game-tools-close').on('click', () => {
  *************************************/
 
 function initStatusPanel() {
-  if(games.focused.isPlaying()) {
-    $('#close-status').hide();
+  if(games.focused.isPlaying())
     hideAnalysis();
-  }
-  else if($('#left-panel-bottom').is(':visible')) {
-    if(games.focused.analyzing)
+  else {
+    if(games.focused.analyzing) 
       showAnalysis();
     else
       hideAnalysis();
@@ -7697,21 +7711,108 @@ function initStatusPanel() {
     showAnalyzeButton();
     if($('#engine-tab').is(':visible') && evalEngine)
       evalEngine.evaluate();
-    $('#close-status').show();
   }
 }
 
-function showStatusPanel() {
-  showPanel('#left-panel-bottom');
-  initStatusPanel();
+$('#left-panel-bottom').on('click', (e) => {
+  if($(e.target).hasClass('closeTab'))
+    return; 
+
+  if(!$('#left-panel-bottom-content').is(':visible'))
+    showStatusPanel(true);
+  else if(!$(e.target).closest('#left-panel-bottom-content').length && !$(e.target).closest('.nav-item').length)
+    hideStatusPanel(true);
+});
+
+/**
+ * Show (unminimize) the Info/Status/Analysis panel
+ * @param animate If true the panel slides up, if false it pops up immediately
+ */
+function showStatusPanel(animate = false) { 
+  $('#close-status-icon').removeClass('fa-angle-up');
+  $('#close-status-icon').addClass('fa-angle-down');
+
+  if(animate && !$('#left-panel-bottom-content').is(':visible')) {
+    const leftBottomHeight = parseFloat($('#left-panel-bottom').css('--content-height'));
+    $('#left-panel-bottom-content').height(0);
+    $('#left-panel-bottom').addClass('minimizing');
+    $('#left-panel-bottom').removeClass('minimized');
+    $('#left-panel-bottom-content').show();
+    $('#left-panel-bottom-content').css('transition', 'height 0.35s ease');
+    $('#left-panel-bottom-content')[0].offsetHeight; 
+    if(!Utils.isSmallWindow()) {
+      $('#left-panel').css('transition', 'height 0.35s ease');
+      $('#left-panel')[0].offsetHeight; 
+    }
+    $('#left-panel-bottom-content').on('transitionend', (e) => {
+      const oe = e.originalEvent as TransitionEvent;
+      if(e.target !== e.currentTarget || oe.propertyName !== 'height') 
+        return;
+
+      $('#left-panel-bottom-content').off('transitionend');
+      $('#left-panel-bottom').removeClass('minimizing');
+      $('#left-panel-bottom-content').css('transition', '');
+      if(!Utils.isSmallWindow())
+        $('#left-panel').css('transition', '');
+      showPanel('#left-panel-bottom-content');
+      if($('#engine-tab').is(':visible') && evalEngine)
+        evalEngine.evaluate();
+    });
+    $('#left-panel-bottom-content').css('height', '');
+    if(!Utils.isSmallWindow()) {
+      const leftPanelHeight = $('#left-panel').height(); // Decrease height of left menus as status panel grows
+      $('#left-panel').height(leftPanelHeight - leftBottomHeight);
+    }
+  }
+  else { // Instantly show panel
+    $('#left-panel-bottom').removeClass('minimized');
+    showPanel('#left-panel-bottom-content');
+    if($('#engine-tab').is(':visible') && evalEngine)
+      evalEngine.evaluate();
+  }
 }
 
-function hideStatusPanel() {
-  $('#show-status-panel').text('Status/Analysis');
-  $('#show-status-panel').attr('title', 'Show Status Panel');
-  $('#show-status-panel').show();
-  stopEngine();
-  hidePanel('#left-panel-bottom');
+/**
+ * Hide (minimize) the Info/Status/Analysis panel
+ * @param animate If true the panel slides down, if false it hides immediately
+ */
+function hideStatusPanel(animate = false) {
+  $('#close-status-icon').removeClass('fa-angle-down');
+  $('#close-status-icon').addClass('fa-angle-up');
+
+  if(animate && $('#left-panel-bottom-content').is(':visible')) {
+    $('#left-panel-bottom').addClass('minimizing');
+    $('#left-panel-bottom-content').css('transition', 'height 0.35s ease');
+    $('#left-panel-bottom-content')[0].offsetHeight; 
+    if(!Utils.isSmallWindow()) {
+      $('#left-panel').css('transition', 'height 0.35s ease');
+      $('#left-panel')[0].offsetHeight; 
+    }
+    $('#left-panel-bottom-content').on('transitionend', (e) => {
+      const oe = e.originalEvent as TransitionEvent;
+      if(e.target !== e.currentTarget || oe.propertyName !== 'height') 
+        return;
+      $('#left-panel-bottom-content').off('transitionend');
+
+      $('#left-panel-bottom').removeClass('minimizing');
+      $('#left-panel-bottom-content').css('transition', '');
+      $('#left-panel-bottom').addClass('minimized');
+      $('#left-panel-bottom-content').css('height', '');
+      if(!Utils.isSmallWindow())
+        $('#left-panel').css('transition', '');
+      hidePanel('#left-panel-bottom-content');
+    });
+    const leftBottomHeight = parseFloat($('#left-panel-bottom').css('--content-height'));
+    $('#left-panel-bottom-content').height(0);
+    if(!Utils.isSmallWindow()) {
+      const leftPanelHeight = $('#left-panel').height();
+      $('#left-panel').height(leftPanelHeight + leftBottomHeight);
+    }
+  }
+  else {
+    $('#left-panel-bottom').addClass('minimized');
+    hidePanel('#left-panel-bottom-content');
+  }
 }
 
 /**
@@ -7754,10 +7855,10 @@ function closeLeftBottomTab(tab: any) {
 }
 
 function showStatusMsg(game: Game, msg: string) {
-  if(game === games.focused)
-    showStatusPanel();
-  if(msg)
+  if(msg) {
+    game.statusElement.find('.info-panel-status').hide();
     game.statusElement.find('.game-status').html(msg);
+  }
 }
 
 async function showOpeningName(game: Game) {
@@ -7779,6 +7880,7 @@ async function showOpeningName(game: Game) {
     hEntry = hEntry.prev;
   }
 
+  game.statusElement.find('.info-panel-status').hide();
   game.statusElement.find('.opening-name').text(hEntry.opening.name);
   game.statusElement.find('.opening-name').show();
 }
@@ -8263,27 +8365,18 @@ function removeAutoShape(game: Game, brush: string) {
 
 /** STATUS PANEL SHOW/HIDE BUTTON **/
 
-$('#show-status-panel').on('click', () => {
-  if($('#show-status-panel').text() === 'Analyze')
-    showAnalysis();
+$('#analyze-btn').on('click', () => {
+  showAnalysis();
   showStatusPanel();
+  hideHeaderFooterButton($('#analyze-btn'));
   scrollToLeftPanelBottom();
 });
 
-$('#close-status').on('click', () => {
-  hideStatusPanel();
-});
-
 function showAnalyzeButton() {
-  if($('#left-panel-bottom').is(':visible')) {
-    $('#show-status-panel').text('Analyze');
-    $('#show-status-panel').attr('title', 'Analyze Game');
-  }
-
   if(!$('#engine-tab').is(':visible') && Engine.categorySupported(games.focused.category))
-    $('#show-status-panel').show();
-  else if($('#left-panel-bottom').is(':visible'))
-    $('#show-status-panel').hide();
+    showHeaderFooterButton($('#analyze-btn'));
+  else 
+    hideHeaderFooterButton($('#analyze-btn'));
 }
 
 /** ****************************

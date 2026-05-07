@@ -326,6 +326,14 @@ cg-board {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
+#close-status {
+  color: color-mix(in srgb, var(--fg-color) 50%, white 50%);
+}
+
+#left-panel-bottom.minimized .nav-tabs {
+  --bs-nav-tabs-border-color: color-mix(in srgb, var(--bs-border-color) 40%, white 60%);
+}
+
 .premove-target::before {
   color: white;
 }

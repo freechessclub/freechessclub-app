@@ -642,6 +642,7 @@ export class Tournaments {
     if(msg === ':There are no tourneys right now.' && awaiting.resolve('td-listtourneys')) {
       awaiting.set('td-set');
       this.session.send('td set height 24');
+      return true;
     }
 
     pattern = ':mamer\'s tourney list:';

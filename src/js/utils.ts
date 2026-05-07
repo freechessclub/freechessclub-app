@@ -493,10 +493,14 @@ export function insertAtCursor(element: JQuery<HTMLElement>, text: string) {
  * Hidden buttons were causing visible buttons to not center properly in toolbar
  * Set the margin of the last visible button to 0
  */
-export function showButton(button: any) {
-  button.parent().find('visible:last').removeClass('me-0');
-  button.addClass('me-0');
+export function showButton(button: any): boolean {
+  if(button.is(':visible'))
+    return false;
+
   button.show();
+  button.parent().children().removeClass('me-0');
+  button.parent().find(':visible:last').addClass('me-0');
+  return true;
 }
 
 /**
@@ -504,10 +508,14 @@ export function showButton(button: any) {
  * Hidden buttons were causing visible buttons to not center properly in toolbar
  * Set the margin of the last visible button to 0
  */
-export function hideButton(button: any) {
+export function hideButton(button: any): boolean {
+  if(!button.is(':visible'))
+    return false;
+
   button.hide();
   button.removeClass('me-0');
-  button.parent().find('visible:last').addClass('me-0');
+  button.parent().find(':visible:last').addClass('me-0');
+  return true;
 }
 
 /**
