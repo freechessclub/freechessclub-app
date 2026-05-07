@@ -177,6 +177,9 @@ body {
 .game-status {
   font-weight: bold;
 }
+.game-status:empty::before {
+  content: "\00a0";
+}
 .game-status .game-id {
   font-weight: normal;
 }
@@ -194,8 +197,27 @@ body {
   height: 200px;
 }
 #left-panel-bottom {
-  height: 192px;
   width: 100%;
+  --content-height: 160px;
+  cursor: pointer;
+}
+#left-panel-bottom-content {
+  height: var(--content-height);
+  cursor: initial;
+}
+#left-panel-bottom.minimized #left-panel-bottom-content {
+  display: none;
+}
+#left-panel-bottom.minimizing * {
+  overflow: hidden;
+}
+
+#close-status {
+  font-size: 20px;
+  top: 6px;
+  right: 9px;
+  line-height: 0px;
+  padding: 0px;
 }
 
 .chat-text strong.mine {
@@ -828,24 +850,6 @@ body {
 @media (max-width: 767px) {
   .collapse-init {
     display: none;
-  }
-
-  #close-status {
-    font-size: 30px;
-    top: 15px;
-    right: 9px;
-    line-height: 0px;
-    padding: 0px;
-  }
-}
-
-@media (min-width: 768px) {
-  #close-status {
-    font-size: 20px;
-    top: 9px;
-    right: 3px;
-    line-height: 0px;
-    padding: 0px;
   }
 }
 

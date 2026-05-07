@@ -66,8 +66,8 @@
               </div>
               <div id="left-panel-header-2" class="card-header top-panel center" style="display: none">
                 <div class="d-flex justify-content-center gap-1 w-100">
-                  <button type="button" id="stop-observing" style="display: none" class="btn btn-outline-secondary btn-sm" title="Stop Observing">Stop Observing</button>
-                  <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-sm" title="Stop Examining">Stop Examining</button>
+                  <button type="button" id="stop-observing" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Observing">Stop Observing</button>
+                  <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Examining">Stop Examining</button>
                 </div>
               </div>
               <div class="card-body p-0">
@@ -647,12 +647,12 @@
                   </div>
                 </div>
               </div>
-              <div class="card-footer p-0" id="left-panel-bottom" style="display: none">
-                <div class="d-flex flex-column h-100 w-100 position-relative">
-                  <button id="close-status" class="btn btn-default position-absolute">&times;</button>
+              <div class="card-footer p-0 minimized" id="left-panel-bottom">
+                <div class="h-100 w-100 position-relative">
+                  <button id="close-status" class="btn btn-default position-absolute"><span id="close-status-icon" class="fa-solid fa-angle-down" aria-hidden="false"></span></button>
                   <ul class="nav nav-tabs pt-2" id="left-bottom-tabs" style="visibility: hidden" role="tablist">
                     <li class="nav-item" role="presentation">
-                      <button class="nav-link active" id="status-tab" data-bs-toggle="tab" data-bs-target="#status-panel" type="button" role="tab" aria-controls="status-panel" aria-selected="true">Status</button>
+                      <button class="nav-link active" id="status-tab" data-bs-toggle="tab" data-bs-target="#status-panel" type="button" role="tab" aria-controls="status-panel" aria-selected="true">Info</button>
                     </li>
                     <li class="nav-item" role="presentation" style="position: relative; display: none">
                       <button class="nav-link" id="engine-tab" style="padding-right: 30px" data-bs-toggle="tab" href="#engine-panel" role="tab" aria-controls="engine-panel" aria-selected="false">Engine</button>
@@ -667,10 +667,11 @@
                       </container>
                     </li>
                   </ul>
-                  <div class="tab-content flex-grow-1" style="min-height: 0">
+                  <div id="left-panel-bottom-content" class="tab-content overflow-hidden">
                     <div class="tab-pane fade show active p-1 h-100" id="status-panel" role="tabpanel" aria-labelledby="status-panel">
                       <div id="game-status-list" class="d-flex flex-column overflow-auto center h-100">
                         <div class="px-2 w-100 h-100">
+                          <div class="center py-1 info-panel-status" style="font-style: italic;">No game info</div>
                           <div class="center py-1" style="text-align: center"><span class="game-status"></span></div>
                           <div class="opening-name center py-1 border-top" style="display: none"></div>
                           <div class="game-watchers center flex-wrap pt-2 pb-1 border-top"></div>
@@ -742,7 +743,7 @@
                 </button>
               </div>
               <div id="viewing-game-buttons" class="btn-toolbar center w-100">
-                <button type="button" id="show-status-panel" class="btn btn-outline-secondary btn-md" title="Analyze Game" style="display: none">Analyze</button>
+                <button type="button" id="analyze-btn" class="btn btn-outline-secondary btn-md" style="display: none;" title="Analyze Game">Analyze</button>
               </div>
             </div>
           </div>
