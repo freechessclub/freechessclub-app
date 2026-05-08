@@ -477,6 +477,133 @@ export function setCaretToEnd(element: JQuery<HTMLElement>) {
 }
 
 /**
+ * Creates helper event handlers for contenteditable elements. Allows features such as
+ * automatically adding and removing an invisible character that allows the cursor to be shown
+ * when the element is empty. Showing a placeholder string when the element is empty. 
+ * Specifying a maximum number of characters. Bluring when enter is pressed and calling a 'done' callback
+ * function. Stripping out html and converting newlines to spaces while retaining the correct cursor 
+ * position.  
+ * @param selector The selector specifying the elements to apply the handlers to for example '.classname' 
+ * @param doneCallback Called when the user removes focus from the element or presses enter
+ * @param invisibleChar If true, automatically adds/removes an invisible character when the contenteditable
+ * is empty. This is necessary to show a cursor in an empty <span>
+ * @param replaceNewlines If true, replace newlines with spaces
+ * @param maxChars If specified, stop the user typing more than maxChars
+ */
+export function initContentEditable(selector: string, doneCallback: (elem: JQuery<HTMLElement>) => void, invisibleChar = false, replaceNewlines = false, maxChars?: number) {
+  /** Triggered when the user clicks on a comment in the move-list to edit it in-place. */
+  $(document).on('focus', selector, (focEvent) => {
+    if(!$(focEvent.target).text().length) {
+      // Adds an invisible character in order to make the cursor appear even
+      // when the element is empty.
+      if(invisibleChar)
+        $(focEvent.target).text('\u200B');
+      // Display the placeholder text.
+      if($(focEvent.target).attr('placeholder'))
+        $(focEvent.target).attr('data-before-content', $(focEvent.target).attr('placeholder'));
+    }
+
+    // Set the move's comment string after the user presses enter or clicks away from the comment element.
+    $(focEvent.target).one('blur', (event) => {
+      const elem = $(event.target);
+
+      elem.off('paste keydown input');
+           
+      if(doneCallback)
+        doneCallback(elem);
+
+      // Unselect selected text
+      if(window.getSelection)
+        window.getSelection().removeAllRanges();
+    });
+
+    $(focEvent.target).on('keydown', (event) => {
+      if(event.key === 'Enter') {
+        event.preventDefault();
+        $(event.target).trigger('blur');
+      }
+    });
+
+    /**
+     * Remove html tags and formatting from text pasted into the element. Remove
+     * the zero-wdith space (placeholder) character if text was pasted into an empty element.
+     */
+    $(focEvent.target).on('paste', (event) => {
+      event.preventDefault();
+
+      // Insert the clipboard text into the element as plain text
+      const clipboardEvent = event.originalEvent as ClipboardEvent;
+      let text = clipboardEvent.clipboardData?.getData('text/plain') || '';
+      if(replaceNewlines)
+        text = text.replace(/[\r\n]+/g, ' ');
+
+      const sel = window.getSelection();
+      if(sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(document.createTextNode(text));
+        range.collapse(false); // Move the caret to the end of the pasted text
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      $(event.target).trigger('input'); // Remove the zero-width space placeholder character if it exists
+    });
+
+    /**
+     * Remove the zero-width space (placeholder) character when text is entered.
+     * Adds it back when all text is deleted.
+     */
+    $(focEvent.target).on('input', (event) => {
+      const elem = $(event.target);
+
+      if(!elem.text().length) {
+        if(invisibleChar)
+          elem.text('\u200B'); // insert a zero-width space in order to make cursor appear when span is empty
+        if(elem.attr('placeholder'))
+          elem.attr('data-before-content', elem.attr('placeholder'));
+      }
+      else if(elem.attr('data-before-content')) {
+        if(invisibleChar) 
+          elem.text(elem.text().replace(/\u200B/g, '')); // Remove zero-width space
+        setCaretToEnd(elem);
+        elem.removeAttr('data-before-content'); // Remove placeholder
+      }
+      else if(elem.text().length > maxChars) {
+        const e = elem[0];
+
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return;
+
+        const range = sel.getRangeAt(0);
+
+        // Save cursor position relative to element text
+        const preCaretRange = range.cloneRange();
+        preCaretRange.selectNodeContents(e);
+        preCaretRange.setEnd(range.endContainer, range.endOffset);
+        const caretPos = preCaretRange.toString().length;
+
+        // Truncate text
+        const newText = splitText(elem.text(), maxChars)[0];
+        elem.text(newText);
+
+        // Restore caret (best effort)
+        const textNode = e.firstChild;
+        if(!textNode) return;
+
+        const newRange = document.createRange();
+        const pos = Math.min(caretPos, newText.length);
+
+        newRange.setStart(textNode, pos);
+        newRange.collapse(true);
+
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+      }
+    });
+  });
+}
+
+/**
  * Insert text into textarea element at cursor
  */
 export function insertAtCursor(element: JQuery<HTMLElement>, text: string) {
@@ -828,6 +955,27 @@ export function splitText(text: string, maxLength: number): string[] {
     result.push(currentMessage);
 
   return result;
+}
+
+/**
+ * Splits a string into 3 parts { before, matching, after }
+ * matching: the line or lines represented by the specified match array (returned by match())
+ * before, after: the text before and after the matching line(s)
+ * @param text the text to split
+ * @param match a match array returned by a previous match() call representing the matched line(s)
+ * @returns the split object
+ */
+export function splitBeforeAfterMatch(text: string, match: any) {
+  const start = match.index;
+  const end = start + match[0].length;
+  const before = text.slice(0, start).replace(/\n$/, '').trim();
+  const matching = match[0];
+  const after = text.slice(end).replace(/^\n/, '').trim();
+  return {
+    before,
+    matching,
+    after
+  };
 }
 
 /**

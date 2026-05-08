@@ -7,7 +7,7 @@ import { Role } from './game';
 import { Reason } from './parser';
 import { storage } from './storage';
 import { settings } from './settings';
-import { setCaretToEnd, BitWriter, BitReader, zigzagEncode, zigzagDecode, logError } from './utils';
+import { setCaretToEnd, initContentEditable, BitWriter, BitReader, zigzagEncode, zigzagDecode, logError } from './utils';
 import { getPlyFromFEN, getMoveNoFromFEN, getTurnColorFromFEN, updateVariantMoveData, VariantData, toDests, parseMove, getNumLegalMoves, moveToLegalMoveIndex, legalMoveIndexToMove } from './chess-helper';
 import { Clock } from './clock';
 import { Game } from './game';
@@ -1743,85 +1743,18 @@ export class History {
   }
 }
 
-/** Triggered when the user clicks on a comment in the move-list to edit it in-place. */
-$(document).on('focus', '.comment', (focEvent) => {
-  if(!$(focEvent.target).text().length) {
-    // Adds an invisible character to an empty comment in order to make the cursor appear even
-    // when the comment is empty.
-    $(focEvent.target).text('\u200B');
-    // Display the placeholder text.
-    $(focEvent.target).attr('data-before-content', $(focEvent.target).attr('placeholder'));
-  }
+initContentEditable('.comment', (elem: JQuery<HTMLElement>) => {
+  const commentBefore = elem.hasClass('comment-before') ? true : false;  
+  const content = elem.attr('data-before-content') ? undefined : elem.text();
 
-  // Set the move's comment string after the user presses enter or clicks away from the comment element.
-  $(focEvent.target).one('blur', (event) => {
-    const elem = $(event.target);
-    const hEntry = elem.hasClass('comment-before') ? elem.next().data('hEntry') : elem.prev().data('hEntry');
-    const commentBefore = elem.hasClass('comment-before') ? true : false;
-    const comment = elem.attr('data-before-content') ? undefined : elem.text();
+  const hEntry = elem.hasClass('comment-before') ? elem.next().data('hEntry') : elem.prev().data('hEntry');
+  if(commentBefore)
+    hEntry.commentBefore = content;
+  else
+    hEntry.commentAfter = content;
 
-    if(elem.attr('data-before-content'))
-      elem.remove(); // If the placeholder text is showing, i.e. the comment is empty then remove it.
-    else
-      elem.off('input paste keydown');
-
-    if(commentBefore)
-      hEntry.commentBefore = comment;
-    else
-      hEntry.commentAfter = comment;
-
-    // Unselect selected text
-    if(window.getSelection)
-      window.getSelection().removeAllRanges();
-  });
-
-  $(focEvent.target).on('keydown', (event) => {
-    if(event.key === 'Enter') {
-      event.preventDefault();
-      $(event.target).trigger('blur');
-    }
-  });
-
-  /**
-   * Remove html tags and formatting from text pasted into the comment element. Remove
-   * the zero-wdith space (placeholder) character if text was pasted into an empty element.
-   */
-  $(focEvent.target).on('paste', (event) => {
-    event.preventDefault();
-
-    // Insert the clipboard text into the element as plain text
-    const clipboardEvent = event.originalEvent as ClipboardEvent;
-    const text = clipboardEvent.clipboardData?.getData('text/plain') || '';
-
-    const sel = window.getSelection();
-    if(sel.rangeCount > 0) {
-      const range = sel.getRangeAt(0);
-      range.deleteContents();
-      range.insertNode(document.createTextNode(text));
-      range.collapse(false); // Move the caret to the end of the pasted text
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
-    $(event.target).trigger('input'); // Remove the zero-width space placeholder character if it exists
-  });
-
-  /**
-   * Remove the zero-width space (placeholder) character when text is entered.
-   * Adds it back when all text is deleted.
-   */
-  $(focEvent.target).on('input', (event) => {
-    const elem = $(event.target);
-
-    if(!elem.text().length) {
-      elem.text('\u200B'); // insert a zero-width space in order to make cursor appear when span is empty
-      elem.attr('data-before-content', elem.attr('placeholder'));
-    }
-    else if(elem.attr('data-before-content')) {
-      elem.text(elem.text().replace(/\u200B/g, '')); // Remove zero-width space
-      setCaretToEnd(elem);
-      elem.removeAttr('data-before-content'); // Remove placeholder
-    }
-  });
-});
+  if(elem.attr('data-before-content')) 
+    elem.remove();
+}, true, false);
 
 export default History;
