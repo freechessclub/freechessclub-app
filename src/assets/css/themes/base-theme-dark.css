@@ -510,6 +510,18 @@ a {
 .tournament-table-other-result { color: #BB86FC; }
 .tournament-table-color { color: var(--fg-color); }
 
+#finger-notes-table {
+  border-color: #888888;
+}
+#finger-notes-table th {
+  background-color: #666666;
+  color: #d6d6d6;
+}
+#finger-notes-table td {
+  background-color: #555555;
+  color: lightgray;
+}
+
 .users-table tr.highlighted {
   background-color: color-mix(in srgb, var(--bg-color) 70%, white 30%); 
 }

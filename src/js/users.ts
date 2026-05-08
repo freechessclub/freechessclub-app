@@ -561,7 +561,9 @@ export class Users {
 
     const menu = (name.toLowerCase() === this.session.getUser().toLowerCase())
       ? $(`<ul class="dropdown-menu noselect user-actions-menu">
-          <li><a class="dropdown-item" data-action="finger">Finger</a></li>  
+          ${session.isRegistered()
+            ? '<li><a class="dropdown-item" data-action="profile">Profile</a></li>'
+            : '<li><a class="dropdown-item" data-action="finger">Finger</a></li>'}
         </ul>`)
       : $(`<ul class="dropdown-menu noselect user-actions-menu">
         ${!isFriend ? '<li><a class="dropdown-item" data-action="add-friend">Add Friend</a></li>' : ''}
@@ -636,6 +638,10 @@ export class Users {
           case 'unfollow':
             this.session.send(`follow`);
             setFollowedUser(null);
+            break;
+          case 'profile':
+            awaiting.set('profile-finger');
+            session.send('finger');
             break;
           case 'finger':
             // Create an info dialog with the user's finger info

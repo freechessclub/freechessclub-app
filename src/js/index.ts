@@ -28,6 +28,7 @@ import { settings } from './settings';
 import { Reason } from './parser';
 import { getShortcuts, initUi } from './ui';
 import { SeekGraph } from './seek-graph';
+import { Profile } from './profile';
 import './ui';
 import packageInfo from '../../package.json';
 
@@ -94,6 +95,7 @@ let evalEngine: EvalEngine | null;
 let playEngine: Engine | MaiaEngine | null;
 let playEngineNames: string[] = ['Stockfish', 'Maia'];
 let seekGraph: SeekGraph | null;
+let profile: Profile | null;
 let userVariables: any = {};
 let pendingTells: any[] = [];
 let gameExitPending = [];
@@ -470,6 +472,7 @@ async function onDeviceReady() {
   chat = new Chat();
   tournaments = new Tournaments();
   users = new Users();
+  profile = new Profile();
   
   const game = createGame();
   game.role = Role.NONE;
@@ -1144,6 +1147,7 @@ function messageHandler(data: any) {
         $('#sign-in-alert').removeClass('show');
 
         users.connected(session, chat);
+        profile.connected(session);        
 
         updateForegroundServiceNotification();
 
@@ -1152,7 +1156,7 @@ function messageHandler(data: any) {
 
         updateForegroundServiceState();
 
-          completeInviteJoin();
+        completeInviteJoin();
         startActiveSessionAnnounce();
       }
       else if(data.command === 2) { // Login error
@@ -1166,6 +1170,7 @@ function messageHandler(data: any) {
       }
       else if(data.command === 3) { // Disconnected
         cleanup();
+        profile.disconnected();
         stopActiveSessionAnnounce();
         const panelHtml = `<div class="not-signed-in-notice">Not signed in. <a href="javascript:void(0)">Sign in</a></div>`;
         $('#chat-panel .nav-tabs').append(panelHtml);
@@ -2131,8 +2136,25 @@ function handleMiscMessage(data: any) {
     return;
   }
 
-  if((msg.startsWith('Finger of') || msg.startsWith('There is no (registered )?player matching the name') || /^'\S+' is not a valid handle/.test(msg)) && awaiting.resolve('info-finger')) {
-    Dialogs.showInfoDialog('Finger Info', msg);
+  if((msg.startsWith('Finger of') || msg.startsWith('There is no (registered )?player matching the name') || /^'\S+' is not a valid handle/.test(msg)) && (awaiting.has('info-finger') || awaiting.has('profile-finger'))) {
+    if(awaiting.resolve('info-finger')) {
+      const fingerMatch = msg.match(/^(Finger of .+?):/m);
+      if(fingerMatch) {
+        let fingerText = msg.split(/\r?\n/).slice(2).join('\n');
+        const gameStatsMatch = fingerText.match(/(?<=\n)([ \t]*rating[\s\S]+?)(?=$|\n\s*\n)/);
+        if(gameStatsMatch) {
+          const parts = Utils.splitBeforeAfterMatch(fingerText, gameStatsMatch); 
+          fingerText = `${parts.before}\n\n<div class="overflow-auto pb-2" style="white-space: pre;">${parts.matching}</div>\n\n${parts.after}`
+        }
+        Dialogs.showInfoDialog(fingerMatch[1], fingerText);
+      }
+      else 
+        Dialogs.showInfoDialog('Finger Info', msg);
+    }
+    else if(awaiting.resolve('profile-finger') && msg.startsWith('Finger of')) {
+      const finger = profile.parseFinger(msg);
+      profile.showProfileModal(finger);
+    }
     return;
   }
 

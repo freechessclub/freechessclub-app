@@ -410,6 +410,18 @@ cg-board {
 .tournament-table-other-result { color: #7a42c1; }   
 .tournament-table-color { color: var(--fg-color); }
 
+#finger-notes-table {
+  border-color: var(--bs-border-color);
+}
+#finger-notes-table th {
+  background-color: #F0F3F6;
+  color: var(--modal-color);
+}
+#finger-notes-table td {
+  background-color: #FFFFFF;
+  color: var(--bs-modal-color);
+}
+
 .users-table tr.highlighted {
   background-color: color-mix(in srgb, var(--bg-color) 85%, black 15%);
 }

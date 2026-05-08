@@ -875,14 +875,15 @@
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header" id="right-panel-header" style="visibility: hidden">
               <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto position-relative" style="max-width: 42%">
-                <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle hide-caret" type="button" id="connectButton" data-bs-toggle="dropdown" aria-label="Connect/Disconnect" aria-expanded="false">
-                  <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" title="Connect/Disconnect"></div>
+                <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle hide-caret" type="button" id="connectButton" data-bs-toggle="dropdown" aria-label="Profile Menu" aria-expanded="false">
+                  <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" title="Profile Menu"></div>
                   <div id="session-status" class="w-100"></div>
                 </button>
                 <div class="dropdown-menu" aria-labelledby="connectButton">
                   <a class="dropdown-item noselect" id="disconnect"><span class="fa fa-unlink dropdown-icon" aria-hidden="false"></span>Disconnect</a>
+                  <a class="dropdown-item noselect" id="connect-user"><span class="fa-solid fa-plug dropdown-icon" aria-hidden="false"></span>Connect as User</a>
                   <a class="dropdown-item noselect" id="connect-guest"><span class="fa fa-user-secret dropdown-icon" aria-hidden="false"></span>Connect as Guest</a>
-                  <a class="dropdown-item noselect" id="connect-user"><span class="fa fa-user dropdown-icon" aria-hidden="false"></span>Connect as User</a>
+                  <a class="dropdown-item noselect" id="show-profile" style="display: none;"><span class="fa-solid fa-circle-user dropdown-icon" aria-hidden="false"></span>Profile & Stats</a>
                 </div>
               </div>
               <div class="btn-toolbar my-auto ms-auto">
@@ -1231,6 +1232,51 @@
                     <li><a class="dropdown-item" data-action="maximize"><span class="menu-icon fa-solid fa-up-right-and-down-left-from-center dropdown-icon" aria-hidden="false"></span><span class="menu-label">Maximize Chat</span></a></li>
                     <li><a class="dropdown-item" data-action="show-hide"><span class="menu-icon fa-solid fa-eye-slash dropdown-icon" aria-hidden="false"></span><span class="menu-label">Hide Chat</span></a></li>
                   </ul>
+                </div>
+              </div>
+              <div class="modal fade" id="profile-modal" tabindex="-1" aria-labelledby="profile-modal-label" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title" id="profile-modal-label"><span class="fa-solid fa-circle-user me-2" aria-hidden="false"></span><span id="profile-title-text"></span></h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                      <ul class="nav nav-tabs mb-3" id="profile-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                          <button class="nav-link active" id="profile-stats-tab" data-bs-toggle="tab" data-bs-target="#profile-stats" type="button" role="tab" aria-controls="profile-stats" aria-selected="true"><span class="fa-solid fa-chart-simple me-2" aria-hidden="false"></span>Stats</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                          <button class="nav-link" id="profile-notes-tab" data-bs-toggle="tab" data-bs-target="#profile-notes" type="button" role="tab" aria-controls="profile-notes" aria-selected="false"><span class="fa-solid fa-pencil me-2" aria-hidden="false"></span>Bio</button>
+                        </li>
+                      </ul>
+                      <div class="tab-content" id="profile-tabs-content">
+                        <div class="tab-pane fade show active" id="profile-stats" role="tabpanel" aria-labelledby="profile-stats-tab">
+                        </div>
+                        <div class="tab-pane fade h-100" id="profile-notes" role="tabpanel" aria-labelledby="profile-notes-tab">
+                          <div class="d-flex flex-column h-100">
+                            <label class="form-heading d-flex align-items-center" style="margin-bottom: 0.25rem">Finger Notes<svg class="ms-2 info-icon" data-bs-placement="top" data-bs-trigger="hover focus" data-bs-toggle="popover" data-bs-content="Finger notes are displayed to others when they click on your name and select 'Finger' from the menu" role="button"><use href="#icon-info" /></svg></label>
+                            <div class="flex-grow-1 overflow-auto" style="min-height: 0;">
+                              <table id="finger-notes-table" class="mb-0 table table-hover table-borderless table-sm">
+                                <tbody id="finger-notes-table-body">
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="modal fade" id="users-modal" tabindex="-1" aria-labelledby="users-modal-label" aria-hidden="true">

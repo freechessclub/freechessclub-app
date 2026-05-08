@@ -1322,6 +1322,39 @@ input[type="number"]:focus {
 
 .tournament-table-result { font-weight: bold; }
 
+#profile-modal {
+  --bs-modal-width: 600px;
+}
+#profile-tabs-content  {
+  height: 400px;
+}
+
+#finger-notes-table {
+  border: 1px solid;
+  table-layout: fixed;
+  width: 100%;
+}
+#finger-notes-table th {
+  width: 5ch;
+  text-align: right;
+  user-select: none;
+}
+#finger-notes-table td {
+  outline: none; 
+  white-space: pre-wrap;
+}
+#finger-notes-table th, #finger-notes-table td {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+#finger-notes-table tbody {
+  counter-reset: row;
+}
+#finger-notes-table tbody th::before {
+  counter-increment: row;
+  content: counter(row);
+}
+
 #users-modal {
   --bs-modal-width: 600px;
 }
