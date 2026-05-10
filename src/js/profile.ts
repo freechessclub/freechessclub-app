@@ -5,7 +5,7 @@
 import { awaiting } from './storage';
 import { initContentEditable } from './utils';
 import { showDialog } from './dialogs';
-import { Session } from './session';
+import { session } from './session';
 
 /**
  * Class for displaying a Profile modal for the user, containing information derived mostly from 
@@ -15,13 +15,12 @@ import { Session } from './session';
 export class Profile {
   private fingerNotes: string[] = null; 
   private modalCloseState: 'check' | 'deny' | 'allow' = 'check'; // Prevents the modal being closed when the 'Save changes' dialog is showing
-  private session: Session | null = null;
 
   constructor() {
     /** When the 'Profile & Stats' menu option is clicked in the profile menu */
     $('#show-profile').on('click', () => {
       awaiting.set('profile-finger'); 
-      this.session.send('finger');
+      session.send('finger');
     });
 
     $('#profile-modal').on('shown.bs.modal', () => {
@@ -70,9 +69,8 @@ export class Profile {
   /**
    * Called after conncting to FICS 
    */
-  public connected(session: Session) {
-    this.session = session;
-    $('#show-profile').toggle(this.session.isRegistered());
+  public connected() {
+    $('#show-profile').toggle(session.isRegistered());
   }
 
   /**
@@ -147,15 +145,15 @@ export class Profile {
         // For any notes that have changed, first set the non-empty ones.
         newFingerNotes.forEach((val, i) => {
           if(val && val !== this.fingerNotes[i])
-            this.session.send(`set ${i + 1} ${val}`);
+            session.send(`set ${i + 1} ${val}`);
           else if(!val && i < newLast && i > oldLast)
-            this.session.send(`set ${i + 1} .`); // placeholder, will remove at the end
+            session.send(`set ${i + 1} .`); // placeholder, will remove at the end
         });
 
         // Clear empty notes in reverse order
         for(let i = Math.max(newLast, oldLast); i >= 0; i--) {
           if(!newFingerNotes[i] && (i > oldLast || newFingerNotes[i] !== this.fingerNotes[i]))
-            this.session.send(`set ${i + 1}`);
+            session.send(`set ${i + 1}`);
         }
 
         this.modalCloseState = 'allow'; // Changes are saved, allow tab/modal to be hidden
@@ -279,3 +277,10 @@ export class Profile {
     $('#profile-modal').modal('show');
   }
 }
+
+export let profile: Profile;
+export function createProfile() {
+  profile = new Profile();
+}
+
+export default Profile;
