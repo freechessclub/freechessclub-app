@@ -1538,7 +1538,7 @@ input[type="number"]:focus {
 #color-picker-btn {
   display: none;
   position: fixed;
-  transform: translate(-50%, -50%);
+  transform: translate(calc(-50% + 2px), calc(-50% - 2px));
   margin: 0;
   padding: 0;
   z-index: 1056;
