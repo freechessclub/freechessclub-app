@@ -1802,3 +1802,217 @@ export function rgbToHex(color?: string | null): string | null {
 
   return null;
 }
+
+/**
+ * Return the perceived brightness of a color
+ * @param color string in either rgb(r, g, b) or #RRGGBB format
+ * @returns brightness value from 0-255
+ */
+export function getBrightness(color: string): number {
+  let r: number, g: number, b: number;
+
+  // hex
+  if (color.startsWith('#')) {
+    let hex = color.slice(1);
+
+    if (hex.length === 3)
+      hex = hex.split('').map(c => c + c).join('');
+
+    r = parseInt(hex.slice(0, 2), 16);
+    g = parseInt(hex.slice(2, 4), 16);
+    b = parseInt(hex.slice(4, 6), 16);
+  }
+
+  // rgb(...)
+  else {
+    const match = color.match(/\d+/g);
+
+    if (!match || match.length < 3)
+      return NaN;
+
+    [r, g, b] = match.slice(0, 3).map(Number);
+  }
+
+  return (r * 299 + g * 587 + b * 114) / 1000;
+}
+
+const normalizeColorElem = document.createElement('div');
+document.body.appendChild(normalizeColorElem);
+/**
+ * Converts a color string from any format to rgb(<r>, <g>, <b>)
+ * Works by getting the computed style from a dummy element 
+ * @param color string to convert
+ * @returns normalized color string
+ */
+export function normalizeColor(color: string) {
+  if(!color)
+    return null;
+
+  // reject paint servers + special keywords
+  const v = color.trim().toLowerCase();
+  if(v.startsWith('url(') || v === 'none' || v === 'inherit' || v === 'currentcolor') 
+    return null;
+
+  normalizeColorElem.style.color = color;
+  return getComputedStyle(normalizeColorElem).color;
+}
+
+/**
+ * Returns [R, G, B] values as number array from an 'rgb(<r>, <g>, <b>)' string
+ */
+export function parseRgb(str: string): [number, number, number] {
+  const m = str.match(/\d+/g);
+  if (!m || m.length < 3) return [0, 0, 0];
+  return [Number(m[0]), Number(m[1]), Number(m[2])];
+}
+
+/**
+ * Converts [R, G, B] number array to 'rgb(<r>, <g>, <b>)' string
+ */
+export function toRgb([r, g, b]: [number, number, number]): string {
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/**
+ * Converts color components from [H, S, L] to [R, G, B] 
+ */
+export function hslToRgb(h: number, s: number, l: number) {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+
+  let r = 0, g = 0, b = 0;
+
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+
+  return [
+    Math.round((r + m) * 255),
+    Math.round((g + m) * 255),
+    Math.round((b + m) * 255)
+  ];
+}
+
+/**
+ * Converts color components from [R, G, B] to [H, S, L] 
+ */
+export function rgbToHsl(r: number, g: number, b: number) {
+  r /= 255; g /= 255; b /= 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+
+  const d = max - min;
+
+  if (d !== 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+
+    switch (max) {
+      case r: h = ((g - b) / d) % 6; break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+
+  return { h, s, l };
+}
+
+export async function createColorPicker(container: HTMLElement, onChange: (btn: HTMLElement, color: string) => void) {
+  const { default: iro } = await import('@jaames/iro');
+  
+  const $container = $(container);
+  $container.on('click', '.color-picker-btn', (e) => {
+    const popover = new bootstrap.Popover($(e.currentTarget), {
+      html: true,
+      sanitize: false,
+      trigger: 'manual',
+      placement: 'bottom',
+      customClass: 'color-picker-popover',
+      content: `<div class="color-picker-container"></div>`
+    });
+    popover.show();
+  })
+
+  $container.on('shown.bs.popover', '.color-picker-btn', (e) => {
+    const btn = $(e.currentTarget);
+    $(document).on('click.color-picker-popover', (e) => {
+      if(!$(e.target).closest('.color-picker-popover').length) {
+        btn.data('picker')?.off();
+        btn.popover('dispose');
+        $(document).off('click.color-picker-popover');
+      }
+    });
+
+    const container = $('.color-picker-popover.show .color-picker-container')[0];
+    const picker = iro.ColorPicker(container, {
+      width: 180,
+      color: btn.css('--color-swatch') 
+    });
+    btn.data('picker', picker);
+    btn.popover('update');
+
+    /** User changed the color in a color picker */
+    
+    let rafId: number | null = null;
+    let latestColor: string | null = null;
+    picker.on("color:change", (color) => {
+      latestColor = color.rgbString;
+      if(rafId !== null) 
+        return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if(latestColor) {
+          btn.css('--swatch-color', latestColor);
+          onChange(btn[0], latestColor);
+        }
+      });
+    });
+  });
+}
+
+/**
+ * Fetch an SVG as an element
+ */
+export async function loadSvg(url: string) {
+  const text = await fetch(url).then(r => r.text());
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+
+  const svg = doc.documentElement;
+
+  if (!(svg instanceof SVGSVGElement)) {
+    throw new Error('Invalid SVG');
+  }
+
+  return svg;
+}
+
+/**
+ * Convert an SVG element to a serialized blob url
+ */
+export function svgToUrl(svg: SVGSVGElement) {
+  const serialized = new XMLSerializer().serializeToString(svg);
+  const blob = new Blob([serialized], {
+    type: 'image/svg+xml'
+  });
+  return URL.createObjectURL(blob);
+}
+
+/** 
+ * Convert an SVG element to an img element 
+ */
+export function svgToImg(svg: SVGSVGElement) {
+  const url = svgToUrl(svg);
+  const img = document.createElement('img');
+  img.src = url;
+  return img;
+}

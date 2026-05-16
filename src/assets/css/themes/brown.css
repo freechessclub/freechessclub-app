@@ -1,7 +1,5 @@
 :root {
+  --board: brown;  
   --bg-color: #f0d9b5;
 }
 
-cg-board {
-  background-image: url('../images/board/brown.svg');
-}

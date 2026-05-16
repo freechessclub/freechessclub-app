@@ -1,7 +1,4 @@
 :root {
+  --board: ic;
   --bg-color: #ececec;
-}
-
-cg-board {
-  background-image: url('../images/board/ic.svg');
 }

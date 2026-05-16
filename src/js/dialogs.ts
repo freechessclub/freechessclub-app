@@ -73,6 +73,9 @@ export function showDialog(params: DialogParams, position = 'middle'): any {
       'z-index': '1081',
     });
     dialog.addClass('above-modal-dialog');
+    let prevActiveElement = null;
+    dialog.on('show.bs.toast', () => { prevActiveElement = document.activeElement; });        
+    dialog.on('hide.bs.toast', () => { $(prevActiveElement).trigger('focus'); });        
     dialog.appendTo('body');    
   }
   else if(position === 'top' || position === 'bottom') {

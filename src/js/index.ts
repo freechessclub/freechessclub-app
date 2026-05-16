@@ -514,6 +514,7 @@ async function onDeviceReady() {
   const hasInvite = hasInviteParams();
   const hasSharedGame = hasSharedGameParams();
   const autoConnect = !hasInvite && !activeSessionOnLoad;
+
   if(settings.rememberMeToggle) {
     // Get the username/password from secure storage (if the user has previously ticked Remember Me)
     await credential.retrieve();

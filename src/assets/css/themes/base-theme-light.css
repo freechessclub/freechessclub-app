@@ -1,4 +1,5 @@
-:root[data-bs-theme="light"] {
+:root {
+  --board: blue;
   color-scheme: light;
   --color-scheme: light;
   --bg-color: #dee3e6;
@@ -11,10 +12,6 @@
   --flash-color: #ffcccc;
   --bs-border-color: #b5c0c8;
   --bs-border-color-translucent: rgba(0, 0, 0, 0.2);
-}
-
-cg-board {
-  background-image: url('../images/board/blue.svg');
 }
 
 .feature3 {
@@ -462,3 +459,9 @@ cg-board {
   fill: hsl(35, 95%, 70%);  
 }
 
+.color-label-light {
+  color: #555555;
+}
+.color-label-dark {
+  color: black;
+}

@@ -1,7 +1,4 @@
 :root {
+  --board: newspaper;
   --bg-color: #dcdcdc;
-}
-
-cg-board {
-  background-image: url('../images/board/newspaper.svg');
 }

@@ -1,4 +1,5 @@
-:root[data-bs-theme="dark"] {
+:root {
+  --board: gray;
   color-scheme: dark;
   --color-scheme: dark;
   --bg-color: #424242;
@@ -11,10 +12,6 @@
   --bs-border-color-translucent: rgba(255, 255, 255, 0.175);
   --form-control-bg: #555555;
   --flash-color: #cc6666;
-}
-
-cg-board {
-  background-image: url('../images/board/gray.svg');
 }
 
 .feature3 {
@@ -561,4 +558,11 @@ a {
 }
 .seek-graph-point-computer-rated {
   fill: hsl(35, 95%, 50%);  
+}
+
+.color-label-light {
+  color: white;
+}
+.color-label-dark {
+  color: #AAAAAA;
 }
