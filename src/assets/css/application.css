@@ -1479,11 +1479,14 @@ input[type="number"]:focus {
   max-width: none;
 }
 
-#boards-menu .btn {
+#boards-menu > .btn {
+  position: relative;
   flex: 0 0 40px; 
+  z-index: 0;
 }
-
-
+#boards-menu > .btn:hover {
+  z-index: 1;
+}
 
 .clickable-row {
   cursor: pointer;
@@ -1532,3 +1535,19 @@ input[type="number"]:focus {
   cursor: pointer;
 }
 
+#color-picker-btn {
+  display: none;
+  position: fixed;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 0;
+  z-index: 1056;
+}
+#color-picker-btn img {
+  height: 30px;
+  width: 30px;
+  transition: transform 120ms ease;
+}
+#color-picker-btn:hover img {
+  transform: scale(1.5);
+}

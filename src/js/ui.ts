@@ -403,3 +403,42 @@ function injectBoardStyle(board: string) {
     `
   }).appendTo('head');
 }
+
+let colorPickerHovered = false;
+let colorPickerTarget = null;
+
+$('#boards-menu')
+  .on('mouseenter', '> button', (e) => {
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+
+    $('#color-picker-btn').css({
+      position: 'fixed',
+      left: rect.right,
+      top: rect.top,
+      display: 'block'
+    });
+
+    colorPickerTarget = btn;
+  })
+  .on('mouseleave', '> button', (e) => {
+    colorPickerTarget = null;
+    colorPickerHide();
+  });
+
+$('#color-picker-btn')
+  .on('mouseenter', function () {
+    colorPickerHovered = true;
+  })
+  .on('mouseleave', function () {
+    colorPickerHovered = false;
+    colorPickerHide();
+  });
+  
+function colorPickerHide() {
+  setTimeout(() => {
+    if(!colorPickerTarget && !colorPickerHovered) {
+      $('#color-picker-btn').hide();
+    }
+  }, 0);
+}
