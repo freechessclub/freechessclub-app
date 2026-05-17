@@ -46,9 +46,11 @@ export function initUi() {
     setTheme(theme);
   });
 
-  $('#boards-menu button').on('click', (event) => {
-    const board = $(event.target).attr('id').split('board-')[1];
-    injectBoardStyle(board);
+  $('#boards-menu').on('click', 'button', (event) => {
+    const lightSquares = $(event.target).css('--light-squares');
+    const darkSquares = $(event.target).css('--dark-squares');
+    const board = $(event.target).data('board');
+    injectBoardStyle(board, lightSquares, darkSquares);
     storage.set('board', board);
   });
 
@@ -392,14 +394,27 @@ function waitForStyleInjection(): Promise<HTMLElement> {
 }
 
 // board controls
-function injectBoardStyle(board: string) {
+async function injectBoardStyle(board = 'default', light?: string, dark?: string) {
+  if(!board)
+    board = 'default';
+
+  const response = await fetch(`assets/css/images/board/${board}.svg`);
+  let svg = await response.text();
+
+  if(light)
+    svg = svg.replace(/#LIGHT#/g, light);
+  if(dark)
+    svg = svg.replace(/#DARK#/g, dark);
+
+  const encoded = encodeURIComponent(svg);
+
   $('#board-style').remove();
+
   $('<style>', {
     id: 'board-style',
-    type: 'text/css',
     text: `
       cg-board {
-        background-image: url('assets/css/images/board/${board}.svg')
+        background-image: url("data:image/svg+xml,${encoded}");
       }
     `
   }).appendTo('head');
@@ -440,6 +455,15 @@ $('#color-picker-btn')
   .on('click', function () {
     const lightColor = $(colorPickerTarget).css('--light-squares');
     const darkColor = $(colorPickerTarget).css('--dark-squares');
+    const boardName = $(colorPickerTarget).data('board') || 'default';
+    let pickedLightColor = lightColor;
+    let pickedDarkColor = darkColor;
+
+    const newBoard = () => {
+      if(pickedLightColor === lightColor && pickedDarkColor === darkColor)
+        return;
+      $('#boards-menu').append(`<button type="button" class="btn btn-outline-dark py-3" style="--light-squares:${pickedLightColor}; --dark-squares:${pickedDarkColor};" data-board="${boardName}"></button>`);
+    };
 
     const dialogBody = 
       `<div class="mb-3 center">
@@ -464,14 +488,20 @@ $('#color-picker-btn')
         </label>
         <input type="color" class="color-picker-dark" value="${darkColor}">
       </div>`;
-    const dialog = showDialog({type: 'Pick Square Colors', msg: dialogBody, btnSuccess: [null, 'OK'], btnFailure: [null, 'Cancel'], htmlMsg: true}, 'modal');
+    const dialog = showDialog({type: 'Pick Square Colors', msg: dialogBody, btnSuccess: [newBoard, 'OK'], btnFailure: [null, 'Cancel'], htmlMsg: true}, 'modal');
     const picker = dialog.find('input[type="color"]');
 
     picker.on('input', (e) => {
-      const squares = $(e.target).hasClass('color-picker-light')
-        ? dialog.find('.square-light')
-        : dialog.find('.square-dark');     
-      squares.css('--square-color', e.target.value);
+      if($(e.target).hasClass('color-picker-light')) {
+        pickedLightColor = e.target.value;
+        const squares = dialog.find('.square-light');
+        squares.css('--square-color', pickedLightColor);
+      }
+      else {
+        pickedDarkColor = e.target.value;
+        const squares = dialog.find('.square-dark');
+        squares.css('--square-color', pickedDarkColor);
+      }
     });
   });
  
