@@ -5,6 +5,7 @@
 import packageInfo from '../../package.json';
 import { storage } from './storage';
 import { isMac, isCapacitor } from './utils';
+import { showDialog } from './dialogs';
 
 $('#version').text(`Version: ${packageInfo.version}`);
 
@@ -404,7 +405,8 @@ function injectBoardStyle(board: string) {
   }).appendTo('head');
 }
 
-let colorPickerHovered = false;
+let colorPickerTargetHovered = false;
+let colorPickerIconHovered = false;
 let colorPickerTarget = null;
 
 $('#boards-menu')
@@ -420,24 +422,31 @@ $('#boards-menu')
     });
 
     colorPickerTarget = btn;
+    colorPickerTargetHovered = true;
   })
   .on('mouseleave', '> button', (e) => {
-    colorPickerTarget = null;
+    colorPickerTargetHovered = false;
     colorPickerHide();
   });
 
 $('#color-picker-btn')
   .on('mouseenter', function () {
-    colorPickerHovered = true;
+    colorPickerIconHovered = true;
   })
   .on('mouseleave', function () {
-    colorPickerHovered = false;
+    colorPickerIconHovered = false;
     colorPickerHide();
+  })
+  .on('click', function () {
+    const dialogBody = 
+      `<div><label class="d-inline-flex align-items-center color-label mb-3 gap-2 form-heading">Light squares:<input type="color" class="color-picker-light"></label></div>
+      <div><label class="d-inline-flex align-items-center color-label gap-2 form-heading">Dark squares:<input type="color" class="color-picker-dark"></label></div>`;
+    showDialog({type: 'Pick Square Colors', msg: dialogBody, btnSuccess: [null, 'OK'], btnFailure: [null, 'Cancel'], htmlMsg: true}, 'modal');
   });
   
 function colorPickerHide() {
   setTimeout(() => {
-    if(!colorPickerTarget && !colorPickerHovered) {
+    if(!colorPickerTargetHovered && !colorPickerIconHovered) {
       $('#color-picker-btn').hide();
     }
   }, 0);
