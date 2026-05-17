@@ -1,6 +1,7 @@
 .feature3 {
-  background-color: #f4ede1;
-}
-cg-board {
-  background-image: url('../images/board/yellow.svg');
+  --board-file: default;
+  --light-squares-color: #f4ede1;
+  --dark-squares-color: #c6ab8e;
+
+  --bg-color: #f4ede1;
 }

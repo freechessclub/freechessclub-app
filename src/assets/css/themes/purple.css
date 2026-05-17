@@ -1,7 +1,7 @@
 :root {
-  --bg-color: #decfef;
-}
+  --board-file: default;
+  --light-squares-color: #decfef;
+  --dark-squares-color: #b160ca;
 
-cg-board {
-  background-image: url('../images/board/purple.svg');
+  --bg-color: #decfef;
 }

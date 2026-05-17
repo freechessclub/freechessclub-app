@@ -1,5 +1,5 @@
-:root[data-bs-theme="dark"] {
-  --board-name: 'default';
+:root {
+  --board-file: default;
   --light-squares-color: #d3d3d3;
   --dark-squares-color: #555555;
 

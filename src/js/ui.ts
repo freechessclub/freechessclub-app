@@ -347,6 +347,7 @@ async function setTheme(theme: string) {
   $('#theme').remove();
   if(themes[theme]) {
     $(themes[theme]).appendTo('head');
+    setThemeDefaultBoard();
     return;
   }
 
@@ -385,11 +386,14 @@ async function setTheme(theme: string) {
   const elem = await styleInjectionPromise;
   themes[theme] = elem;
   elem.setAttribute('id', 'theme');
-  
-  const boardName = getComputedStyle(document.documentElement).getPropertyValue('--board-name').trim();
+  setThemeDefaultBoard();
+}
+
+function setThemeDefaultBoard() {
+  const boardFile = getComputedStyle(document.documentElement).getPropertyValue('--board-file').trim();
   const lightSquaresColor = getComputedStyle(document.documentElement).getPropertyValue('--light-squares-color').trim();
   const darkSquaresColor = getComputedStyle(document.documentElement).getPropertyValue('--dark-squares-color').trim();
-  injectBoardStyle(boardName, lightSquaresColor, darkSquaresColor);
+  injectBoardStyle(boardFile, lightSquaresColor, darkSquaresColor);
 }
 
 function waitForStyleInjection(): Promise<HTMLElement> {

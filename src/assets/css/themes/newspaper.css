@@ -1,7 +1,7 @@
 :root {
-  --bg-color: #dcdcdc;
-}
+  --board-file: newspaper;
+  --light-squares-color: #dcdcdc;
+  --dark-squares-color: #c9c9c9;
 
-cg-board {
-  background-image: url('../images/board/newspaper.svg');
+  --bg-color: #dcdcdc;
 }

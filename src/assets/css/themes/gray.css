@@ -1,5 +1,5 @@
 :root {
-  --board-name: default;
+  --board-file: default;
   --light-squares-color: #d3d3d3;
   --dark-squares-color: #555555;
 
