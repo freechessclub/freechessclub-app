@@ -442,9 +442,7 @@ $('#color-picker-btn')
     const darkColor = $(colorPickerTarget).css('--dark-squares');
 
     const dialogBody = 
-    //  `<div><label class="d-inline-flex align-items-center color-label mb-3 gap-2 form-heading">Light squares:<input type="color" class="color-picker-light" value="${lightColor}"></label></div>
-    //  <div><label class="d-inline-flex align-items-center color-label gap-2 form-heading">Dark squares:<input type="color" class="color-picker-dark" value="${darkColor}"></label></div>`;
-      `<div class="color-settings">
+      `<div class="color-picker-settings">
         <label class="color-label form-heading">
           Light squares:
         </label>

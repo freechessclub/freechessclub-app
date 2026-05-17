@@ -1553,7 +1553,7 @@ input[type="number"]:focus {
   transform: scale(1.5);
 }
 
-.color-settings {
+.color-picker-settings {
   display: grid;
   grid-template-columns: max-content auto;
   column-gap: 12px;
@@ -1562,6 +1562,6 @@ input[type="number"]:focus {
   justify-content: center;
 }
 
-.color-settings label {
+.color-picker-settings label {
   justify-self: end;
 }
