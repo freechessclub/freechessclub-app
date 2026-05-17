@@ -1,7 +1,8 @@
 :root {
+  --board-name: default;
+  --light-squares-color: #d3d3d3;
+  --dark-squares-color: #555555;
+
   --bg-color: #424242;
 }
 
-cg-board {
-  background-image: url('../images/board/gray.svg');
-}

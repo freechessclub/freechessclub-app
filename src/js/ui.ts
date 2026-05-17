@@ -283,8 +283,19 @@ async function initStyles() {
 
   // board styles
   const board = storage.get('board');
-  if (board != null) {
-    injectBoardStyle(board);
+  if(board != null) {
+    try {
+      const boardObj = JSON.parse(board);
+    }
+    catch {
+      const btn = $(`#boards-menu > button[data-name="${board}"]`);
+      if(btn) {
+        const lightSquares = btn.css('--light-squares');
+        const darkSquares = btn.css('--dark-squares');
+        //injectBoardStyle('default', lightSquares, darkSquares);
+      }
+    }
+    //injectBoardStyle(board);
   }
 
   // piece styles
@@ -374,6 +385,11 @@ async function setTheme(theme: string) {
   const elem = await styleInjectionPromise;
   themes[theme] = elem;
   elem.setAttribute('id', 'theme');
+  
+  const boardName = getComputedStyle(document.documentElement).getPropertyValue('--board-name').trim();
+  const lightSquaresColor = getComputedStyle(document.documentElement).getPropertyValue('--light-squares-color').trim();
+  const darkSquaresColor = getComputedStyle(document.documentElement).getPropertyValue('--dark-squares-color').trim();
+  injectBoardStyle(boardName, lightSquaresColor, darkSquaresColor);
 }
 
 function waitForStyleInjection(): Promise<HTMLElement> {

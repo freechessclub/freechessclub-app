@@ -1,4 +1,8 @@
 :root[data-bs-theme="dark"] {
+  --board-name: 'default';
+  --light-squares-color: #d3d3d3;
+  --dark-squares-color: #555555;
+
   color-scheme: dark;
   --color-scheme: dark;
   --bg-color: #424242;
@@ -11,10 +15,6 @@
   --bs-border-color-translucent: rgba(255, 255, 255, 0.175);
   --form-control-bg: #555555;
   --flash-color: #cc6666;
-}
-
-cg-board {
-  background-image: url('../images/board/gray.svg');
 }
 
 .feature3 {
