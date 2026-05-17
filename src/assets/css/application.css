@@ -1483,6 +1483,7 @@ input[type="number"]:focus {
   position: relative;
   flex: 0 0 40px; 
   z-index: 0;
+  background: linear-gradient(to right, var(--light-squares) 50%, var(--dark-squares) 50%);
 }
 #boards-menu > .btn:hover {
   z-index: 1;
@@ -1550,4 +1551,17 @@ input[type="number"]:focus {
 }
 #color-picker-btn:hover img {
   transform: scale(1.5);
+}
+
+.color-settings {
+  display: grid;
+  grid-template-columns: max-content auto;
+  column-gap: 12px;
+  row-gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.color-settings label {
+  justify-self: end;
 }

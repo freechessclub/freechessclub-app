@@ -438,9 +438,22 @@ $('#color-picker-btn')
     colorPickerHide();
   })
   .on('click', function () {
+    const lightColor = $(colorPickerTarget).css('--light-squares');
+    const darkColor = $(colorPickerTarget).css('--dark-squares');
+
     const dialogBody = 
-      `<div><label class="d-inline-flex align-items-center color-label mb-3 gap-2 form-heading">Light squares:<input type="color" class="color-picker-light"></label></div>
-      <div><label class="d-inline-flex align-items-center color-label gap-2 form-heading">Dark squares:<input type="color" class="color-picker-dark"></label></div>`;
+    //  `<div><label class="d-inline-flex align-items-center color-label mb-3 gap-2 form-heading">Light squares:<input type="color" class="color-picker-light" value="${lightColor}"></label></div>
+    //  <div><label class="d-inline-flex align-items-center color-label gap-2 form-heading">Dark squares:<input type="color" class="color-picker-dark" value="${darkColor}"></label></div>`;
+      `<div class="color-settings">
+        <label class="color-label form-heading">
+          Light squares:
+        </label>
+        <input type="color" class="color-picker-light" value="${lightColor}">
+        <label class="color-label form-heading">
+          Dark squares:
+        </label>
+        <input type="color" class="color-picker-dark" value="${darkColor}">
+      </div>`;
     showDialog({type: 'Pick Square Colors', msg: dialogBody, btnSuccess: [null, 'OK'], btnFailure: [null, 'Cancel'], htmlMsg: true}, 'modal');
   });
   
