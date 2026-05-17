@@ -442,7 +442,19 @@ $('#color-picker-btn')
     const darkColor = $(colorPickerTarget).css('--dark-squares');
 
     const dialogBody = 
-      `<div class="color-picker-settings">
+      `<div class="mb-3 center">
+        <div class="mini-board cg-wrap">
+          <div class="mini-board-square square-light" style="--square-color:${lightColor}">
+            <piece class="black pawn mini-board-piece"></piece>
+          </div>
+          <div class="mini-board-square square-dark" style="--square-color:${darkColor}">
+            <piece class="white knight mini-board-piece"></piece>
+          </div>
+          <div class="mini-board-square square-dark" style="--square-color:${darkColor}"></div>
+          <div class="mini-board-square square-light" style="--square-color:${lightColor}"></div>
+        </div>
+      </div>
+      <div class="color-picker-settings">
         <label class="color-label form-heading">
           Light squares:
         </label>
@@ -452,9 +464,17 @@ $('#color-picker-btn')
         </label>
         <input type="color" class="color-picker-dark" value="${darkColor}">
       </div>`;
-    showDialog({type: 'Pick Square Colors', msg: dialogBody, btnSuccess: [null, 'OK'], btnFailure: [null, 'Cancel'], htmlMsg: true}, 'modal');
+    const dialog = showDialog({type: 'Pick Square Colors', msg: dialogBody, btnSuccess: [null, 'OK'], btnFailure: [null, 'Cancel'], htmlMsg: true}, 'modal');
+    const picker = dialog.find('input[type="color"]');
+
+    picker.on('input', (e) => {
+      const squares = $(e.target).hasClass('color-picker-light')
+        ? dialog.find('.square-light')
+        : dialog.find('.square-dark');     
+      squares.css('--square-color', e.target.value);
+    });
   });
-  
+ 
 function colorPickerHide() {
   setTimeout(() => {
     if(!colorPickerTargetHovered && !colorPickerIconHovered) {
