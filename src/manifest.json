@@ -2,7 +2,7 @@
   "name": "Free Chess Club",
   "short_name": "Free Chess",
   "description": "Free Chess Club. Play chess on the Free Internet Chess Server (FICS) using a modern web-based client. No downloads, no hassles—maximum chess guaranteed!",
-  "start_url": "/play/",
+  "start_url": "/play",
   "display": "standalone",
   "theme_color": "#000000",
   "background_color": "#eeeeee",

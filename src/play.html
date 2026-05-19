@@ -66,8 +66,8 @@
               </div>
               <div id="left-panel-header-2" class="card-header top-panel center" style="display: none">
                 <div class="d-flex justify-content-center gap-1 w-100">
-                  <button type="button" id="stop-observing" style="display: none" class="btn btn-outline-secondary btn-sm" title="Stop Observing">Stop Observing</button>
-                  <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-sm" title="Stop Examining">Stop Examining</button>
+                  <button type="button" id="stop-observing" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Observing">Stop Observing</button>
+                  <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Examining">Stop Examining</button>
                 </div>
               </div>
               <div class="card-body p-0">
@@ -334,19 +334,99 @@
                                           </label>
                                         </div>
                                       </div>
-                                      <div class="btn-group" style="padding-right: 0.75rem;">
-                                        <input type="radio" checked class="btn-check" name="lobby-view-mode" id="lobby-list-view" autocomplete="off">
-                                        <label class="btn btn-outline-secondary btn-sm" for="lobby-list-view" data-bs-toggle="tooltip" data-bs-placement="top" data-tooltip-hover-only data-fallback-placements="left,right" title="List View">
-                                          <span class="fa-solid fa-list" aria-hidden="false"></span>
-                                        </label>
-                                        <input type="radio" class="btn-check" name="lobby-view-mode" id="lobby-graph-view" autocomplete="off">
-                                        <label class="btn btn-outline-secondary btn-sm" for="lobby-graph-view" data-bs-toggle="tooltip" data-bs-placement="top" data-tooltip-hover-only data-fallback-placements="right,left" title="Graph View">
-                                          <span class="fa-solid fa-chart-line" aria-hidden="false"></span>
-                                        </label>
+                                      <div>
+                                        <button type="button" id="lobby-filter-btn" class="btn btn-sm btn-outline-secondary btn-md me-2 dropdown-toggle hide-caret position-relative" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                          <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" data-fallback-placements="left, top" title="Filter Lobby"></div>
+                                          <span class="fa-solid fa-filter" aria-hidden="false"></span>
+                                        </button>
+                                        <div id="lobby-filter-menu" class="dropdown-menu p-3">
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="computers" id="lobby-filter-computers">
+                                            <label class="form-check-label" for="lobby-filter-computers">Computers</label>
+                                          </div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="humans" id="lobby-filter-humans">
+                                            <label class="form-check-label" for="lobby-filter-humans">Humans</label>
+                                          </div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="unrated" id="lobby-filter-unrated">
+                                            <label class="form-check-label" for="lobby-filter-unrated">Unrated</label>
+                                          </div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="rated" id="lobby-filter-rated">
+                                            <label class="form-check-label" for="lobby-filter-rated">Rated</label>
+                                          </div>
+                                          <div class="dropdown-divider"></div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="lightning" id="lobby-filter-lightning">
+                                            <label class="form-check-label" for="lobby-filter-lightning">Lightning</label>
+                                          </div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="blitz" id="lobby-filter-blitz">
+                                            <label class="form-check-label" for="lobby-filter-blitz">Blitz</label>
+                                          </div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="standard" id="lobby-filter-standard">
+                                            <label class="form-check-label" for="lobby-filter-standard">Standard</label>
+                                          </div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="untimed" id="lobby-filter-untimed">
+                                            <label class="form-check-label" for="lobby-filter-untimed">Untimed</label>
+                                          </div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="nonstandard" id="lobby-filter-nonstandard">
+                                            <label class="form-check-label" for="lobby-filter-nonstandard">Non-standard</label>
+                                          </div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="crazyhouse" id="lobby-filter-crazyhouse">
+                                            <label class="form-check-label" for="lobby-filter-crazyhouse">Crazyhouse</label>
+                                          </div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="chess960" id="lobby-filter-chess960">
+                                            <label class="form-check-label" for="lobby-filter-chess960">Chess960</label>
+                                          </div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="wild" id="lobby-filter-wild">
+                                            <label class="form-check-label" for="lobby-filter-wild">Wild</label>
+                                          </div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="atomic" id="lobby-filter-atomic">
+                                            <label class="form-check-label" for="lobby-filter-atomic">Atomic</label>
+                                          </div>
+                                          <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="losers" id="lobby-filter-losers">
+                                            <label class="form-check-label" for="lobby-filter-losers">Losers</label>
+                                          </div>
+                                          <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" data-filter-name="suicide" id="lobby-filter-suicide">
+                                            <label class="form-check-label" for="lobby-filter-suicide">Suicide</label>
+                                          </div>
+                                        </div>
+                                        <div class="btn-group" style="padding-right: 0.75rem;">
+                                          <input type="radio" checked class="btn-check" name="lobby-view-mode" id="lobby-list-view" autocomplete="off">
+                                          <label class="btn btn-outline-secondary btn-sm" for="lobby-list-view" data-bs-toggle="tooltip" data-bs-placement="top" data-tooltip-hover-only data-fallback-placements="left,right" title="List View">
+                                            <span class="fa-solid fa-list" aria-hidden="false"></span>
+                                          </label>
+                                          <input type="radio" class="btn-check" name="lobby-view-mode" id="lobby-graph-view" autocomplete="off">
+                                          <label class="btn btn-outline-secondary btn-sm" for="lobby-graph-view" data-bs-toggle="tooltip" data-bs-placement="top" data-tooltip-hover-only data-fallback-placements="right,left" title="Graph View">
+                                            <span class="fa-solid fa-chart-line" aria-hidden="false"></span>
+                                          </label>
+                                        </div>
                                       </div>
                                     </div>
                                     <div class="flex-grow-1 overflow-auto" id="lobby-table-container" style="min-height: 0;">
-                                      <div class="btn-group-vertical w-100" id="lobby-table"></div>
+                                      <table id="lobby-table" class="mb-0 table table-hover table-head-sm table-striped table-borderless table-standard">
+                                        <thead>
+                                          <tr data-sort="asc">
+                                            <th scope="col" class="sortable-column"><div class="sort-header-wrapper">Name<i class="fa fa-sort"></i></div></th>
+                                            <th scope="col" class="sortable-column"><div class="sort-header-wrapper">Rat<i class="fa fa-sort"></i></div></th>
+                                            <th scope="col" class="sortable-column"><div class="sort-header-wrapper">Time<i class="fa fa-sort"></i></div></th>
+                                            <th scope="col" class="sortable-column"><div class="sort-header-wrapper">Type<i class="fa fa-sort"></i></div></th>
+                                          </tr>
+                                        </thead>
+                                        <tbody id="lobby-table-body">
+                                        </tbody>
+                                      </table>
                                     </div>
                                     <div class="flex-grow-1 overflow-hidden" id="lobby-graph-container" style="display: none; min-height: 0;">
                                     </div>
@@ -429,12 +509,29 @@
                       </div>
                       <div class="tab-pane h-100 fade" id="pills-game" role="tabpanel" aria-labelledby="pills-game-tab">
                         <div class="d-flex flex-column h-100">
-                          <button id="game-list-button" style="display: none" class="mt-1 w-100 btn btn-outline-secondary btn-md dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                          <button id="game-list-button" style="display: none" class="mt-1 w-100 btn btn-outline-secondary btn-md dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                             <span class="label"></span>
                           </button>
                           <ul class="dropdown-menu" id="game-list-dropdown">
                             <li class="px-2 pb-2"><input type="text" class="form-control blur-on-enter" id="game-list-filter" placeholder="Filter games..." aria-label="Game list filter" spellcheck="false"></li>
-                            <li id="game-list-scroll-container"><ul id="game-list-menu"></ul></li>
+                            <li id="game-list-scroll-container">
+                              <table id="game-list-menu" class="mb-0 table table-hover table-head-sm table-striped table-borderless table-standard">
+                                <thead>
+                                  <tr data-sort="asc">
+                                    <th scope="col" class="sortable-column"><div class="sort-header-wrapper">Date<i class="fa fa-sort"></i></div></th>
+                                    <th scope="col" class="sortable-column"><div class="sort-header-wrapper">White<i class="fa fa-sort"></i></div></th>
+                                    <th scope="col" class="sortable-column text-end"><div class="sort-header-wrapper"><i class="fa fa-sort"></i>ELO</div></th>
+                                    <th scope="col" class="sortable-column"><div class="sort-header-wrapper">Black<i class="fa fa-sort"></i></div></th>
+                                    <th scope="col" class="sortable-column text-end"><div class="sort-header-wrapper"><i class="fa fa-sort"></i>ELO</div></th>
+                                    <th scope="col" class="sortable-column text-center"><div class="sort-header-wrapper">Res<i class="fa fa-sort"></i></div></th>
+                                    <th scope="col" class="sortable-column"><div class="sort-header-wrapper">TC<i class="fa fa-sort"></i></div></th>
+                                    <th scope="col" class="sortable-column"><div class="sort-header-wrapper">Opening<i class="fa fa-sort"></i></div></th>
+                                  </tr>
+                                </thead>
+                                <tbody id="game-list-body">
+                                </tbody>
+                              </table>
+                            </li>
                           </ul>
                           <div class="modal fade" id="open-games-modal" tabindex="-1" aria-labelledby="open-games-modal-label" aria-hidden="true">
                             <div class="modal-dialog modal-dialog-centered">
@@ -504,6 +601,10 @@
                             <label class="btn btn-outline-secondary btn-sm btn-transparent" for="game-preserved" data-bs-toggle="tooltip" data-bs-placement="top" title="Preserve Game" data-description="Stop this game being over-written when starting a new game.">
                               <span class="fa-solid fa-unlock" aria-hidden="false"></span>
                             </label>
+                            <input type="checkbox" class="btn-check" id="game-share" autocomplete="off" aria-checked="false">
+                            <label class="btn btn-outline-secondary btn-sm btn-transparent" for="game-share" data-bs-toggle="tooltip" data-bs-placement="top" title="Share Game" data-description="Share game as URL link.">
+                              <span class="fa-solid fa-share-nodes" aria-hidden="false"></span>
+                            </label>
                             <div>
                               <button type="button" id="more-game-tools" class="btn btn-outline-secondary btn-sm btn-transparent dropdown-toggle hide-caret position-relative" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More game tools">
                                 <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" title="More game tools"></div>
@@ -546,12 +647,12 @@
                   </div>
                 </div>
               </div>
-              <div class="card-footer p-0" id="left-panel-bottom" style="display: none">
-                <div class="d-flex flex-column h-100 w-100 position-relative">
-                  <button id="close-status" class="btn btn-default position-absolute">&times;</button>
+              <div class="card-footer p-0 minimized" id="left-panel-bottom">
+                <div class="h-100 w-100 position-relative">
+                  <button id="close-status" class="btn btn-default position-absolute"><span id="close-status-icon" class="fa-solid fa-angle-down" aria-hidden="false"></span></button>
                   <ul class="nav nav-tabs pt-2" id="left-bottom-tabs" style="visibility: hidden" role="tablist">
                     <li class="nav-item" role="presentation">
-                      <button class="nav-link active" id="status-tab" data-bs-toggle="tab" data-bs-target="#status-panel" type="button" role="tab" aria-controls="status-panel" aria-selected="true">Status</button>
+                      <button class="nav-link active" id="status-tab" data-bs-toggle="tab" data-bs-target="#status-panel" type="button" role="tab" aria-controls="status-panel" aria-selected="true">Info</button>
                     </li>
                     <li class="nav-item" role="presentation" style="position: relative; display: none">
                       <button class="nav-link" id="engine-tab" style="padding-right: 30px" data-bs-toggle="tab" href="#engine-panel" role="tab" aria-controls="engine-panel" aria-selected="false">Engine</button>
@@ -566,10 +667,11 @@
                       </container>
                     </li>
                   </ul>
-                  <div class="tab-content flex-grow-1" style="min-height: 0">
+                  <div id="left-panel-bottom-content" class="tab-content overflow-hidden">
                     <div class="tab-pane fade show active p-1 h-100" id="status-panel" role="tabpanel" aria-labelledby="status-panel">
                       <div id="game-status-list" class="d-flex flex-column overflow-auto center h-100">
                         <div class="px-2 w-100 h-100">
+                          <div class="center py-1 info-panel-status" style="font-style: italic;">No game info</div>
                           <div class="center py-1" style="text-align: center"><span class="game-status"></span></div>
                           <div class="opening-name center py-1 border-top" style="display: none"></div>
                           <div class="game-watchers center flex-wrap pt-2 pb-1 border-top"></div>
@@ -641,7 +743,7 @@
                 </button>
               </div>
               <div id="viewing-game-buttons" class="btn-toolbar center w-100">
-                <button type="button" id="show-status-panel" class="btn btn-outline-secondary btn-md" title="Analyze Game" style="display: none">Analyze</button>
+                <button type="button" id="analyze-btn" class="btn btn-outline-secondary btn-md" style="display: none;" title="Analyze Game">Analyze</button>
               </div>
             </div>
           </div>
@@ -773,14 +875,15 @@
           <div class="card bg-transparent" id="right-card">
             <div class="top-panel card-header" id="right-panel-header" style="visibility: hidden">
               <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto position-relative" style="max-width: 42%">
-                <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle hide-caret" type="button" id="connectButton" data-bs-toggle="dropdown" aria-label="Connect/Disconnect" aria-expanded="false">
-                  <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" title="Connect/Disconnect"></div>
+                <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle hide-caret" type="button" id="connectButton" data-bs-toggle="dropdown" aria-label="Profile Menu" aria-expanded="false">
+                  <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" title="Profile Menu"></div>
                   <div id="session-status" class="w-100"></div>
                 </button>
                 <div class="dropdown-menu" aria-labelledby="connectButton">
                   <a class="dropdown-item noselect" id="disconnect"><span class="fa fa-unlink dropdown-icon" aria-hidden="false"></span>Disconnect</a>
+                  <a class="dropdown-item noselect" id="connect-user"><span class="fa-solid fa-plug dropdown-icon" aria-hidden="false"></span>Connect as User</a>
                   <a class="dropdown-item noselect" id="connect-guest"><span class="fa fa-user-secret dropdown-icon" aria-hidden="false"></span>Connect as Guest</a>
-                  <a class="dropdown-item noselect" id="connect-user"><span class="fa fa-user dropdown-icon" aria-hidden="false"></span>Connect as User</a>
+                  <a class="dropdown-item noselect" id="show-profile" style="display: none;"><span class="fa-solid fa-circle-user dropdown-icon" aria-hidden="false"></span>Profile & Stats</a>
                 </div>
               </div>
               <div class="btn-toolbar my-auto ms-auto">
@@ -794,7 +897,7 @@
                         <h5 class="modal-title" id="settings-modal-label"><span class="fa fa-gear me-2" aria-hidden="false"></span><span id="settings-title-text">Settings</span></h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                       </div>
-                      <div class="modal-body">
+                      <div class="modal-body overflow-auto">
                         <form id="basic-settings" class="settings-pane">
                           <ul class="nav nav-tabs mb-3" id="settings-tabs" role="tablist">
                             <li class="nav-item" role="presentation">
@@ -1131,6 +1234,51 @@
                   </ul>
                 </div>
               </div>
+              <div class="modal fade" id="profile-modal" tabindex="-1" aria-labelledby="profile-modal-label" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title" id="profile-modal-label"><span class="fa-solid fa-circle-user me-2" aria-hidden="false"></span><span id="profile-title-text"></span></h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                      <ul class="nav nav-tabs mb-3" id="profile-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                          <button class="nav-link active" id="profile-stats-tab" data-bs-toggle="tab" data-bs-target="#profile-stats" type="button" role="tab" aria-controls="profile-stats" aria-selected="true"><span class="fa-solid fa-chart-simple me-2" aria-hidden="false"></span>Stats</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                          <button class="nav-link" id="profile-notes-tab" data-bs-toggle="tab" data-bs-target="#profile-notes" type="button" role="tab" aria-controls="profile-notes" aria-selected="false"><span class="fa-solid fa-pencil me-2" aria-hidden="false"></span>Bio</button>
+                        </li>
+                      </ul>
+                      <div class="tab-content" id="profile-tabs-content">
+                        <div class="tab-pane fade show active" id="profile-stats" role="tabpanel" aria-labelledby="profile-stats-tab">
+                        </div>
+                        <div class="tab-pane fade h-100" id="profile-notes" role="tabpanel" aria-labelledby="profile-notes-tab">
+                          <div class="d-flex flex-column h-100">
+                            <label class="form-heading d-flex align-items-center" style="margin-bottom: 0.25rem">Finger Notes<svg class="ms-2 info-icon" data-bs-placement="top" data-bs-trigger="hover focus" data-bs-toggle="popover" data-bs-content="Finger notes are displayed to others when they click on your name and select 'Finger' from the menu" role="button"><use href="#icon-info" /></svg></label>
+                            <div class="flex-grow-1 overflow-auto" style="min-height: 0;">
+                              <table id="finger-notes-table" class="mb-0 table table-hover table-borderless table-sm">
+                                <tbody id="finger-notes-table-body">
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                  <tr><th></th><td contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"></td></tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div class="modal fade" id="users-modal" tabindex="-1" aria-labelledby="users-modal-label" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                   <div class="modal-content">
@@ -1165,7 +1313,7 @@
                               </ul>
                             </form>
                             <div id="friends-table-container" class="mt-3 mb-1 flex-grow-1 overflow-auto" style="min-height: 0;">
-                              <table id="friends-table" class="table table-sm table-borderless table-striped modal-table users-table">
+                              <table id="friends-table" class="table table-sm table-borderless table-striped table-standard users-table">
                                 <thead>
                                   <tr>
                                     <th scope="col" class="sortable-column" data-sort="asc" data-priority="2"><div class="sort-header-wrapper">Name<i class="fa fa-sort"></i></div></th>
@@ -1186,7 +1334,7 @@
                               <input type="text" class="form-control" id="search-online-users" placeholder="Username..." aria-label="Search online users" spellcheck="false" autocomplete="off" style="padding-left: 2.5rem;">
                             </div>                            
                             <div id="online-users-table-container" class="mt-3 mb-1 flex-grow-1 overflow-auto" style="min-height: 0;">
-                              <table id="online-users-table" class="table table-sm table-borderless table-striped modal-table users-table">
+                              <table id="online-users-table" class="table table-sm table-borderless table-striped table-standard users-table">
                                 <thead>
                                   <tr>
                                     <th scope="col" class="sortable-column" data-sort="asc" data-priority="2"><div class="sort-header-wrapper">Name<i class="fa fa-sort"></i></div></th>
@@ -1216,7 +1364,7 @@
                               <li><a class="dropdown-item">Atomic</a></li>
                             </ul>
                             <div id="top-players-table-container" class="mt-3 mb-1 flex-grow-1 overflow-auto" style="min-height: 0;">
-                              <table id="top-players-table" class="table table-sm table-borderless table-striped modal-table users-table">
+                              <table id="top-players-table" class="table table-sm table-borderless table-striped table-standard users-table">
                                 <thead>
                                   <tr>
                                     <th scope="col" class="sortable-column" data-sort="asc" data-priority="2"><div class="sort-header-wrapper">Name<i class="fa fa-sort"></i></div></th>
@@ -1238,7 +1386,7 @@
                               <li><a class="dropdown-item">No Play</a></li>
                             </ul>
                             <div id="user-lists-table-container" class="mt-3 mb-1 flex-grow-1 overflow-auto" style="min-height: 0;">
-                              <table id="user-lists-table" class="table table-sm table-borderless table-striped modal-table users-table">
+                              <table id="user-lists-table" class="table table-sm table-borderless table-striped table-standard users-table">
                                 <thead>
                                   <tr>
                                     <th scope="col" class="sortable-column" data-sort="asc" data-priority="2"><div class="sort-header-wrapper">Name<i class="fa fa-sort"></i></div></th>
@@ -1295,7 +1443,7 @@
                                 </div>
                                 <div class="modal-body">
                                   <div id="channels-modal-list" class="mb-1" style="height: 500px; overflow-y: scroll;">
-                                    <table class="table table-sm table-borderless table-striped modal-table">
+                                    <table class="table table-sm table-borderless table-striped table-standard">
                                       <thead>
                                         <tr>
                                           <th scope="col">Channel</th>

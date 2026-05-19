@@ -275,6 +275,13 @@ export function isMobile() {
 }
 
 /**
+ * Is touch screen
+ */
+export function isTouchscreen() {
+  return navigator.maxTouchPoints > 0;
+}
+
+/**
  * Server and browser support multi-threading
  */
 export function hasMultiThreading() {
@@ -339,10 +346,11 @@ document.addEventListener('touchstart', (event) => {
 }, {passive: true});
 
 /**
- * Removes an element from the DOM with any tooltips associated with it
+ * Removes an element from the DOM with any tooltips and popovers associated with it
  */
-export function removeWithTooltips(element: JQuery<HTMLElement>) {
+export function removeWithPoppers(element: JQuery<HTMLElement>) {
   element.find('[data-bs-toggle="tooltip"]').tooltip('dispose');
+  element.find('[data-bs-toggle="popover"]').popover('dispose');
   element.remove();
 }
 
@@ -470,6 +478,133 @@ export function setCaretToEnd(element: JQuery<HTMLElement>) {
 }
 
 /**
+ * Creates helper event handlers for contenteditable elements. Allows features such as
+ * automatically adding and removing an invisible character that allows the cursor to be shown
+ * when the element is empty. Showing a placeholder string when the element is empty. 
+ * Specifying a maximum number of characters. Bluring when enter is pressed and calling a 'done' callback
+ * function. Stripping out html and converting newlines to spaces while retaining the correct cursor 
+ * position.  
+ * @param selector The selector specifying the elements to apply the handlers to for example '.classname' 
+ * @param doneCallback Called when the user removes focus from the element or presses enter
+ * @param invisibleChar If true, automatically adds/removes an invisible character when the contenteditable
+ * is empty. This is necessary to show a cursor in an empty <span>
+ * @param replaceNewlines If true, replace newlines with spaces
+ * @param maxChars If specified, stop the user typing more than maxChars
+ */
+export function initContentEditable(selector: string, doneCallback: (elem: JQuery<HTMLElement>) => void, invisibleChar = false, replaceNewlines = false, maxChars?: number) {
+  /** Triggered when the user clicks on a comment in the move-list to edit it in-place. */
+  $(document).on('focus', selector, (focEvent) => {
+    if(!$(focEvent.target).text().length) {
+      // Adds an invisible character in order to make the cursor appear even
+      // when the element is empty.
+      if(invisibleChar)
+        $(focEvent.target).text('\u200B');
+      // Display the placeholder text.
+      if($(focEvent.target).attr('placeholder'))
+        $(focEvent.target).attr('data-before-content', $(focEvent.target).attr('placeholder'));
+    }
+
+    // Set the move's comment string after the user presses enter or clicks away from the comment element.
+    $(focEvent.target).one('blur', (event) => {
+      const elem = $(event.target);
+
+      elem.off('paste keydown input');
+           
+      if(doneCallback)
+        doneCallback(elem);
+
+      // Unselect selected text
+      if(window.getSelection)
+        window.getSelection().removeAllRanges();
+    });
+
+    $(focEvent.target).on('keydown', (event) => {
+      if(event.key === 'Enter') {
+        event.preventDefault();
+        $(event.target).trigger('blur');
+      }
+    });
+
+    /**
+     * Remove html tags and formatting from text pasted into the element. Remove
+     * the zero-wdith space (placeholder) character if text was pasted into an empty element.
+     */
+    $(focEvent.target).on('paste', (event) => {
+      event.preventDefault();
+
+      // Insert the clipboard text into the element as plain text
+      const clipboardEvent = event.originalEvent as ClipboardEvent;
+      let text = clipboardEvent.clipboardData?.getData('text/plain') || '';
+      if(replaceNewlines)
+        text = text.replace(/[\r\n]+/g, ' ');
+
+      const sel = window.getSelection();
+      if(sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(document.createTextNode(text));
+        range.collapse(false); // Move the caret to the end of the pasted text
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      $(event.target).trigger('input'); // Remove the zero-width space placeholder character if it exists
+    });
+
+    /**
+     * Remove the zero-width space (placeholder) character when text is entered.
+     * Adds it back when all text is deleted.
+     */
+    $(focEvent.target).on('input', (event) => {
+      const elem = $(event.target);
+
+      if(!elem.text().length) {
+        if(invisibleChar)
+          elem.text('\u200B'); // insert a zero-width space in order to make cursor appear when span is empty
+        if(elem.attr('placeholder'))
+          elem.attr('data-before-content', elem.attr('placeholder'));
+      }
+      else if(elem.attr('data-before-content')) {
+        if(invisibleChar) 
+          elem.text(elem.text().replace(/\u200B/g, '')); // Remove zero-width space
+        setCaretToEnd(elem);
+        elem.removeAttr('data-before-content'); // Remove placeholder
+      }
+      else if(elem.text().length > maxChars) {
+        const e = elem[0];
+
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return;
+
+        const range = sel.getRangeAt(0);
+
+        // Save cursor position relative to element text
+        const preCaretRange = range.cloneRange();
+        preCaretRange.selectNodeContents(e);
+        preCaretRange.setEnd(range.endContainer, range.endOffset);
+        const caretPos = preCaretRange.toString().length;
+
+        // Truncate text
+        const newText = splitText(elem.text(), maxChars)[0];
+        elem.text(newText);
+
+        // Restore caret (best effort)
+        const textNode = e.firstChild;
+        if(!textNode) return;
+
+        const newRange = document.createRange();
+        const pos = Math.min(caretPos, newText.length);
+
+        newRange.setStart(textNode, pos);
+        newRange.collapse(true);
+
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+      }
+    });
+  });
+}
+
+/**
  * Insert text into textarea element at cursor
  */
 export function insertAtCursor(element: JQuery<HTMLElement>, text: string) {
@@ -486,10 +621,14 @@ export function insertAtCursor(element: JQuery<HTMLElement>, text: string) {
  * Hidden buttons were causing visible buttons to not center properly in toolbar
  * Set the margin of the last visible button to 0
  */
-export function showButton(button: any) {
-  button.parent().find('visible:last').removeClass('me-0');
-  button.addClass('me-0');
+export function showButton(button: any): boolean {
+  if(button.is(':visible'))
+    return false;
+
   button.show();
+  button.parent().children().removeClass('me-0');
+  button.parent().find(':visible:last').addClass('me-0');
+  return true;
 }
 
 /**
@@ -497,10 +636,14 @@ export function showButton(button: any) {
  * Hidden buttons were causing visible buttons to not center properly in toolbar
  * Set the margin of the last visible button to 0
  */
-export function hideButton(button: any) {
+export function hideButton(button: any): boolean {
+  if(!button.is(':visible'))
+    return false;
+
   button.hide();
   button.removeClass('me-0');
-  button.parent().find('visible:last').addClass('me-0');
+  button.parent().find(':visible:last').addClass('me-0');
+  return true;
 }
 
 /**
@@ -675,7 +818,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
         || event.shiftKey || event.altKey || event.metaKey))
       return;
 
-    removeWithTooltips(menu);
+    removeWithPoppers(menu);
 
     $(document).off('wheel.closeMenu mousedown.closeMenu keydown.closeMenu touchend.closeMenu touchmove.closeMenu');
     if(itemSelectedCallback)
@@ -695,7 +838,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
     if(((event.type === 'touchstart' || event.type === 'mousedown') && !$(event.target).closest('.dropdown-menu').length)
         || (event.type === 'keydown' && event.key === 'Escape')
         || event.type === 'wheel' || event.type === 'touchmove') {
-      removeWithTooltips(menu);
+      removeWithPoppers(menu);
       $(document).off('wheel.closeMenu mousedown.closeMenu keydown.closeMenu touchend.closeMenu touchmove.closeMenu');
       document.removeEventListener('touchstart', closeMenuEventHandler);
       if(menuClosedCallback)
@@ -813,6 +956,27 @@ export function splitText(text: string, maxLength: number): string[] {
     result.push(currentMessage);
 
   return result;
+}
+
+/**
+ * Splits a string into 3 parts { before, matching, after }
+ * matching: the line or lines represented by the specified match array (returned by match())
+ * before, after: the text before and after the matching line(s)
+ * @param text the text to split
+ * @param match a match array returned by a previous match() call representing the matched line(s)
+ * @returns the split object
+ */
+export function splitBeforeAfterMatch(text: string, match: any) {
+  const start = match.index;
+  const end = start + match[0].length;
+  const before = text.slice(0, start).replace(/\n$/, '').trim();
+  const matching = match[0];
+  const after = text.slice(end).replace(/^\n/, '').trim();
+  return {
+    before,
+    matching,
+    after
+  };
 }
 
 /**
@@ -989,69 +1153,153 @@ export function animateBoundingRects(fromElement: any, toElement: any, color = '
  * data-priority="<number>": Which column is the primary column to sort by, which is secondary etc.
  * 1 is highest priority 
  * The primary column should also have the 'sort-primary' class
- * data-sort="<asc|desc>": The current sort order, ascending or descending
+ * data-default-sort="<asc|desc>": The initial order to use when a column becomes the primary sort column
+ * data-sort="<asc|desc|[none]>": The current sort order, ascending, descending or none for tri-state tables
  * The columns will be sorted based on their <td> text, either lexicographically or numerically
  * if the text can be converted to a number. However if the <td> has a data-sort-value="<value>" attribute
- * then the column is sorted by this value instead
+ * then the column is sorted by this value instead.
+ * If the thead > tr element has data-sort="<asc|desc>" set, then the table rows will instead be sorted by the
+ * data-sort-value attr on each tbody > tr element. Otherwise it will be sorted as usual. 
  * @param table The table element (JQuery) to sort
  * @param column Optional <th> element, if specified, makes this column the primary sort column or
  * if it is already the primary column, reverses its sort order (asc or desc). 
  * (Basically what happens when you click on a sort header) 
+ * @param triState if true, then the primary sort column alternates between 3 states: asc, desc and none. 
+ * When a column is set to none, if thead > tr has a data-default-sort="<asc|desc>" then the table is 
+ * sorted by the data-sort-value="<value>" on the <tr> elmeents using the sort order defined by 
+ * data-default-sort. 
  */
-export function sortTable(table: any, column?: any) {
+export function sortTable(table: any, column?: any, triState = false, data?: any[]) {
+  const headRow = table.find('> thead > tr');
+  if(!headRow.attr('data-sort'))
+    headRow.attr('data-sort', 'none');
+  if(!headRow.attr('data-default-sort'))
+    headRow.attr('data-default-sort', headRow.attr('data-sort'));    
+
+  const cols = table.find('.sortable-column');
+  cols.each((index, elem) => {  
+    if(!$(elem).attr('data-sort'))
+      $(elem).attr('data-sort', 'none');
+
+    if(!$(elem).attr('data-default-sort') && $(elem).attr('data-sort') !== 'none')
+      $(elem).attr('data-default-sort', $(elem).attr('data-sort'));    
+  });
+
   if(column) {
-    const priority = +column.attr('data-priority');
-    if(priority !== 1) {
-      table.find('.sortable-column').each((index, elem) => {
+    const priority = +column.attr('data-priority') || Infinity;
+    const dataSort = column.attr('data-sort');
+    if(priority !== 1 || headRow.attr('data-sort') !== 'none') {
+      cols.each((index, elem) => {
         $(elem).removeClass('sort-primary');
         const otherPriority = +$(elem).attr('data-priority');
-        if(otherPriority < priority)
+        if(otherPriority && otherPriority < priority)
           $(elem).attr('data-priority', otherPriority + 1);
       });
       column.attr('data-priority', 1);
       column.addClass('sort-primary');
+      column.attr('data-sort', column.attr('data-default-sort') || 'asc');
+      headRow.attr('data-sort', 'none');
     } 
-    else
-      column.attr('data-sort', column.attr('data-sort') === 'asc' ? 'desc' : 'asc');
+    else {
+      if(triState) {
+        const defSort = column.attr('data-default-sort') || 'asc';
+        if(defSort === 'desc') // order goes desc -> asc -> none
+          column.attr('data-sort', column.attr('data-sort') === 'asc' ? 'none' : 'asc');  
+        else // order goes asc -> desc -> none
+          column.attr('data-sort', column.attr('data-sort') === 'asc' ? 'desc' : 'none');  
+        
+        if(column.attr('data-sort') === 'none') {
+          column.removeClass('sort-primary');
+          cols.each((index, elem) => {
+            $(elem).attr('data-priority', +$(elem).attr('data-priority') - 1);
+          });
+          column.attr('data-priority', cols.length);
+          headRow.attr('data-sort', headRow.attr('data-default-sort'));
+        }
+      }
+      else
+        column.attr('data-sort', column.attr('data-sort') === 'asc' ? 'desc' : 'asc');
+    }
   }
 
-  const tbody = table.find('tbody');
-  const rows = tbody.find('tr').toArray();
+  const compareVals = (textA: string, textB: string) => {
+    // Try numeric comparison before alphabetical
+    const numA = parseFloat(textA);
+    const numB = parseFloat(textB);
+
+    let cmp = 0;
+    if(!isNaN(numA) && !isNaN(numB)) 
+      cmp = numA - numB;
+    else 
+      cmp = String(textA).localeCompare(textB); // fallback string comparison
+    return cmp;
+  }; 
 
   // Get all sortable columns, sorted by priority (ascending)
-  const columns = table.find('.sortable-column')
+  const colArray = cols.filter('[data-sort="asc"], [data-sort="desc"]')
     .toArray()
     .sort((a, b) => {
       return +$(a).attr('data-priority') - +$(b).attr('data-priority');
     });
 
-  // Sort rows
-  rows.sort((rowA: any, rowB: any) => {
-    for (const col of columns) {
-      const index = $(col).index(); 
-      const sortOrder = $(col).attr('data-sort'); 
+  if(data) {
+    data.sort((rowA: any, rowB: any) => {
+      if(headRow.attr('data-sort') !== 'none') {
+        const textA = rowA[cols.length] ?? '';
+        const textB = rowB[cols.length] ?? '';   
+        let sortOrder = headRow.attr('data-sort');
+        const cmp = compareVals(textA, textB);
+        if(cmp !== 0)
+          return sortOrder === 'asc' ? cmp : -cmp;
+      }
+      else {
+        for(const col of colArray) {
+          const index = $(col).index(); 
+          let sortOrder = $(col).attr('data-sort'); 
 
-      const cellA = $(rowA).children().eq(index);
-      const cellB = $(rowB).children().eq(index);
-      const textA = cellA.attr('data-sort-value') || cellA.text();
-      const textB = cellB.attr('data-sort-value') || cellB.text();      
-   
-      // Try numeric comparison before alphabetical
-      const numA = parseFloat(textA);
-      const numB = parseFloat(textB);
+          const textA = rowA[index] ?? '';
+          const textB = rowB[index] ?? ''; 
 
-      let cmp = 0;
-      if(!isNaN(numA) && !isNaN(numB)) 
-        cmp = numA - numB;
-      else 
-        cmp = textA.localeCompare(textB); // fallback string comparison
-      if (cmp !== 0) 
-        return sortOrder === 'asc' ? cmp : -cmp;
-    }
-    return 0;
-  });
+          const cmp = compareVals(textA, textB);
+          if(cmp !== 0) 
+            return sortOrder === 'asc' ? cmp : -cmp;
+        }
+      }
+      return 0;    
+    });
+  }
+  else {
+    const tbody = table.find('tbody');
+    const rows = tbody.find('tr').toArray();
+    // Sort rows
+    rows.sort((rowA: any, rowB: any) => {
+      if(headRow.attr('data-sort') !== 'none') {
+        const textA = $(rowA).attr('data-sort-value') || '';
+        const textB = $(rowB).attr('data-sort-value') || '';   
+        let sortOrder = headRow.attr('data-sort');
+        const cmp = compareVals(textA, textB);
+        if(cmp !== 0)
+          return sortOrder === 'asc' ? cmp : -cmp;
+      }
+      else {
+        for(const col of colArray) {
+          const index = $(col).index(); 
+          let sortOrder = $(col).attr('data-sort'); 
 
-  tbody.append(rows);
+          const cellA = $(rowA).children().eq(index);
+          const cellB = $(rowB).children().eq(index);
+          const textA = cellA.attr('data-sort-value') || cellA.text();
+          const textB = cellB.attr('data-sort-value') || cellB.text();      
+
+          const cmp = compareVals(textA, textB);
+          if(cmp !== 0) 
+            return sortOrder === 'asc' ? cmp : -cmp;
+        }
+      }
+      return 0;
+    });
+    tbody.append(rows);
+  }
 }
 
 /**
@@ -1217,4 +1465,114 @@ export class SpritePlayer {
       sp.destRect.height
     );
   }
+}
+
+export function splitIntoColumns(items, cols = 3) {
+  const sorted = [...items].sort((a, b) => a.localeCompare(b));
+
+  const n = sorted.length;
+  const base = Math.floor(n / cols);
+  const remainder = n % cols;
+
+  const result = [];
+  let index = 0;
+
+  for(let col = 0; col < cols; col++) {
+    const size = base + (col < remainder ? 1 : 0);
+    result.push(sorted.slice(index, index + size));
+    index += size;
+  }
+
+  return result;
+}
+
+export class BitWriter {
+  private buffer = 0;
+  private bitCount = 0;
+  private output: number[] = [];
+
+  public write(value: number, bits: number) {
+    this.buffer = ((this.buffer << bits) | value) >>> 0;
+    this.bitCount += bits;
+
+    while (this.bitCount >= 8) {
+      this.bitCount -= 8;
+
+      const byte = (this.buffer >> this.bitCount) & 0xFF;
+      this.output.push(byte);
+    }
+
+    this.buffer &= (1 << this.bitCount) - 1;
+  }
+
+  public writeMax(value: number, maxValue: number) {
+    const bits = Math.ceil(Math.log2(maxValue + 1));
+    this.write(value, bits);
+  }
+
+  public finish(): Uint8Array {
+    if (this.bitCount > 0) {
+      this.output.push((this.buffer << (8 - this.bitCount)) & 0xFF);
+    }
+    return new Uint8Array(this.output);
+  }
+
+  public writeVarint(value: number) {
+    while(value >= 0x80) {
+      // Write 7 bits + continuation flag (1)
+      this.write((value & 0x7F) | 0x80, 8);
+      value >>>= 7;
+    }
+    this.write(value, 8);
+  }
+}
+
+export class BitReader {
+  private buffer = 0;
+  private bitCount = 0;
+  private inputIndex = 0;
+
+  constructor(private input: Uint8Array) {}
+
+  public read(bits: number): number {
+    while (this.bitCount < bits) {
+      if (this.inputIndex >= this.input.length) {
+        throw new Error("BitReader: unexpected end of stream");
+      }
+
+      this.buffer = ((this.buffer << 8) | this.input[this.inputIndex++]) >>> 0;
+      this.bitCount += 8;
+    }
+
+    this.bitCount -= bits;
+
+    return (this.buffer >> this.bitCount) &
+      (bits === 32 ? 0xFFFFFFFF : (1 << bits) - 1);
+  }
+
+  public readMax(maxValue: number): number {
+    const bits = Math.ceil(Math.log2(maxValue + 1));
+    return this.read(bits);
+  }
+
+  public readVarint(): number {
+    let result = 0;
+    let shift = 0;
+    while (true) {
+      const byte = this.read(8);
+      result |= (byte & 0x7F) << shift;
+
+      if ((byte & 0x80) === 0) break;
+      shift += 7;
+    }
+    return result;
+  }
+}
+
+export function zigzagEncode(n: number): number {
+  return (n << 1) ^ (n >> 31);
+}
+
+export function zigzagDecode(n: number): number {
+  return (n >>> 1) ^ -(n & 1);
 }

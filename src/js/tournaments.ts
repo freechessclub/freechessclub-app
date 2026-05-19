@@ -5,6 +5,7 @@
 import { awaiting, storage } from './storage';
 import { createNotification, removeNotification, showDialog } from './dialogs';
 import { convertToServerDate, convertToLocalDate, parseDate, getDiffDays, getNextWeekDayDate } from './utils';
+import { session } from './session';
 
 /**
  * Controls the Play->Tournaments pane.
@@ -21,7 +22,6 @@ export class Tournaments {
 
   private tdMessage = '';                       // Stores long responses from td (tournament bot) so we can join them together before parsing them
   private tdVariables: any = {};                // Stores user's td variables 
-  private session = null;                       // The current session
   private alerts: any = {};                     // Keeps track of whether a tournament or KoTH should alert the user (by making the Tournaments tab red)
   private kothShowNotifications = false;        // If true, will show slide-down notifications when the King changes in KoTH
   private kothReceiveInfo = null;               // If true, will show KOTHInfo messages in the Console (this is required in order to show slide-down notifications)
@@ -35,12 +35,12 @@ export class Tournaments {
     /** Tournament pane shown */
     $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-tournaments"]', (e) => {
       $('button[data-bs-target="#pills-tournaments"]').removeClass('tournaments-unviewed');
-      this.initTournamentsPane(this.session);
+      this.initTournamentsPane();
     });
     $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-play"]', () => {
       if($('#pills-tournaments').hasClass('active')) {
         $('button[data-bs-target="#pills-tournaments"]').removeClass('tournaments-unviewed');
-        this.initTournamentsPane(this.session);
+        this.initTournamentsPane();
       }
     });
 
@@ -83,24 +83,22 @@ export class Tournaments {
   /**
    * Called after connecting to the server
    */
-  public connected(session: any) {
-    this.session = session;
-    
+  public connected() {   
     // Restore the user's original KOTHInfo, TourneyInfo and TourneyUpdates 
     // td variables in case they were over-written 
 
     if(typeof this.kothReceiveInfo === 'boolean') {
       awaiting.set('td-set');
-      this.session.send(`td set KOTHInfo ${this.kothReceiveInfo ? 1 : 0}`);
+      session.send(`td set KOTHInfo ${this.kothReceiveInfo ? 1 : 0}`);
     }
 
     if(typeof this.tournamentsReceiveInfo === 'boolean') {
       awaiting.set('td-set'); 
-      this.session.send(`td set TourneyInfo ${this.tournamentsReceiveInfo ? 1 : 0}`);
+      session.send(`td set TourneyInfo ${this.tournamentsReceiveInfo ? 1 : 0}`);
     }
     
     if($('#pills-tournaments').hasClass('active'))
-      this.initTournamentsPane(session);
+      this.initTournamentsPane();
   }
 
   // Called when disconnected from the server
@@ -113,7 +111,7 @@ export class Tournaments {
    * Build the tournaments pane
    * Add the Tournament, KoTH and Team League cards 
    */
-  public initTournamentsPane(session: any) {
+  public initTournamentsPane() {
     if(!session || !session.isConnected())
       return;
     
@@ -124,10 +122,10 @@ export class Tournaments {
     // Set td line height to 999 so we don't have to issue 'td next' commands
     // We restore it to the default height 24 after retrieving all the tournament data
     awaiting.set('td-set');
-    this.session.send('td set height 999'); 
+    session.send('td set height 999'); 
     
     awaiting.set('td-variables');
-    this.session.send('td variables'); // Retrieve the user's td variables, so we can store and restore their KOTHInfo, TourneyInfo and TourneyUpdates settings
+    session.send('td variables'); // Retrieve the user's td variables, so we can store and restore their KOTHInfo, TourneyInfo and TourneyUpdates settings
 
     // Add the scheduled tournaments (e.g. the Nightly 5 0)
     this.scheduledTournaments.forEach(tourney => {
@@ -153,34 +151,34 @@ export class Tournaments {
     // Set TourneyInfo and TourneyUpdates td variables to On while Tournaments panel 
     // is showing so that we can update the tournament cards in real time
     awaiting.set('td-set');
-    this.session.send('td set tourneyinfo 1');
+    session.send('td set tourneyinfo 1');
     awaiting.set('td-set');
-    this.session.send('td set tourneyupdates 1');
+    session.send('td set tourneyupdates 1');
 
     // Retrieve the list of running/completed tournaments
     awaiting.set('td-listtourneys');
-    this.session.send('td listtourneys');
+    session.send('td listtourneys');
 
     // Set KOTHInfo td variable to On while Tournaments panel 
     // is showing so that we can update the KoTH cards in real time
     awaiting.set('td-set');
-    this.session.send('td set kothinfo 1');
+    session.send('td set kothinfo 1');
 
     // Retrieve the list of available KoTHs
     awaiting.set('td-listkoths');
-    this.session.send('td listkoths');
+    session.send('td listkoths');
   }
 
   public leaveTournamentsPane() {
-    if(this.session && this.session.isConnected()) {
+    if(session && session.isConnected()) {
       // Restore user's original td variables
       if(typeof this.kothReceiveInfo === 'boolean') {
         awaiting.set('td-set');
-        this.session.send(`td set kothinfo ${this.kothReceiveInfo ? 'On' : 'Off'}`);
+        session.send(`td set kothinfo ${this.kothReceiveInfo ? 'On' : 'Off'}`);
       }
       if(typeof this.tournamentsReceiveInfo === 'boolean') {
         awaiting.set('td-set');
-        this.session.send(`td set tourneyinfo ${this.tournamentsReceiveInfo ? 'On' : 'Off'}`);
+        session.send(`td set tourneyinfo ${this.tournamentsReceiveInfo ? 'On' : 'Off'}`);
       }
       // We no longer need to store these, since we've restored the user's variables
       storage.remove('tournaments-receive-info');
@@ -263,7 +261,7 @@ export class Tournaments {
       const king = match[2];
       const id = +match[4];
       removeNotification($(`.notification[data-koth-id="${id}"`));
-      if(this.kothShowNotifications && king !== this.session.getUser()) {
+      if(this.kothShowNotifications && king !== session.getUser()) {
         const kingQueenStr = match[3].charAt(0).toUpperCase() + match[3].slice(1);
         const nElement = createNotification({
           type: `Long live the ${kingQueenStr}!`, 
@@ -281,7 +279,7 @@ export class Tournaments {
         isFemale: match[3] === 'queen'
       }, true);
       awaiting.set('td-kingstats');
-      this.session.send(`td kingstats ${id}`);
+      session.send(`td kingstats ${id}`);
       return false;
     }
 
@@ -365,6 +363,9 @@ export class Tournaments {
         awaiting.resolve('td-listkoths');
         const koths = this.parseTDListKoTHs(msg);
         koths.forEach(koth => { 
+          if(!koth.open && koth.king === '-')
+            return;
+
           if(koth.game === '-')
             koth.opponent = null;
           const card = this.addKoTH(koth);
@@ -372,11 +373,11 @@ export class Tournaments {
             const data = card.data('tournament-data');
             data.kingStats = null;
             awaiting.set('td-kingstats'); // Retrieve the kingstats for the current king
-            this.session.send(`td kingstats ${koth.id}`);
+            session.send(`td kingstats ${koth.id}`);
           }
           if(koth.game !== '-') {
             awaiting.set('get-koth-game'); // Retrieve the name of the opponent
-            this.session.send(`games ${koth.game}`);
+            session.send(`games ${koth.game}`);
           }
         });
 
@@ -412,7 +413,7 @@ export class Tournaments {
       koths.each((index, element) => {
         // First we have to figure out which KoTH we are king of
         const kothData = $(element).data('tournament-data');
-        if(kothData.king === this.session.getUser() && !kothData.kingStats) {
+        if(kothData.king === session.getUser() && !kothData.kingStats) {
           this.updateKoTH(kothData.id, {
             kingStats: {
               wins: match[1], 
@@ -435,7 +436,7 @@ export class Tournaments {
     // or perhaps if the user is banned.
     match = msg.match(/^:Unable to comply. (Access to command (\w+) denied.)/);
     if(match) {
-      if(this.session.isRegistered())
+      if(session.isRegistered())
         $('#tournaments-pane-status').text(match[1]);
       else {
         const isKoTH = match[2] === 'ClaimThrone' || match[2] === 'MatchKing';
@@ -465,11 +466,11 @@ export class Tournaments {
           const kothData = $(element).data('tournament-data');
           if(kothData.offer) {
             if(priv === '1') {
-              this.session.send(`decline ${kothData.offer}`);
+              session.send(`decline ${kothData.offer}`);
               kothData.offer = null;
             }
             else if(kothData.seek) 
-              this.session.send(`accept ${kothData.offer}`);
+              session.send(`accept ${kothData.offer}`);
             return false;
           }
         });
@@ -495,7 +496,7 @@ export class Tournaments {
       return true;
     match = msg.match(/^:You are no longer observing tourney #(\d+)./m);
     if(match && awaiting.has('td-observetourney')) {
-      this.session.send(`td observetourney ${match[1]}`);
+      session.send(`td observetourney ${match[1]}`);
       return true;
     }
 
@@ -519,7 +520,7 @@ export class Tournaments {
 
       if($('#pills-tournaments').hasClass('active')) {
         awaiting.set('td-observetourney');
-        this.session.send(`td observetourney ${id}`); // ObserveTourney must be set in order to receive real time tourney updates
+        session.send(`td observetourney ${id}`); // ObserveTourney must be set in order to receive real time tourney updates
       }
 
       const data = card.data('tournament-data');
@@ -572,9 +573,9 @@ export class Tournaments {
 
       // Retrieve the tournament list in order to display the last time this tournament was held, winner and standings etc
       awaiting.set('td-set');
-      this.session.send('td set height 999');
+      session.send('td set height 999');
       awaiting.set('td-listtourneys');
-      this.session.send('td listtourneys');
+      session.send('td listtourneys');
 
       removeNotification($(`.notification[data-tournament-id="${id}"]`));
       return false;
@@ -625,7 +626,7 @@ export class Tournaments {
     // Check when user's game starts
     match = msg.match(/:mamer TOURNEY (?:INFO|#\d+ UPDATE): The game on board #\d+ \((\S+) vs. (\S+?)\) just started/m);
     if(match) {
-      const user = this.session.getUser();
+      const user = session.getUser();
       if(match[1] === user || match[2] === user) {
         this.updateAllTournaments({ paired: false });
         removeNotification($('.notification[data-tournament-id]'));
@@ -638,7 +639,8 @@ export class Tournaments {
     // No tourneys to list
     if(msg === ':There are no tourneys right now.' && awaiting.resolve('td-listtourneys')) {
       awaiting.set('td-set');
-      this.session.send('td set height 24');
+      session.send('td set height 24');
+      return true;
     }
 
     pattern = ':mamer\'s tourney list:';
@@ -676,30 +678,30 @@ export class Tournaments {
             // Tournament is open but not started yet, so there is no standard grid yet, 
             // get players list instead
             awaiting.set('td-players');
-            this.session.send(`td players ${tourney.id}`);
+            session.send(`td players ${tourney.id}`);
             if(tourney.joined && tourney.status === 'started') {
               awaiting.set('td-games');
-              this.session.send(`td games ${tourney.id}`);
+              session.send(`td games ${tourney.id}`);
             }
           }
           else {
             // Tournament hasn't started or has ended, get the standard grid, 
             // so we can display the winner (if there is one)
             awaiting.set('td-standardgrid');
-            this.session.send(`td standardgrid ${tourney.id}`);
+            session.send(`td standardgrid ${tourney.id}`);
           }
 
           if(tourney.running) {
             // Start observing this tourney in order to receive Tourney Updates
             awaiting.set('td-observetourney');
-            this.session.send(`td observetourney ${tourney.id}`);
+            session.send(`td observetourney ${tourney.id}`);
           }
         });
 
         this.tdMessage = '';
         // We're done, so restore default td line height
         awaiting.set('td-set');
-        this.session.send('td set height 24');
+        session.send('td set height 24');
       }
       return true;
     }
@@ -741,7 +743,7 @@ export class Tournaments {
                 </div>
                 <div class="modal-body">
                   <div class="tournament-players tournament-table-container" class="mb-1">
-                    <table class="table table-sm table-borderless table-striped modal-table">
+                    <table class="table table-sm table-borderless table-striped table-standard">
                       <thead>
                         <tr>
                           <th scope="col" class="text-end">Seed</th>
@@ -801,7 +803,7 @@ export class Tournaments {
     if(match && awaiting.resolve('td-players')) {
       awaiting.resolve('tourney-players-dialog');
       awaiting.set('td-listtourneyvariables');
-      this.session.send(`td listtourneyvariables ${match[1]}`);
+      session.send(`td listtourneyvariables ${match[1]}`);
       return true;
     }
 
@@ -888,7 +890,7 @@ export class Tournaments {
                 </div>
                 <div class="modal-body">
                   <div class="tournament-standings tournament-table-container" class="mb-1">
-                    <table class="table table-sm table-borderless table-striped modal-table">
+                    <table class="table table-sm table-borderless table-striped table-standard">
                       <thead>
                         <tr>
                           <th scope="col" class="text-end">Pos</th>
@@ -982,8 +984,8 @@ export class Tournaments {
         const games = this.parseTDGames(this.tdMessage);
         const pairing = games.find(game => 
           // User has been paired for their next match but hasn't yet started their game
-          game.result?.startsWith('-') && (game.whiteName === this.session.getUser() 
-              || game.blackName === this.session.getUser())
+          game.result?.startsWith('-') && (game.whiteName === session.getUser() 
+              || game.blackName === session.getUser())
         );
         this.updateTournament(id, { paired: !!pairing });
         if(awaiting.resolve('tourney-games-dialog')) {
@@ -996,7 +998,7 @@ export class Tournaments {
                 </div>
                 <div class="modal-body">
                   <div class="tournament-games tournament-table-container" class="mb-1">
-                    <table class="table table-sm table-borderless table-striped modal-table">
+                    <table class="table table-sm table-borderless table-striped table-standard">
                       <thead>
                         <tr>
                           <th scope="col" class="text-end">Board</th>
@@ -1026,7 +1028,7 @@ export class Tournaments {
             cell.innerHTML = `<span class="tournament-table-name">${game.blackName}</span>  <span class="tournament-table-seed">[${game.blackSeed}]</span>`;
 
             // Display the game # and an 'Observe' for games in progress
-            const obsGameStr = game.gameID && game.whiteName !== this.session.getUser() && game.blackName !== this.session.getUser()
+            const obsGameStr = game.gameID && game.whiteName !== session.getUser() && game.blackName !== session.getUser()
                 ? `  <a href="javascript:void(0)" onClick="sessionSend('obs ${game.gameID.slice(1)}')">Observe</a>` 
                 : ''; 
             cell = row.insertCell();
@@ -1041,8 +1043,8 @@ export class Tournaments {
           gamesModal.appendTo('body').modal('show');        
         }
         else if(pairing && !wasAwaiting && !$(`.notification[data-tournament-id="${id}"]`).length) {
-          const color = (pairing.whiteName === this.session.getUser() ? 'white' : 'black');
-          const opponent = (pairing.whiteName === this.session.getUser() ? pairing.blackName : pairing.whiteName);
+          const color = (pairing.whiteName === session.getUser() ? 'white' : 'black');
+          const opponent = (pairing.whiteName === session.getUser() ? pairing.blackName : pairing.whiteName);
           const nElement = createNotification({
             type: 'Play Next Game',
             msg: `You play ${color} against ${opponent} in this round of tourney #${id}.`,
@@ -1298,7 +1300,7 @@ export class Tournaments {
         const tourney = card.data('tournament-data');
         awaiting.set('td-players');
         awaiting.set('tourney-players-dialog');
-        this.session.send(`td players ${tourney.id}`);
+        session.send(`td players ${tourney.id}`);
       });
 
       /** 'Standings' button or link */
@@ -1309,7 +1311,7 @@ export class Tournaments {
         const tourney = card.data('tournament-data');
         awaiting.set('td-standardgrid');
         awaiting.set('tourney-standings-dialog');
-        this.session.send(`td standardgrid ${tourney.id}`);
+        session.send(`td standardgrid ${tourney.id}`);
       });
 
       /** 'Games' button */
@@ -1320,14 +1322,14 @@ export class Tournaments {
         const tourney = card.data('tournament-data');
         awaiting.set('td-games');
         awaiting.set('tourney-games-dialog');
-        this.session.send(`td games ${tourney.id}`);
+        session.send(`td games ${tourney.id}`);
       });
 
       /** 'Join' button */
       card.find('.tournament-join').on('click', () => {
         const tourney = card.data('tournament-data');
-        this.session.send(`td join ${tourney.id}`);
-        this.session.send('+ch 49'); // Subscribe user to Mamer Tournament channel
+        session.send(`td join ${tourney.id}`);
+        session.send('+ch 49'); // Subscribe user to Mamer Tournament channel
       });
 
       /** 'Withdraw' button */
@@ -1344,7 +1346,7 @@ export class Tournaments {
       /** 'Play Game' button */
       card.find('.tournament-play-game').on('click', () => {
         const tourney = card.data('tournament-data');
-        this.session.send(`td play ${tourney.id}`);
+        session.send(`td play ${tourney.id}`);
         removeNotification($('.notification[data-tournament-id]'));
       });
     }
@@ -1596,9 +1598,9 @@ export class Tournaments {
 
       card.on('click', '.koth-abdicate', () => {
         const data = card.data('tournament-data');
-        this.session.send(`td abdicate ${data.id}`);
+        session.send(`td abdicate ${data.id}`);
         if(data.seek != null) 
-          this.session.send(`unseek ${data.seek}`);
+          session.send(`unseek ${data.seek}`);
       });
     }
 
@@ -1609,7 +1611,7 @@ export class Tournaments {
       koth.challenge = koth.seek = undefined;
    
     const gameInProgress = !!koth.opponent || koth.game !== '-';
-    const user = this.session.getUser();
+    const user = session.getUser();
 
     // Change styling of card to show it's active when there is currently a king
     card.toggleClass('tournament-card-active', koth.king !== '-'); 
@@ -1680,14 +1682,14 @@ export class Tournaments {
     const challengeBtn = nElement.find('.button-success');
     const followBtn = nElement.find('.button-failure');
 
-    if(data.king === '-' || data.opponent === this.session.getUser()
+    if(data.king === '-' || data.opponent === session.getUser()
         || data.following || data.challenge) {
       removeNotification(nElement);
       return;
     }
 
     if(data.hasOwnProperty('opponent'))
-      challengeBtn.toggle(!data.opponent && this.session.isRegistered());
+      challengeBtn.toggle(!data.opponent && session.isRegistered());
     followBtn.toggle(this.kothFollowKing !== id);
   }
 
@@ -1736,14 +1738,14 @@ export class Tournaments {
         const data = card.data('tournament-data');
         const interested = !data.interested;
         if(interested) {
-          this.session.send('t teamleague join');
-          this.session.send('t teamleague set interested 1');
+          session.send('t teamleague join');
+          session.send('t teamleague set interested 1');
           // Send auto-message
-          this.session.send('+ch 101');
-          this.session.send('t 101 (Auto Message) I\'m interested in joining Team League. Please tell me how to get invovlved.');
+          session.send('+ch 101');
+          session.send('t 101 (Auto Message) I\'m interested in joining Team League. Please tell me how to get invovlved.');
         }
         else
-          this.session.send('t teamleague set interested 0');
+          session.send('t teamleague set interested 0');
       });
 
       card.data('tournament-data', {});
@@ -1911,7 +1913,7 @@ export class Tournaments {
           e.stopPropagation();
 
           const isFemale = !checkMark.hasClass('invisible');
-          this.session.send(`td set female ${isFemale ? '1' : '0'}`);
+          session.send(`td set female ${isFemale ? '1' : '0'}`);
         });
       }
       else if(groupName === 'other') {
@@ -2124,7 +2126,7 @@ export class Tournaments {
             challenge: offer.id,
           });
         }
-        else if(offer.type === 'pf' && type === kothData.type && kothData.king === this.session.getUser()) {
+        else if(offer.type === 'pf' && type === kothData.type && kothData.king === session.getUser()) {
           // If we are the King and 'Seek Game', a manual seek is sent. When an offer comes in, we get the variables
           // of the challenger and decline if they have private=1, and auto-accept if they have private=0. This is 
           // because mamer does not allow private KoTH games. 
@@ -2132,7 +2134,7 @@ export class Tournaments {
             offers.splice(offers.indexOf(offer), 1);
           
           awaiting.set('get-private-variable');
-          this.session.send(`variables ${offer.opponent}`);
+          session.send(`variables ${offer.opponent}`);
           kothData.offer = offer.id;
         }
         else if(offer.type === 'sn' && type === kothData.type) {
@@ -2142,7 +2144,7 @@ export class Tournaments {
             seek: offer.id,
           });
           if(kothData.offer) 
-            this.session.send(`accept ${kothData.offer}`);
+            session.send(`accept ${kothData.offer}`);
         }
       });
     });
@@ -2180,6 +2182,11 @@ export class Tournaments {
       });
     });
   }
+}
+
+export let tournaments: Tournaments;
+export function createTournaments() {
+  tournaments = new Tournaments();
 }
 
 export default Tournaments;

@@ -326,16 +326,25 @@ cg-board {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
+#close-status {
+  color: color-mix(in srgb, var(--fg-color) 50%, white 50%);
+}
+
+#left-panel-bottom.minimized .nav-tabs {
+  --bs-nav-tabs-border-color: color-mix(in srgb, var(--bs-border-color) 40%, white 60%);
+}
+
 .premove-target::before {
   color: white;
 }
 
-.modal-table {
+.table-standard {
   --bs-emphasis-color: var(--bs-body-color);
 }
-.modal-table thead {
+.table-standard thead {
   --bs-table-bg: color-mix(in srgb, var(--bg-color) 40%, white 60%);
   --box-shadow-color: color-mix(in srgb, var(--bg-color) 85%, black 15%);
+  --bs-table-color: color-mix(in srgb, var(--fg-color) 70%, white 30%);
 }
 
 .info-icon {
@@ -400,6 +409,18 @@ cg-board {
 .tournament-table-draw { color: #cc7000; }          
 .tournament-table-other-result { color: #7a42c1; }   
 .tournament-table-color { color: var(--fg-color); }
+
+#finger-notes-table {
+  border-color: var(--bs-border-color);
+}
+#finger-notes-table th {
+  background-color: #F0F3F6;
+  color: var(--modal-color);
+}
+#finger-notes-table td {
+  background-color: #FFFFFF;
+  color: var(--bs-modal-color);
+}
 
 .users-table tr.highlighted {
   background-color: color-mix(in srgb, var(--bg-color) 85%, black 15%);

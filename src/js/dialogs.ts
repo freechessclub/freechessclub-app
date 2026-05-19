@@ -20,6 +20,7 @@ export interface DialogParams {
   msg?: string;
   btnFailure?: (string | ((event: any) => void))[];
   btnSuccess?: (string | ((event: any) => void))[];
+  btnClose?: string | ((event: any) => void);
   useSessionSend?: boolean;
   icons?: boolean;
   progress?: boolean;
@@ -96,13 +97,22 @@ export function showDialog(params: DialogParams, position = 'middle'): any {
   return dialog;
 }
 
-export function createDialog({type = '', title = '', msg = '', btnFailure, btnSuccess, useSessionSend = false, icons = true, progress = false, htmlMsg = false}: DialogParams): JQuery<HTMLElement> {
+export function createDialog({type = '', title = '', msg = '', btnFailure, btnSuccess, btnClose, useSessionSend = false, icons = true, progress = false, htmlMsg = false}: DialogParams): JQuery<HTMLElement> {
+  let btnCloseHandler = null;
+  let closeCmd = '';
+  if(btnClose) {
+    if(typeof btnClose === 'function')
+      btnCloseHandler = btnClose;
+    if(typeof btnClose === 'string') 
+      closeCmd = `onclick="${useSessionSend ? `sessionSend('${btnClose}');` : `${btnClose}`}" `;
+  }
+  
   const dialogId = `dialog${dialogCounter++}`;
   let req = `
   <div id="${dialogId}" class="toast dialog" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true">
     <div class="toast-header">
       <strong class="header-text me-auto">${type}</strong>
-      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+      <button ${closeCmd}type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
     </div>
     <div class="toast-body">`;
 
@@ -167,6 +177,8 @@ export function createDialog({type = '', title = '', msg = '', btnFailure, btnSu
 
   const dialog = $(req);
 
+  if(btnCloseHandler) 
+    dialog.find('.btn-close').on('click', btnCloseHandler);
   if(btnSuccessHandler)
     dialog.find('.button-success').on('click', btnSuccessHandler);
   if(btnFailureHandler)

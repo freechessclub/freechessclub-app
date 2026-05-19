@@ -14,14 +14,15 @@ import NoSleep from '@uriopass/nosleep.js'; // Prevent screen dimming
 import * as Utils from './utils';
 import * as ChessHelper from './chess-helper';
 import * as Dialogs from './dialogs';
-import Tournaments from './tournaments';
-import Users from './users';
-import Chat from './chat';
+import { tournaments, createTournaments } from './tournaments';
+import { users, createUsers } from './users';
+import { chat, createChat } from './chat';
+import { profile, createProfile } from './profile';
 import { Clock } from './clock';
 import { Engine, EvalEngine, MaiaEngine } from './engine';
 import { Game, GameData, Role, NewVariationMode, games } from './game';
 import { History, HEntry } from './history';
-import { GetMessageType, MessageType, Session } from './session';
+import { GetMessageType, MessageType, session, createSession } from './session';
 import * as Sounds from './sounds';
 import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
@@ -85,10 +86,6 @@ type InviteGameInfo = {
   updatedAt: number;
 };
 
-let session: Session;
-let chat: Chat;
-let tournaments: Tournaments;
-let users: Users;
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
 let playEngine: Engine | MaiaEngine | null;
@@ -123,9 +120,8 @@ let newTabShown = false;
 let newGameVariant = '';
 const lobbyEntries = new Map();
 let lobbyScrolledToBottom;
+let lobbyCounter = 0;
 const noSleep = new NoSleep(); // Prevent screen dimming
-let openings; // Opening names with corresponding moves
-let fetchOpeningsPromise = null;
 let book; // Opening book used in 'Play Computer' mode
 let isRegistered = false;
 let lastComputerGame = null; // Attributes of the last game played against the Computer. Used for Rematch and alternating colors each game.
@@ -468,9 +464,10 @@ async function onDeviceReady() {
   initSessionSharing();
 
   seekGraph = new SeekGraph();
-  chat = new Chat();
-  tournaments = new Tournaments();
-  users = new Users();
+  createChat();
+  createTournaments();
+  createUsers();
+  createProfile();
   
   const game = createGame();
   game.role = Role.NONE;
@@ -515,28 +512,31 @@ async function onDeviceReady() {
 
   credential = new CredentialStorage();
   const hasInvite = hasInviteParams();
-  activeSessionOnLoad = hasInvite ? null : getOtherActiveSession();
+  const hasSharedGame = hasSharedGameParams();
+  activeSessionOnLoad = hasInvite || hasSharedGame ? null : getOtherActiveSession();
   const autoConnect = !hasInvite && !activeSessionOnLoad;
   if(settings.rememberMeToggle) {
-     // Get the username/password from secure storage (if the user has previously ticked Remember Me)
-    credential.retrieve().then(() => {
-      if(credential.username != null && credential.password != null) 
-        session = new Session(messageHandler, credential.username, credential.password, autoConnect);
-      else 
-        session = new Session(messageHandler, undefined, undefined, autoConnect);
-      if(activeSessionOnLoad)
-        showActiveSessionPrompt(activeSessionOnLoad);
-    });
+    // Get the username/password from secure storage (if the user has previously ticked Remember Me)
+    await credential.retrieve();
+    if(credential.username != null && credential.password != null) 
+      createSession(messageHandler, credential.username, credential.password, autoConnect);
+    else 
+      createSession(messageHandler, undefined, undefined, autoConnect);
+    if(activeSessionOnLoad)
+      showActiveSessionPrompt(activeSessionOnLoad);
   }
   else {
     $('#login-user').val('');
     $('#login-pass').val('');
-    session = new Session(messageHandler, undefined, undefined, autoConnect);
+    createSession(messageHandler, undefined, undefined, autoConnect);
     if(activeSessionOnLoad)
       showActiveSessionPrompt(activeSessionOnLoad);
   }
 
-  initInviteFromUrl();
+  if(hasSharedGame)
+    initSharedGameFromUrl();
+  else if(hasInvite)
+    initInviteFromUrl();
 
   document.addEventListener('visibilitychange', updateForegroundServiceState);
 }
@@ -830,7 +830,7 @@ function setPanelSizes() {
   bottomPanel.css('--panel-height', bottomPanel.css('height'));
   bottomPanel.css('--panel-width', bottomPanel.css('width'));
 
-  setLeftColumnSizes();
+  setLeftColumnSizes(false);
   setRightColumnSizes();
 
   // Adjust Notifications drop-down width
@@ -842,13 +842,13 @@ function setPanelSizes() {
     $('#notifications').width($(document).outerWidth(true) - $('#left-col').outerWidth(true) - $('#mid-col').outerWidth(true));
 }
 
-function setLeftColumnSizes() {
+function setLeftColumnSizes(redrawBoard = true) {
   const boardHeight = $('#main-board-area .board').innerHeight();
 
   // set height of left menu panel inside collapsable
-  if (boardHeight) {
+  if(boardHeight) {
     if($('#left-panel').height() === 0)
-      $('#left-panel-bottom').css('height', '');
+      $('#left-panel-bottom-content').css('height', '');
 
     if(Utils.isSmallWindow())
       $('#left-panel').css('height', ''); // Reset back to CSS defined height
@@ -860,9 +860,12 @@ function setLeftColumnSizes() {
       // If we've made the left panel height as small as possible, reduce size of status panel instead
       // Note leftPanelHeight is negative in that case
       if(leftPanelHeight < 0)
-        $('#left-panel-bottom').height($('#left-panel-bottom').height() + leftPanelHeight);
+        $('#left-panel-bottom-content').height($('#left-panel-bottom-content').height() + leftPanelHeight);
     }
 
+    if(redrawBoard && Utils.isSmallWindow()) 
+      setTimeout(() => { games.getMainGame()?.board?.redrawAll(); }, 0);
+  
     seekGraph.update();
   }
 }
@@ -1029,6 +1032,7 @@ function useMobileLayout() {
   $('#stop-examining').appendTo($('#viewing-game-buttons').last());
   $('#viewing-games-buttons:visible:last').addClass('me-0'); // This is so visible buttons in the btn-toolbar center properly
   hidePanel('#left-panel-header-2');
+  
   $('#input-text').attr('placeholder', 'Type message here and press Enter');
 
   Utils.createTooltips();
@@ -1049,10 +1053,11 @@ function useDesktopLayout() {
 
   $('#stop-observing').appendTo($('#left-panel-header-2').last());
   $('#stop-examining').appendTo($('#left-panel-header-2').last());
-  if(games.focused.isObserving() || games.focused.isExamining())
-    showPanel('#left-panel-header-2');
+  if($('#left-panel-header-2').find('.btn:visible').length)
+    $('#left-panel-header-2').show();
+  $('#left-panel-footer').css('display', 'flex');  
+  
   $('#input-text').attr('placeholder', 'Type message here and press Enter to send!');
-
   Utils.createTooltips();
 }
 
@@ -1113,8 +1118,8 @@ function messageHandler(data: any) {
         awaiting.set('censor-list');
         session.send('=noplay'); // Get user's noplay list for context-menu toggles
         awaiting.set('noplay-list');
-        chat.connected(data.control);
-        tournaments.connected(session);
+        chat.connected();
+        tournaments.connected();
 
         if($('#pills-observe').hasClass('active'))
           initObservePane();
@@ -1135,7 +1140,8 @@ function messageHandler(data: any) {
         session.sendPostConnectCommands();
         $('#sign-in-alert').removeClass('show');
 
-        users.connected(session, chat);
+        users.connected();
+        profile.connected();        
 
         updateForegroundServiceNotification();
 
@@ -1144,7 +1150,7 @@ function messageHandler(data: any) {
 
         updateForegroundServiceState();
 
-          completeInviteJoin();
+        completeInviteJoin();
         startActiveSessionAnnounce();
       }
       else if(data.command === 2) { // Login error
@@ -1158,6 +1164,7 @@ function messageHandler(data: any) {
       }
       else if(data.command === 3) { // Disconnected
         cleanup();
+        profile.disconnected();
         stopActiveSessionAnnounce();
         const panelHtml = `<div class="not-signed-in-notice">Not signed in. <a href="javascript:void(0)">Sign in</a></div>`;
         $('#chat-panel .nav-tabs').append(panelHtml);
@@ -1568,6 +1575,8 @@ function gameStart(game: Game) {
     if(game.role !== Role.NONE)
       showStatusPanel();
   }
+  if(game.isPlayingOnline())
+    $('.tournament-table-modal').modal('hide');
 
   if(!mainGame || game.id !== mainGame.partnerGameId)
     scrollToBoard(game);
@@ -1638,7 +1647,7 @@ function handleOffers(offers: any[]) {
 
   // Clear the lobby
   if(offers[0]?.type === 'sc') {
-    $('#lobby-table').html('');
+    $('#lobby-table-body').html('');
     seekGraph.removeAllPoints();
   }
 
@@ -1646,20 +1655,51 @@ function handleOffers(offers: any[]) {
   const seeks = offers.filter((item) => item.type === 's');
   if(seeks.length && awaiting.has('lobby')) {
     seeks.forEach((item) => {
-      if(!settings.lobbyShowComputersToggle && item.title === 'C')
+      // Filter lobby entries
+      if(!settings.lobbyFilter.computers && item.title === 'C')
         return;
-      if(!settings.lobbyShowUnratedToggle && item.ratedUnrated === 'u')
+      if(!settings.lobbyFilter.humans && item.title !== 'C')
         return;
+      if(session.isRegistered() && !settings.lobbyFilter.unrated && item.ratedUnrated === 'u')
+        return;
+      if(session.isRegistered() && !settings.lobbyFilter.rated && item.ratedUnrated === 'r')
+        return;
+      if(item.category === 'wild/fr') {
+        if(!settings.lobbyFilter.chess960)
+          return;
+      }
+      else if(item.category.startsWith('wild')) {
+        if(!settings.lobbyFilter.wild)
+          return;
+      } 
+      else if(settings.lobbyFilter.hasOwnProperty(item.category) && !settings.lobbyFilter[item.category])
+        return;
+
+      const lobbyTableRow = $(`<tr data-sort-value="${lobbyCounter++}" data-offer-id="${item.id}" class="lobby-entry clickable-row" tabindex="0" role="button">
+          <td>${item.toFrom}${item.title !== '' ? `(${item.title})` : ''}</td>
+          <td>${item.rating}</td>
+          <td data-sort-value="${item.initialTime + item.increment * 2/3}">${item.initialTime} ${item.increment}</td>
+          <td>${item.ratedUnrated} ${item.category === 'wild/fr' ? 'chess960' : item.category}${item.color !== '?' ? ` ${item.color}` : ''}</td>
+        </tr>`);
+      $('#lobby-table-body').append(lobbyTableRow);
+
+      lobbyTableRow.on('click', function() {
+        acceptSeek(item.id);
+      });
+
+      lobbyTableRow.on('keydown', function (e) {
+        if(e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          $(this).trigger('click');
+        }
+      });
 
       item.text = formatLobbyEntry(item);
-
-      $('#lobby-table').append(
-        `<button type="button" data-offer-id="${item.id}" class="btn btn-outline-secondary lobby-entry"`
-          + ` onclick="acceptSeek(${item.id});">${item.text}</button>`);
-    
       seekGraph.addPoint(item);
     });
 
+    Utils.sortTable($('#lobby-table'));
+    
     if(lobbyScrolledToBottom) {
       const container = $('#lobby-table-container')[0];
       container.scrollTop = container.scrollHeight;
@@ -2092,8 +2132,25 @@ function handleMiscMessage(data: any) {
     return;
   }
 
-  if((msg.startsWith('Finger of') || msg.startsWith('There is no (registered )?player matching the name') || /^'\S+' is not a valid handle/.test(msg)) && awaiting.resolve('info-finger')) {
-    Dialogs.showInfoDialog('Finger Info', msg);
+  if((msg.startsWith('Finger of') || msg.startsWith('There is no (registered )?player matching the name') || /^'\S+' is not a valid handle/.test(msg)) && (awaiting.has('info-finger') || awaiting.has('profile-finger'))) {
+    if(awaiting.resolve('info-finger')) {
+      const fingerMatch = msg.match(/^(Finger of .+?):/m);
+      if(fingerMatch) {
+        let fingerText = msg.split(/\r?\n/).slice(2).join('\n');
+        const gameStatsMatch = fingerText.match(/(?<=\n)([ \t]*rating[\s\S]+?)(?=$|\n\s*\n)/);
+        if(gameStatsMatch) {
+          const parts = Utils.splitBeforeAfterMatch(fingerText, gameStatsMatch); 
+          fingerText = `${parts.before}\n\n<div class="overflow-auto pb-2" style="white-space: pre;">${parts.matching}</div>\n\n${parts.after}`
+        }
+        Dialogs.showInfoDialog(fingerMatch[1], fingerText);
+      }
+      else 
+        Dialogs.showInfoDialog('Finger Info', msg);
+    }
+    else if(awaiting.resolve('profile-finger') && msg.startsWith('Finger of')) {
+      const finger = profile.parseFinger(msg);
+      profile.showProfileModal(finger);
+    }
     return;
   }
 
@@ -3737,7 +3794,7 @@ function createNewVariationMenu(game: Game) {
 }
 
 function flipBoard(game: Game) {
-  game.board.toggleOrientation();
+  setTimeout(() => { game.board.toggleOrientation() }, 0);
 
   // Flip eval bar
   game.element.find('.eval-bar-segment:first-child').appendTo(game.element.find('.eval-bar'));
@@ -3787,11 +3844,6 @@ function gameToDests(game: Game) {
   return ChessHelper.toDests(hEntry.fen, game.history.first().fen, game.category, hEntry.variantData);
 }
 
-/** Wrapper function for updateVariantMoveData */
-function updateGameVariantMoveData(game: Game) {
-  game.history.current().variantData = ChessHelper.updateVariantMoveData(game.history.prev().fen, game.history.current().move, game.history.prev().variantData, game.category);
-}
-
 export function parseMovelist(game: Game, movelist: string) {
   let found: RegExpMatchArray | null;
   let n = 1;
@@ -3826,8 +3878,6 @@ export function parseMovelist(game: Game, movelist: string) {
           break;
         fen = parsedMove.fen;
         game.history.add(parsedMove.move, parsedMove.fen, false, wtime, btime);
-        getOpening(game);
-        updateGameVariantMoveData(game);
       }
       if(found.length > 5 && found[5]) {
         const m2 = found[5].trim();
@@ -3837,8 +3887,6 @@ export function parseMovelist(game: Game, movelist: string) {
           break;
         fen = parsedMove.fen;
         game.history.add(parsedMove.move, parsedMove.fen, false, wtime, btime);
-        getOpening(game);
-        updateGameVariantMoveData(game);
       }
       n++;
     }
@@ -3887,8 +3935,6 @@ function updateHistory(game: Game, move?: any, fen?: string, serverIssued = true
       }
 
       game.history.add(move, fen, newSubvariation, game.wtime, game.btime);
-      getOpening(game);
-      updateGameVariantMoveData(game);
 
       if(currMove) 
         game.history.goto(currMove);   
@@ -4063,7 +4109,7 @@ function initGameControls(game: Game) {
   if(game !== games.focused)
     return;
 
-  Utils.removeWithTooltips($('.context-menu'));
+  Utils.removeWithPoppers($('.context-menu'));
   initAnalysis(game);
   initGameTools(game);
 
@@ -4094,30 +4140,22 @@ function initGameControls(game: Game) {
 
   $('#takeback').prop('disabled', game.role === Role.PLAYING_COMPUTER);
 
-  if((game.isExamining() || game.isObserving()) && !Utils.isSmallWindow())
-    showPanel('#left-panel-header-2');
-  else
-    hidePanel('#left-panel-header-2');
-
   if(game.setupBoard)
     showPanel('#left-panel-setup-board');
   else
     hidePanel('#left-panel-setup-board');
 
   if(game.isExamining())
-    Utils.showButton($('#stop-examining'));
+    showHeaderFooterButton($('#stop-examining'));
   else if(game.isObserving())
-    Utils.showButton($('#stop-observing'));
+    showHeaderFooterButton($('#stop-observing'));
 
   if(!game.isExamining())
-    Utils.hideButton($('#stop-examining'));
+    hideHeaderFooterButton($('#stop-examining'));
   if(!game.isObserving())
-    Utils.hideButton($('#stop-observing'));
+    hideHeaderFooterButton($('#stop-observing'));
 
-  if(game.isPlaying())
-    showStatusPanel();
-  else
-    initStatusPanel();
+  initStatusPanel();
 }
 
 function makeMainBoard(game: Game) {
@@ -4127,7 +4165,7 @@ function makeMainBoard(game: Game) {
   game.element.find('.title-bar').css('display', 'none');
   game.element.appendTo('#main-board-area');
   game.board.set({ coordinates: true });
-  game.board.redrawAll(); // Redraw board coordinates
+  setTimeout(() => { game.board.redrawAll() }, 0); // Redraw board coordinates
 }
 
 function makeSecondaryBoard(game: Game) {
@@ -4137,7 +4175,7 @@ function makeSecondaryBoard(game: Game) {
   game.element.find('.title-bar').css('display', 'block');
   game.element.appendTo('#secondary-board-area');
   game.board.set({ coordinates: false });
-  game.board.redrawAll(); // Redraw board coordinates
+  setTimeout(() => { game.board.redrawAll() }, 0); // Redraw board coordinates
   if(!Utils.isSmallWindow()) {
     $('body').removeClass('chat-hidden');
   }
@@ -4242,8 +4280,8 @@ function cleanupGame(game: Game) {
   game.role = Role.NONE;
 
   if(game === games.focused) {
-    Utils.hideButton($('#stop-observing'));
-    Utils.hideButton($('#stop-examining'));
+    hideHeaderFooterButton($('#stop-observing'));
+    hideHeaderFooterButton($('#stop-examining'));
     hidePanel('#left-panel-header-2');
     $('#takeback').prop('disabled', false);
     $('#play-computer').prop('disabled', false);
@@ -4286,45 +4324,6 @@ function cleanupGame(game: Game) {
   game.removeMoveRequested = null;
   game.pendingMoves = [];
   game.restoreMove = null;
-}
-
-async function getOpening(game: Game) {
-  const historyItem = game.history.current();
-
-  const fetchOpenings = async () => {
-    const inputFilePath = 'assets/data/openings.tsv';
-    openings = new Map();
-    await fetch(inputFilePath)
-      .then(response => response.text())
-      .then(data => {
-        const rows = data.split('\n');
-        for(const row of rows) {
-          const cols = row.split('\t');
-          if(cols.length === 4 && cols[2].startsWith('1.')) {
-            const eco = cols[0];
-            const name = cols[1];
-            const moves = cols[2];
-            const fen = cols[3];
-            const fenNoPlyCounts = fen.split(' ').slice(0, -2).join(' ');
-            openings.set(fenNoPlyCounts, {eco, name, moves});
-          }
-        }
-      })
-      .catch(error => {
-        Utils.logError('Couldn\'t fetch opening:', error);
-      });
-  };
-
-  if(!openings && !fetchOpeningsPromise) {
-    fetchOpeningsPromise = fetchOpenings();
-  }
-  await fetchOpeningsPromise;
-
-  const shortFen = historyItem.fen.split(' ').slice(0, -2).join(' '); // Remove ply counts
-  const opening = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard'].includes(game.category)
-    ? openings.get(shortFen) : null;
-  historyItem.opening = opening;
-  game.history.updateOpeningMetatags();
 }
 
 /** *********************
@@ -4488,6 +4487,8 @@ $('#collapse-menus').on('hidden.bs.collapse', () => {
   $('#pills-placeholder-tab').tab('show'); // switch to a hidden tab in order to hide the active one
 
   $('#collapse-menus').removeClass('collapse-init');
+
+  setLeftColumnSizes();
 });
 
 $('#collapse-menus').on('show.bs.collapse', () => {
@@ -4528,11 +4529,16 @@ export function showTab(tab: any) {
     activeTab = tab;
 }
 
-function showPanel(id: string) {
-  const elem = $(id);
-  elem.show();
+function showPanel(elem: string | JQuery<HTMLElement>, flex = false) {
+  if(typeof elem === 'string')
+    elem = $(elem);
 
-  if(elem.closest('#left-col'))
+  if(flex)
+    elem.css('display', 'flex');
+  else  
+    elem.show();
+
+  if(elem.closest('#left-col')) 
     setLeftColumnSizes();
   else if(elem.closest('#right-col'))
     setRightColumnSizes();
@@ -4540,16 +4546,37 @@ function showPanel(id: string) {
     setPanelSizes();
 }
 
-function hidePanel(id: string) {
-  const elem = $(id);
+function hidePanel(elem: string | JQuery<HTMLElement>) {
+  if(typeof elem === 'string')
+    elem = $(elem);
   elem.hide();
 
-  if(elem.closest('#left-col'))
+  if(elem.closest('#left-col')) 
     setLeftColumnSizes();
   else if(elem.closest('#right-col'))
     setRightColumnSizes();
   else
     setPanelSizes();
+}
+
+/**
+ * Makes sure the containing header/footer panel is showing when showing a child button
+ */
+function showHeaderFooterButton(button: JQuery<HTMLElement>) {
+  showPanel(button.closest('.card-header, .card-footer'), true);
+  Utils.showButton(button);
+}
+
+/**
+ * After hiding a button within a header/footer. Check to see if the parent panel should be hidden
+ * when there are no longer any visible buttons. (to save room on mobile etc)
+ */
+function hideHeaderFooterButton(button: JQuery<HTMLElement>) {
+  if(!Utils.hideButton(button))
+    return;
+  const panel = button.closest('.card-header, .card-footer');
+  if((panel.attr('id') === 'left-panel-header-2' || Utils.isSmallWindow()) && !panel.find('.btn:visible').length) 
+    hidePanel(panel);
 }
 
 $('#stop-observing').on('click', () => {
@@ -4920,15 +4947,20 @@ function playMaiaMove(game: Game, policy: [string, number][], value: number) {
   playComputerBestMove(game, candidates[candidates.length - 1][0], String(value));
 }
 
+/**
+ * Shows a progress bar while the Maia weights file is downloading
+ * @param game The game we are attempting to start
+ * @param progress A percentage value between 0 and 100
+ */
 function downloadMaiaProgress(game: Game, progress: number) {
   if(progress === 100) {
-    $('#download-maia-progress').remove();
+    $('#download-maia-dialog').remove();
     return;
   }
 
-  if(progress === 0 && !$('#download-maia-progress').length) {
+  if(progress === 0 && !$('#download-maia-dialog').length) {
     const msg = `
-      <div class="center w-100" style="height: 50px">
+      <div id="download-maia-progress" class="center w-100" style="height: 50px">
         <div class="progress h-100 w-100">
           <div class="progress-bar" role="progressbar" aria-label="Downloading Maia" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
         </div>
@@ -4944,7 +4976,7 @@ function downloadMaiaProgress(game: Game, progress: number) {
       btnFailure: [abortHandler, 'Abort'],
       htmlMsg: true
     });
-    dialog.attr('id', 'download-maia-progress');
+    dialog.attr('id', 'download-maia-dialog');
   }
   
   $('#download-maia-progress .progress-bar')
@@ -5126,7 +5158,7 @@ function generateInviteToken(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function getInviteBaseUrl(): string {
+function getBaseUrl(): string {
   const fallbackOrigin = 'https://freechess.org';
   const protocol = window.location.protocol;
   const hostname = window.location.hostname;
@@ -5159,7 +5191,7 @@ function buildInviteLink(invite: InviteCreateState): string {
   params.set('inc', String(invite.inc));
   params.set('rated', invite.rated === 'r' ? '1' : '0');
   params.set('color', invite.color);
-  const baseUrl = getInviteBaseUrl();
+  const baseUrl = getBaseUrl();
   return `${baseUrl}?${params.toString()}`;
 }
 
@@ -5454,7 +5486,7 @@ function showInviteJoinDialog(invite: InviteJoinState) {
           session.disconnect();
           session.destroy();
         }
-        session = new Session(messageHandler, desiredHandle);
+        createSession(messageHandler, desiredHandle);
       }
       else
         completeInviteJoin();
@@ -5467,7 +5499,7 @@ function showInviteJoinDialog(invite: InviteJoinState) {
         session.disconnect();
         session.destroy();
       }
-      session = new Session(messageHandler);
+      createSession(messageHandler);
     }
     dialog.toast('hide');
   });
@@ -5575,6 +5607,63 @@ function initInviteFromUrl() {
 function hasInviteParams(): boolean {
   const params = new URLSearchParams(window.location.search);
   return params.has('invite') || params.has('seek');
+}
+
+/**
+ * Check if the URL search params contains a shared game 
+ */
+function hasSharedGameParams(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.has('g');
+}
+
+/**
+ * Loads a game from a URL that was created with Share Game button 
+ */
+function initSharedGameFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const gameParam = params.get('g'); // encoded move list
+  if(!gameParam)
+    return null;
+  const game = games.focused;
+
+  let category = 'standard';
+  const variantParam = params.get('v'); 
+  if(variantParam) {
+    const variants = {
+      x: 'atomic',
+      z: 'crazyhouse',
+      B: 'bughouse',
+      L: 'losers',
+      S: 'suicide', 
+      fr: 'wild/fr',
+      w0: 'wild/0', 
+      w1: 'wild/1', 
+      w2: 'wild/2', 
+      w3: 'wild/3', 
+      w4: 'wild/4', 
+      w5: 'wild/5', 
+      w8: 'wild/8', 
+      w8a: 'wild/8a'
+    }
+    category = variants[variantParam];
+  }
+
+  const fen = params.get('f');
+  newGame(false, game, category, fen);
+  const metatags = game.history.metatags;
+  metatags.White = params.get('w') || '';
+  metatags.Black = params.get('b') || '';
+  metatags.WhiteElo = params.get('wr') || '';
+  metatags.BlackElo = params.get('br') || '';
+  let time = params.get('t');
+  if(time) {
+    const splitTime = time.split(' ');
+    metatags.TimeControl = `${+splitTime[0] * 60}+${splitTime[1]}`  
+  }
+  updateGameFromMetatags(game);
+  game.history.decode(gameParam);
+  game.history.display();
 }
 
 function clearMatchRequests() {
@@ -5705,7 +5794,7 @@ function initLobbyPane() {
     else
       $('#lobby-show-unrated').parent().hide();
 
-    if(settings.lobbyShowComputersToggle) {
+    if(settings.lobbyFilter.computers) {
       $('#lobby-show-computers-icon').removeClass('fa-eye-slash');
       $('#lobby-show-computers-icon').addClass('fa-eye');
     }
@@ -5714,7 +5803,7 @@ function initLobbyPane() {
       $('#lobby-show-computers-icon').addClass('fa-eye-slash');
     }
 
-    if(settings.lobbyShowUnratedToggle) {
+    if(settings.lobbyFilter.unrated) {
       $('#lobby-show-unrated-icon').removeClass('fa-eye-slash');
       $('#lobby-show-unrated-icon').addClass('fa-eye');
     }
@@ -5722,10 +5811,17 @@ function initLobbyPane() {
       $('#lobby-show-unrated-icon').removeClass('fa-eye');
       $('#lobby-show-unrated-icon').addClass('fa-eye-slash');
     }
+    
+    $('#lobby-show-computers').prop('checked', settings.lobbyFilter.computers);
+    $('#lobby-show-unrated').prop('checked', settings.lobbyFilter.unrated);
+    for(const [key, value] of Object.entries(settings.lobbyFilter)) {
+      const checkBox = $(`#lobby-filter-menu [data-filter-name="${key}"]`);
+      checkBox.prop('checked', value);
+    }
+    $('#lobby-filter-menu [data-filter-name="rated"]').parent().toggle(session.isRegistered());
+    $('#lobby-filter-menu [data-filter-name="unrated"]').parent().toggle(session.isRegistered());
 
-    $('#lobby-show-computers').prop('checked', settings.lobbyShowComputersToggle);
-    $('#lobby-show-unrated').prop('checked', settings.lobbyShowUnratedToggle);
-    $('#lobby-table').html('');
+    $('#lobby-table-body').html('');
     lobbyScrolledToBottom = true;
     awaiting.set('lobby');
     lobbyEntries.clear();
@@ -5740,7 +5836,7 @@ $(document).on('hidden.bs.tab', 'button[data-bs-target="#pills-lobby"]', () => {
 
 function leaveLobbyPane() {
   if(awaiting.resolve('lobby')) {
-    $('#lobby-table').html('');
+    $('#lobby-table-body').html('');
     if(session && session.isConnected()) {
       session.send('iset seekremove 0');
       session.send('iset seekinfo 0');
@@ -5759,14 +5855,24 @@ function hideLobbyStatus() {
 }
 
 $('#lobby-show-computers').on('change', function () {
-  settings.lobbyShowComputersToggle = $(this).is(':checked');
-  storage.set('lobbyshowcomputers', String(settings.lobbyShowComputersToggle));
+  settings.lobbyFilter.computers = $(this).is(':checked');
+  $('#lobby-filter-menu [data-filter-name="computers"').prop('checked', settings.lobbyFilter.computers);
+  storage.set('lobby-filter', JSON.stringify(settings.lobbyFilter));
   initLobbyPane();
 });
 
 $('#lobby-show-unrated').on('change', function () {
-  settings.lobbyShowUnratedToggle = $(this).is(':checked');
-  storage.set('lobbyshowunrated', String(settings.lobbyShowUnratedToggle));
+  settings.lobbyFilter.unrated = $(this).is(':checked');
+  $('#lobby-filter-menu [data-filter-name="unrated"').prop('checked', settings.lobbyFilter.unrated);
+  storage.set('lobby-filter', JSON.stringify(settings.lobbyFilter));
+  initLobbyPane();
+});
+
+$('#lobby-filter-menu').on('change', '.form-check-input', (e) => {
+  const checkbox = $(e.currentTarget);
+  const name = checkbox.data('filter-name');
+  settings.lobbyFilter[name] = checkbox.is(':checked');
+  storage.set('lobby-filter', JSON.stringify(settings.lobbyFilter));
   initLobbyPane();
 });
 
@@ -5799,18 +5905,35 @@ $('#lobby-table-container').on('scroll', () => {
   lobbyScrolledToBottom = container.scrollHeight - container.clientHeight < container.scrollTop + 1.5;
 });
 
+$('#lobby-table').on('click', '.sortable-column', (e) => {
+  let defaultSortAttr = $('#lobby-table > thead > tr').attr('data-sort');
+  const defaultSortBefore = defaultSortAttr === 'asc' || defaultSortAttr === 'desc';
+
+  const col = $(e.currentTarget);
+  Utils.sortTable($('#lobby-table'), col, true);
+
+  defaultSortAttr = $('#lobby-table > thead > tr').attr('data-sort');
+  const defaultSortAfter = defaultSortAttr === 'asc' || defaultSortAttr === 'desc';
+  
+  const container = $('#lobby-table-container')[0];
+  if(defaultSortAfter) 
+    container.scrollTop = container.scrollHeight;
+  else if(defaultSortBefore) 
+    container.scrollTop = 0;
+});
+
 function formatLobbyEntry(seek: any): string {
   const title = (seek.title !== '' ? `(${seek.title})` : '');
   const color = (seek.color !== '?' ? ` ${seek.color}` : '');
   const rating = (seek.rating !== '' ? `(${seek.rating})` : '');
   return `${seek.toFrom}${title}${rating} ${seek.initialTime} ${seek.increment} `
-    + `${seek.ratedUnrated} ${seek.category}${color}`;
+    + `${seek.ratedUnrated} ${seek.category === 'wild/fr' ? 'chess960' : seek.category}${color}`;
 }
 
-(window as any).acceptSeek = (id: number) => {
+function acceptSeek(id: number) {
   awaiting.set('match');
   session.send(`play ${id}`);
-};
+}
 
 /** ************************
  * OBSERVE PANEL FUNCTIONS *
@@ -6208,6 +6331,9 @@ function initGameTools(game: Game) {
     updateGamePreserved(game);
     updateEditMode(game);
     $('#game-open-chat').prop('disabled', !canOpenAssociatedChat(game));
+
+    $('#game-share').prop('disabled', !SupportedCategories.includes(game.category));
+
     $('#game-tools-clone').parent().toggle(settings.multiboardToggle); // Only show 'Duplicate GAme' option in multiboard mode
     $('#game-tools-clone').toggleClass('disabled', game.isPlaying()); // Don't allow cloning of a game while playing (could allow cheating)
 
@@ -6357,6 +6483,62 @@ function updateGamePreserved(game: Game, preserved?: boolean) {
   }
 }
 
+/** Create and display a share game URL */
+$('#game-share').on('click', () => {
+  const game = games.focused;
+  const moves = game.history.encode(); // Encode moves as a URL safe string
+  
+  const variants = {
+    'atomic': 'x',
+    'crazyhouse': 'z',
+    'bughouse': 'B',
+    'losers': 'L',
+    'suicide': 'S',
+    'wild/fr': 'fr',
+    'wild/0': 'w0',
+    'wild/1': 'w1',
+    'wild/2': 'w2',
+    'wild/3': 'w3',
+    'wild/4': 'w4',
+    'wild/5': 'w5',
+    'wild/8': 'w8',
+    'wild/8a': 'w8a'
+  }
+
+  const metatags = game.history.metatags;
+  const params = new URLSearchParams();
+  if(metatags.White || game.wname) 
+    params.set('w', metatags.White || game.wname || '');
+  if(game.wrating)
+    params.set('wr', game.wrating);
+  if(metatags.Black || game.bname) 
+    params.set('b', metatags.Black || game.bname || '');
+  if(game.brating)
+    params.set('br', game.brating);
+  if(game.time !== 0 || game.inc !== 0) 
+    params.set('t', `${game.time} ${game.inc}`);
+  if(variants[game.category]) 
+    params.set('v', variants[game.category]);
+  if(game.history.first().fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+    params.set('f', game.history.first().fen);
+  params.set('g', moves);
+  const url = `${getBaseUrl()}?${params.toString()}`;
+  
+  const dialogHtml = `
+  <div class="position-relative">
+    <input type="text" class="share-game-input form-control" value="${url}" style="padding-right: 2.5rem;" spellcheck="false" readonly>
+    <button type="button" class="share-game-copy btn btn-outline-secondary btn-transparent" style="position: absolute; top: 0; right: 0;" data-bs-toggle="tooltip" title="Copy to Clipboard"><span class="fa-regular fa-clone"></span></button>
+  </div>`;
+  const dialog = Dialogs.showDialog({type: 'Share Game Link', msg: dialogHtml, btnFailure: null, btnSuccess: null, htmlMsg: true});
+  const button = dialog.find('.share-game-copy');
+  const input = dialog.find('.share-game-input');
+  Utils.createTooltip(button);
+  Utils.selectOnFocus(input);
+  button.on('click', (event) => {
+    Utils.copyToClipboard(input, $(event.currentTarget));
+  });
+});
+
 /** New Game menu item selected */
 $('#game-tools-new').on('click', () => {
   newGameDialog(games.focused);
@@ -6423,7 +6605,7 @@ function newGameDialog(game: Game, category = 'untimed') {
       button2 = ['', 'Cancel'];
       showIcons = true;
     }
-    Dialogs.showDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons});
+    Dialogs.showDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: button2, btnSuccess: button1, icons: showIcons, htmlMsg: true});
   }
   else if(settings.multiboardToggle)
     newGame(true, game, category);
@@ -6473,6 +6655,7 @@ function newGame(createNewBoard: boolean, game?: Game, category = 'untimed', fen
   }
   Object.assign(game, data);
   game.statusElement.find('.game-status').html('');
+  game.statusElement.find('.info-panel-status').show();
   gameStart(game);
 
   return game;
@@ -6710,8 +6893,6 @@ function parsePGNVariation(game: Game, variation: any) {
     game.history.setCommentAfter(currHEntry, move.commentAfter);
     if(move.nag)
       move.nag.forEach((nag) => game.history.setAnnotation(currHEntry, nag));
-    getOpening(game);
-    updateGameVariantMoveData(game);
     newSubvariation = false;
 
     for(const subvariation of move.variations) {
@@ -6820,6 +7001,7 @@ function updateGameFromMetatags(game: Game) {
         }
       }
 
+      game.statusElement.find('.info-panel-status').hide();
       game.statusElement.find('.game-status').text(status);
     }
   }
@@ -6854,26 +7036,118 @@ $('#game-list-filter').on('input', gameListFilterHandler);
  */
 async function addGameListItems(game: Game) {
   let listItems = [];
+
+  // Strip punctuation and whitespace from filter words
+  const filter = game.gameListFilter
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .trim()
+    .split(/\s+/);
+
   for(let i = 0; i < game.historyList.length; i++) {
     const h = game.historyList[i];
-    const description = getGameListDescription(h, true);
-    if(description.toLowerCase().includes(game.gameListFilter.toLowerCase()))
-      listItems.push([i, description]);
+    const info = getGameListInfo(h);
+
+    // The order columns are displayed in the game list table
+    const order = ['dateTime', 'wname', 'wrating', 'bname', 'brating', "result", 'timeControl', 'opening'];
+    if(info.id)
+      order[1] = 'id'; // If this is a FEN or Analysis game, display its id in the 'White' player name column (for lack of a better spot)
+    if(info.fen)
+      order[3] = 'fen'; // If this is a FEN position, display the FEN in the 'Black' player name column
+    const infoArr = order.map(key => info[key]); // Extract properties as an array 
+
+    // Apply a logical AND filtering on rows using filter words
+    const matches = filter.every(filterWord => {
+      return infoArr.some(item => item && String(item).toLowerCase().includes(filterWord));
+    });
+
+    if(matches) {
+      infoArr.push(i); // Add PGN game index as 'default sort' value, i.e. when no sort tabs are clicked then display games in the order they were added
+      listItems.push(infoArr); // Array of data rows
+    }
   }
+
+  Utils.sortTable($('#game-list-menu'), null, true, listItems); // sort listItems using the table's current sort order
 
   if(!gameListVirtualScroller) {
     const { default: VirtualScroller } = await import('virtual-scroller/dom');
-    gameListVirtualScroller = new VirtualScroller($('#game-list-menu')[0], listItems, (item: [number, string]) => {
-      const elem = $(`<li style="width: max-content;" class="game-list-item"><a class="dropdown-item" data-index="${item[0]}">${item[1]}</a></li>`);
+    gameListVirtualScroller = new VirtualScroller($('#game-list-body')[0], listItems, (item: any) => {
+      const index = item[item.length - 1];
+      const elem = $(
+        `<tr class="game-list-item clickable-row" data-sort-value="${index}" data-index="${index}">
+          <td>${item[0]}</td>
+          <td>${item[1]}</td>
+          <td class="text-end">${item[2]}</td>
+          <td>${item[3]}</td>
+          <td class="text-end">${item[4]}</td>
+          <td class="text-center">${item[5]}</td>
+          <td>${item[6]}</td>
+          <td>${item[7]}</td>
+        </tr>`);
       return elem[0];
     }, {
       scrollableContainer: $('#game-list-scroll-container')[0],
     });
   }
   else {
-    gameListVirtualScroller.setItems(listItems);
+    gameListVirtualScroller.setItems(listItems); // Load listItems as <tr> elements into virtual scroller
     $('#game-list-scroll-container')[0].scrollTop = 0;
   }
+}
+
+/**
+ * Extracts information from a game's PGN metatags in a format ready to be displayed in a table or list 
+ * @param history The history representing the game
+ * @returns An object with formatted information
+ */
+function getGameListInfo(history: History): any {
+  const tags = history.metatags;
+  let id = '', fen = '', dateTime= '', wname = '', bname = '', wrating = '', brating = '', result = '', opening = '', timeControl = '';
+
+  if(/FEN \d+/.test(tags.Event)) {
+    id = tags.Event;
+    fen = history.first().fen;
+    return {
+      id, fen, dateTime, wname, bname, wrating, brating, result, timeControl, opening,
+    }
+  }
+
+  dateTime = (tags.Date || tags.UTCDate || '');
+  if(tags.Time || tags.UTCTime)
+    dateTime += `${tags.Date || tags.UTCDate ? ' - ' : ''}${tags.Time || tags.UTCTime}`;
+
+  if(tags.White || tags.Black) {
+    wname = tags.White || 'unknown';
+    if(tags.WhiteElo && +tags.WhiteElo !== 0 && tags.WhiteElo !== '-' && tags.WhiteElo !== '?') 
+      wrating = tags.WhiteElo;
+    
+    bname = tags.Black || 'unknown';
+    if(tags.BlackElo && +tags.BlackElo !== 0 && tags.BlackElo !== '-' && tags.BlackElo !== '?') 
+      brating = tags.BlackElo;  
+    
+    if(tags.Result) {
+      result = tags.Result;
+      result = result.replaceAll('1/2', '½');
+    }
+  }
+  else 
+    id = tags.Event || 'Analysis';
+
+  if(tags.timeControl)
+    timeControl = tags.timeControl;
+
+  if(tags.ECO || tags.Opening || tags.Variation || tags.SubVariation) {
+    if(tags.ECO)
+      opening += `[${tags.ECO}]`;
+    if(tags.Opening)
+      opening += ` ${tags.Opening}`;
+    else if(tags.Variation)
+      opening += ` ${tags.Variation}${tags.SubVariation ? `: ${tags.SubVariation}` : ''}`;
+  }
+
+  return {
+    id, fen, dateTime, wname, bname, wrating, brating, result, timeControl, opening,
+  };
 }
 
 /**
@@ -6882,48 +7156,38 @@ async function addGameListItems(game: Game) {
  * in the dropdown button text
  */
 function getGameListDescription(history: History, longDescription = false) {
-  const tags = history.metatags;
+  const info = getGameListInfo(history);
+  
   let description = '';
 
-  if(/FEN \d+/.test(tags.Event)) {
-    description = tags.Event;
+  if(/FEN \d+/.test(info.id)) {
+    description = info.id;
     if(longDescription)
-      description += `, ${history.first().fen}`;
+      description += `, ${info.fen}`;
     return description;
   }
 
-  let dateTimeStr = (tags.Date || tags.UTCDate || '');
-  if(tags.Time || tags.UTCTime)
-    dateTimeStr += `${tags.Date || tags.UTCDate ? ' - ' : ''}${tags.Time || tags.UTCTime}`;
-
-  if(tags.White || tags.Black) {
-    description = tags.White || 'unknown';
-    if(tags.WhiteElo && tags.WhiteElo !== '0' && tags.WhiteElo !== '-' && tags.WhiteElo !== '?')
-      description += ` (${tags.WhiteElo})`;
-    description += ` - ${tags.Black || 'unknown'}`;
-    if(tags.BlackElo && tags.BlackElo !== '0' && tags.BlackElo !== '-' && tags.BlackElo !== '?')
-      description += ` (${tags.BlackElo})`;
-    if(tags.Result)
-      description += ` [${tags.Result}]`;
+  if(info.wname || info.bname) {
+    description = info.wname;
+    if(info.wrating)
+      description += ` (${info.wrating})`;
+    description += ` - ${info.bname}`;
+    if(info.brating)
+      description += ` (${info.brating})`;
+    if(info.result)
+      description += ` [${info.result}]`;
   }
   else {
-    description = tags.Event || 'Analysis';
+    description = info.id;
     if(!longDescription)
-      description += ` ${dateTimeStr}`;
+      description += ` ${info.dateTime}`;
   }
 
   if(longDescription) {
-    if(dateTimeStr)
-      description += `, ${dateTimeStr}`;
-    if(tags.ECO || tags.Opening || tags.Variation || tags.SubVariation) {
-      description += ',';
-      if(tags.ECO)
-        description += ` [${tags.ECO}]`;
-      if(tags.Opening)
-        description += ` ${tags.Opening}`;
-      else if(tags.Variation)
-        description += ` ${tags.Variation}${tags.SubVariation ? `: ${tags.SubVariation}` : ''}`;
-    }
+    if(info.dateTime)
+      description += `, ${info.dateTime}`;
+    if(info.opening) 
+      description += `, ${info.opening}`;
   }
 
   return description;
@@ -6935,12 +7199,20 @@ function getGameListDescription(history: History, longDescription = false) {
 $('#game-list-button').on('hidden.bs.dropdown', () => {
   gameListVirtualScroller?.stop();
   gameListVirtualScroller = null;
-  $('#game-list-menu').html('');
+  $('#game-list-body').html('');
+});
+
+$('#game-list-menu').on('click', '.sortable-column', (e) => {
+  const col = $(e.currentTarget);
+  const data = [...gameListVirtualScroller.virtualScroller.getState().items];
+  Utils.sortTable($('#game-list-menu'), col, true, data);
+  gameListVirtualScroller.setItems(data);
 });
 
 /** Triggered when a game is selected from the game list */
-$('#game-list-dropdown').on('click', '.dropdown-item', (event) => {
-  const index = +$(event.target).attr('data-index');
+$('#game-list-menu').on('click', '.clickable-row', (event) => {
+  $('#game-list-button').dropdown('hide');
+  const index = +$(event.currentTarget).attr('data-index');
   setCurrentHistory(games.focused, index);
 });
 
@@ -7446,12 +7718,10 @@ $('#game-tools-close').on('click', () => {
  *************************************/
 
 function initStatusPanel() {
-  if(games.focused.isPlaying()) {
-    $('#close-status').hide();
+  if(games.focused.isPlaying())
     hideAnalysis();
-  }
-  else if($('#left-panel-bottom').is(':visible')) {
-    if(games.focused.analyzing)
+  else {
+    if(games.focused.analyzing) 
       showAnalysis();
     else
       hideAnalysis();
@@ -7459,21 +7729,108 @@ function initStatusPanel() {
     showAnalyzeButton();
     if($('#engine-tab').is(':visible') && evalEngine)
       evalEngine.evaluate();
-    $('#close-status').show();
   }
 }
 
-function showStatusPanel() {
-  showPanel('#left-panel-bottom');
-  initStatusPanel();
+$('#left-panel-bottom').on('click', (e) => {
+  if($(e.target).hasClass('closeTab'))
+    return; 
+
+  if(!$('#left-panel-bottom-content').is(':visible'))
+    showStatusPanel(true);
+  else if(!$(e.target).closest('#left-panel-bottom-content').length && !$(e.target).closest('.nav-item').length)
+    hideStatusPanel(true);
+});
+
+/**
+ * Show (unminimize) the Info/Status/Analysis panel
+ * @param animate If true the panel slides up, if false it pops up immediately
+ */
+function showStatusPanel(animate = false) { 
+  $('#close-status-icon').removeClass('fa-angle-up');
+  $('#close-status-icon').addClass('fa-angle-down');
+
+  if(animate && !$('#left-panel-bottom-content').is(':visible')) {
+    const leftBottomHeight = parseFloat($('#left-panel-bottom').css('--content-height'));
+    $('#left-panel-bottom-content').height(0);
+    $('#left-panel-bottom').addClass('minimizing');
+    $('#left-panel-bottom').removeClass('minimized');
+    $('#left-panel-bottom-content').show();
+    $('#left-panel-bottom-content').css('transition', 'height 0.35s ease');
+    $('#left-panel-bottom-content')[0].offsetHeight; 
+    if(!Utils.isSmallWindow()) {
+      $('#left-panel').css('transition', 'height 0.35s ease');
+      $('#left-panel')[0].offsetHeight; 
+    }
+    $('#left-panel-bottom-content').on('transitionend', (e) => {
+      const oe = e.originalEvent as TransitionEvent;
+      if(e.target !== e.currentTarget || oe.propertyName !== 'height') 
+        return;
+
+      $('#left-panel-bottom-content').off('transitionend');
+      $('#left-panel-bottom').removeClass('minimizing');
+      $('#left-panel-bottom-content').css('transition', '');
+      if(!Utils.isSmallWindow())
+        $('#left-panel').css('transition', '');
+      showPanel('#left-panel-bottom-content');
+      if($('#engine-tab').is(':visible') && evalEngine)
+        evalEngine.evaluate();
+    });
+    $('#left-panel-bottom-content').css('height', '');
+    if(!Utils.isSmallWindow()) {
+      const leftPanelHeight = $('#left-panel').height(); // Decrease height of left menus as status panel grows
+      $('#left-panel').height(leftPanelHeight - leftBottomHeight);
+    }
+  }
+  else { // Instantly show panel
+    $('#left-panel-bottom').removeClass('minimized');
+    showPanel('#left-panel-bottom-content');
+    if($('#engine-tab').is(':visible') && evalEngine)
+      evalEngine.evaluate();
+  }
 }
 
-function hideStatusPanel() {
-  $('#show-status-panel').text('Status/Analysis');
-  $('#show-status-panel').attr('title', 'Show Status Panel');
-  $('#show-status-panel').show();
-  stopEngine();
-  hidePanel('#left-panel-bottom');
+/**
+ * Hide (minimize) the Info/Status/Analysis panel
+ * @param animate If true the panel slides down, if false it hides immediately
+ */
+function hideStatusPanel(animate = false) {
+  $('#close-status-icon').removeClass('fa-angle-down');
+  $('#close-status-icon').addClass('fa-angle-up');
+
+  if(animate && $('#left-panel-bottom-content').is(':visible')) {
+    $('#left-panel-bottom').addClass('minimizing');
+    $('#left-panel-bottom-content').css('transition', 'height 0.35s ease');
+    $('#left-panel-bottom-content')[0].offsetHeight; 
+    if(!Utils.isSmallWindow()) {
+      $('#left-panel').css('transition', 'height 0.35s ease');
+      $('#left-panel')[0].offsetHeight; 
+    }
+    $('#left-panel-bottom-content').on('transitionend', (e) => {
+      const oe = e.originalEvent as TransitionEvent;
+      if(e.target !== e.currentTarget || oe.propertyName !== 'height') 
+        return;
+      $('#left-panel-bottom-content').off('transitionend');
+
+      $('#left-panel-bottom').removeClass('minimizing');
+      $('#left-panel-bottom-content').css('transition', '');
+      $('#left-panel-bottom').addClass('minimized');
+      $('#left-panel-bottom-content').css('height', '');
+      if(!Utils.isSmallWindow())
+        $('#left-panel').css('transition', '');
+      hidePanel('#left-panel-bottom-content');
+    });
+    const leftBottomHeight = parseFloat($('#left-panel-bottom').css('--content-height'));
+    $('#left-panel-bottom-content').height(0);
+    if(!Utils.isSmallWindow()) {
+      const leftPanelHeight = $('#left-panel').height();
+      $('#left-panel').height(leftPanelHeight + leftBottomHeight);
+    }
+  }
+  else {
+    $('#left-panel-bottom').addClass('minimized');
+    hidePanel('#left-panel-bottom-content');
+  }
 }
 
 /**
@@ -7516,14 +7873,14 @@ function closeLeftBottomTab(tab: any) {
 }
 
 function showStatusMsg(game: Game, msg: string) {
-  if(game === games.focused)
-    showStatusPanel();
-  if(msg)
+  if(msg) {
+    game.statusElement.find('.info-panel-status').hide();
     game.statusElement.find('.game-status').html(msg);
+  }
 }
 
 async function showOpeningName(game: Game) {
-  await fetchOpeningsPromise; // Wait for the openings file to be loaded
+  await History.fetchOpeningsPromise; // Wait for the openings file to be loaded
 
   if(!game.history)
     return;
@@ -7541,6 +7898,7 @@ async function showOpeningName(game: Game) {
     hEntry = hEntry.prev;
   }
 
+  game.statusElement.find('.info-panel-status').hide();
   game.statusElement.find('.opening-name').text(hEntry.opening.name);
   game.statusElement.find('.opening-name').show();
 }
@@ -7960,6 +8318,7 @@ async function updateMoveRatingIcon(game: Game) {
       return;
     
     removeMoveRatingIcon(game);
+    removeAutoShape(game, prevBestMoveBrush);  
 
     if(settings.moveRatingIconToggle && settings.engineBoardVisualsToggle) {
       // Add new 'eval-icon'
@@ -7974,7 +8333,6 @@ async function updateMoveRatingIcon(game: Game) {
       const bestMove = prev.evalBestMove;
       const dest = bestMove.slice(2,4);
       const orig = bestMove[1] === '@' ? dest : bestMove.slice(0,2);
-      removeAutoShape(game, prevBestMoveBrush);  
       let autoShapes = game.board.state.drawable.autoShapes;
       autoShapes.push({ orig, dest, brush: prevBestMoveBrush });
       game.board.setAutoShapes(autoShapes);
@@ -8025,27 +8383,18 @@ function removeAutoShape(game: Game, brush: string) {
 
 /** STATUS PANEL SHOW/HIDE BUTTON **/
 
-$('#show-status-panel').on('click', () => {
-  if($('#show-status-panel').text() === 'Analyze')
-    showAnalysis();
+$('#analyze-btn').on('click', () => {
+  showAnalysis();
   showStatusPanel();
+  hideHeaderFooterButton($('#analyze-btn'));
   scrollToLeftPanelBottom();
 });
 
-$('#close-status').on('click', () => {
-  hideStatusPanel();
-});
-
 function showAnalyzeButton() {
-  if($('#left-panel-bottom').is(':visible')) {
-    $('#show-status-panel').text('Analyze');
-    $('#show-status-panel').attr('title', 'Analyze Game');
-  }
-
   if(!$('#engine-tab').is(':visible') && Engine.categorySupported(games.focused.category))
-    $('#show-status-panel').show();
-  else if($('#left-panel-bottom').is(':visible'))
-    $('#show-status-panel').hide();
+    showHeaderFooterButton($('#analyze-btn'));
+  else 
+    hideHeaderFooterButton($('#analyze-btn'));
 }
 
 /** ****************************
@@ -8173,7 +8522,7 @@ $('#login-form').on('submit', (event) => {
     session.disconnect();
     session.destroy();
   }
-  session = new Session(messageHandler, user, pass);
+  createSession(messageHandler, user, pass);
   settings.rememberMeToggle = $('#remember-me').prop('checked');
   storage.set('rememberme', String(settings.rememberMeToggle));
   if(settings.rememberMeToggle)
@@ -8223,7 +8572,7 @@ $('#login-pass').on('change', () => {
       if(session) {
         session.disconnect();
         session.destroy();
-        session = new Session(messageHandler, credential.username, credential.password);
+        createSession(messageHandler, credential.username, credential.password);
       }
     }
     $('#login-user').val('');
@@ -8236,7 +8585,7 @@ $('#connect-guest').on('click', () => {
     session.disconnect();
     session.destroy();
   }
-  session = new Session(messageHandler);
+  createSession(messageHandler);
 });
 
 $('#login-as-guest').on('click', () => {
@@ -8356,8 +8705,9 @@ function initSettings() {
   settings.rememberMeToggle = (storage.get('rememberme') === 'true');
   $('#remember-me').prop('checked', settings.rememberMeToggle);
 
-  settings.lobbyShowComputersToggle = (storage.get('lobbyshowcomputers') === 'true');
-  settings.lobbyShowUnratedToggle = (storage.get('lobbyshowunrated') !== 'false');
+  const lobbyFilter = storage.get('lobby-filter');
+  if(lobbyFilter) 
+    settings.lobbyFilter = JSON.parse(lobbyFilter);
 
   const lobbyViewMode = storage.get('lobby-view-mode');
   if(lobbyViewMode)

@@ -7,9 +7,10 @@ import { Role } from './game';
 import { Reason } from './parser';
 import { storage } from './storage';
 import { settings } from './settings';
-import { setCaretToEnd } from './utils';
-import { getPlyFromFEN, getMoveNoFromFEN, getTurnColorFromFEN, VariantData } from './chess-helper';
+import { setCaretToEnd, initContentEditable, BitWriter, BitReader, zigzagEncode, zigzagDecode, logError } from './utils';
+import { getPlyFromFEN, getMoveNoFromFEN, getTurnColorFromFEN, updateVariantMoveData, VariantData, toDests, parseMove, getNumLegalMoves, moveToLegalMoveIndex, legalMoveIndexToMove } from './chess-helper';
 import { Clock } from './clock';
+import { Game } from './game';
 
 export class HEntry {
   public move: any;
@@ -200,6 +201,8 @@ export class History {
   public editMode: boolean;  // if true, allows adding multiple or nested subvariations to the move history
   public metatags: { [key: string]: any };
   public pgn: string; // The PGN associated with this History as a string, used for lazy loading the game
+  public static openings; // Opening names with corresponding moves
+  public static fetchOpeningsPromise = null;
 
   public static annotations = [
     {nags: '$1', symbol: '!', description: 'Good move'},
@@ -332,6 +335,9 @@ export class History {
     }
 
     this.updateClockTimes(newEntry, wtime, btime);
+    newEntry.variantData = updateVariantMoveData(newEntry.prev.fen, newEntry.move, newEntry.prev.variantData, this.game.category);
+    this.getOpening(newEntry);
+
     this.currEntry = newEntry;
 
     return this.currEntry;
@@ -1515,87 +1521,240 @@ export class History {
     }
     this.setMetatags({Opening: hEntry.opening.name, ECO: hEntry.opening.eco});
   }
-}
 
-/** Triggered when the user clicks on a comment in the move-list to edit it in-place. */
-$(document).on('focus', '.comment', (focEvent) => {
-  if(!$(focEvent.target).text().length) {
-    // Adds an invisible character to an empty comment in order to make the cursor appear even
-    // when the comment is empty.
-    $(focEvent.target).text('\u200B');
-    // Display the placeholder text.
-    $(focEvent.target).attr('data-before-content', $(focEvent.target).attr('placeholder'));
+  /**
+   * Encodes the move list and clock times into a URL safe base64 string. Only the main line is included.
+   * The data is packed into a bit stream. The encoding format is as follows:
+   * // Starting clocks
+   * [white_starting_clock:Varint] // White's starting time in seconds
+   * [black_starting_clock:Varint] // Black's starting time in seconds
+   * // clock encoding flags (only for a timed game).
+   * [has_increment:1-bit] // Whether there are any moves in the game with a time gain (i.e. due to increment)
+   * [clock_diff_fast_path_bits:3-bits] // number of bits to use for the fast-path for encoding clock times
+   * [number_of_moves:10-bits] // the number of moves in the game (maximum 1023)
+   * // For each move. Clocks for each move are stored as time diffs from the previous move in seconds, e.g. if the user took 1s, we store 1.
+   * [legal_move_index:num_legal_moves] // An index out of the number of legal moves for the position
+   * [clock_diff_control_bit:1-bit] // 0 if the clock diff can fit into the clock_diff_fast_path, otherwise 1 to store in escape varint. 
+   *                                // If clock_diff_fast_path_bits is 0 then there is no control bit here and all clock diffs are stored as Varints
+   * [clock_diff:(fast_path_bits or Varint)] If has_increment is 1, then we store as a zigzag encoding in order to account for negative clock diffs
+   */
+  public encode(): string {
+    const writer = new BitWriter();
+
+    let hEntry = this.first();
+    const startFen = hEntry.fen;
+    const category = this.game.category;
+
+    const untimed = !hEntry.wtime && !hEntry.btime;
+    writer.writeVarint(hEntry.wtime / 1000); // White's starting clock in seconds
+    writer.writeVarint(hEntry.btime / 1000); // Black's starting clock in seconds
+
+    let smallTimeBits = 0;
+    let clockDiffs = [];
+    if(!untimed) {
+      let hasIncrement = false;
+      // Calculate clock diffs between moves
+      while(hEntry.next) {
+        let clockDiff: number;
+        if(hEntry.turnColor === 'w') 
+          clockDiff = (hEntry.wtime / 1000) - (hEntry.next.wtime / 1000);
+        else 
+          clockDiff = (hEntry.btime / 1000) - (hEntry.next.btime / 1000);
+        if(clockDiff < 0) 
+          hasIncrement = true;
+        clockDiffs.push(clockDiff);
+        hEntry = hEntry.next;
+      }
+
+      // If the game has an increment (any time gain between moves) then use a zigzag encoding for clock diffs
+      if(hasIncrement)
+        clockDiffs = clockDiffs.map(diff => zigzagEncode(diff));
+
+      writer.write(Number(hasIncrement), 1); // encode has_increment flag
+
+      const timesEncodingCost = (diffs: number[], bits: number): number => {
+        return diffs.reduce((sum, diff) => {
+          // If 0 bits used for fast-path (typical for long time controls) then all clock diffs are
+          // stored in Varint of at least 8 bits and no control bit is used. 
+          if(bits === 0) 
+            return sum + 8;
+          
+          let max = (1 << bits) - 1; // The maximum value for this number of bits
+          const cost = (diff <= max) 
+            ? bits + 1 // diff fits into fast-path -- bits + 1 control bit
+            : 9; // diff doesn't fit into fast-path -- 8 bits for Varint + 1 control bit
+          return sum + cost;
+        }, 0);
+      };
+
+      // Calculate the cost of encoding clock diffs using different encoding schemes and pick the cheapest.
+      // i.e. how many bits to use for fast-path, 0-6 bits.
+      let bestTimesCost = Infinity;
+      for(let i = 0; i < 7; i++) {
+        const cost = timesEncodingCost(clockDiffs, i);
+        if(cost < bestTimesCost) {
+          bestTimesCost = cost;
+          smallTimeBits = i;
+        }
+      }
+
+      writer.write(smallTimeBits, 3); // encode clock_diff_fast_path_bits
+    }
+
+    const smallTimeMax = (1 << smallTimeBits) - 1; // The largest clock diff that can fit in the fast-path
+
+    hEntry = this.first();
+    const numMoves = Math.min(this.length(), 1023);
+    writer.writeMax(numMoves, 1023); // encode number of moves, max 1023
+
+    // encode each move with clock diff
+    for(let i = 0; i < numMoves; i++) {
+      const move = hEntry.next.move;
+      const dests = toDests(hEntry.fen, startFen, category, hEntry.variantData); 
+      const numLegalMoves = getNumLegalMoves(hEntry.fen, dests, category, hEntry.variantData); // count all legal moves including promotions and piece placements (crazyhouse/bughouse)
+      const legalMoveIndex = moveToLegalMoveIndex(move, hEntry.fen, dests, category, hEntry.variantData); // get this move's index out of all legal moves
+      writer.writeMax(legalMoveIndex, numLegalMoves); // encode legal move index
+      if(!untimed) {
+        if(smallTimeBits > 0) { // use fast-path
+          if(clockDiffs[i] <= smallTimeMax) { // encode clock diff in fast-path
+            writer.write(0, 1); // control bit
+            writer.writeMax(clockDiffs[i], smallTimeMax);
+          }
+          else { // encode clock diff in escape varint
+            writer.write(1, 1); // control bit
+            writer.writeVarint(clockDiffs[i]);
+          }
+        }
+        else // no fast-path
+          writer.writeVarint(clockDiffs[i]);
+      }
+      hEntry = hEntry.next;
+    }
+
+    const bytes = writer.finish(); // flush the writer
+    const base64 = btoa(String.fromCharCode(...bytes));
+    const urlSafe = base64
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    return urlSafe;
   }
 
-  // Set the move's comment string after the user presses enter or clicks away from the comment element.
-  $(focEvent.target).one('blur', (event) => {
-    const elem = $(event.target);
-    const hEntry = elem.hasClass('comment-before') ? elem.next().data('hEntry') : elem.prev().data('hEntry');
-    const commentBefore = elem.hasClass('comment-before') ? true : false;
-    const comment = elem.attr('data-before-content') ? undefined : elem.text();
+  /**
+   * Decodes the move list from the provided encoded string and sets it as this
+   * History's move list. See encode() for enncoding format. 
+   * @param movesStr the string to decode
+   * @returns true if decode succeeds, otherwise false
+   */
+  public decode(movesStr: string): boolean {
+    let base64 = movesStr
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+    base64 += '='.repeat((4 - (base64.length % 4)) % 4);
+    const binary = atob(base64);
+    const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
 
-    if(elem.attr('data-before-content'))
-      elem.remove(); // If the placeholder text is showing, i.e. the comment is empty then remove it.
-    else
-      elem.off('input paste keydown');
+    const reader = new BitReader(bytes);
+    let hEntry = this.first();
+    const startFen = hEntry.fen;
+    const category = this.game.category;
 
-    if(commentBefore)
-      hEntry.commentBefore = comment;
-    else
-      hEntry.commentAfter = comment;
+    const wInitialTime = reader.readVarint() * 1000; // White's initial time, converted back to ms
+    const bInitialTime = reader.readVarint() * 1000; // Black's initial time, converted back to ms
+    this.updateClockTimes(hEntry, wInitialTime, bInitialTime);
+    const untimed = !hEntry.wtime && !hEntry.btime;
 
-    // Unselect selected text
-    if(window.getSelection)
-      window.getSelection().removeAllRanges();
-  });
+    const hasIncrement = untimed ? false : Boolean(reader.read(1));
+    const smallTimeBits = untimed ? 0 : reader.read(3); // Number of fast-path bits for each clock diff
+    const smallTimeMax = untimed ? 0 : (1 << smallTimeBits) - 1; // Maximum clock diff that can fit in the fast-path
 
-  $(focEvent.target).on('keydown', (event) => {
-    if(event.key === 'Enter') {
-      event.preventDefault();
-      $(event.target).trigger('blur');
+    const numMoves = reader.readMax(1023); 
+
+    for(let i = 0; i < numMoves; i++) {
+      const dests = toDests(hEntry.fen, startFen, category, hEntry.variantData);
+      const numLegalMoves = getNumLegalMoves(hEntry.fen, dests, category, hEntry.variantData); // count all legal moves including promotions and piece placements (crazyhouse/bughouse)
+      const index = reader.readMax(numLegalMoves); // read in the legal move index
+      const move = legalMoveIndexToMove(index, hEntry.fen, dests, category, hEntry.variantData);
+      if(!move) {
+        this.goto(this.first());
+        return false;
+      }
+      const parsed = parseMove(hEntry.fen, move, startFen, category, hEntry.variantData);
+      let wtime = hEntry.wtime;
+      let btime = hEntry.btime;
+      if(!untimed) {
+        const smallTime = smallTimeBits > 0 && !Boolean(reader.read(1)); // read clock diff control bit
+        let clockDiff = smallTime 
+          ? reader.readMax(smallTimeMax) // read clock diff from fast-path
+          : reader.readVarint(); // read clock diff from escape
+        if(hasIncrement)
+          clockDiff = zigzagDecode(clockDiff); 
+
+        if(hEntry.turnColor === 'w') 
+          wtime -= (clockDiff * 1000);
+        else 
+          btime -= (clockDiff * 1000);
+      }
+      hEntry = this.add(parsed.move, parsed.fen, false, wtime, btime);
     }
-  });
+    this.goto(this.first());
+
+    return true;
+  }
 
   /**
-   * Remove html tags and formatting from text pasted into the comment element. Remove
-   * the zero-wdith space (placeholder) character if text was pasted into an empty element.
+   * Gets the opening name for the specified move
    */
-  $(focEvent.target).on('paste', (event) => {
-    event.preventDefault();
-
-    // Insert the clipboard text into the element as plain text
-    const clipboardEvent = event.originalEvent as ClipboardEvent;
-    const text = clipboardEvent.clipboardData?.getData('text/plain') || '';
-
-    const sel = window.getSelection();
-    if(sel.rangeCount > 0) {
-      const range = sel.getRangeAt(0);
-      range.deleteContents();
-      range.insertNode(document.createTextNode(text));
-      range.collapse(false); // Move the caret to the end of the pasted text
-      sel.removeAllRanges();
-      sel.addRange(range);
+  public async getOpening(hEntry: HEntry = this.current()) {    
+    const fetchOpenings = async () => {
+      const inputFilePath = 'assets/data/openings.tsv';
+      History.openings = new Map();
+      await fetch(inputFilePath)
+        .then(response => response.text())
+        .then(data => {
+          const rows = data.split('\n');
+          for(const row of rows) {
+            const cols = row.split('\t');
+            if(cols.length === 4 && cols[2].startsWith('1.')) {
+              const eco = cols[0];
+              const name = cols[1];
+              const moves = cols[2];
+              const fen = cols[3];
+              const fenNoPlyCounts = fen.split(' ').slice(0, -2).join(' ');
+              History.openings.set(fenNoPlyCounts, {eco, name, moves});
+            }
+          }
+        })
+        .catch(error => {
+          logError('Couldn\'t fetch opening:', error);
+        });
+    };
+  
+    if(!History.openings && !History.fetchOpeningsPromise) {
+      History.fetchOpeningsPromise = fetchOpenings(); // lazy load the opening names database
     }
-    $(event.target).trigger('input'); // Remove the zero-width space placeholder character if it exists
-  });
+    await History.fetchOpeningsPromise;
+  
+    const shortFen = hEntry.fen.split(' ').slice(0, -2).join(' '); // Remove ply counts
+    const opening = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard'].includes(this.game.category)
+      ? History.openings.get(shortFen) : null;
+    hEntry.opening = opening;
+    this.updateOpeningMetatags();
+  }
+}
 
-  /**
-   * Remove the zero-width space (placeholder) character when text is entered.
-   * Adds it back when all text is deleted.
-   */
-  $(focEvent.target).on('input', (event) => {
-    const elem = $(event.target);
+initContentEditable('.comment', (elem: JQuery<HTMLElement>) => {
+  const commentBefore = elem.hasClass('comment-before') ? true : false;  
+  const content = elem.attr('data-before-content') ? undefined : elem.text();
 
-    if(!elem.text().length) {
-      elem.text('\u200B'); // insert a zero-width space in order to make cursor appear when span is empty
-      elem.attr('data-before-content', elem.attr('placeholder'));
-    }
-    else if(elem.attr('data-before-content')) {
-      elem.text(elem.text().replace(/\u200B/g, '')); // Remove zero-width space
-      setCaretToEnd(elem);
-      elem.removeAttr('data-before-content'); // Remove placeholder
-    }
-  });
-});
+  const hEntry = elem.hasClass('comment-before') ? elem.next().data('hEntry') : elem.prev().data('hEntry');
+  if(commentBefore)
+    hEntry.commentBefore = content;
+  else
+    hEntry.commentAfter = content;
+
+  if(elem.attr('data-before-content')) 
+    elem.remove();
+}, true, false);
 
 export default History;

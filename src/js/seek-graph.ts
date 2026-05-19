@@ -1,5 +1,7 @@
 import type * as d3 from 'd3';
-import { createContextMenu, isMobile } from './utils';
+import { createContextMenu, isMobile, isTouchscreen } from './utils';
+import { session } from './session';
+import { awaiting } from './storage';
 declare const d3: typeof import("d3");
 
 // Seek data used by graph points
@@ -307,7 +309,8 @@ export class SeekGraph {
     const hits = nodes.filter(node => {
       const d = d3.select(node).datum();
 
-      const radius = d.radius + 2; // Use a circle around the shape for hit testing
+      const hitExpansion = isTouchscreen() ? 12 : 2; // Touchable area outside the point
+      const radius = d.radius + hitExpansion; // Use a circle around the shape for hit testing
 
       const dx = mx - d.px;
       const dy = my - d.py;
@@ -337,7 +340,7 @@ export class SeekGraph {
         this.createSelectPointsMenu(clientX, clientY, data);
       }
       else
-        (window as any).acceptSeek(points[0].__data__.id); // Only one point selected, so accept the seek immediately
+        this.acceptSeek(points[0].__data__.id); // Only one point selected, so accept the seek immediately
     }
   }
 
@@ -356,7 +359,7 @@ export class SeekGraph {
     // Menu item clicked, accept that seek
     const itemSelectedCallback = (event: any) => {
       const id = $(event.target).data('id');
-      (window as any).acceptSeek(id);
+      this.acceptSeek(id);
     }
   
     // On desktop move menu under the mouse pointer so that an item is hovered straight away
@@ -404,5 +407,13 @@ export class SeekGraph {
         }).tooltip('show');
       }
     }
+  }
+
+    /**
+   * Accepts seek with the given id 
+   */
+  private acceptSeek(id: number) {
+    awaiting.set('match');
+    session.send(`play ${id}`);
   }
 }
