@@ -12,12 +12,12 @@
     "pack": "webpack --config electron.webpack.js && electron-builder --dir",
     "dist": "webpack --config electron.webpack.js && electron-builder",
     "build": "webpack --config electron.webpack.js && electron-builder -mwl --x64 --arm64 -p always",
-    "release": "yarn build",
+    "release": "npm run build",
     "postinstall": "electron-builder install-app-deps",
     "android": "node scripts/copy-app-files.js && npx cap run android",
     "android:sync": "node scripts/copy-app-files.js && npx cap sync android",
     "android:bundle": "cd android && ./gradlew bundleRelease",
-    "android:ci": "yarn bundle && yarn android:sync && yarn android:bundle",
+    "android:ci": "npm run bundle && npm run android:sync && npm run android:bundle",
     "ios": "node scripts/copy-app-files.js && npx cap run ios",
     "start": "webpack-dev-server --config webpack.config.js"
   },
@@ -114,5 +114,5 @@
     "workbox-routing": "^7.3.0",
     "workbox-strategies": "^7.3.0"
   },
-  "packageManager": "yarn@4.12.0"
+  "packageManager": "npm@10.9.4"
 }

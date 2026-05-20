@@ -8,6 +8,6 @@ In addition to the hosted web interface, there are cross-platform [Electron](htt
 
 To get started locally, just type:
 ```bash
-$ yarn start
+$ npm start
 ```
 and point your browser to http://localhost:8080

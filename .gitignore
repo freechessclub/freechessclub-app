@@ -6,15 +6,7 @@ node_modules
 /dist
 platforms
 plugins
-package-lock.json
-yarn-error.log
+npm-debug.log*
 .idea
 /ios
 .DS_Store
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
