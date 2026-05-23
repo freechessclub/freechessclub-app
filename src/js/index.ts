@@ -2034,7 +2034,7 @@ function handleMiscMessage(data: any) {
     return;
   }
 
-  match = msg.match(/^\(told (.+)\)/m);
+  match = msg.match(/\(told ([^)]+)\)/m);
   if(match) {
     const toldText = match[1].trim();
     const toldMatch = toldText.match(/^(.+?)(?:, who (.+))?$/);
