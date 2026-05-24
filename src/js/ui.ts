@@ -4,7 +4,7 @@
 
 import packageInfo from '../../package.json';
 import { storage } from './storage';
-import { isMac, isCapacitor } from './utils';
+import { isMac, isCapacitor, rgbToHex } from './utils';
 
 $('#version').text(`Version: ${packageInfo.version}`);
 
@@ -331,46 +331,49 @@ async function setTheme(theme: string) {
   storage.set('theme', theme);
 
   $('#theme').remove();
-  if(themes[theme]) {
+  if(themes[theme]) 
     $(themes[theme]).appendTo('head');
-    return;
+  else {
+    const styleInjectionPromise = waitForStyleInjection();
+
+    let mod = null;
+    switch(theme) {
+      case 'brown':
+        mod = await import(/* webpackChunkName: "themes/brown" */ 'assets/css/themes/brown.css');
+        break;
+      case 'gray':
+        mod = await import(/* webpackChunkName: "themes/gray" */ 'assets/css/themes/gray.css');
+        break;
+      case 'green':
+        mod = await import(/* webpackChunkName: "themes/green" */ 'assets/css/themes/green.css');
+        break;
+      case 'ic':
+        mod = await import(/* webpackChunkName: "themes/ic" */ 'assets/css/themes/ic.css');
+        break;
+      case 'newspaper':
+        mod = await import(/* webpackChunkName: "themes/newspaper" */ 'assets/css/themes/newspaper.css');
+        break;
+      case 'purple':
+        mod = await import(/* webpackChunkName: "themes/purple" */ 'assets/css/themes/purple.css');
+        break;
+      case 'red':
+        mod = await import(/* webpackChunkName: "themes/red" */ 'assets/css/themes/red.css');
+        break;
+      case 'yellow':
+        mod = await import(/* webpackChunkName: "themes/yellow" */ 'assets/css/themes/yellow.css');
+        break;
+      default:
+        mod = await import(/* webpackChunkName: "themes/default" */ 'assets/css/themes/default.css');
+    }
+
+    const elem = await styleInjectionPromise;
+    themes[theme] = elem;
+    elem.setAttribute('id', 'theme');
   }
 
-  const styleInjectionPromise = waitForStyleInjection();
-
-  let mod = null;
-  switch(theme) {
-    case 'brown':
-      mod = await import(/* webpackChunkName: "themes/brown" */ 'assets/css/themes/brown.css');
-      break;
-    case 'gray':
-      mod = await import(/* webpackChunkName: "themes/gray" */ 'assets/css/themes/gray.css');
-      break;
-    case 'green':
-      mod = await import(/* webpackChunkName: "themes/green" */ 'assets/css/themes/green.css');
-      break;
-    case 'ic':
-      mod = await import(/* webpackChunkName: "themes/ic" */ 'assets/css/themes/ic.css');
-      break;
-    case 'newspaper':
-      mod = await import(/* webpackChunkName: "themes/newspaper" */ 'assets/css/themes/newspaper.css');
-      break;
-    case 'purple':
-      mod = await import(/* webpackChunkName: "themes/purple" */ 'assets/css/themes/purple.css');
-      break;
-    case 'red':
-      mod = await import(/* webpackChunkName: "themes/red" */ 'assets/css/themes/red.css');
-      break;
-    case 'yellow':
-      mod = await import(/* webpackChunkName: "themes/yellow" */ 'assets/css/themes/yellow.css');
-      break;
-    default:
-      mod = await import(/* webpackChunkName: "themes/default" */ 'assets/css/themes/default.css');
-  }
-
-  const elem = await styleInjectionPromise;
-  themes[theme] = elem;
-  elem.setAttribute('id', 'theme');
+  // Set StatusBar background color for phones that don't have EdgeToEdge
+  if(isCapacitor())
+    Capacitor.Plugins.StatusBar.setBackgroundColor({ color: rgbToHex($('body').css('background-color')) });
 }
 
 function waitForStyleInjection(): Promise<HTMLElement> {

@@ -7,6 +7,7 @@ declare const d3: typeof import("d3");
 // Seek data used by graph points
 type DataItem = {
   id: number;
+  lobbyId: number;
   initialTime: number;
   increment: number;
   rating: number;
@@ -274,7 +275,7 @@ export class SeekGraph {
    * Add seek item to graph
    */
   public addPoint(item: any) {
-    this.data = this.data.filter(d => d.id !== item.id);
+    this.data = this.data.filter(d => d.lobbyId !== item.lobbyId);
     this.data.push(item);
     this.renderPoints();
     if(this.tooltipParent) // Check if currently shown tooltip needs to be changed or removed
@@ -282,7 +283,7 @@ export class SeekGraph {
   }
 
   public removePoint(id: number) {
-    this.data = this.data.filter(d => d.id !== id);
+    this.data = this.data.filter(d => d.lobbyId !== id);
     this.renderPoints();
     if(this.tooltipParent) 
       this.updateTooltip(this.mouseX, this.mouseY);

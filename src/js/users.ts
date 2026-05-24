@@ -129,7 +129,7 @@ export class Users {
       removeWithPoppers(row);
     });
 
-    $('.users-table').on('click', '.sortable-column', (e) => {
+    $('.users-table thead').on('click', '.sortable-column', (e) => {
       const col = $(e.currentTarget);
       sortTable(col.closest('.users-table'), col);
     });

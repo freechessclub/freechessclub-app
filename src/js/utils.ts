@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import type { Placement } from '@popperjs/core';
+import type VirtualScroller from 'virtual-scroller/dom';
 
 export const enum SizeCategory {
   Small = 0,
@@ -245,6 +246,10 @@ export function isCapacitor() {
   return platform && platform !== 'web';
 }
 
+export function isAndroidCapacitor() {
+  return isCapacitor() && Capacitor.getPlatform && Capacitor.getPlatform() === 'android';
+}
+
 /**
  * Is this an Electron app?
  */
@@ -352,6 +357,15 @@ export function removeWithPoppers(element: JQuery<HTMLElement>) {
   element.find('[data-bs-toggle="tooltip"]').tooltip('dispose');
   element.find('[data-bs-toggle="popover"]').popover('dispose');
   element.remove();
+}
+
+/**
+ * Hides an element from the DOM with any tooltips and popovers associated with it
+ */
+export function hideWithPoppers(element: JQuery<HTMLElement>) {
+  element.find('[data-bs-toggle="tooltip"]').tooltip('dispose');
+  element.find('[data-bs-toggle="popover"]').popover('dispose');
+  element.hide();
 }
 
 /** MISC HELPER FUNCTIONS **/
@@ -1486,11 +1500,20 @@ export function splitIntoColumns(items, cols = 3) {
   return result;
 }
 
+/** 
+ * Class for writing bits to a bit stream.
+ * The stream is single-use, i.e. once the final stream is read with finished() you can no longer write to it  
+ */
 export class BitWriter {
   private buffer = 0;
   private bitCount = 0;
   private output: number[] = [];
 
+  /**
+   * Write the value 
+   * @param value the number to write
+   * @param bits the number of bits the value occupies
+   */
   public write(value: number, bits: number) {
     this.buffer = ((this.buffer << bits) | value) >>> 0;
     this.bitCount += bits;
@@ -1505,6 +1528,11 @@ export class BitWriter {
     this.buffer &= (1 << this.bitCount) - 1;
   }
 
+  /**
+   * Write the value, specifying a max value
+   * @param value the number to write
+   * @param maxValue The maximum possible value, translated to the number of bits the value occupies
+   */
   public writeMax(value: number, maxValue: number) {
     const bits = Math.ceil(Math.log2(maxValue + 1));
     this.write(value, bits);
@@ -1517,6 +1545,9 @@ export class BitWriter {
     return new Uint8Array(this.output);
   }
 
+  /**
+   * Write a standard varint
+   */
   public writeVarint(value: number) {
     while(value >= 0x80) {
       // Write 7 bits + continuation flag (1)
@@ -1527,6 +1558,9 @@ export class BitWriter {
   }
 }
 
+/** 
+ * Class for reading bits from a bit stream.
+ */
 export class BitReader {
   private buffer = 0;
   private bitCount = 0;
@@ -1534,6 +1568,7 @@ export class BitReader {
 
   constructor(private input: Uint8Array) {}
 
+  /** Read the given number of bits, return as a number */
   public read(bits: number): number {
     while (this.bitCount < bits) {
       if (this.inputIndex >= this.input.length) {
@@ -1550,11 +1585,13 @@ export class BitReader {
       (bits === 32 ? 0xFFFFFFFF : (1 << bits) - 1);
   }
 
+  /** Read a number, given its maximum possible value (translated into a number of bits) */
   public readMax(maxValue: number): number {
     const bits = Math.ceil(Math.log2(maxValue + 1));
     return this.read(bits);
   }
 
+  /** Read a standard varint */
   public readVarint(): number {
     let result = 0;
     let shift = 0;
@@ -1569,10 +1606,199 @@ export class BitReader {
   }
 }
 
+/**
+ * Zigzag encode an integer, used for compact encoding of negative integers. 
+ * e.g. [0, 1, -1, 2, -2] comes [0, 1, 2, 3, 4] 
+ */
 export function zigzagEncode(n: number): number {
   return (n << 1) ^ (n >> 31);
 }
 
+/**
+ * Zigzag decode an integer
+ */
 export function zigzagDecode(n: number): number {
   return (n >>> 1) ^ -(n & 1);
+}
+
+/**
+ * Helper class for automatically keeping a scrollbar "stuck" at the bottom when new content is added
+ * or the container is resized
+ */
+export class StickyBottomScroller {
+  private container: HTMLElement;
+  private stuck: boolean;
+  private isStuckCallback?: (isStuck: boolean, container: HTMLElement) => void // Callback function for reporting whether the scrollbar is currently at the bottom or not
+
+  constructor(container: HTMLElement, isStuckCallback?: (isStuck: boolean, container: HTMLElement) => void) {
+    this.container = container;
+    this.isStuckCallback = isStuckCallback;
+    this.stuck = true;
+
+    /** Check if scrollbar is at bottom after user scrolls */
+    $(container).on('scroll.stickyBottom', () => {
+      this.checkStuck();
+    });
+  }
+
+  /** Cleanup scroll event handler */
+  public destroy() {
+    $(this.container).off('scroll.stickyBottom');
+  }
+
+  /**
+   * Check if the scrollbar is currently stuck to the bottom or not
+   * @returns true if at bottom, false otherwise
+   */
+  public checkStuck() {
+    if(!$(this.container).is(':visible')) // Can't check scrollbar when container is not visible
+      return;
+
+    this.stuck = this.container.scrollHeight - this.container.clientHeight < this.container.scrollTop + 1.5;
+       
+    if(this.isStuckCallback)
+      this.isStuckCallback(this.stuck, this.container); // Callback function to report scrollbar status
+  }
+
+  /**
+   * Move scrollbar back to bottom when content is added or container is resized causing the scrollbar to
+   * move erroneously.
+   */
+  public fixScroll() {
+    if(!$(this.container).is(':visible'))
+      return;
+
+    if(this.stuck) 
+      this.container.scrollTop = this.container.scrollHeight;
+    this.checkStuck();
+  }
+
+  /** Move scrollbar to bottom and stick it (state = true), or temporarily stop it sticking (state = false) */
+  public stick(state = true) {
+    this.stuck = state;
+    if(this.stuck)
+      this.fixScroll();
+  }
+}
+
+/** 
+ * Wrapper class for virtualScroller/dom which adds helper functions for dynamically updating the 
+ * content and for stopping and starting the scroller when the container is hidden/shown.
+ * (virtualscroller normally behaves badly when you hide or show the item container while it's running, 
+ * or if you add items too quickly)
+ */
+export class DynamicVirtualScroller<Item> {
+  private static virtualScrollerPromise = import('virtual-scroller/dom');
+  private scrollerInstancePromise: Promise<VirtualScroller<Item>> | null = null;
+  private started: boolean = false;
+  private scrollContainer: HTMLElement = null; // The element with the overflow scrollbar
+  private contentElement: HTMLElement = null; // The element containing the items
+  private updateCount: number = 0; // Used for throttling content updates so virtual scroller doesn't complain
+  private items: Item[] = null; // The data items to render
+  private renderItem: (item: any) => HTMLElement; // Callback function for creating DOM elements for items
+  private onStateChange: () => void; // Callback function for after the rendered elements changes
+
+  constructor(contentElement: HTMLElement, scrollContainer: HTMLElement, items: Item[], renderItem: (item: Item) => HTMLElement, onStateChange: () => void) {
+    this.contentElement = contentElement;
+    this.scrollContainer = scrollContainer;
+    this.items = items;
+    this.renderItem = renderItem;
+    this.onStateChange = onStateChange;
+  }
+
+  // Create the virtualscroller instance
+  private async create() {
+    const { default: VirtualScroller } = await DynamicVirtualScroller.virtualScrollerPromise;
+    return new VirtualScroller(this.contentElement, this.items, this.renderItem, {
+      scrollableContainer: this.scrollContainer,
+      onStateChange: this.onStateChange
+    });
+  }
+
+  // Stop the virtual scroller (usually when the container is hidden)
+  public async stop() {
+    const scroller = await this.scrollerInstancePromise;
+    if(this.started) {
+      this.started = false;
+      scroller.stop(); 
+    } 
+  }
+
+  /**
+   * Re-render items or restart the virtual scroller if it was stopped, e.g. after the container becomes
+   * visible again.
+   * @param items if items is specified, then updates the virtual scroller's items
+   */
+  public async update(items?: Item[]) {
+    if(items)
+      this.items = items;
+
+    // Don't start or render if scroll container is invisible
+    if(!$(this.scrollContainer).is(':visible'))
+      return;
+
+    // Throttle updates
+    if(!this.updateCount) {
+      this.updateCount = 1;
+      setTimeout(() => {
+        const count = this.updateCount;
+        this.updateCount = 0;
+        if(count > 1 && this.started) 
+          this.update();
+      }, 250);
+    } 
+    else {
+      this.updateCount++;
+      return;
+    }
+
+    if(!this.scrollerInstancePromise) {
+      this.scrollerInstancePromise = this.create();
+      this.started = true;
+      return;
+    }
+
+    const scroller = await this.scrollerInstancePromise;
+    if(!this.started) {
+      // In case panel was resized while hidden, recalculate chat message heights so that 
+      // virtual-scroller doesn't complain after restarting
+      const state = (scroller as any).virtualScroller.getState();
+      for(let i = state.firstShownItemIndex; i <= state.lastShownItemIndex; i++) 
+        scroller.onItemHeightDidChange(i);
+      (scroller as any).start();
+      this.started = true;
+    }
+
+    scroller.setItems(this.items);
+  }
+}
+
+/** 
+ * Convert a color string in the form rgb(<r>, <g>, <b>) to #RRGGBB 
+ */
+export function rgbToHex(color?: string | null): string | null {
+  if(!color)
+    return null;
+
+  // Already hex
+  if (/^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/.test(color))
+    return color.toLowerCase();
+
+  // rgb(...) or rgba(...)
+  const match = color.match(
+    /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/
+  );
+
+  if (match) {
+    const [, r, g, b] = match;
+
+    return (
+      '#' +
+      [r, g, b]
+        .map(n => Number(n).toString(16).padStart(2, '0'))
+        .join('')
+    );
+  }
+
+  return null;
 }

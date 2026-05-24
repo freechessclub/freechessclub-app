@@ -32,11 +32,11 @@
   <div class="feature3 p-0 position-relative">
     <div class="row m-0" id="main-row">
       <div class="card-group p-0">
-        <div id="left-col" class="main-col col-sm-12 col-md-3 col-lg-3 col-xl-3 position-relative" style="min-width: 340px">
+        <div id="left-col" class="main-col col-sm-12 col-md-3 col-lg-3 col-xl-3 position-relative">
           <div class="toast-container dialog-container"></div>
           <div class="card bg-transparent" id="left-card">
             <div class="card-header top-panel d-flex" id="left-panel-header" style="visibility: hidden">
-              <div id="navigation-toolbar" class="btn-toolbar m-auto">
+              <div id="navigation-toolbar" class="btn-toolbar m-auto" style="min-width: 0">
                 <button type="button" id="fast-backward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" data-fallback-placements="left,right" title="Beginning">
                   <span class="fa fa-fast-backward" aria-hidden="false"></span>
                 </button>
@@ -85,7 +85,7 @@
                     <button class="nav-link py-2" id="pills-game-tab" data-bs-toggle="pill" data-bs-target="#pills-game" type="button" role="tab" aria-controls="pills-game" aria-selected="false">Game</button>
                   </li>
                   <li class="nav-item d-none" role="presentation" aria-hidden="true">
-                    <button class="nav-link active" id="pills-placeholder-tab" type="button" role="tab"></button>
+                    <button class="nav-link active" disabled id="pills-placeholder-tab" aria-hidden="true" type="button"></button>
                   </li>
                 </ul>
               </div>
@@ -319,22 +319,22 @@
                                 <div class="pane-status" id="lobby-pane-status" style="display: none"></div>
                                 <div id="lobby" class="flex-grow-1" style="min-height: 0">
                                   <div class="d-flex flex-column h-100">
-                                    <div class="d-flex align-items-center gap-5 py-2">
+                                    <div class="d-flex align-items-center gap-4 py-2">
                                       <div class="flex-grow-1 center justify-content-evenly" style="min-width: 0;">
                                         <div class="eye-toggle">
                                           <input type="checkbox" class="btn-check" id="lobby-show-computers" autocomplete="off">
-                                          <label class="btn btn-default border-0" for="lobby-show-computers">
+                                          <label class="btn btn-default border-0 px-2" for="lobby-show-computers">
                                             <span id="lobby-show-computers-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Computers
                                           </label>
                                         </div>
                                         <div class="eye-toggle">
                                           <input type="checkbox" class="btn-check" id="lobby-show-unrated" autocomplete="off">
-                                          <label class="btn btn-default border-0" for="lobby-show-unrated">
+                                          <label class="btn btn-default border-0 px-2" for="lobby-show-unrated">
                                             <span id="lobby-show-unrated-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Unrated
                                           </label>
                                         </div>
                                       </div>
-                                      <div>
+                                      <div style="white-space: nowrap;">
                                         <button type="button" id="lobby-filter-btn" class="btn btn-sm btn-outline-secondary btn-md me-2 dropdown-toggle hide-caret position-relative" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                           <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" data-fallback-placements="left, top" title="Filter Lobby"></div>
                                           <span class="fa-solid fa-filter" aria-hidden="false"></span>
@@ -416,12 +416,22 @@
                                     </div>
                                     <div class="flex-grow-1 overflow-auto" id="lobby-table-container" style="min-height: 0;">
                                       <table id="lobby-table" class="mb-0 table table-hover table-head-sm table-striped table-borderless table-standard">
+                                        <colgroup>
+                                          <col />
+                                          <col />
+                                          <col />
+                                          <col />
+                                          <col />
+                                          <col />
+                                          <col />
+                                          <col />
+                                        </colgroup>
                                         <thead>
                                           <tr data-sort="asc">
-                                            <th scope="col" class="sortable-column"><div class="sort-header-wrapper">Name<i class="fa fa-sort"></i></div></th>
-                                            <th scope="col" class="sortable-column"><div class="sort-header-wrapper">Rat<i class="fa fa-sort"></i></div></th>
-                                            <th scope="col" class="sortable-column"><div class="sort-header-wrapper">Time<i class="fa fa-sort"></i></div></th>
-                                            <th scope="col" class="sortable-column"><div class="sort-header-wrapper">Type<i class="fa fa-sort"></i></div></th>
+                                            <th colspan="2" scope="col" class="sortable-column"><div class="sort-header-wrapper">Name<i class="fa fa-sort"></i></div></th>
+                                            <th colspan="2" scope="col" class="sortable-column"><div class="sort-header-wrapper">Rat<i class="fa fa-sort"></i></div></th>
+                                            <th colspan="2" scope="col" class="sortable-column"><div class="sort-header-wrapper">Time<i class="fa fa-sort"></i></div></th>
+                                            <th colspan="2" scope="col" class="sortable-column"><div class="sort-header-wrapper">Type<i class="fa fa-sort"></i></div></th>
                                           </tr>
                                         </thead>
                                         <tbody id="lobby-table-body">

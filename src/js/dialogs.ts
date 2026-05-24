@@ -70,7 +70,7 @@ export function showDialog(params: DialogParams, position = 'middle'): any {
       top: '50%',
       left: '50%',
       transform: 'translate(-50%, -50%)',
-      'z-index': '1056',
+      'z-index': '1081',
     });
     dialog.addClass('above-modal-dialog');
     dialog.appendTo('body');    
@@ -78,8 +78,8 @@ export function showDialog(params: DialogParams, position = 'middle'): any {
   else if(position === 'top' || position === 'bottom') {
     dialog.css({
       position: 'fixed',
-      ...(position === 'top' && { top: '0' }),
-      ...(position === 'bottom' && { bottom: '0' }),
+      ...(position === 'top' && { top: 'env(safe-area-inset-top)' }),
+      ...(position === 'bottom' && { bottom: 'env(safe-area-inset-bottom)' }),
       left: '50%',
       transform: 'translate(-50%)',
       'z-index': '101',

@@ -5,6 +5,11 @@
 import Cookies from 'js-cookie';
 import { logError, isFirefox, isCapacitor, isElectron } from './utils';
 
+const { SecureStorage } =
+  isCapacitor()
+    ? await import('@aparajita/capacitor-secure-storage')
+    : { SecureStorage: null };
+
 /**
  * Cross-platform secure, persistent credential (password) storage.
  * For supported browsers (only Chrome/Opera/Edge as of 2024), stores the user's login/password using
@@ -62,8 +67,8 @@ export class CredentialStorage {
         username = storage.get('user');
         if(username) {
           try {
-            const { value } = await Capacitor.Plugins.SecureStoragePlugin.get({ key: 'password' });
-            password = value;
+            const value = await SecureStorage.get('password');
+            password = value as string;
             secureStorageMethod = true;
           }
           catch(error) {
@@ -140,7 +145,7 @@ export class CredentialStorage {
     }
     else if(isCapacitor()) {
       try {
-        await Capacitor.Plugins.SecureStoragePlugin.set({ key: 'password', value: password });
+        await SecureStorage.set('password', password);
         return;
       }
       catch (error) {
@@ -182,7 +187,7 @@ export class CredentialStorage {
     storage.remove('password-credential-api');
 
     if(isCapacitor()) {
-      try { await Capacitor.Plugins.SecureStoragePlugin.remove({ key: 'password' }); }
+      try { await SecureStorage.remove('password'); }
       catch (error) {
         logError('Error clearing password:', error.name, error.message);
       }
