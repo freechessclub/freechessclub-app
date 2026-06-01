@@ -5,8 +5,7 @@
 // style sheets that need webpack file hashing and HMR 
 import 'assets/css/application.css'; 
 
-import { Capacitor } from '@capacitor/core';
-import { ForegroundService, Importance } from '@capawesome-team/capacitor-android-foreground-service';
+import { Importance } from '@capawesome-team/capacitor-android-foreground-service';
 import { Chessground } from 'chessground';
 import { Polyglot } from 'cm-polyglot/src/Polyglot.js';
 import * as PgnParser from '@mliebelt/pgn-parser';
@@ -118,8 +117,8 @@ let showSentOffersTimer; // Delay showing new offers until the user has finished
 let activeTab;
 let newTabShown = false;
 let newGameVariant = '';
-const lobbyEntries = new Map();
-let lobbyScrolledToBottom;
+let lobbyEntries = [];
+let lobbyStickyBottom = new Utils.StickyBottomScroller($('#lobby-table-container')[0]);
 let lobbyCounter = 0;
 const noSleep = new NoSleep(); // Prevent screen dimming
 let book; // Opening book used in 'Play Computer' mode
@@ -130,6 +129,7 @@ let lastPointerCoords = {x: 0, y: 0}; // Stores the pointer coordinates from the
 let credential: CredentialStorage = null; // The persistently stored username/password
 let gameListVirtualScroller = null;
 const mainBoard: any = createBoard($('#main-board-area').children().first().find('.board'));
+let ForegroundService = null;
 let foregroundServiceActive = false;
 let foregroundServiceChannelReady = false;
 let pendingInviteCreate: InviteCreateState | null = null;
@@ -211,10 +211,6 @@ function setFollowedTarget(target: string | null) {
   if(!followedTarget)
     followedTarget = null;
   updateFollowedUserStatus();
-}
-
-function isAndroidCapacitor() {
-  return Utils.isCapacitor() && Capacitor.getPlatform && Capacitor.getPlatform() === 'android';
 }
 
 function getForegroundServiceTitle() {
@@ -349,7 +345,7 @@ function showActiveSessionPrompt(activeSession: { user: string; tabId: string; t
 }
 
 async function updateForegroundServiceNotification() {
-  if(!isAndroidCapacitor() || !foregroundServiceActive)
+  if(!Utils.isAndroidCapacitor() || !foregroundServiceActive)
     return;
 
   try {
@@ -368,10 +364,14 @@ async function updateForegroundServiceNotification() {
 }
 
 async function startForegroundService() {
-  if(!isAndroidCapacitor() || foregroundServiceActive)
+  if(!Utils.isAndroidCapacitor() || foregroundServiceActive)
     return;
 
   try {
+    const mod = await import('@capawesome-team/capacitor-android-foreground-service');
+    ForegroundService = mod.ForegroundService;
+    const Importance = mod.Importance;
+
     const permissionStatus = await ForegroundService.checkPermissions();
     if(permissionStatus.display !== 'granted') {
       const requestStatus = await ForegroundService.requestPermissions();
@@ -405,7 +405,7 @@ async function startForegroundService() {
 }
 
 async function stopForegroundService() {
-  if(!isAndroidCapacitor() || !foregroundServiceActive)
+  if(!Utils.isAndroidCapacitor() || !foregroundServiceActive)
     return;
 
   try {
@@ -420,7 +420,7 @@ async function stopForegroundService() {
 }
 
 function updateForegroundServiceState() {
-  if(!isAndroidCapacitor())
+  if(!Utils.isAndroidCapacitor())
     return;
 
   if(!settings.foregroundServiceToggle) {
@@ -513,8 +513,8 @@ async function onDeviceReady() {
   credential = new CredentialStorage();
   const hasInvite = hasInviteParams();
   const hasSharedGame = hasSharedGameParams();
-  activeSessionOnLoad = hasInvite || hasSharedGame ? null : getOtherActiveSession();
   const autoConnect = !hasInvite && !activeSessionOnLoad;
+
   if(settings.rememberMeToggle) {
     // Get the username/password from secure storage (if the user has previously ticked Remember Me)
     await credential.retrieve();
@@ -522,15 +522,11 @@ async function onDeviceReady() {
       createSession(messageHandler, credential.username, credential.password, autoConnect);
     else 
       createSession(messageHandler, undefined, undefined, autoConnect);
-    if(activeSessionOnLoad)
-      showActiveSessionPrompt(activeSessionOnLoad);
   }
   else {
     $('#login-user').val('');
     $('#login-pass').val('');
     createSession(messageHandler, undefined, undefined, autoConnect);
-    if(activeSessionOnLoad)
-      showActiveSessionPrompt(activeSessionOnLoad);
   }
 
   if(hasSharedGame)
@@ -616,14 +612,6 @@ document.addEventListener('touchstart', (event) => {
   lastPointerCoords = Utils.getTouchClickCoordinates(event);
 }, {passive: true});
 
-// Hide popover if user clicks anywhere outside
-$('body').on('click', (e) => {
-  if(!$('#rated-unrated-menu').is(e.target)
-      && $('#rated-unrated-menu').has(e.target).length === 0
-      && $('.popover').has(e.target).length === 0)
-    $('#rated-unrated-menu').popover('dispose');
-});
-
 $(document).on('keydown', (e) => {
   if(e.key === 'Enter') {
     const blurElement = $(e.target).closest('.blur-on-enter');
@@ -649,9 +637,21 @@ $(document).on('keydown', (e) => {
     else if(e.key === 'ArrowRight')
       forward();
 
+    (document.activeElement as HTMLElement | null)?.blur();
+
     e.preventDefault();
   }
 });
+
+$('#left-bottom-tabs')[0].addEventListener('keydown', (e) => {
+  if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    if(e.key === 'ArrowLeft')
+      backward();
+    else if(e.key === 'ArrowRight')
+      forward();
+    e.stopImmediatePropagation();
+  }
+}, true); 
 
 /** Handle keyboard shortcuts */
 $(document).on("keydown", (e) => {
@@ -867,6 +867,7 @@ function setLeftColumnSizes(redrawBoard = true) {
       setTimeout(() => { games.getMainGame()?.board?.redrawAll(); }, 0);
   
     seekGraph.update();
+    lobbyStickyBottom.fixScroll();
   }
 }
 
@@ -984,8 +985,11 @@ function setRightColumnSizes() {
       const chatPanelBorder = $('#chat-panel').outerHeight(true) - $('#chat-panel').height();
       $('#chat-panel').height(boardHeight + $('#left-panel-footer').outerHeight() - remHeight - chatPanelBorder);
     }
+  
+    setTimeout(() => {
+      adjustInputTextHeight();
+    }, 0);
 
-    adjustInputTextHeight();
     if(chat)
       chat.fixScrollPosition();
   }
@@ -1647,6 +1651,7 @@ function handleOffers(offers: any[]) {
 
   // Clear the lobby
   if(offers[0]?.type === 'sc') {
+    lobbyEntries = [];
     $('#lobby-table-body').html('');
     seekGraph.removeAllPoints();
   }
@@ -1654,56 +1659,8 @@ function handleOffers(offers: any[]) {
   // Add seeks to the lobby
   const seeks = offers.filter((item) => item.type === 's');
   if(seeks.length && awaiting.has('lobby')) {
-    seeks.forEach((item) => {
-      // Filter lobby entries
-      if(!settings.lobbyFilter.computers && item.title === 'C')
-        return;
-      if(!settings.lobbyFilter.humans && item.title !== 'C')
-        return;
-      if(session.isRegistered() && !settings.lobbyFilter.unrated && item.ratedUnrated === 'u')
-        return;
-      if(session.isRegistered() && !settings.lobbyFilter.rated && item.ratedUnrated === 'r')
-        return;
-      if(item.category === 'wild/fr') {
-        if(!settings.lobbyFilter.chess960)
-          return;
-      }
-      else if(item.category.startsWith('wild')) {
-        if(!settings.lobbyFilter.wild)
-          return;
-      } 
-      else if(settings.lobbyFilter.hasOwnProperty(item.category) && !settings.lobbyFilter[item.category])
-        return;
-
-      const lobbyTableRow = $(`<tr data-sort-value="${lobbyCounter++}" data-offer-id="${item.id}" class="lobby-entry clickable-row" tabindex="0" role="button">
-          <td>${item.toFrom}${item.title !== '' ? `(${item.title})` : ''}</td>
-          <td>${item.rating}</td>
-          <td data-sort-value="${item.initialTime + item.increment * 2/3}">${item.initialTime} ${item.increment}</td>
-          <td>${item.ratedUnrated} ${item.category === 'wild/fr' ? 'chess960' : item.category}${item.color !== '?' ? ` ${item.color}` : ''}</td>
-        </tr>`);
-      $('#lobby-table-body').append(lobbyTableRow);
-
-      lobbyTableRow.on('click', function() {
-        acceptSeek(item.id);
-      });
-
-      lobbyTableRow.on('keydown', function (e) {
-        if(e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          $(this).trigger('click');
-        }
-      });
-
-      item.text = formatLobbyEntry(item);
-      seekGraph.addPoint(item);
-    });
-
-    Utils.sortTable($('#lobby-table'));
-    
-    if(lobbyScrolledToBottom) {
-      const container = $('#lobby-table-container')[0];
-      container.scrollTop = container.scrollHeight;
-    }
+    seeks.forEach(s => s.lobbyId = lobbyCounter++);
+    lobbyEntries.push(...seeks);
   }
 
   // Add our own seeks and match requests to the top of the Play pairing pane
@@ -1826,8 +1783,7 @@ function handleOffers(offers: any[]) {
       Dialogs.removeNotification($(`.notification[data-offer-id="${id}"]`)); // If match request was not ours, remove the Notification
       $(`.game-dialog[data-offer-id="${id}"]`).toast('hide'); // if in-game request, hide the dialog
       $(`.sent-offer[data-offer-id="${id}"]`).remove(); // If offer, match request or seek was sent by us, remove it from the Play pane
-      $(`.lobby-entry[data-offer-id="${id}"]`).remove(); // Remove seek from lobby
-      seekGraph.removePoint(id);
+      lobbyEntries = lobbyEntries.filter(l => l.id !== id);
     });
     
     if(item.type === 'sr' && !item.ids.length) // remove all seeks
@@ -1840,6 +1796,8 @@ function handleOffers(offers: any[]) {
     if(!$('#sent-offers-status').children().length)
       $('#sent-offers-status').hide();
   });
+
+  updateLobby();   
 }
 
 function showSentOffers(offers: any) {
@@ -1880,8 +1838,8 @@ function showSentOffers(offers: any) {
       // Display 'u' if we are a registered user playing an unrated game.
       const unrated = session.isRegistered() && offer.ratedUnrated === 'u' && offer.category !== 'untimed' ? 'u ' : '';
       // Change 0 0 to 'untimed'
-      const time = offer.category !== 'untimed' ? `${offer.initialTime} ${offer.increment} ` : '';
-      const color = (offer.color !== '?' ? offer.color : '');
+      const time = offer.category !== 'untimed' ? `${offer.initialTime} ${offer.increment} ` : '';      
+      const color = (offer.color !== '?' ? ` ${offer.color}` : '');
 
       requestsHtml += `Seeking ${time === '' ? 'an ' : 'a '}${time}${unrated}${offer.category}${color} game.`;
       removeCmd = `unseek ${offer.id}`;
@@ -2245,15 +2203,10 @@ function handleMiscMessage(data: any) {
         session.send(`obs ${host}`);
         showTab($('#pills-observe-tab'));
       }
-      else if(pendingInviteObserve.gameId) {
-        const gameId = pendingInviteObserve.gameId;
+      else if(pendingInviteObserve.gameId) 
         pendingInviteObserve = null;
-        session.send(`ex ${host} ${gameId}`);
-        showTab($('#pills-game-tab'));
-      }
-      else {
+      else 
         $('#pairing-pane-status').text(`Invite game ended. Check ${host}'s history.`).show();
-      }
     }
     let status: JQuery<HTMLElement>;
     if(awaiting.has('history'))
@@ -2382,8 +2335,10 @@ function handleMiscMessage(data: any) {
   if(match) {
     // retrieve <sn> notification
     session.send('iset showownseek 1');
-    session.send('iset seekinfo 1');
-    session.send('iset seekinfo 0');
+    if(!$('#pills-play').hasClass('active') || !$('#pills-lobby').hasClass('active')) {
+      session.send('iset seekinfo 1');
+      session.send('iset seekinfo 0');
+    }
     session.send('iset showownseek 0');
     chat.newMessage('console', data);
     return;
@@ -4124,7 +4079,7 @@ function initGameControls(game: Game) {
     $('#exit-subvariation').hide();
 
   if(game.isPlaying()) {
-    $('#viewing-game-buttons').hide();
+    Utils.hideWithPoppers($('#viewing-game-buttons'));
 
     // show Adjourn button for standard time controls or slower
     if(game.isPlayingOnline() && (game.time + game.inc * 2/3 >= 15 || (!game.time && !game.inc)))
@@ -4134,7 +4089,7 @@ function initGameControls(game: Game) {
     $('#playing-game-buttons').show();
   }
   else {
-    $('#playing-game-buttons').hide();
+    Utils.hideWithPoppers($('#playing-game-buttons'));
     $('#viewing-game-buttons').show();
   }
 
@@ -4285,7 +4240,7 @@ function cleanupGame(game: Game) {
     hidePanel('#left-panel-header-2');
     $('#takeback').prop('disabled', false);
     $('#play-computer').prop('disabled', false);
-    $('#playing-game-buttons').hide();
+    Utils.hideWithPoppers($('#playing-game-buttons'));
     $('#viewing-game-buttons').show();
     hideLobbyStatus();
   }
@@ -5671,7 +5626,7 @@ function clearMatchRequests() {
     type: 'sr',
     ids: [],
   },
-  { type: 'pt',
+  { type: 'pr',
     ids: [],
   }]);
 }
@@ -5746,6 +5701,14 @@ function getGame(min: number, sec: number) {
       placement: 'top',
     });
     $('#rated-unrated-menu').popover('show');
+    $('body').on('click.hide-popover', (e) => {
+      if(!$('#rated-unrated-menu').is(e.target)
+          && $('#rated-unrated-menu').has(e.target).length === 0
+          && $('.popover').has(e.target).length === 0) {
+        $('#rated-unrated-menu').popover('dispose');
+        $('body').off('click.hide-popover'); 
+      }
+    });
     return;
   }
 
@@ -5789,42 +5752,14 @@ function initLobbyPane() {
     $('#lobby').show();
     setLobbyViewMode();
 
-    if(session.isRegistered())
-      $('#lobby-show-unrated').parent().show();
-    else
-      $('#lobby-show-unrated').parent().hide();
+    lobbyEntries = [];
+    updateLobbyFilters();
 
-    if(settings.lobbyFilter.computers) {
-      $('#lobby-show-computers-icon').removeClass('fa-eye-slash');
-      $('#lobby-show-computers-icon').addClass('fa-eye');
-    }
-    else {
-      $('#lobby-show-computers-icon').removeClass('fa-eye');
-      $('#lobby-show-computers-icon').addClass('fa-eye-slash');
-    }
+    let defaultSortAttr = $('#lobby-table > thead > tr').attr('data-sort');
+    const defaultSort = defaultSortAttr === 'asc' || defaultSortAttr === 'desc';
+    lobbyStickyBottom.stick(defaultSort); 
 
-    if(settings.lobbyFilter.unrated) {
-      $('#lobby-show-unrated-icon').removeClass('fa-eye-slash');
-      $('#lobby-show-unrated-icon').addClass('fa-eye');
-    }
-    else {
-      $('#lobby-show-unrated-icon').removeClass('fa-eye');
-      $('#lobby-show-unrated-icon').addClass('fa-eye-slash');
-    }
-    
-    $('#lobby-show-computers').prop('checked', settings.lobbyFilter.computers);
-    $('#lobby-show-unrated').prop('checked', settings.lobbyFilter.unrated);
-    for(const [key, value] of Object.entries(settings.lobbyFilter)) {
-      const checkBox = $(`#lobby-filter-menu [data-filter-name="${key}"]`);
-      checkBox.prop('checked', value);
-    }
-    $('#lobby-filter-menu [data-filter-name="rated"]').parent().toggle(session.isRegistered());
-    $('#lobby-filter-menu [data-filter-name="unrated"]').parent().toggle(session.isRegistered());
-
-    $('#lobby-table-body').html('');
-    lobbyScrolledToBottom = true;
     awaiting.set('lobby');
-    lobbyEntries.clear();
     session.send('iset seekremove 1');
     session.send('iset seekinfo 1');
   }
@@ -5836,7 +5771,9 @@ $(document).on('hidden.bs.tab', 'button[data-bs-target="#pills-lobby"]', () => {
 
 function leaveLobbyPane() {
   if(awaiting.resolve('lobby')) {
+    lobbyEntries = [];
     $('#lobby-table-body').html('');
+    seekGraph.removeAllPoints();
     if(session && session.isConnected()) {
       session.send('iset seekremove 0');
       session.send('iset seekinfo 0');
@@ -5858,14 +5795,14 @@ $('#lobby-show-computers').on('change', function () {
   settings.lobbyFilter.computers = $(this).is(':checked');
   $('#lobby-filter-menu [data-filter-name="computers"').prop('checked', settings.lobbyFilter.computers);
   storage.set('lobby-filter', JSON.stringify(settings.lobbyFilter));
-  initLobbyPane();
+  updateLobbyFilters();
 });
 
 $('#lobby-show-unrated').on('change', function () {
   settings.lobbyFilter.unrated = $(this).is(':checked');
   $('#lobby-filter-menu [data-filter-name="unrated"').prop('checked', settings.lobbyFilter.unrated);
   storage.set('lobby-filter', JSON.stringify(settings.lobbyFilter));
-  initLobbyPane();
+  updateLobbyFilters();
 });
 
 $('#lobby-filter-menu').on('change', '.form-check-input', (e) => {
@@ -5873,7 +5810,7 @@ $('#lobby-filter-menu').on('change', '.form-check-input', (e) => {
   const name = checkbox.data('filter-name');
   settings.lobbyFilter[name] = checkbox.is(':checked');
   storage.set('lobby-filter', JSON.stringify(settings.lobbyFilter));
-  initLobbyPane();
+  updateLobbyFilters();
 });
 
 $('[name="lobby-view-mode"').on('change', function () {
@@ -5889,6 +5826,7 @@ function setLobbyViewMode(mode?: string) {
     $('#lobby-list-view').prop('checked', true);
     $('#lobby-graph-container').hide();
     $('#lobby-table-container').show();
+    lobbyStickyBottom.fixScroll();
   }
   else {
     settings.lobbyViewMode = 'graph';
@@ -5900,12 +5838,7 @@ function setLobbyViewMode(mode?: string) {
   storage.set('lobby-view-mode', mode);
 }
 
-$('#lobby-table-container').on('scroll', () => {
-  const container = $('#lobby-table-container')[0];
-  lobbyScrolledToBottom = container.scrollHeight - container.clientHeight < container.scrollTop + 1.5;
-});
-
-$('#lobby-table').on('click', '.sortable-column', (e) => {
+$('#lobby-table thead').on('click', '.sortable-column', (e) => {
   let defaultSortAttr = $('#lobby-table > thead > tr').attr('data-sort');
   const defaultSortBefore = defaultSortAttr === 'asc' || defaultSortAttr === 'desc';
 
@@ -5921,6 +5854,112 @@ $('#lobby-table').on('click', '.sortable-column', (e) => {
   else if(defaultSortBefore) 
     container.scrollTop = 0;
 });
+
+$('#lobby-table-body').on('click', 'tr', function() {
+  acceptSeek($(this).data('offer-id'));
+});
+
+$('#lobby-table-body').on('keydown', 'tr', function (e) {
+  if(e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    $(this).trigger('click');
+  }
+});
+
+function updateLobbyFilters() {
+  if(session.isRegistered())
+    $('#lobby-show-unrated').parent().show();
+  else
+    $('#lobby-show-unrated').parent().hide();
+
+  if(settings.lobbyFilter.computers) {
+    $('#lobby-show-computers-icon').removeClass('fa-eye-slash');
+    $('#lobby-show-computers-icon').addClass('fa-eye');
+  }
+  else {
+    $('#lobby-show-computers-icon').removeClass('fa-eye');
+    $('#lobby-show-computers-icon').addClass('fa-eye-slash');
+  }
+
+  if(settings.lobbyFilter.unrated) {
+    $('#lobby-show-unrated-icon').removeClass('fa-eye-slash');
+    $('#lobby-show-unrated-icon').addClass('fa-eye');
+  }
+  else {
+    $('#lobby-show-unrated-icon').removeClass('fa-eye');
+    $('#lobby-show-unrated-icon').addClass('fa-eye-slash');
+  }
+  
+  $('#lobby-show-computers').prop('checked', settings.lobbyFilter.computers);
+  $('#lobby-show-unrated').prop('checked', settings.lobbyFilter.unrated);
+  for(const [key, value] of Object.entries(settings.lobbyFilter)) {
+    const checkBox = $(`#lobby-filter-menu [data-filter-name="${key}"]`);
+    checkBox.prop('checked', value);
+  }
+  $('#lobby-filter-menu [data-filter-name="rated"]').parent().toggle(session.isRegistered());
+  $('#lobby-filter-menu [data-filter-name="unrated"]').parent().toggle(session.isRegistered());
+
+  updateLobby();
+}
+
+function updateLobby() {
+  let entriesAdded = false;
+
+  // Filter lobby entries
+  const entries = lobbyEntries.filter(item => {    
+    if(!settings.lobbyFilter.computers && item.title === 'C')
+      return false;
+    if(!settings.lobbyFilter.humans && item.title !== 'C')
+      return false;
+    if(session.isRegistered() && !settings.lobbyFilter.unrated && item.ratedUnrated === 'u')
+      return false;
+    if(session.isRegistered() && !settings.lobbyFilter.rated && item.ratedUnrated === 'r')
+      return false;
+    if(item.category === 'wild/fr') {
+      if(!settings.lobbyFilter.chess960)
+        return false;
+    }
+    else if(item.category.startsWith('wild')) {
+      if(!settings.lobbyFilter.wild)
+        return false;
+    } 
+    else if(settings.lobbyFilter.hasOwnProperty(item.category) && !settings.lobbyFilter[item.category])
+      return false;
+
+    return true;
+  });
+
+  entries.forEach(item => {
+    if($(`#lobby-table-body tr[data-lobby-id="${item.lobbyId}"]`).length)
+      return;
+
+    entriesAdded = true;
+
+    const lobbyTableRow = $(`<tr data-sort-value="${item.lobbyId}" data-lobby-id="${item.lobbyId}" data-offer-id="${item.id}" class="lobby-entry clickable-row" tabindex="0" role="button">
+        <td colspan="2">${item.toFrom}${item.title !== '' ? `(${item.title})` : ''}</td>
+        <td colspan="2">${item.rating}</td>
+        <td colspan="2" data-sort-value="${item.initialTime + item.increment * 2/3}">${item.initialTime} ${item.increment}</td>
+        <td colspan="2">${item.ratedUnrated} ${item.category === 'wild/fr' ? 'chess960' : item.category}${item.color !== '?' ? ` ${item.color}` : ''}</td>
+      </tr>`);
+    $('#lobby-table-body').append(lobbyTableRow);
+
+    item.text = formatLobbyEntry(item);
+    seekGraph.addPoint(item);
+  });
+
+  $('#lobby-table-body tr').each((_, el) => {
+    const lobbyId = $(el).data('lobby-id');
+    if(!entries.find(l => l.lobbyId === lobbyId)) {
+      el.remove();
+      seekGraph.removePoint(lobbyId);
+    }
+  });
+
+  if(entriesAdded) {
+    Utils.sortTable($('#lobby-table'));
+    lobbyStickyBottom.fixScroll();
+  }
+}
 
 function formatLobbyEntry(seek: any): string {
   const title = (seek.title !== '' ? `(${seek.title})` : '');
@@ -8635,7 +8674,7 @@ function initSettings() {
 
   settings.foregroundServiceToggle = (storage.get('foregroundservice') !== 'false');
   $('#foreground-service-toggle').prop('checked', settings.foregroundServiceToggle);
-  if(!isAndroidCapacitor())
+  if(!Utils.isAndroidCapacitor())
     $('#foreground-service-row').hide();
 
   settings.multiboardToggle = (storage.get('multiboard') !== 'false');
@@ -9067,6 +9106,7 @@ function adjustInputTextHeight() {
   const lineHeight = parseFloat(inputElem.css('line-height'));
   const maxLines = 0.33 * $('#chat-panel').height() / lineHeight;
   let numLines = Math.floor(inputElem[0].scrollHeight / lineHeight);
+
   if(numLines > maxLines)
     numLines = maxLines;
 

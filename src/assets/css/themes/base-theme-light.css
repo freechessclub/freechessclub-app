@@ -1,4 +1,5 @@
-:root[data-bs-theme="light"] {
+:root {
+  --board: blue;
   color-scheme: light;
   --color-scheme: light;
   --bg-color: #dee3e6;
@@ -11,10 +12,6 @@
   --flash-color: #ffcccc;
   --bs-border-color: #b5c0c8;
   --bs-border-color-translucent: rgba(0, 0, 0, 0.2);
-}
-
-cg-board {
-  background-image: url('../images/board/blue.svg');
 }
 
 .feature3 {
@@ -162,7 +159,7 @@ cg-board {
   --bs-table-color: var(--fg-color);
 }
 #move-table .selectable:hover {
-  background-color: rgba(0, 0, 0, 0.075);
+  --bs-table-bg: rgba(0, 0, 0, 0.075);
 }
 #move-table .selectable:hover .move {
   color: #0a58ca;
@@ -178,13 +175,7 @@ cg-board {
   border-color: var(--bracket-color);
 }
 #move-table > tbody > .subvariation {
-  background: rgba(0, 0, 0, 0.15);
-}
-#move-table tr:not(.subvariation):nth-of-type(odd) {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-#move-table .subvariation tr:nth-of-type(odd) {
-  background-color: initial;
+  --bs-table-bg: rgba(0, 0, 0, 0.05);
 }
 #move-table .subvariation .selectable:hover {
   background-color: rgba(255, 255, 255, 0.25);
@@ -195,11 +186,11 @@ cg-board {
 #move-table .subvariation .move {
   color: #191970;
 }
-#move-table .move .piece-glyph.white::before {
+#move-table .move .piece-glyph::before {
   color: currentColor;
 }
-#move-table .move .piece-glyph.black::before {
-  color: color-mix(in srgb, currentColor 70%, white 30%); /* fancy new method for lightening/darkening colors */
+#move-table .selectable:not(:hover) .move:not(.selected) .piece-glyph.black::before {
+  color: color-mix(in srgb, currentColor 65%, white 35%); 
 }
 
 .movetime {
@@ -312,6 +303,7 @@ cg-board {
 
 .notification-panel {
   --bs-toast-bg: white;
+  --bs-toast-header-bg: var(--bs-toast-bg);
   --bs-toast-border-color: #DDDDDD;
   --bs-toast-header-border-color: rgba(0, 0, 0, 0.05);
 }
@@ -467,3 +459,9 @@ cg-board {
   fill: hsl(35, 95%, 70%);  
 }
 
+.color-label-light {
+  color: #555555;
+}
+.color-label-dark {
+  color: black;
+}

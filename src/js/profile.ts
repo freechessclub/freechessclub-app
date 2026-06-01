@@ -18,9 +18,24 @@ export class Profile {
 
   constructor() {
     /** When the 'Profile & Stats' menu option is clicked in the profile menu */
-    $('#show-profile').on('click', () => {
-      awaiting.set('profile-finger'); 
-      session.send('finger');
+    $('#show-profile').on('click', (e) => {
+      if(session.isRegistered()) {
+        awaiting.set('profile-finger'); 
+        session.send('finger');
+      }
+      else {
+        $('#show-profile').popover({
+          animation: true,
+          content: 'You must be registered to view your profile and stats. <a href="https://www.freechess.org/cgi-bin/Register/FICS_register.cgi?Language=English" target="_blank">Register now</a>.',
+          html: true,
+          placement: 'bottom',
+        });
+        $('#show-profile').popover('show');
+        $('body').one('click', (e) => {
+          $('#show-profile').popover('dispose');
+        });
+        e.stopPropagation();
+      }
     });
 
     $('#profile-modal').on('shown.bs.modal', () => {
@@ -70,7 +85,7 @@ export class Profile {
    * Called after conncting to FICS 
    */
   public connected() {
-    $('#show-profile').toggle(session.isRegistered());
+    $('#show-profile').show();
   }
 
   /**

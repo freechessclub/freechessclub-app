@@ -2,9 +2,8 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import '@formatjs/intl-segmenter/polyfill-force.js';
 import { autoLink } from 'autolink-js';
-import { createTooltip, safeScrollTo, isSmallWindow, removeWithPoppers, insertAtCursor } from './utils';
+import { createTooltip, safeScrollTo, isSmallWindow, removeWithPoppers, insertAtCursor, DynamicVirtualScroller, StickyBottomScroller } from './utils';
 import { setGameWithFocus, maximizeGame, scrollToBoard } from './index';
 import { settings } from './settings';
 import { storage, awaiting } from './storage';
@@ -142,7 +141,6 @@ export class Chat {
   private tabData: object;
   private isConnected: boolean;
   private unviewedNum: number;
-  private virtualScrollerPromise: Promise<typeof import('virtual-scroller/dom')>;
   private subscribedChannels: string[];
   private userList: any[];
   private userListHasBeenRequested: boolean = false;
@@ -156,7 +154,6 @@ export class Chat {
     this.isConnected = false;
     settings.timestampToggle = (storage.get('timestamp') !== 'false');
     settings.chattabsToggle = (storage.get('chattabs') !== 'false');
-    this.virtualScrollerPromise = import('virtual-scroller/dom');
 
     // initialize tabs
     this.tabData = {};
@@ -169,13 +166,14 @@ export class Chat {
     $(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
       this.updateViewedState(tab);
-      this.updateVirtualScroller(tab);
-      this.fixScrollPosition();
+      const tabData = this.getTabDataFromElement(tab);
+      tabData?.virtualScroller.update();
+      tabData?.stickyBottomScroller?.fixScroll();
     });
 
     $(document).on('hide.bs.tab', '#tabs button[data-bs-toggle="tab"]', (e) => {
       const tab = $(e.target);
-      this.stopVirtualScroller(tab);
+      this.getTabDataFromElement(tab)?.virtualScroller.stop();
       clearInterval(this.inChannelTimer);
     });
 
@@ -475,10 +473,8 @@ export class Chat {
     if(!this.tabData.hasOwnProperty(from)) {
       this.tabData[from] = {
         messages: [],
-        scrollerPromise: null,
-        scrollerUpdateCount: 0,
-        scrollerStarted: false,
-        scrolledToBottom: true
+        virtualScroller: null,
+        stickyBottomScroller: null,
       };
 
       let chName = name;
@@ -503,8 +499,6 @@ export class Chat {
 
       let tabElement = $('#tabs').find(`#tab-${from}`);
       if(!tabElement.length) {
-        
-
         tabElement = $(`<li ${tooltip}class="nav-item position-relative">
             <button class="text-sm-center nav-link" data-bs-toggle="tab" href="#content-${from}" `
               + `id="tab-${from}" role="tab" style="padding-right: 30px">${chName}</button>
@@ -611,24 +605,28 @@ export class Chat {
         }
       }
 
-      // Scroll event listener for auto scroll to bottom etc
-      tabContent.find('.chat-scroll-container').on('scroll', (e) => {
-        const scrollContainer = e.target;
-        const tabContent = $(scrollContainer).closest('.tab-pane');
-        const tabData = this.getTabDataFromElement(tabContent);
+      // auto scroll to bottom
+      const tabData = this.tabData[from];
 
-        if(tabContent.hasClass('active')) {
-          const atBottom = scrollContainer.scrollHeight - scrollContainer.clientHeight < scrollContainer.scrollTop + 1.5;
-          if(atBottom) {
-            $('#chat-scroll-button').hide();
-            tabData.scrolledToBottom = true;
-          }
-          else {
-            tabData.scrolledToBottom = false;
-            $('#chat-scroll-button').show();
-          }
-        }
-      });
+      tabData.stickyBottomScroller = new StickyBottomScroller(
+        tabContent.find('.chat-scroll-container')[0], 
+        (isStuck: boolean) => { $('#chat-scroll-button').toggle(!isStuck); }
+      );
+
+      tabData.virtualScroller = new DynamicVirtualScroller<string>(
+        tabContent.find('.chat-text')[0], 
+        tabContent.find('.chat-scroll-container')[0], 
+        tabData.messages,
+        (item: string) => {
+          const elem = document.createElement('div');
+          elem.classList.add('chat-message');
+          elem.innerHTML = item;
+          return elem;
+        },
+        () => {
+          tabData.stickyBottomScroller.fixScroll();
+        } 
+      );
     }
 
     const tabElement = $('#tabs').find(`#tab-${from}`);
@@ -649,30 +647,7 @@ export class Chat {
       return;
     const tabContent = scrollContainer.closest('.tab-pane');
     const tabData = this.getTabDataFromElement(tabContent);
-    if(tabData.scrolledToBottom) 
-      scrollContainer.scrollTop(scrollContainer[0].scrollHeight);
-    scrollContainer.trigger('scroll');
-  }
-
-  /**
-   * Create a virtual-scroller object for a tab's content
-   * @param tabContent The chat tab-pane to use
-   * @param messages The array of chat messages for the tab
-   * @returns VirtualScroller object
-   */
-  public async createVirtualScroller(tabContent, messages) {
-    const { default: VirtualScroller } = await this.virtualScrollerPromise;
-    return new VirtualScroller(tabContent.find('.chat-text')[0], messages, (msg: string) => {
-      const elem = document.createElement('div');
-      elem.classList.add('chat-message');
-      elem.innerHTML = msg;
-      return elem;
-    }, {
-      scrollableContainer: tabContent.find('.chat-scroll-container')[0],
-      onStateChange: () => {
-        this.fixScrollPosition(); 
-      }
-    });
+    tabData.stickyBottomScroller?.fixScroll(); 
   }
 
   public getTabData(name: string) {
@@ -689,7 +664,8 @@ export class Chat {
 
   public deleteTab(tab: any) {
     const name = this.getTabName(tab);
-    this.stopVirtualScroller(tab)
+    this.tabData[name].virtualScroller.stop();
+    this.tabData[name].stickyBottomScroller.destroy();
     delete this.tabData[name];
   }
 
@@ -846,65 +822,10 @@ export class Chat {
 
     const tabData = this.getTabDataFromElement(tabElement); 
     tabData.messages = tabData.messages.concat(`${timestamp}${who}${text}`);
-    if(tabElement.hasClass('active'))
-      this.updateVirtualScroller(tabElement);
+    tabData.virtualScroller.update(tabData.messages);
 
     if(this.user !== data.user || from.toLowerCase() === this.user.toLowerCase())
       this.updateViewedState(tabElement, false, data.type !== 'whisper');
-  }
-
-  private async updateVirtualScroller(tabElement: any) {
-    const tabContentElement = $(tabElement.attr('href'));
-    const scrollContainer = tabContentElement.find('.chat-scroll-container');
-    if(!scrollContainer.length)
-      return;
-
-    const tabData = this.getTabDataFromElement(tabElement);
-
-    // Throttle updates
-    if(!tabData.scrollerUpdateCount) {
-      tabData.scrollerUpdateCount = 1;
-      setTimeout(() => {
-        const count = tabData.scrollerUpdateCount;
-        tabData.scrollerUpdateCount = 0;
-        if(count > 1 && tabData.scrollerStarted) 
-          this.updateVirtualScroller(tabElement);
-      }, 250);
-    } 
-    else {
-      tabData.scrollerUpdateCount++;
-      return;
-    }
-
-    if(!tabData.scrollerPromise) {
-      tabData.scrollerPromise = this.createVirtualScroller(tabContentElement, tabData.messages);
-      tabData.scrollerStarted = true;
-      return;
-    }
-
-    const scroller = await tabData.scrollerPromise;
-    if(!tabData.scrollerStarted) {
-      // In case panel was resized while hidden, recalculate chat message heights so that 
-      // virtual-scroller doesn't complain after restarting
-      const state = scroller.virtualScroller.getState();
-      for(let i = state.firstShownItemIndex; i <= state.lastShownItemIndex; i++) 
-        scroller.onItemHeightDidChange(i);
-      scroller.start();
-      tabData.scrollerStarted = true;
-    }
-
-    scroller.setItems(tabData.messages);
-  }
-
-  private async stopVirtualScroller(tabElement: any) {
-    const tabData = this.getTabDataFromElement(tabElement);
-    if(!tabData)
-      return;
-    const scroller = await tabData.scrollerPromise;
-    if(tabData.scrollerStarted) {
-      tabData.scrollerStarted = false;
-      scroller.stop(); 
-    } 
   }
 
   private ignoreUnviewed(from: string) {
@@ -1250,6 +1171,9 @@ export class Chat {
       data = await response.json();
     }
     catch(e) { return; } 
+
+    if(typeof Intl === 'undefined' || !('Segmenter' in Intl)) 
+      await import('@formatjs/intl-segmenter/polyfill.js');
 
     const emojiMart = await import('emoji-mart');
     await emojiMart.init({ data });

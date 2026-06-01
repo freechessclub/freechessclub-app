@@ -7,7 +7,6 @@ import { getTurnColorFromFEN, getMoveNoFromFEN, parseMove } from './chess-helper
 import { gotoMove } from './index';
 import { Game } from './game';
 import { hasMultiThreading } from './utils';
-import Maia from './maia/maia';
 
 const SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'wild/fr', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
 
@@ -810,6 +809,8 @@ export class MaiaEngine {
   }
 
   public async init() {
+    const { default: Maia } = await import('./maia/maia');
+
     return new Promise<void>((resolve, reject) => {
       this.maia = new Maia({
         model: 'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/0af39b3/public/maia3/maia3_simplified.onnx',

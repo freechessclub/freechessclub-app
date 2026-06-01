@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import type { Placement } from '@popperjs/core';
+import type VirtualScroller from 'virtual-scroller/dom';
 
 export const enum SizeCategory {
   Small = 0,
@@ -245,6 +246,10 @@ export function isCapacitor() {
   return platform && platform !== 'web';
 }
 
+export function isAndroidCapacitor() {
+  return isCapacitor() && Capacitor.getPlatform && Capacitor.getPlatform() === 'android';
+}
+
 /**
  * Is this an Electron app?
  */
@@ -352,6 +357,15 @@ export function removeWithPoppers(element: JQuery<HTMLElement>) {
   element.find('[data-bs-toggle="tooltip"]').tooltip('dispose');
   element.find('[data-bs-toggle="popover"]').popover('dispose');
   element.remove();
+}
+
+/**
+ * Hides an element from the DOM with any tooltips and popovers associated with it
+ */
+export function hideWithPoppers(element: JQuery<HTMLElement>) {
+  element.find('[data-bs-toggle="tooltip"]').tooltip('dispose');
+  element.find('[data-bs-toggle="popover"]').popover('dispose');
+  element.hide();
 }
 
 /** MISC HELPER FUNCTIONS **/
@@ -1486,11 +1500,20 @@ export function splitIntoColumns(items, cols = 3) {
   return result;
 }
 
+/** 
+ * Class for writing bits to a bit stream.
+ * The stream is single-use, i.e. once the final stream is read with finished() you can no longer write to it  
+ */
 export class BitWriter {
   private buffer = 0;
   private bitCount = 0;
   private output: number[] = [];
 
+  /**
+   * Write the value 
+   * @param value the number to write
+   * @param bits the number of bits the value occupies
+   */
   public write(value: number, bits: number) {
     this.buffer = ((this.buffer << bits) | value) >>> 0;
     this.bitCount += bits;
@@ -1505,6 +1528,11 @@ export class BitWriter {
     this.buffer &= (1 << this.bitCount) - 1;
   }
 
+  /**
+   * Write the value, specifying a max value
+   * @param value the number to write
+   * @param maxValue The maximum possible value, translated to the number of bits the value occupies
+   */
   public writeMax(value: number, maxValue: number) {
     const bits = Math.ceil(Math.log2(maxValue + 1));
     this.write(value, bits);
@@ -1517,6 +1545,9 @@ export class BitWriter {
     return new Uint8Array(this.output);
   }
 
+  /**
+   * Write a standard varint
+   */
   public writeVarint(value: number) {
     while(value >= 0x80) {
       // Write 7 bits + continuation flag (1)
@@ -1527,6 +1558,9 @@ export class BitWriter {
   }
 }
 
+/** 
+ * Class for reading bits from a bit stream.
+ */
 export class BitReader {
   private buffer = 0;
   private bitCount = 0;
@@ -1534,6 +1568,7 @@ export class BitReader {
 
   constructor(private input: Uint8Array) {}
 
+  /** Read the given number of bits, return as a number */
   public read(bits: number): number {
     while (this.bitCount < bits) {
       if (this.inputIndex >= this.input.length) {
@@ -1550,11 +1585,13 @@ export class BitReader {
       (bits === 32 ? 0xFFFFFFFF : (1 << bits) - 1);
   }
 
+  /** Read a number, given its maximum possible value (translated into a number of bits) */
   public readMax(maxValue: number): number {
     const bits = Math.ceil(Math.log2(maxValue + 1));
     return this.read(bits);
   }
 
+  /** Read a standard varint */
   public readVarint(): number {
     let result = 0;
     let shift = 0;
@@ -1569,10 +1606,413 @@ export class BitReader {
   }
 }
 
+/**
+ * Zigzag encode an integer, used for compact encoding of negative integers. 
+ * e.g. [0, 1, -1, 2, -2] comes [0, 1, 2, 3, 4] 
+ */
 export function zigzagEncode(n: number): number {
   return (n << 1) ^ (n >> 31);
 }
 
+/**
+ * Zigzag decode an integer
+ */
 export function zigzagDecode(n: number): number {
   return (n >>> 1) ^ -(n & 1);
+}
+
+/**
+ * Helper class for automatically keeping a scrollbar "stuck" at the bottom when new content is added
+ * or the container is resized
+ */
+export class StickyBottomScroller {
+  private container: HTMLElement;
+  private stuck: boolean;
+  private isStuckCallback?: (isStuck: boolean, container: HTMLElement) => void // Callback function for reporting whether the scrollbar is currently at the bottom or not
+
+  constructor(container: HTMLElement, isStuckCallback?: (isStuck: boolean, container: HTMLElement) => void) {
+    this.container = container;
+    this.isStuckCallback = isStuckCallback;
+    this.stuck = true;
+
+    /** Check if scrollbar is at bottom after user scrolls */
+    $(container).on('scroll.stickyBottom', () => {
+      this.checkStuck();
+    });
+  }
+
+  /** Cleanup scroll event handler */
+  public destroy() {
+    $(this.container).off('scroll.stickyBottom');
+  }
+
+  /**
+   * Check if the scrollbar is currently stuck to the bottom or not
+   * @returns true if at bottom, false otherwise
+   */
+  public checkStuck() {
+    if(!$(this.container).is(':visible')) // Can't check scrollbar when container is not visible
+      return;
+
+    this.stuck = this.container.scrollHeight - this.container.clientHeight < this.container.scrollTop + 1.5;
+       
+    if(this.isStuckCallback)
+      this.isStuckCallback(this.stuck, this.container); // Callback function to report scrollbar status
+  }
+
+  /**
+   * Move scrollbar back to bottom when content is added or container is resized causing the scrollbar to
+   * move erroneously.
+   */
+  public fixScroll() {
+    if(!$(this.container).is(':visible'))
+      return;
+
+    if(this.stuck) 
+      this.container.scrollTop = this.container.scrollHeight;
+    this.checkStuck();
+  }
+
+  /** Move scrollbar to bottom and stick it (state = true), or temporarily stop it sticking (state = false) */
+  public stick(state = true) {
+    this.stuck = state;
+    if(this.stuck)
+      this.fixScroll();
+  }
+}
+
+/** 
+ * Wrapper class for virtualScroller/dom which adds helper functions for dynamically updating the 
+ * content and for stopping and starting the scroller when the container is hidden/shown.
+ * (virtualscroller normally behaves badly when you hide or show the item container while it's running, 
+ * or if you add items too quickly)
+ */
+export class DynamicVirtualScroller<Item> {
+  private static virtualScrollerPromise = import('virtual-scroller/dom');
+  private scrollerInstancePromise: Promise<VirtualScroller<Item>> | null = null;
+  private started: boolean = false;
+  private scrollContainer: HTMLElement = null; // The element with the overflow scrollbar
+  private contentElement: HTMLElement = null; // The element containing the items
+  private updateCount: number = 0; // Used for throttling content updates so virtual scroller doesn't complain
+  private items: Item[] = null; // The data items to render
+  private renderItem: (item: any) => HTMLElement; // Callback function for creating DOM elements for items
+  private onStateChange: () => void; // Callback function for after the rendered elements changes
+
+  constructor(contentElement: HTMLElement, scrollContainer: HTMLElement, items: Item[], renderItem: (item: Item) => HTMLElement, onStateChange: () => void) {
+    this.contentElement = contentElement;
+    this.scrollContainer = scrollContainer;
+    this.items = items;
+    this.renderItem = renderItem;
+    this.onStateChange = onStateChange;
+  }
+
+  // Create the virtualscroller instance
+  private async create() {
+    const { default: VirtualScroller } = await DynamicVirtualScroller.virtualScrollerPromise;
+    return new VirtualScroller(this.contentElement, this.items, this.renderItem, {
+      scrollableContainer: this.scrollContainer,
+      onStateChange: this.onStateChange
+    });
+  }
+
+  // Stop the virtual scroller (usually when the container is hidden)
+  public async stop() {
+    const scroller = await this.scrollerInstancePromise;
+    if(this.started) {
+      this.started = false;
+      scroller.stop(); 
+    } 
+  }
+
+  /**
+   * Re-render items or restart the virtual scroller if it was stopped, e.g. after the container becomes
+   * visible again.
+   * @param items if items is specified, then updates the virtual scroller's items
+   */
+  public async update(items?: Item[]) {
+    if(items)
+      this.items = items;
+
+    // Don't start or render if scroll container is invisible
+    if(!$(this.scrollContainer).is(':visible'))
+      return;
+
+    // Throttle updates
+    if(!this.updateCount) {
+      this.updateCount = 1;
+      setTimeout(() => {
+        const count = this.updateCount;
+        this.updateCount = 0;
+        if(count > 1 && this.started) 
+          this.update();
+      }, 250);
+    } 
+    else {
+      this.updateCount++;
+      return;
+    }
+
+    if(!this.scrollerInstancePromise) {
+      this.scrollerInstancePromise = this.create();
+      this.started = true;
+      return;
+    }
+
+    const scroller = await this.scrollerInstancePromise;
+    if(!this.started) {
+      // In case panel was resized while hidden, recalculate chat message heights so that 
+      // virtual-scroller doesn't complain after restarting
+      const state = (scroller as any).virtualScroller.getState();
+      for(let i = state.firstShownItemIndex; i <= state.lastShownItemIndex; i++) 
+        scroller.onItemHeightDidChange(i);
+      (scroller as any).start();
+      this.started = true;
+    }
+
+    scroller.setItems(this.items);
+  }
+}
+
+/** 
+ * Convert a color string in the form rgb(<r>, <g>, <b>) to #RRGGBB 
+ */
+export function rgbToHex(color?: string | null): string | null {
+  if(!color)
+    return null;
+
+  // Already hex
+  if (/^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/.test(color))
+    return color.toLowerCase();
+
+  // rgb(...) or rgba(...)
+  const match = color.match(
+    /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/
+  );
+
+  if (match) {
+    const [, r, g, b] = match;
+
+    return (
+      '#' +
+      [r, g, b]
+        .map(n => Number(n).toString(16).padStart(2, '0'))
+        .join('')
+    );
+  }
+
+  return null;
+}
+
+/**
+ * Return the perceived brightness of a color
+ * @param color string in either rgb(r, g, b) or #RRGGBB format
+ * @returns brightness value from 0-255
+ */
+export function getBrightness(color: string): number {
+  let r: number, g: number, b: number;
+
+  // hex
+  if (color.startsWith('#')) {
+    let hex = color.slice(1);
+
+    if (hex.length === 3)
+      hex = hex.split('').map(c => c + c).join('');
+
+    r = parseInt(hex.slice(0, 2), 16);
+    g = parseInt(hex.slice(2, 4), 16);
+    b = parseInt(hex.slice(4, 6), 16);
+  }
+
+  // rgb(...)
+  else {
+    const match = color.match(/\d+/g);
+
+    if (!match || match.length < 3)
+      return NaN;
+
+    [r, g, b] = match.slice(0, 3).map(Number);
+  }
+
+  return (r * 299 + g * 587 + b * 114) / 1000;
+}
+
+const normalizeColorElem = document.createElement('div');
+document.body.appendChild(normalizeColorElem);
+/**
+ * Converts a color string from any format to rgb(<r>, <g>, <b>)
+ * Works by getting the computed style from a dummy element 
+ * @param color string to convert
+ * @returns normalized color string
+ */
+export function normalizeColor(color: string) {
+  if(!color)
+    return null;
+
+  // reject paint servers + special keywords
+  const v = color.trim().toLowerCase();
+  if(v.startsWith('url(') || v === 'none' || v === 'inherit' || v === 'currentcolor') 
+    return null;
+
+  normalizeColorElem.style.color = color;
+  return getComputedStyle(normalizeColorElem).color;
+}
+
+/**
+ * Returns [R, G, B] values as number array from an 'rgb(<r>, <g>, <b>)' string
+ */
+export function parseRgb(str: string): [number, number, number] {
+  const m = str.match(/\d+/g);
+  if (!m || m.length < 3) return [0, 0, 0];
+  return [Number(m[0]), Number(m[1]), Number(m[2])];
+}
+
+/**
+ * Converts [R, G, B] number array to 'rgb(<r>, <g>, <b>)' string
+ */
+export function toRgb([r, g, b]: [number, number, number]): string {
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/**
+ * Converts color components from [H, S, L] to [R, G, B] 
+ */
+export function hslToRgb(h: number, s: number, l: number) {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+
+  let r = 0, g = 0, b = 0;
+
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+
+  return [
+    Math.round((r + m) * 255),
+    Math.round((g + m) * 255),
+    Math.round((b + m) * 255)
+  ];
+}
+
+/**
+ * Converts color components from [R, G, B] to [H, S, L] 
+ */
+export function rgbToHsl(r: number, g: number, b: number) {
+  r /= 255; g /= 255; b /= 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+
+  const d = max - min;
+
+  if (d !== 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+
+    switch (max) {
+      case r: h = ((g - b) / d) % 6; break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+
+  return { h, s, l };
+}
+
+export async function createColorPicker(container: HTMLElement, onChange: (btn: HTMLElement, color: string) => void) {
+  const { default: iro } = await import('@jaames/iro');
+  
+  const $container = $(container);
+  $container.on('click', '.color-picker-btn', (e) => {
+    const popover = new bootstrap.Popover($(e.currentTarget), {
+      html: true,
+      sanitize: false,
+      trigger: 'manual',
+      placement: 'bottom',
+      customClass: 'color-picker-popover',
+      content: `<div class="color-picker-container"></div>`
+    });
+    popover.show();
+  })
+
+  $container.on('shown.bs.popover', '.color-picker-btn', (e) => {
+    const btn = $(e.currentTarget);
+    $(document).on('click.color-picker-popover', (e) => {
+      if(!$(e.target).closest('.color-picker-popover').length) {
+        btn.data('picker')?.off();
+        btn.popover('dispose');
+        $(document).off('click.color-picker-popover');
+      }
+    });
+
+    const container = $('.color-picker-popover.show .color-picker-container')[0];
+    const picker = iro.ColorPicker(container, {
+      width: 180,
+      color: btn.css('--color-swatch') 
+    });
+    btn.data('picker', picker);
+    btn.popover('update');
+
+    /** User changed the color in a color picker */
+    
+    let rafId: number | null = null;
+    let latestColor: string | null = null;
+    picker.on("color:change", (color) => {
+      latestColor = color.rgbString;
+      if(rafId !== null) 
+        return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if(latestColor) {
+          btn.css('--swatch-color', latestColor);
+          onChange(btn[0], latestColor);
+        }
+      });
+    });
+  });
+}
+
+/**
+ * Fetch an SVG as an element
+ */
+export async function loadSvg(url: string) {
+  const text = await fetch(url).then(r => r.text());
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+
+  const svg = doc.documentElement;
+
+  if (!(svg instanceof SVGSVGElement)) {
+    throw new Error('Invalid SVG');
+  }
+
+  return svg;
+}
+
+/**
+ * Convert an SVG element to a serialized blob url
+ */
+export function svgToUrl(svg: SVGSVGElement) {
+  const serialized = new XMLSerializer().serializeToString(svg);
+  const blob = new Blob([serialized], {
+    type: 'image/svg+xml'
+  });
+  return URL.createObjectURL(blob);
+}
+
+/** 
+ * Convert an SVG element to an img element 
+ */
+export function svgToImg(svg: SVGSVGElement) {
+  const url = svgToUrl(svg);
+  const img = document.createElement('img');
+  img.src = url;
+  return img;
 }

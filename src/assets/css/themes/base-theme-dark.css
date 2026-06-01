@@ -1,4 +1,5 @@
-:root[data-bs-theme="dark"] {
+:root {
+  --board: gray;
   color-scheme: dark;
   --color-scheme: dark;
   --bg-color: #424242;
@@ -11,10 +12,6 @@
   --bs-border-color-translucent: rgba(255, 255, 255, 0.175);
   --form-control-bg: #555555;
   --flash-color: #cc6666;
-}
-
-cg-board {
-  background-image: url('../images/board/gray.svg');
 }
 
 .feature3 {
@@ -236,7 +233,7 @@ a {
   background-color: rgba(255, 255, 255, 0.06);
 }
 #move-table .selectable:hover .move {
-  color: #0a58ca;
+  color: #2b6fd6;
 }
 #move-table .selectable:hover .selected {
   color: #3379d1;
@@ -249,13 +246,7 @@ a {
   border-color: var(--bracket-color);
 }
 #move-table > tbody > .subvariation {
-  background: rgba(255, 255, 255, 0.15);
-}
-#move-table tr:not(.subvariation):nth-of-type(odd) {
-  background-color: rgba(0, 0, 0, 0.08);
-}
-#move-table .subvariation tr:nth-of-type(odd) {
-  background-color: initial;
+  --bs-table-bg: rgba(255, 255, 255, 0.05);
 }
 #move-table .subvariation .selectable:hover {
   background-color: rgba(0, 0, 0, 0.2);
@@ -264,7 +255,7 @@ a {
   background-color: rgba(255, 255, 255, 0.2);
 }
 #move-table .subvariation .move {
-  color: #DDDDDD
+  color: #DDDDDD;
 }
 #move-table .subvariation .move .piece-glyph.white::before {
   color: color-mix(in srgb, currentColor 90%, black 10%);
@@ -567,4 +558,11 @@ a {
 }
 .seek-graph-point-computer-rated {
   fill: hsl(35, 95%, 50%);  
+}
+
+.color-label-light {
+  color: white;
+}
+.color-label-dark {
+  color: #AAAAAA;
 }

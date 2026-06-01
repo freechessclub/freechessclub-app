@@ -54,6 +54,7 @@
     }
   },
   "dependencies": {
+    "@aparajita/capacitor-secure-storage": "^8.0.0",
     "@capacitor/android": "^8.1.0",
     "@capacitor/core": "^8.1.0",
     "@capacitor/ios": "^8.1.0",
@@ -62,13 +63,13 @@
     "@capacitor/status-bar": "^8.0.1",
     "@capawesome-team/capacitor-android-foreground-service": "^8.0.1",
     "@formatjs/intl-segmenter": "^12.2.2",
+    "@jaames/iro": "^5.5.2",
     "@mliebelt/pgn-parser": "^1.4.15",
     "@popperjs/core": "^2.11.6",
     "@uriopass/nosleep.js": "^0.12.2",
     "autolink-js": "github:freechessclub/autolink-js",
     "bootstrap": "5.3.8",
     "builder-util-runtime": "^9.2.10",
-    "capacitor-secure-storage-plugin": "^0.13.0",
     "chess.js": "^0.12.1",
     "chessground": "^9.0.4",
     "cm-polyglot": "^1.1.0",
