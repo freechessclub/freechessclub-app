@@ -175,6 +175,7 @@ export class Users {
       const category = $(e.target).text();
       $('#top-players-category-btn').text(category);
       if(this.topPlayersList) {
+        console.log(this.topPlayersList);
         this.updateUsersTable($('#top-players-table'), this.topPlayersList.filter(player => player.category === category));
         $('#top-players-table-container').scrollTop(0); 
       }
@@ -245,10 +246,7 @@ export class Users {
       if(this.topPlayersList) {
         this.topPlayersList.forEach(player => {
           const user = this.userList.find(u => u.name.toLowerCase() === player.name.toLowerCase());
-          if(user) 
-            Object.assign(player, user);
-          else
-            player.status = 'x';
+          player.status = user ? user.status : 'x'; 
         });
       }
     }
