@@ -91,7 +91,7 @@
     "@typescript-eslint/eslint-plugin": "^8.17.0",
     "@typescript-eslint/parser": "^8.17.0",
     "cheerio": "^1.0.0",
-    "copy-webpack-plugin": "^13.0.0",
+    "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^6.6.0",
     "electron": "^36.9.5",
     "electron-builder": "26.8.0",
