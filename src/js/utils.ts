@@ -363,8 +363,8 @@ export function removeWithPoppers(element: JQuery<HTMLElement>) {
  * Hides an element from the DOM with any tooltips and popovers associated with it
  */
 export function hideWithPoppers(element: JQuery<HTMLElement>) {
-  element.find('[data-bs-toggle="tooltip"]').tooltip('dispose');
-  element.find('[data-bs-toggle="popover"]').popover('dispose');
+  element.find('[data-bs-toggle="tooltip"]').tooltip('hide');
+  element.find('[data-bs-toggle="popover"]').popover('hide');
   element.hide();
 }
 
@@ -1931,7 +1931,13 @@ export async function createColorPicker(container: HTMLElement, onChange: (btn: 
   const { default: iro } = await import('@jaames/iro');
   
   const $container = $(container);
+  let controller = null;
+
   $container.on('click', '.color-picker-btn', (e) => {
+    const popInstance = bootstrap.Popover.getInstance(e.currentTarget);
+    if(popInstance)
+      return;
+
     const popover = new bootstrap.Popover($(e.currentTarget), {
       html: true,
       sanitize: false,
@@ -1943,20 +1949,35 @@ export async function createColorPicker(container: HTMLElement, onChange: (btn: 
     popover.show();
   })
 
+  $container.on('hidden.bs.popover', '.color-picker-btn', (e) => {
+    const btn = $(e.currentTarget);
+    btn.data('picker')?.off();
+    btn.popover('dispose');
+    controller?.abort();
+  });
+
   $container.on('shown.bs.popover', '.color-picker-btn', (e) => {
     const btn = $(e.currentTarget);
-    $(document).on('click.color-picker-popover', (e) => {
-      if(!$(e.target).closest('.color-picker-popover').length) {
-        btn.data('picker')?.off();
-        btn.popover('dispose');
-        $(document).off('click.color-picker-popover');
-      }
-    });
+    const popoverElem = $('.color-picker-popover.show .color-picker-container');
+    btn.trigger('focus');
 
-    const container = $('.color-picker-popover.show .color-picker-container')[0];
-    const picker = iro.ColorPicker(container, {
+    controller = new AbortController();
+
+    document.addEventListener('click', (e) => {
+      if(!$(e.target).closest('.color-picker-popover').length) 
+        btn.popover('hide');
+    }, { signal: controller.signal });
+
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape') {
+        e.stopPropagation();
+        btn.popover('hide');
+      }
+    }, { capture: true, signal: controller.signal });
+
+    const picker = iro.ColorPicker(popoverElem[0], {
       width: 180,
-      color: btn.css('--color-swatch') 
+      color: getComputedStyle(btn[0]).getPropertyValue('--swatch-color').trim()
     });
     btn.data('picker', picker);
     btn.popover('update');

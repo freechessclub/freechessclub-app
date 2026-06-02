@@ -76,7 +76,11 @@ export function showDialog(params: DialogParams, position = 'middle'): any {
     let prevActiveElement = null;
     dialog.on('show.bs.toast', () => { prevActiveElement = document.activeElement; });        
     dialog.on('hide.bs.toast', () => { $(prevActiveElement).trigger('focus'); });        
-    dialog.appendTo('body');    
+    const modal = $('.modal.show');
+    if(modal.length)
+      dialog.appendTo(modal);
+    else 
+      dialog.appendTo('body');    
   }
   else if(position === 'top' || position === 'bottom') {
     dialog.css({

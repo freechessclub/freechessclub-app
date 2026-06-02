@@ -1160,7 +1160,7 @@ $('#color-picker-btn')
       return;
     }
 
-    menuBtn.trigger('focus');
+    $('#color-picker-btn').hide();
     const name = menuBtn.data('name');
 
     if($(colorPickerTarget).closest('#boards-menu').length)
@@ -1238,7 +1238,12 @@ async function pickBoardColors(origName: string) {
     const outColors = replaceBoardColors(modifiedSvg, replaceColors, assetName); // Get initial picker colors from the preview board
     const output = new XMLSerializer().serializeToString(modifiedSvg);
     const encoded = encodeURIComponent(output);
-    dialog.find('.mini-board').css('background-image', `url("data:image/svg+xml,${encoded}")`); 
+    const url = `data:image/svg+xml,${encoded}`;
+    const img = new Image();
+    img.src = url;
+    img.onload = () => {
+      dialog.find('.mini-board').css('background-image', `url("${url}")`);
+    };
     return outColors;
   };
 

@@ -1616,7 +1616,7 @@ function gameEnd(data: any) {
     blackStatus.parent().css('--bs-card-cap-bg', 'var(--game-tie-color)');
   }
 
-  const status = data.message.replace(/Game \d+ /, '');
+  const status = data.message.replace(/Game \d+ /, '').replaceAll('-', '\u2011');
   showStatusMsg(game, status);
 
   if(game.isPlaying()) {

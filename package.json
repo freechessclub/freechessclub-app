@@ -90,6 +90,7 @@
     "@types/websocket": "^1.0.1",
     "@typescript-eslint/eslint-plugin": "^8.17.0",
     "@typescript-eslint/parser": "^8.17.0",
+    "baseline-browser-mapping": "^2.10.33",
     "cheerio": "^1.0.0",
     "copy-webpack-plugin": "^13.0.0",
     "css-loader": "^6.6.0",

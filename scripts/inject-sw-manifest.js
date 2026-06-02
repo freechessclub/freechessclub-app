@@ -9,4 +9,11 @@ workboxBuild.injectManifest({
     "play.html",
     "assets/**/*.{html,js,wasm,css,png,jpg,svg,json,bin,tsv,ico}",
   ],
+}).then(({count, size, warnings}) => {
+  if (warnings.length > 0) {
+    console.warn(
+      'Warnings encountered while injecting the manifest:',
+      warnings.join('\n')
+    );
+  }
 });
