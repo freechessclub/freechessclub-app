@@ -7438,10 +7438,12 @@ function setupGameInExamineMode(game: Game) {
     game.history.goto(game.history.last());
 
     // Navigate back to current move
-    if(currMove) {
+    if(currMove) 
       gotoMove(currMove);
-      game.history.goto(currMove);
-    }
+
+    game.removeMoveRequested = null;
+    game.pendingMoves = [];
+    game.restoreMove = null;
   }
 
   // This is a hack just to indicate we are done
