@@ -56,23 +56,8 @@ jobs:
 
           echo "version=$current_version" >> "$GITHUB_OUTPUT"
 
-  create-release:
-    needs: check-version
-    if: needs.check-version.outputs.changed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create or update GitHub release with auto-generated notes
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.check-version.outputs.version }}
-          target_commitish: ${{ github.sha }}
-          generate_release_notes: true
-          make_latest: true
-
   build:
-    needs:
-      - check-version
-      - create-release
+    needs: check-version
     if: needs.check-version.outputs.changed == 'true'
     strategy:
       fail-fast: false
@@ -90,23 +75,61 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Bundle app
+      - name: Bundle web app
+        run: npm run bundle
+
+      - name: Bundle Electron app
         run: npm exec -- webpack --config electron.webpack.js
 
-      - name: Build and publish (macOS)
+      - name: Build Electron artifacts (macOS)
         if: runner.os == 'macOS'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm exec -- electron-builder -m --x64 --arm64 -p always
+        run: npm exec -- electron-builder -m --x64 --arm64 -p never
 
-      - name: Build and publish (Windows)
+      - name: Build Electron artifacts (Windows)
         if: runner.os == 'Windows'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm exec -- electron-builder -w --x64 -p always
+        run: npm exec -- electron-builder -w --x64 -p never
 
-      - name: Build and publish (Linux)
+      - name: Build Electron artifacts (Linux)
         if: runner.os == 'Linux'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm exec -- electron-builder -l --x64 -p always
+        run: npm exec -- electron-builder -l --x64 -p never
+
+      - name: Upload Electron artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            dist/*.AppImage
+            dist/*.blockmap
+            dist/*.deb
+            dist/*.dmg
+            dist/*.exe
+            dist/*.rpm
+            dist/*.snap
+            dist/*.tar.gz
+            dist/*.yml
+            dist/*.zip
+
+  release:
+    needs:
+      - check-version
+      - build
+    if: needs.check-version.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Electron artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: electron-*
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Create or update GitHub release with auto-generated notes
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check-version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: release-artifacts/*
