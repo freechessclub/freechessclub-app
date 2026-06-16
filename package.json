@@ -43,7 +43,7 @@
     ],
     "mac": {
       "category": "public.app-category.board-games",
-      "identity": "Apple Development: tessellate.ai@gmail.com (W893HC69YA)"
+      "notarize": true
     },
     "linux": {
       "target": [
