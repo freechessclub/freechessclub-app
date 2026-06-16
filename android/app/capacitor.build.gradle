@@ -9,11 +9,11 @@ android {
 
 apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"
 dependencies {
+    implementation project(':aparajita-capacitor-secure-storage')
     implementation project(':capacitor-keyboard')
     implementation project(':capacitor-preferences')
     implementation project(':capacitor-status-bar')
     implementation project(':capawesome-team-capacitor-android-foreground-service')
-    implementation project(':capacitor-secure-storage-plugin')
 
 }
 

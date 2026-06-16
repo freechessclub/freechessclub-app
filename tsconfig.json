@@ -3,6 +3,9 @@
 //        "noImplicitAny": true,
 //        "strictNullChecks": true,
         "removeComments": false, // Don't enable this, we need webpack magic comments and comments are later removed by the minimizer
+        "strict": false,
+        "noImplicitAny": false,
+        "strictNullChecks": false,
         "preserveConstEnums": true,
         "sourceMap": true,
         "esModuleInterop": true,
@@ -10,7 +13,9 @@
         "allowSyntheticDefaultImports": true,
         "module": "es2022",
         "target": "es2022",
-        "moduleResolution": "node"
+        "moduleResolution": "node",
+        "types": ["jquery", "bootstrap", "websocket"],
+        "ignoreDeprecations": "6.0"
     },
     "include": [
         "src/**/*"
