@@ -17,6 +17,7 @@ module.exports = (env, argv) => {
     output: {
       path: path.resolve(__dirname, outputDir),
       filename: "assets/js/" + (isProd ? "bundle.[contenthash].js" : "bundle.js"),
+      chunkFilename: "assets/js/" + (isProd ? "[name].[contenthash].js" : "[name].js"),
       clean: true,
     },
     externals: {
