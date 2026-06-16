@@ -4,15 +4,13 @@ import { StaleWhileRevalidate } from 'workbox-strategies';
 
 // pre-cache external resources
 const externals = [
-  {"url":"https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css", "revision":"1"},
-  {"url":"https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/fonts/fontawesome-webfont.woff2?v=4.7.0", "revision":"1"},
-  {"url":"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css", "revision":"1"},
-  {"url":"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/webfonts/fa-solid-900.woff2", "revision":"1"},
-  {"url":"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/webfonts/fa-regular-400.woff2", "revision":"1"},
-  {"url":"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/webfonts/fa-brands-400.woff2", "revision":"1"},
+  {"url":"https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css", "revision":"1"},
+  {"url":"https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/webfonts/fa-solid-900.woff2", "revision":"1"},
+  {"url":"https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/webfonts/fa-regular-400.woff2", "revision":"1"},
+  {"url":"https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/webfonts/fa-brands-400.woff2", "revision":"1"},
   {"url":"https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css", "revision":"1"},
   {"url":"https://fonts.googleapis.com/css2?family=Noto+Sans+Math&family=Noto+Sans+Symbols+2&display=swap", "revision":"1"},
-  {"url":"https://code.jquery.com/jquery-3.7.1.slim.min.js", "revision":"1"},
+  {"url":"https://code.jquery.com/jquery-4.0.0.slim.min.js", "revision":"1"},
   {"url":"https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js", "revision":"1"},
   {"url":"https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.min.js", "revision":"1"},
   {"url":"https://cdn.jsdelivr.net/npm/d3@7.8.0/dist/d3.min.js", "revision":"1"},

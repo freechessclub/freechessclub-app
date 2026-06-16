@@ -156,7 +156,7 @@ export function createDialog({type = '', title = '', msg = '', btnFailure, btnSu
 
       req += `<button type="button" ${successCmd}class="button-success btn btn-sm btn-outline-success`
           + `${btnFailure && btnFailure.length === 2 ? ' me-4' : ''}" data-bs-dismiss="toast">`
-          + `${icons ? '<span class="fa fa-check-circle-o" aria-hidden="false"></span> ' : ''}`
+          + `${icons ? '<span class="fa-regular fa-circle-check" aria-hidden="false"></span> ' : ''}`
           + `${btnSuccess[1]}</button>`;
     }
     if (btnFailure && btnFailure.length === 2) {
@@ -174,7 +174,7 @@ export function createDialog({type = '', title = '', msg = '', btnFailure, btnSu
 
       req += `<button type="button" ${failureCmd}" class="button-failure `
           + 'btn btn-sm btn-outline-danger" data-bs-dismiss="toast">'
-          + `${icons ? '<span class="fa fa-times-circle-o" aria-hidden="false"></span> ' : ''}`
+          + `${icons ? '<span class="fa-regular fa-circle-xmark" aria-hidden="false"></span> ' : ''}`
           + `${btnFailure[1]}</button>`;
     }
     req += '</div>';

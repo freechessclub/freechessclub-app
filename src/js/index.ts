@@ -1852,7 +1852,7 @@ function showSentOffers(offers: any) {
     const showInviteBtn = showInvite
       ? `<button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline" id="show-invite-link">Invite link</button>`
       : '';
-    requestsHtml += `<span style="white-space: nowrap">${lastWord}${showInviteBtn}<span class="fa fa-times-circle btn btn-default `
+    requestsHtml += `<span style="white-space: nowrap">${lastWord}${showInviteBtn}<span class="fa-solid fa-circle-xmark btn btn-default `
       + `btn-sm" onclick="sessionSend('${removeCmd}')" aria-hidden="false"></span></span></div>`;
   });
 
@@ -5259,7 +5259,7 @@ function finalizeInviteSeek(offer: any) {
 
   const sentOffer = $(`.sent-offer[data-offer-id="${activeInvite.seekId}"]`);
   if(sentOffer.length && !sentOffer.find('#show-invite-link').length) {
-    sentOffer.find('.fa-times-circle').first().before(
+    sentOffer.find('.fa-circle-xmark').first().before(
       '<button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline" id="show-invite-link">Invite link</button>'
     );
   }
@@ -8771,7 +8771,7 @@ $('#sound-toggle').on('click', () => {
   storage.set('sound', String(settings.soundToggle));
 });
 function updateDropdownSound() {
-  const iconClass = `dropdown-icon fa fa-volume-${settings.soundToggle ? 'up' : 'off'}`;
+  const iconClass = `dropdown-icon fa-solid fa-volume-${settings.soundToggle ? 'high' : 'xmark'}`;
   $('#sound-toggle').html(`<span id="sound-toggle-icon" class="${iconClass}" aria-hidden="false"></span>`
       + `Sounds ${settings.soundToggle ? 'ON' : 'OFF'}`);
 }

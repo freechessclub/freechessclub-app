@@ -365,6 +365,15 @@ body {
   margin-right: 0;
 }
 
+#right-panel-header > .btn-toolbar.ms-auto {
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+}
+#right-panel-header > .btn-toolbar.ms-auto .btn {
+  --bs-btn-padding-x: 0.625rem;
+  margin-right: 0;
+}
+
 #session-status {
   display: inline-flex;
   align-items: center;

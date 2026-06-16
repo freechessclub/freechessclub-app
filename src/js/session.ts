@@ -109,7 +109,7 @@ export class Session {
   }
 
   public setUser(user: string): void {
-    $('#session-status').html(`<span style="overflow: hidden; text-overflow: ellipsis"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;<span class="h6">${user}</span></span>`);
+    $('#session-status').html(`<span style="overflow: hidden; text-overflow: ellipsis"><span class="fa-solid fa-circle" aria-hidden="false"></span>&nbsp;<span class="h6">${user}</span></span>`);
     if(!this.user && !settings.visited) { // Only display popover if this is a new user or guest
       $('#session-status').popover({
         animation: true,
@@ -197,7 +197,7 @@ export class Session {
   }
 
   public reset() {
-    $('#session-status').html('<span class="text-danger"><span class="fa fa-circle" aria-hidden="false"></span>&nbsp;Offline</span>');
+    $('#session-status').html('<span class="text-danger"><span class="fa-solid fa-circle" aria-hidden="false"></span>&nbsp;Offline</span>');
     this.connected = false;
     this.connecting = false;
     this.postConnectCommands = [];

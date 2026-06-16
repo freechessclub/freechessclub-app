@@ -2,6 +2,7 @@ const fs = require('fs').promises;
 
 async function copyFiles() {
   try {
+    await fs.rm('./app', { recursive: true, force: true });
     await fs.mkdir('./app', { recursive: true });
     await fs.copyFile('./www/play.html', './app/index.html');
     await fs.copyFile('./www/manifest.json', './app/manifest.json');
