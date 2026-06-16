@@ -19,164 +19,122 @@
   <meta name="twitter:site" content="@freechessclub"/>
   <meta name="twitter:image" content="https://www.freechess.club/assets/img/tfcc.png"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/fontawesome.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/solid.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/regular.min.css" crossorigin="anonymous">
   <link rel="stylesheet" type="text/css" href="assets/css/main.css">
-  <link rel="stylesheet" type="text/css" href="assets/css/devices.css">
-  <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Fredoka+One&text=Free%20Chess%20Club">
-  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <link rel="shortcut icon" href="assets/img/favicon.ico" type="image/x-icon">
 </head>
-<body>
-  <header class="header container-fluid">
-    <div class="col-12 px-4">
-      <a class="logo" href="/"><img src="assets/img/tfcc-small.png">Free Chess Club</a>
-    </div>
-    <div class="container-fluid flex pt-5">
-      <div class="row justify-content-md-center">
-        <div class="col-lg-5 centervertical pt-5">
-          <h1 class="heading">
-            Play online chess for free.
-          </h1>
-          <h5 class="paragraph">
-            Free Chess Club is a modern web-based interface for the Free Internet Chess Server (FICS) — one of the oldest internet chess servers with over 800,000 registered accounts. At Free Chess Club, you have access to online chess, puzzles, tournaments and analysis — right within your browser!
-          </h5>
-          <div class="d-flex justify-content-between p-4">
-            <a class="col-sm-5 btn btn-primary" href="/play">
-              Play Now
-            </a>
-            <a class="col-sm-5 btn btn-light" href="http://www.freechess.org/Register/">
-              Register
-            </a>
-          </div>
-        </div>
-        <div class="col-lg-1"></div>
-        <div class="col-lg-5 sidedevices">
-          <div class="iphoneipad">
-            <div class="iphone">
-              <div class="mask">
-                <img class="mask-img" src="assets/img/mobileapp.png">
-              </div>
-            </div>
-            <div class="ipad">
-              <div class="mask">
-                <img class="mask-img" src="assets/img/webapp.png">
-              </div>
-            </div>
-          </div>
-        </div>
+<body class="site-page">
+  <header class="site-hero">
+    <nav class="site-nav container">
+      <a class="site-brand" href="/"><img src="assets/img/tfcc-small.png" alt="" aria-hidden="true">Free Chess Club</a>
+      <div class="site-nav-links" aria-label="Primary navigation">
+        <a class="site-nav-cta" href="/play">Play</a>
+      </div>
+    </nav>
+    <div class="container site-hero-content">
+      <div class="site-eyebrow">Free Internet Chess Server client</div>
+      <h1>Free Chess Club</h1>
+      <p class="site-hero-text">
+        Play on FICS from a clean web client built for live games, analysis, puzzles, tournaments, and community channels.
+      </p>
+      <div class="site-actions">
+        <a class="site-btn site-btn-primary" href="/play">Play Now</a>
+        <a class="site-btn site-btn-secondary" href="http://www.freechess.org/Register/">Register on FICS</a>
       </div>
     </div>
-    <div class="col-xs-12" style="height:18vh;"></div>
-    <div class="container center flex">
-        <div class="col-sm-6 text-center centervertical">
-          <h5 class="paragraph">
-            Alternatively, extend your chess experience beyond the browser with our cross-platform desktop client. Try out our Free Chess Club Desktop App:
-          </h5>
-          <div class="download">
-            <div class="ribbon"><span>NEW</span></div>
-            <a href="javascript:void(0)" id="downloadBtn" class="btn btn-outline-light">
-              💾 Download
-            </a>
-            <p>
-              <a class="links" href="https://github.com/freechessclub/freechessclub-app/releases">View all releases</a> on GitHub
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>  
   </header>
-  <div class="feature3">
-    <div class="container flex">
-      <div class="col-sm-4 text-center item">
-        <b class="emoji">
-          🌐
-        </b>
-        <h3 class="subheading">
-          Modern web client
-        </h3>
-        <p class="paragraph">
-          Access the Free Internet Chess Server (FICS) without the hassle of downloading and installing a chess client. Free Chess Club's web-based client lets you play a quick game of online chess anywhere.
-        </p>
+  <main class="site-main">
+    <section class="site-band site-band-muted">
+      <div class="container">
+        <div class="site-section-heading">
+          <h2>Play on FICS from a modern web client.</h2>
+          <p>
+            Free Chess Club connects to the Free Internet Chess Server with live boards, chat, analysis, tournaments, and browser-friendly controls.
+          </p>
+        </div>
+        <div class="site-feature-grid">
+          <article class="site-feature-card">
+            <div class="site-feature-kicker">800k+ registered FICS accounts</div>
+            <h3><span class="fa-solid fa-comments" aria-hidden="true"></span> FICS community</h3>
+            <p>
+              Play and chat on one of the oldest internet chess servers, with public channels, regular players, and relayed games.
+            </p>
+          </article>
+          <article class="site-feature-card">
+            <div class="site-feature-kicker">Browser based</div>
+            <h3><span class="fa-solid fa-chess-board" aria-hidden="true"></span> Web interface</h3>
+            <p>
+              Use live boards, move lists, chat, and analysis tools without installing a separate chess client.
+            </p>
+          </article>
+          <article class="site-feature-card">
+            <div class="site-feature-kicker">Browser or desktop</div>
+            <h3><span class="fa-solid fa-bolt" aria-hidden="true"></span> Chess tools</h3>
+            <p>
+              Play rated games, solve puzzles, join tournaments, try variants, challenge the computer, or watch live relays.
+            </p>
+          </article>
+        </div>
       </div>
-      <div class="col-sm-4 text-center item">
-        <b class="emoji">
-          👾
-        </b>
-        <h3 class="subheading">
-          Maximum Chess
-        </h3>
-        <p class="paragraph">
-          Learn to play chess, solve chess puzzles, participate in daily tournaments, play different variants at all levels, play with a computer and watch relayed games. Maximum chess—guaranteed!
-        </p>
+    </section>
+    <section class="site-band site-band-download">
+      <div class="container">
+        <div class="site-download-panel">
+          <div class="site-download-content">
+            <div class="site-eyebrow">Desktop app</div>
+            <h2>Prefer a dedicated app?</h2>
+            <p>
+              Install Free Chess Club for macOS, Windows, Linux, or Android when you want a focused chess window outside the browser.
+            </p>
+            <div class="site-actions">
+              <a href="javascript:void(0)" id="downloadBtn" class="site-btn site-btn-primary">Download </a>
+              <a class="site-btn site-btn-secondary" href="https://github.com/freechessclub/freechessclub-app/releases">View releases</a>
+            </div>
+          </div>
+          <div class="site-download-media">
+            <img class="site-device-image" src="assets/img/mobileapp.png" alt="Free Chess Club mobile board view">
+          </div>
+        </div>
       </div>
-      <div class="col-sm-4 text-center item">
-        <b class="emoji">
-          👨‍👨‍👧‍👧
-        </b>
-        <h3 class="subheading">
-          Vibrant Community
-        </h3>
-        <p class="paragraph">
-          At Free Chess Club, you are a part of a vast community of chess experts and enthusiasts, with free access to a host of channels involving engaging discussions on a variety of topics.
-        </p>
+    </section>
+    <section class="site-band site-band-muted">
+      <div class="container">
+        <div class="site-quote-grid">
+          <blockquote class="site-quote">
+            <p>
+              <span class="fa-solid fa-quote-left" aria-hidden="true"></span>
+              What a great interface for chess enthusiasts ... The best of web meets the best of chess.
+            </p>
+            <footer>MoosMutz - Senior Administrator, FICS</footer>
+          </blockquote>
+          <blockquote class="site-quote">
+            <p>
+              <span class="fa-solid fa-quote-left" aria-hidden="true"></span>
+              A new web-based interface for connecting to FICS has been needed for a long time.
+            </p>
+            <footer>mattuc - Senior Administrator, FICS</footer>
+          </blockquote>
+          <blockquote class="site-quote">
+            <p>
+              <span class="fa-solid fa-quote-left" aria-hidden="true"></span>
+              This looks really good ... This could clearly be the best web/mobile FICS UI.
+            </p>
+            <footer>ducksauce - Reddit User</footer>
+          </blockquote>
+        </div>
       </div>
+    </section>
+  </main>
+  <footer class="site-footer text-center">
+    <div class="site-footer-links">
+      <a class="nav-link" href="https://twitter.com/freechessclub">Twitter</a>
+      <a class="nav-link" href="https://github.com/freechessclub">GitHub</a>
+      <a class="nav-link" href="http://www.freechess.org">FICS</a>
+      <a class="nav-link" href="/privacy">Privacy</a>
     </div>
-  </div>
-  <div class="feature3">
-    <div class="container flex">
-      <div class="col-sm-4 px-3">
-        <blockquote class="blockquote">
-          <p>
-            <span class="fa-solid fa-quote-left" style="opacity: 0.3"></span>
-            <i> What a great interface for chess enthusiasts ... The best of web meets the best of chess. </i>
-            <span class="fa-solid fa-quote-right" style="opacity: 0.3"></span>
-          </p>
-          <footer class="blockquote-footer">MoosMutz - Senior Administrator, FICS</footer>
-        </blockquote>
-      </div>
-      <div class="col-sm-4 px-3">
-        <blockquote class="blockquote">
-          <p>
-            <span class="fa-solid fa-quote-left" style="opacity: 0.3"></span>
-            <i>A new web-based interface for connecting to FICS has been needed for a long time. We really appreciate this work to make a new
-              web-browser interface for FICS a reality.</i>
-            <span class="fa-solid fa-quote-right" style="opacity: 0.3"></span>
-          </p>
-          <footer class="blockquote-footer">mattuc - Senior Administrator, FICS</footer>
-        </blockquote>
-      </div>
-      <div class="col-sm-4 px-3">
-        <blockquote class="blockquote">
-          <p>
-            <span class="fa-solid fa-quote-left" style="opacity: 0.3"></span>
-            <i>This looks really good ... This could clearly be the best web/mobile FICS UI.</i>
-            <span class="fa-solid fa-quote-right" style="opacity: 0.3"></span>
-          </p>
-          <footer class="blockquote-footer">ducksauce - Reddit User</footer>
-        </blockquote>
-      </div>
-    </div>
-  </div>
-  <footer class="footer container-fluid text-center">
-    <a class="nav-link" href="https://twitter.com/freechessclub">
-      <span class="fa-brands fa-twitter" style="font-size: 32px" aria-hidden="false"></span>
-    </a>
-    <a class="nav-link" href="https://github.com/freechessclub">
-      <span class="fa-brands fa-github" style="font-size: 32px" aria-hidden="false"></span>
-    </a>
-    <br/>
-    <a class="nav-link" href="http://www.freechess.org">
-      FICS
-    </a>
-    <a class="nav-link" href="/privacy">
-      Privacy
-    </a>
-    <a class="nav-link" href="/contact">
-      Contact
-    </a>
-    <br/>
-    <span style="opacity: 0.5">
-      © 2024 Free Chess Club
-    </span>
+    <span class="site-copyright">© 2026 Free Chess Club</span>
   </footer>
   <script src="https://code.jquery.com/jquery-4.0.0.slim.min.js" integrity="sha256-8DGpv13HIm+5iDNWw1XqxgFB4mj+yOKFNb+tHBZOowc=" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>

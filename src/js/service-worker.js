@@ -4,10 +4,11 @@ import { StaleWhileRevalidate } from 'workbox-strategies';
 
 // pre-cache external resources
 const externals = [
-  {"url":"https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css", "revision":"1"},
+  {"url":"https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/fontawesome.min.css", "revision":"1"},
+  {"url":"https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/solid.min.css", "revision":"1"},
+  {"url":"https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/regular.min.css", "revision":"1"},
   {"url":"https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/webfonts/fa-solid-900.woff2", "revision":"1"},
   {"url":"https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/webfonts/fa-regular-400.woff2", "revision":"1"},
-  {"url":"https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/webfonts/fa-brands-400.woff2", "revision":"1"},
   {"url":"https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css", "revision":"1"},
   {"url":"https://fonts.googleapis.com/css2?family=Noto+Sans+Math&family=Noto+Sans+Symbols+2&display=swap", "revision":"1"},
   {"url":"https://code.jquery.com/jquery-4.0.0.slim.min.js", "revision":"1"},
