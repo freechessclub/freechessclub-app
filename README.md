@@ -115,13 +115,7 @@ npm run build
 
 That command targets macOS, Windows, and Linux for x64 and arm64 according to the Electron Builder settings in `package.json`.
 
-macOS release builds must be signed with a Developer ID Application certificate and notarized. The GitHub Actions Electron release workflow requires these repository secrets:
-
-- `CSC_LINK`: base64-encoded `.p12` Developer ID Application certificate, or another electron-builder-supported certificate link.
-- `CSC_KEY_PASSWORD`: password for the signing certificate.
-- `APPLE_API_KEY`: App Store Connect `.p8` API key contents.
-- `APPLE_API_KEY_ID`: App Store Connect API key ID.
-- `APPLE_API_ISSUER`: App Store Connect issuer ID.
+The GitHub Actions Electron release workflow publishes macOS, Windows, and Linux artifacts. macOS artifacts are currently built without Developer ID signing or notarization, so Gatekeeper may require users to approve the downloaded app manually.
 
 ## Mobile builds
 

@@ -29,7 +29,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Check version bump
         id: version
@@ -70,7 +70,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install deps
         run: npm ci
@@ -81,83 +81,9 @@ jobs:
       - name: Bundle Electron app
         run: npm exec -- webpack --config electron.webpack.js
 
-      - name: Prepare macOS signing
-        if: runner.os == 'macOS'
-        shell: bash
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          set -euo pipefail
-          missing=()
-          
-          # Check for signing certificate
-          if [[ -z "${CSC_LINK:-}" ]] || [[ -z "${CSC_KEY_PASSWORD:-}" ]]; then
-            missing+=("CSC_LINK" "CSC_KEY_PASSWORD")
-          fi
-          
-          # Check for notarization: either API key method OR Apple ID method
-          has_api_key=$([[ -n "${APPLE_API_KEY:-}" ]] && [[ -n "${APPLE_API_KEY_ID:-}" ]] && [[ -n "${APPLE_API_ISSUER:-}" ]] && echo 1 || echo 0)
-          has_apple_id=$([[ -n "${APPLE_ID:-}" ]] && [[ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]] && [[ -n "${APPLE_TEAM_ID:-}" ]] && echo 1 || echo 0)
-          
-          if [[ $has_api_key -eq 0 ]] && [[ $has_apple_id -eq 0 ]]; then
-            missing+=("notarization credentials (either APPLE_API_KEY/APPLE_API_KEY_ID/APPLE_API_ISSUER or APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD/APPLE_TEAM_ID)")
-          fi
-
-          if (( ${#missing[@]} )); then
-            printf '::error::Missing macOS signing/notarization secrets: %s\n' "${missing[*]}"
-            exit 1
-          fi
-
-          # If using API key method, convert to file
-          if [[ $has_api_key -eq 1 ]]; then
-            api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
-            printf '%s\n' "$APPLE_API_KEY" | perl -pe 's/\\n/\n/g' > "$api_key_path"
-            chmod 600 "$api_key_path"
-            echo "APPLE_API_KEY=$api_key_path" >> "$GITHUB_ENV"
-          fi
-
       - name: Build Electron artifacts (macOS)
         if: runner.os == 'macOS'
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_API_KEY: ${{ env.APPLE_API_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: npm exec -- electron-builder -m --x64 --arm64 -p never --config.mac.forceCodeSigning=true
-
-      - name: Verify macOS signing and notarization
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_count=0
-
-          for app in dist/mac/*.app dist/mac-*/*.app; do
-            if [[ ! -d "$app" ]]; then
-              continue
-            fi
-
-            app_count=$((app_count + 1))
-            codesign --verify --deep --strict --verbose=2 "$app"
-            xcrun stapler validate "$app"
-            spctl -a -vvv -t open --context context:primary-signature "$app"
-          done
-
-          if (( app_count == 0 )); then
-            echo '::error::No macOS app bundles were found to verify.'
-            exit 1
-          fi
+        run: npm exec -- electron-builder -m --x64 --arm64 -p never
 
       - name: Build Electron artifacts (Windows)
         if: runner.os == 'Windows'
