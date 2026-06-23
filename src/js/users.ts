@@ -641,6 +641,7 @@ export class Users {
             setFollowedUser(null);
             break;
           case 'profile':
+            $('#users-modal').modal('hide');
             awaiting.set('profile-finger');
             session.send('finger');
             break;

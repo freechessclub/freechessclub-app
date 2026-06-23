@@ -8138,7 +8138,7 @@ function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: str
 
     if(!game.setupBoard && (!currHEntry.evalNodes || pvNodes >= currHEntry.evalNodes)) {
       currHEntry.eval = pvEval;
-      currHEntry.evalBestMove = san[1] === '@' ? san : `${parsed.move.from}${parsed.move.to}`;
+      currHEntry.evalBestMove = san[1] === '@' ? san : `${parsed.move.from}${parsed.move.to}${parsed.move.promotion || ''}`;
       currHEntry.evalNodes = pvNodes;
       debounceUpdateMoveRatingIcon(game);
     }
@@ -8348,7 +8348,7 @@ async function updateMoveRatingIcon(game: Game) {
     if((await getBookMoves(curr.fen)).length) 
       rating = 'book';
     else {
-      const mv = curr.move.san[1] === '@' ? curr.move.san : `${curr.move.from}${curr.move.to}`;
+      const mv = curr.move.san[1] === '@' ? curr.move.san : `${curr.move.from}${curr.move.to}${curr.move.promotion || ''}`;
       rating = (mv === prev.evalBestMove)
         ? 'best'
         : EvalEngine.rateMove(curr.eval, prev.eval, ChessHelper.swapColor(curr.turnColor));
