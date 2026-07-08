@@ -158,12 +158,12 @@ let currentBoard = null;
 export function initUi() {
   const textSize = storage.get('text-size');
   if(textSize != null) {
-    $('.chat-text').css('font-size', `${textSize}em`);
-    $('#textsize-range').val(parseInt(textSize, 10));
+    $('#chat-tabContent').css('font-size', `${textSize}em`);
+    $('#textsize-range').val(+textSize);
   }
 
   $('#textsize-range').on('change', (event) => {
-    $('.chat-text').css('font-size', `${String($(event.target).val())}em`);
+    $('#chat-tabContent').css('font-size', `${String($(event.target).val())}em`);
     storage.set('text-size', String($(event.target).val()));
   });
 
