@@ -9033,17 +9033,13 @@ $('#input-form').on('submit', (event) => {
   }
 
   $('#input-text').val('');
-  updateInputText();
+  adjustInputTextHeight();
 });
 
 function plainText(text: string) {
   text = chat.unemojify(text);
   return Utils.unicodeToHTMLEncoding(text);
 }
-
-$('#input-text').on('input', () => {
-  updateInputText();
-});
 
 $('#input-text').on('keydown', (event) => {
   if(event.key === 'Enter') {
@@ -9052,17 +9048,32 @@ $('#input-text').on('keydown', (event) => {
   }
 });
 
-$(document).on('shown.bs.tab', '#tabs button[data-bs-toggle="tab"]', () => {
-  updateInputText();
+$('#input-text').on('beforeinput', (e) => {
+  const event = e.originalEvent as InputEvent;
+  const element = e.target as HTMLTextAreaElement;
+
+  const inserted = event.inputType.startsWith('insert')
+      ? event.data ?? ''
+      : '';
+  if(inserted) {
+    e.preventDefault();
+    insertInputText(inserted);
+  }
 });
 
-function updateInputText() {
+$('#input-text').on('input', (e) => {
+  adjustInputTextHeight();
+});
+
+function insertInputText(inserted: string) {
+  if(!inserted) 
+    return;
+
   const element = $('#input-text')[0] as HTMLTextAreaElement;
   const start = element.selectionStart;
   const end = element.selectionEnd;
 
   let val = element.value as string;
-  val = val.replace(/[^\S ]/g, ' '); // replace all whitespace chars with spaces
 
   // Stop the user being able to type more than max length characters
   const tab = chat.currentTab();
@@ -9078,23 +9089,42 @@ function updateInputText() {
   else
     maxLength = 400;
 
+  const before = val.substring(0, start);
+  const after = val.substring(end);
+  const decodedVal = chat.unemojify(val);
+
+  inserted = inserted.replace(/[^\S ]/g, ' ');
+
   // Convert emoji unicode chars to shortcodes in order to test the length then convert them back
   // Note: as a side effect of this, it will convert shortcodes typed in the input in real time
-  val = chat.unemojify(val);
-  if(val.length > maxLength) {
-    val = Utils.splitText(val, maxLength)[0];
+  inserted = chat.unemojify(inserted);
+  
+  const maxInsertionLength = maxLength - decodedVal.length;
+  if(maxInsertionLength < inserted.length) {
+    inserted = Utils.splitText(inserted, maxInsertionLength)[0];
     // Flash text area when max characters reached
     $('#fake-input-text').addClass('flash');
     $('#fake-input-text').one('animationend', () => {
       $('#fake-input-text').removeClass('flash');
     });
   }
+
+  val = before + inserted + after;
   val = chat.emojify(val);
 
-  if(val !== element.value as string) {
-    element.value = val;
-    element.setSelectionRange(start, end);
+  element.value = val;
+
+  // Set the cursor to the first unchanged character in 'after' (the text following the insertion).
+  // This is because the insertion might combine with the character(s) after it forming an emoji
+  // Basically we are finding a common suffix between val and after
+  let i = after.length - 1;
+  let j = val.length - 1;
+  while(i >= 0 && j >= 0 && after[i] === val[j]) {
+    i--;
+    j--;
   }
+  const newPos = j + 1;
+  element.setSelectionRange(newPos, newPos);
 
   adjustInputTextHeight(); // Resize text area
 }
