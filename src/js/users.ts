@@ -1,4 +1,4 @@
-// Copyright 2024 Free Chess Club.
+// Copyright 2026 Free Chess Club.
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 

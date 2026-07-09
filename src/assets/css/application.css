@@ -206,6 +206,9 @@ body {
 #left-panel.list-view-showing {
   height: 200px;
 }
+#left-panel.shrunk-explorer-showing {
+  height: 200px;
+}
 #left-panel-bottom {
   width: 100%;
   --content-height: 160px;
@@ -373,7 +376,7 @@ body {
   overflow: hidden;
 }
 
-.name {
+.player-status .name {
   display: inline-block;
   white-space: nowrap;
   font-size: 1.6rem;
@@ -475,7 +478,7 @@ body {
   --border-expand-width: 2px;
 }
 
-.game-card .status {
+.game-card .player-status {
   padding-left: 0.5rem;
   padding-right: 0.5rem;
 }
@@ -514,7 +517,7 @@ body {
   vertical-align: -0.11em;
 }
 
-.game-card-sm .status {
+.game-card-sm .player-status {
   padding-left: 0.25rem;
   padding-right: 0.25rem;
 }
@@ -1694,4 +1697,107 @@ input[type="number"]:focus {
 }
 .color-picker-popover {
   z-index: 1082;
+}
+
+#explorer-navbar {
+  position: sticky;
+  top: 0;
+  margin-bottom: 2px;
+}
+#explorer-opening-name {
+  text-align: center;
+}
+#explorer-opening-name.starting-pos {
+  font-style: italic;
+}
+@media (min-width: 768px) {
+ #explorer-shrink-grow {
+  visibility: hidden;
+ } 
+}
+
+.explorer-table thead {
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0.5rem;
+}
+
+#explorer-moves {
+  white-space: nowrap;
+}
+#explorer-moves > tbody td {
+  vertical-align: baseline;
+}
+#explorer-moves td:nth-child(1) {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+#explorer-moves td:nth-child(2),
+#explorer-moves th:nth-child(2) {
+  text-align: right; 
+}
+#explorer-moves td:nth-child(3),
+#explorer-moves th:nth-child(3) {
+  text-align: right; 
+}
+#explorer-moves td:nth-child(4),
+#explorer-moves th:nth-child(4) {
+  text-align: center; 
+  vertical-align: middle;
+  width: 100%;
+}
+
+.explorer-results-bar {
+  display: flex;
+  width: 100%;
+  font-size: 0.9rem;
+  overflow: hidden;
+  border: 1px solid;
+  border-radius: 8px;
+}
+.explorer-results-bar > span {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#explorer-games {
+  white-space: nowrap;
+}
+#explorer-games > tbody td {
+  vertical-align: middle;
+}
+#explorer-games th:nth-child(1) {
+  text-align: left;
+}
+#explorer-games td:nth-child(1) {
+  text-align: left;
+}
+#explorer-games td:nth-child(2) {
+  text-align: center; 
+}
+#explorer-games td:nth-child(3) {
+  text-align: center; 
+}
+
+.explorer-game-result {
+  display: inline-block;
+  width: 6ch;
+  font-size: 0.9rem;
+  border: 1px solid;
+  border-radius: 8px;
+}
+
+.explorer-results-bar > .white, .explorer-game-result.white {
+  color: #212529;
+  background-color: #CCC;
+}
+.explorer-results-bar > .draw, .explorer-game-result.draw {
+  color: whitesmoke;
+  background-color: grey;
+}
+.explorer-results-bar > .black, .explorer-game-result.black {
+  color: whitesmoke;
+  background-color: #222;
 }

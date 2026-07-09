@@ -465,3 +465,25 @@
 .color-label-dark {
   color: black;
 }
+
+#explorer {
+  --head-bg-color: color-mix(in srgb, var(--bg-color) 60%, white 40%);
+}
+.explorer-table {
+  --bs-table-color: color-mix(in srgb, var(--fg-color) 70%, white 30%);
+  --bs-table-striped-color: var(--bs-table-color);
+}
+.explorer-table > thead {
+  --bs-table-bg: var(--head-bg-color);
+  --border-color: rgba(0, 0, 0, 0.1);
+}
+#explorer-navbar {
+  background-color: var(--head-bg-color);
+}
+#explorer-navbar .btn {
+  color: color-mix(in srgb, var(--fg-color) 50%, white 50%);
+}
+.explorer-table .rating { color: #555a66; }
+.explorer-results-bar, .explorer-game-result {
+  border-color: rgba(0, 0, 0, 0.1);
+}

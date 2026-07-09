@@ -81,6 +81,9 @@
                     <button class="nav-link py-2" id="pills-history-tab" data-bs-toggle="pill" data-bs-target="#pills-history" type="button" role="tab" aria-controls="pills-history" aria-selected="false">History</button>
                   </li>
                   <li class="nav-item active" role="presentation">
+                    <button class="nav-link py-2" id="pills-explorer-tab" data-bs-toggle="pill" data-bs-target="#pills-explorer" type="button" role="tab" aria-controls="pills-explorer" aria-selected="false">Explorer</button>
+                  </li>
+                  <li class="nav-item active" role="presentation">
                     <button class="nav-link py-2" id="pills-game-tab" data-bs-toggle="pill" data-bs-target="#pills-game" type="button" role="tab" aria-controls="pills-game" aria-selected="false">Game</button>
                   </li>
                   <li class="nav-item d-none" role="presentation" aria-hidden="true">
@@ -516,6 +519,51 @@
                           <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="history-table"></div>
                         </div>
                       </div>
+                      <div class="tab-pane fade h-100" id="pills-explorer" role="tabpanel" aria-labelledby="pills-explorer-tab">
+                        <div class="d-flex flex-column h-100">
+                          <div class="pane-status" id="explorer-pane-status" style="display: none">Updating Explorer...</div>
+                          <div class="d-none d-flex flex-column align-items-center gap-2 mt-3" id="download-explorer">
+                            <span class="text-center">Download and install the opening explorer (60MB)</span>
+                            <button type="button" id="download-explorer-btn" class="btn btn-outline-secondary btn-md">
+                              <span class="fa-solid fa-download me-1" aria-hidden="false"></span>Download and Install
+                            </button>
+                          </div>
+                          <div id="explorer" class="flex-grow-1 mt-1 overflow-y-auto overflow-x-hidden" style="display: none; min-height: 0;">
+                            <div id="explorer-navbar" class="d-flex align-items-baseline">
+                              <button id="explorer-back" class="btn btn-default" style="visibility: hidden;"><span id="explorer-back-icon" class="fa-solid fa-arrow-left" aria-hidden="false"></span></button>
+                              <div id="explorer-opening-name" class="flex-grow-1 px-2 py-1"></div>
+                              <button id="explorer-shrink-grow" class="btn btn-default"><span id="explorer-shrink-grow-icon" class="fa-solid fa-angle-down" aria-hidden="false"></span></button>
+                            </div>
+                            <table class="table table-hover table-borderless table-head-sm explorer-table" id="explorer-moves">
+                              <thead>
+                                <tr>
+                                  <th>Move</th>
+                                  <th>#</th>
+                                  <th>Last</th>
+                                  <th>White/Draw/Black</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                              </tbody>
+                            </table>
+                            <table class="table table-hover table-borderless table-striped table-head-sm explorer-table" style="display: none;" id="explorer-games">
+                              <thead>
+                                <tr>
+                                  <th colspan="3">Top Games</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                              </tbody>
+                            </table>
+                            <div class="d-none d-flex flex-column align-items-center gap-2 pt-2 px-3 pb-3" id="connect-lichess">
+                              <span class="text-center">To view individual games, connect to the Lichess Masters Database.</span>
+                              <button type="button" id="connect-lichess-btn" class="btn btn-outline-secondary btn-md">
+                                <span class="fa-solid fa-link me-1" aria-hidden="false"></span>Connect to Lichess
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                       <div class="tab-pane h-100 fade" id="pills-game" role="tabpanel" aria-labelledby="pills-game-tab">
                         <div class="d-flex flex-column h-100">
                           <button id="game-list-button" style="display: none" class="mt-1 w-100 btn btn-outline-secondary btn-md dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
@@ -805,7 +853,7 @@
                     <piece class="black pawn setup-board-piece" data-drag-piece="bP"></piece>
                   </div>
                 </div>
-                <div class="h-100 w-100 justify-content-between align-items-center status noselect black-status" style="display: flex">
+                <div class="h-100 w-100 justify-content-between align-items-center status player-status noselect black-status" style="display: flex">
                   <div class="d-flex flex-grow-1 overflow-hidden align-items-center">
                     <div class="d-flex flex-grow-1 overflow-hidden align-items-center name-rating">
                       <div class="name"></div>
@@ -863,7 +911,7 @@
                     <piece class="white pawn setup-board-piece" data-drag-piece="wP"></piece>
                   </div>
                 </div>
-                <div class="h-100 w-100 justify-content-between align-items-center status noselect white-status" style="display: flex">
+                <div class="h-100 w-100 justify-content-between align-items-center status player-status noselect white-status" style="display: flex">
                   <div class="d-flex flex-grow-1 overflow-hidden align-items-center">
                     <div class="d-flex flex-grow-1 overflow-hidden align-items-center name-rating">
                       <div class="name"></div>

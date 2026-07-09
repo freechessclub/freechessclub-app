@@ -527,6 +527,10 @@ export class History {
     this.currEntry = entry;
   }
 
+  public gotoPly(ply: number) {
+
+  }
+
   public display(entry?: HEntry, playSound = false) {
     if(entry)
       this.currEntry = entry;
@@ -580,17 +584,25 @@ export class History {
   }
 
   public find(fen: string): HEntry {
+    const ignorePly = (fen.split(' ').length === 4);
+    const isMatching = (f: string) => {
+      if(ignorePly)
+        return fen === f.split(' ').slice(0, -2).join(' ');
+      else
+        return fen === f;
+    };
+
     // Search forward and back through the current line we're in
     let c = this.currEntry;
     while(c) {
-      if(c.fen === fen)
+      if(isMatching(c.fen))
         return c;
       c = c.next;
     }
 
     c = this.currEntry.prev;
     while(c) {
-      if(c.fen === fen)
+      if(isMatching(c.fen))
         return c;
       c = c.prev;
     }
@@ -598,14 +610,14 @@ export class History {
     // Check whether the move is in a subvariation directly following the current move
     if(this.currEntry.next) {
       for(const s of this.currEntry.next.subvariations) {
-        if(s.fen === fen)
+        if(isMatching(s.fen))
           return s;
       }
     }
 
     // Check whether the move is a continuation following the currnet move
     for(const s of this.currEntry.subvariations) {
-      if(s.fen === fen)
+      if(isMatching(s.fen))
         return s;
     }
 
@@ -1138,6 +1150,13 @@ export class History {
       storage.set('pieceglyphs', String(settings.pieceGlyphsToggle));
 
       $('#movelist-container .move').each((index, element) => {
+        if(settings.pieceGlyphsToggle)
+          this.glyphifyElement($(element));
+        else
+          this.unglyphifyElement($(element));
+      });
+
+      $('#explorer-moves .san').each((_, element) => {
         if(settings.pieceGlyphsToggle)
           this.glyphifyElement($(element));
         else
@@ -1679,7 +1698,7 @@ export class History {
         this.goto(this.first());
         return false;
       }
-      const parsed = parseMove(hEntry.fen, move, startFen, category, hEntry.variantData);
+      const parsed = parseMove(hEntry.fen, move, category, startFen, hEntry.variantData);
       let wtime = hEntry.wtime;
       let btime = hEntry.btime;
       if(!untimed) {

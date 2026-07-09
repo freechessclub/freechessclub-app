@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Lichess Login</title>
+</head>
+<body>
+<script>
+  const params = new URLSearchParams(window.location.search);
+
+  const code = params.get("code");
+  const state = params.get("state");
+  const error = params.get("error");
+
+  const channel = new BroadcastChannel("lichess-oauth");
+  channel.postMessage({
+      type: "lichess-auth-result",
+      code: params.get("code"),
+      state: params.get("state"),
+      error: params.get("error")
+  });
+  channel.close();
+  window.close();
+</script>
+</body>
+</html>

@@ -76,6 +76,29 @@ const timezoneOffsets = {
   WETDST: 1
 };
 
+export function getBaseUrl(): string {
+  const fallbackOrigin = 'https://freechess.org';
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  let origin = window.location.origin;
+  let pathname = window.location.pathname || '/play.html';
+
+  const isLocalhost = hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '0.0.0.0'
+    || hostname === '[::1]'
+    || origin === 'null';
+  const isUnsupportedProtocol = protocol !== 'http:' && protocol !== 'https:';
+
+  if(isLocalhost || isUnsupportedProtocol) {
+    origin = fallbackOrigin;
+    if(!pathname || pathname === '/' || pathname.includes('android_asset'))
+      pathname = '/play.html';
+  }
+
+  return `${origin}${pathname}`;
+}
+
 /** Convert a month from a 3 letter name to a number [1-12] */
 export function monthShortNameToNumber(month: string) {
   const cleanedMonth = month.trim().charAt(0).toUpperCase() + month.slice(1, 3).toLowerCase();
@@ -724,8 +747,11 @@ export function createContextMenuTrigger(isTriggered: (event: any) => boolean, t
     if(!isTriggered(tsEvent))
       return;
 
+    let longPressTriggered = false;
+
     const longPressTimeout = setTimeout(() => {
-      $(document).off('touchend.longPress touchcancel.longPress touchmove.longPress wheel.longPress');
+      $(document).off('touchmove.longPress wheel.longPress');      
+      longPressTriggered = true;
       triggerHandler(tsEvent);
     }, 500);
 
@@ -739,9 +765,12 @@ export function createContextMenuTrigger(isTriggered: (event: any) => boolean, t
         clearTimeout(longPressTimeout);
     });
 
-    $(document).one('touchend.longPress touchcancel.longPress wheel.longPress', () => {
+    $(document).one('touchend.longPress touchcancel.longPress wheel.longPress', (e) => {
       clearTimeout(longPressTimeout);
       $(document).off('touchmove.longPress');
+      if(longPressTriggered) {
+        e.preventDefault();
+      }
     });
   }; 
   if(longPress)
@@ -2033,4 +2062,374 @@ export function svgToImg(svg: SVGSVGElement) {
   const img = document.createElement('img');
   img.src = url;
   return img;
+}
+
+/**
+ * Helper class for deferred promises
+ */
+export class Deferred<T> {
+  promise: Promise<T>;
+  resolve!: (value: T) => void;
+  reject!: (reason?: any) => void;
+
+  constructor() {
+    this.promise = new Promise<T>((resolve, reject) => {
+      this.resolve = resolve;
+      this.reject = reject;
+    });
+  }
+}
+
+/**
+ * Wrapper for ByteReader which streams bytes from a file reader or sequentially from an array of 
+ * file readers. Automatically handles stream chunk and file boundaries (in the case of reading from 
+ * multiple files).
+ */
+export class ByteStreamReader {
+  private fileIndex = 0; // Current file we're reading from
+  private byteReader: ByteReader; // The ByteReader to stream bytes into
+  private streamReaders: ReadableStreamDefaultReader<Uint8Array<ArrayBufferLike>>[]; // Array of file readers
+
+  constructor(
+    readers:
+      | ReadableStreamDefaultReader<Uint8Array<ArrayBufferLike>>
+      | ReadableStreamDefaultReader<Uint8Array<ArrayBufferLike>>[]
+  ) {
+    this.streamReaders = Array.isArray(readers) ? readers : [readers];
+    this.byteReader = new ByteReader(new Uint8Array(0));
+  }
+
+  /** Append the next stream chunk onto the end of the ByteReader's buffer (enlarging the buffer) */
+  private appendBuffer(value: Uint8Array<ArrayBufferLike>) {
+    const remaining =
+      this.byteReader.readBytes(this.byteReader.available) ??
+      new Uint8Array(0);
+
+    if (remaining.length === 0) {
+      this.byteReader = new ByteReader(value);
+      return;
+    }
+
+    const combined = new Uint8Array(
+      remaining.length + value.length
+    );
+
+    combined.set(remaining);
+    combined.set(value, remaining.length);
+
+    this.byteReader = new ByteReader(combined);
+  }
+
+  /* Keep fetching chunks from the stream until we have enough bytes to fulfill the current read 
+   * operation on ByteReader 
+   */
+  private async fillBuffer(count: number): Promise<boolean> {
+    while (this.byteReader.available < count) {
+      const streamReader = this.streamReaders[this.fileIndex];
+
+      if (!streamReader)
+        return false;
+
+      const { done, value } = await streamReader.read();
+
+      if (done) {
+        this.fileIndex++;
+        continue;
+      }
+
+      this.appendBuffer(value);
+    }
+
+    return true;
+  }
+
+  /** The remaining bytes in the ByteReader */
+  get available(): number {
+    return this.byteReader.available;
+  }
+
+  /** 
+   * Try to read a byte from the ByteReader synchronously (fast path). If this returns undefined
+   * then you should use readByte() instead, which reads more bytes from the stream.
+   */
+  readByteSync(): number | undefined {
+    return this.byteReader.readByte();
+  }
+
+  /**
+   * Read the next byte from the reader/stream 
+   */
+  async readByte(): Promise<number> {
+    const value = this.readByteSync();
+
+    if (value !== undefined)
+      return value;
+
+    if (!(await this.fillBuffer(1)))
+      throw new EndOfStreamError();
+
+    return this.readByteSync()!;
+  }
+
+  /** 
+   * Try to read count bytes from the ByteReader synchronously (fast path). If this returns undefined
+   * then you should use readBytes() instead, which reads more bytes from the stream.
+   */
+  readBytesSync(count: number): Uint8Array | undefined {
+    return this.byteReader.readBytes(count);
+  }
+
+  /**
+   * Reads count bytes from the reader/stream 
+   */
+  async readBytes(count: number): Promise<Uint8Array> {
+    const value = this.readBytesSync(count);
+
+    if (value !== undefined)
+      return value;
+
+    if (!(await this.fillBuffer(count)))
+      throw new EndOfStreamError();
+
+    return this.readBytesSync(count)!;
+  }
+
+  /** Try to read a varint from the Bytereader synchronously (fast path) */
+  readUintSync(): number | undefined {
+    return this.byteReader.readUint();
+  }
+
+  /** Reads a varint from the reader/stream */
+  async readUint(): Promise<number> {
+    const value = this.readUintSync();
+
+    if (value !== undefined)
+      return value;
+
+    while (true) {
+      if (!(await this.fillBuffer(1)))
+        throw new EndOfStreamError();
+
+      const value = this.readUintSync();
+
+      if (value !== undefined)
+        return value;
+    }
+  }
+
+  /** Close the file readers */
+  async close() {
+    for (const streamReader of this.streamReaders) {
+      try {
+        await streamReader.cancel();
+      }
+      catch {
+        // ignore cancellation errors
+      }
+    }
+  }
+}
+
+export class EndOfStreamError extends Error {
+  constructor() {
+    super('End of stream');
+    this.name = 'EndOfStreamError';
+  }
+}
+
+/** 
+ * Helper class for reading data from a buffer and incrementing the current read offset / position 
+ */
+export class ByteReader {
+  private offset = 0; // Current read offset
+
+  constructor(private buffer: Uint8Array<ArrayBufferLike>) {}
+
+  /** The number of unread bytes left in the buffer */
+  get available(): number {
+    return this.buffer.length - this.offset;
+  }
+
+  /** The current read offset */
+  get position(): number {
+    return this.offset;
+  }
+
+  /** Read the next byte from the buffer */
+  readByte(): number | undefined {
+    if (this.offset >= this.buffer.length)
+      return undefined;
+
+    return this.buffer[this.offset++];
+  }
+
+  /** Read count bytes from the buffer */
+  readBytes(count: number): Uint8Array | undefined {
+    if(this.offset + count > this.buffer.length)
+      return undefined;
+
+    const result = this.buffer.subarray(this.offset, this.offset + count);
+    this.offset += count;
+
+    return result;
+  }
+
+  /** 
+   * Read a uint or varint from the buffer 
+   * @param bytes The size of the uint in bytes (e.g. 4 = uint32) or if undefined then reads a varint.
+   * Max size 4, use readBigUint64 to read an 8 byte number.
+   */
+  readUint(bytes?: number): number | undefined {
+    if(bytes) {
+      const data = this.readBytes(bytes);
+
+      if(!data)
+        return undefined;
+
+      const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
+      switch(bytes) {
+        case 1:
+          return view.getUint8(0);
+        case 2:
+          return view.getUint16(0, true);
+        case 4:
+          return view.getUint32(0, true);
+        default:
+          throw new Error(`Unsupported size: ${bytes}`);
+      }
+    }
+
+    let value = 0;
+    let shift = 0;
+
+    while(true) {
+      const b = this.readByte();
+
+      if(b === undefined)
+        return undefined;
+
+      value += (b & 0x7f) * Math.pow(2, shift);
+
+      if((b & 0x80) === 0)
+        return value;
+
+      shift += 7;
+    }
+  }
+
+  /** Read a uint64 from the buffer */
+  readBigUint64(): bigint | undefined {
+    const data = this.readBytes(8);
+
+    if(!data)
+      return undefined;
+
+    let value = 0n;
+
+    for(let i = 0; i < 8; i++) {
+      value |= BigInt(data[i]) << BigInt(i * 8);
+    }
+
+    return value;
+  }
+}
+
+/** 
+ * Helper class for writing data to a buffer, incrementing the current write offset / position
+ * and enlarging the buffer when necessary. 
+ */
+export class ByteWriter {
+  private buffer: Uint8Array;
+  private offset = 0; // Current write offset
+
+  constructor(initialSize = 1024) {
+    this.buffer = new Uint8Array(initialSize);
+  }
+
+  /** Enlarge the buffer if necessary */
+  private ensureCapacity(size: number) {
+    const required = this.offset + size;
+
+    if(required <= this.buffer.length) 
+      return;
+
+    let newSize = this.buffer.length * 2;
+
+    while(newSize < required) 
+      newSize *= 2;
+
+    const newBuffer = new Uint8Array(newSize);
+    newBuffer.set(this.buffer);
+
+    this.buffer = newBuffer;
+  }
+
+  /** Write bytes to the buffer */
+  writeBytes(bytes: Uint8Array) {
+    this.ensureCapacity(bytes.length);
+
+    this.buffer.set(bytes, this.offset);
+    this.offset += bytes.length;
+  }
+
+  /** 
+   * Write a uint or varint to the buffer.
+   * @param bytes The size of the uint in bytes (e.g. 4 = uint32) or if undefined then writes a varint.
+   * Max size 4, use writeBigUint64 to write an 8 byte number.
+   */
+  writeUint(value: number, bytes?: number) {
+    if(!bytes) { 
+      while (value >= 0x80) {
+        this.ensureCapacity(1);
+        this.buffer[this.offset++] = (value & 0x7f) | 0x80;
+        value >>>= 7;
+      }
+
+      this.ensureCapacity(1);
+      this.buffer[this.offset++] = value;
+    }
+    else {
+      const buffer = new ArrayBuffer(bytes);
+      const view = new DataView(buffer);
+
+      switch (bytes) {
+        case 1:
+          view.setUint8(0, value);
+          break;
+        case 2:
+          view.setUint16(0, value, true);
+          break;
+        case 4:
+          view.setUint32(0, value, true);
+          break;
+        default:
+          throw new Error(`Unsupported size: ${bytes}`);
+      }
+
+      this.writeBytes(new Uint8Array(buffer));
+    }
+  }
+
+  /** Writes a uint64 to the buffer */
+  writeBigUint64(value: bigint) {
+    const buffer = new Uint8Array(8);
+
+    for(let i = 0; i < 8; i++) {
+      buffer[i] = Number(value & 0xffn);
+      value >>= 8n;
+    }
+
+    this.writeBytes(buffer);
+  }
+
+  /** Get the bytes written to the buffer */
+  getBytes(): Uint8Array {
+    return this.buffer.subarray(0, this.offset);
+  }
+
+  /** Get the number of bytes that have been written so far */
+  get length(): number {
+    return this.offset;
+  }
 }

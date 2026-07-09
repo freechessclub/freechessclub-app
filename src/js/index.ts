@@ -17,6 +17,8 @@ import { tournaments, createTournaments } from './tournaments';
 import { users, createUsers } from './users';
 import { chat, createChat } from './chat';
 import { profile, createProfile } from './profile';
+import type { Explorer, LichessExplorer, ExplorerMove, ExplorerGame } from './explorer';
+import { LichessClient, LichessAuthError, LichessAuthTimeoutError } from './clients';
 import { Clock } from './clock';
 import { Engine, EvalEngine, MaiaEngine } from './engine';
 import { Game, GameData, Role, NewVariationMode, games } from './game';
@@ -41,6 +43,7 @@ export const enum Layout {
 // For unsupported categories, chess.js and toDests() are not used, the board is put into 'free' mode,
 // and a move is not added to the move list unless it is verified by the server.
 const SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'bughouse', 'losers', 'wild/fr', 'wild/0', 'wild/1', 'wild/2', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
+const standardCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard'];
 
 type InviteCreateState = {
   token: string;
@@ -90,6 +93,10 @@ let evalEngine: EvalEngine | null;
 let playEngine: Engine | MaiaEngine | null;
 let playEngineNames: string[] = ['Stockfish', 'Maia'];
 let seekGraph: SeekGraph | null;
+let explorer: Explorer | null;
+let lichessExplorer: LichessExplorer | null;
+let explorerLastFen: string = '';
+let lichessClient: LichessClient | null;
 let userVariables: any = {};
 let pendingTells: any[] = [];
 let gameExitPending = [];
@@ -175,6 +182,13 @@ let followedTarget: string | null = null;
 (window as any).sessionSend = (cmd: string) => {
   session.send(cmd);
 };
+
+/** Request persistent storage for indexedDB */
+if(navigator.storage?.persist) {
+  const persisted = await navigator.storage.persisted();
+  if(!persisted)
+    await navigator.storage.persist();
+}
 
 function updateFollowedUserStatus() {
   const stopFollowButton = $('#follow-stop-btn');
@@ -507,7 +521,7 @@ async function onDeviceReady() {
   createTournaments();
   createUsers();
   createProfile();
-  
+ 
   const game = createGame();
   game.role = Role.NONE;
   game.category = 'untimed';
@@ -914,6 +928,7 @@ function setLeftColumnSizes(redrawBoard = true) {
       setTimeout(() => { games.getMainGame()?.board?.redrawAll(); }, 0);
   
     seekGraph.update();
+    resizeExplorer();
   }
 }
 
@@ -3165,6 +3180,8 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
   
     if(!animate)
       game.board.set({ animation: { enabled: true }});
+
+    updateExplorer(game);
   }
 
   const categorySupported = SupportedCategories.includes(game.category);
@@ -3446,7 +3463,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   if(game.role === Role.PLAYING_COMPUTER) // Send move to engine in Play Computer mode
     getComputerMove(game);
 
-  showTab($('#pills-game-tab'));
+  showExplorerOrGameTab();
 }
 
 function movePieceAfter(game: Game, move: any, fen: string, serverIssued: boolean) {
@@ -3846,7 +3863,7 @@ function parseGameMove(game: Game, fen: string, move: any, premove = false) {
   if(premove) 
     fen = ChessHelper.setFENTurnColor(fen, game.color);
   
-  return ChessHelper.parseMove(fen, move, game.history.first().fen, game.category, game.history.current().variantData, premove);
+  return ChessHelper.parseMove(fen, move, game.category, game.history.first().fen, game.history.current().variantData, premove);
 }
 
 /** Wrapper function for toDests */
@@ -4167,6 +4184,9 @@ function initGameControls(game: Game) {
     hideHeaderFooterButton($('#stop-observing'));
 
   initStatusPanel();
+
+  if($('#pills-explorer').hasClass('active') || $('#pills-game').hasClass('active'))
+    showExplorerOrGameTab();
 }
 
 function makeMainBoard(game: Game) {
@@ -4351,7 +4371,7 @@ function fastBackward() {
   gotoMove(game.history.first());
   if(!SupportedCategories.includes(game.category) && game.isExamining())
     session.send('back 999');
-  showTab($('#pills-game-tab'));
+  showExplorerOrGameTab();
 }
 
 $('#backward').off('click');
@@ -4368,7 +4388,7 @@ function backward() {
   else if(!SupportedCategories.includes(game.category) && game.isExamining())
     session.send('back');
 
-  showTab($('#pills-game-tab'));
+  showExplorerOrGameTab();
 }
 
 $('#forward').off('click');
@@ -4385,7 +4405,7 @@ function forward() {
   else if(!SupportedCategories.includes(game.category) && game.isExamining())
     session.send('forward');
 
-  showTab($('#pills-game-tab'));
+  showExplorerOrGameTab();
 }
 
 $('#fast-forward').off('click');
@@ -4399,7 +4419,7 @@ function fastForward() {
   if(!SupportedCategories.includes(game.category) && game.isExamining())
     session.send('forward 999');
 
-  showTab($('#pills-game-tab'));
+  showExplorerOrGameTab();
 }
 
 $('#exit-subvariation').off('click');
@@ -4411,7 +4431,7 @@ function exitSubvariation() {
   const curr = games.focused.history.current();
   const prev = curr.first.prev;
   gotoMove(prev);
-  showTab($('#pills-game-tab'));
+  showExplorerOrGameTab();
 }
 
 export function gotoMove(to: HEntry, playSound = false) {
@@ -4544,6 +4564,9 @@ function showPanel(elem: string | JQuery<HTMLElement>, flex = false) {
   if(typeof elem === 'string')
     elem = $(elem);
 
+  if(elem.is(':visible'))
+    return;
+
   if(flex)
     elem.css('display', 'flex');
   else  
@@ -4560,6 +4583,10 @@ function showPanel(elem: string | JQuery<HTMLElement>, flex = false) {
 function hidePanel(elem: string | JQuery<HTMLElement>) {
   if(typeof elem === 'string')
     elem = $(elem);
+
+  if(!elem.is(':visible'))
+    return;
+
   elem.hide();
 
   if(elem.closest('#left-col')) 
@@ -5175,29 +5202,6 @@ function generateInviteToken(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function getBaseUrl(): string {
-  const fallbackOrigin = 'https://freechess.org';
-  const protocol = window.location.protocol;
-  const hostname = window.location.hostname;
-  let origin = window.location.origin;
-  let pathname = window.location.pathname || '/play.html';
-
-  const isLocalhost = hostname === 'localhost'
-    || hostname === '127.0.0.1'
-    || hostname === '0.0.0.0'
-    || hostname === '[::1]'
-    || origin === 'null';
-  const isUnsupportedProtocol = protocol !== 'http:' && protocol !== 'https:';
-
-  if(isLocalhost || isUnsupportedProtocol) {
-    origin = fallbackOrigin;
-    if(!pathname || pathname === '/' || pathname.includes('android_asset'))
-      pathname = '/play.html';
-  }
-
-  return `${origin}${pathname}`;
-}
-
 function buildInviteLink(invite: InviteCreateState): string {
   const params = new URLSearchParams();
   params.set('invite', '1');
@@ -5208,7 +5212,7 @@ function buildInviteLink(invite: InviteCreateState): string {
   params.set('inc', String(invite.inc));
   params.set('rated', invite.rated === 'r' ? '1' : '0');
   params.set('color', invite.color);
-  const baseUrl = getBaseUrl();
+  const baseUrl = Utils.getBaseUrl();
   return `${baseUrl}?${params.toString()}`;
 }
 
@@ -6185,6 +6189,331 @@ function showHistory(user: string, history: string) {
   session.send(`ex ${user} ${id}`);
 };
 
+/** *************************
+ * EXPLORER PANEL FUNCTIONS *
+ ****************************/
+
+/** Let user toggle between small and large explorer panel on mobile */
+$(document).on('show.bs.tab', 'button[data-bs-target="#pills-explorer"]', () => {
+  if(explorerShrunk)
+    $('#left-panel').addClass('shrunk-explorer-showing');
+});
+$(document).on('hide.bs.tab', 'button[data-bs-target="#pills-explorer"]', () => {
+  $('#left-panel').removeClass('shrunk-explorer-showing');
+});
+
+$(document).on('shown.bs.tab', 'button[data-bs-target="#pills-explorer"]', () => {
+  initExplorerPane();
+  games.focused.explorerTabActive = true;
+});
+$(document).on('hide.bs.tab', 'button[data-bs-target="#pills-explorer"]', () => {
+  initExplorerPane();
+  games.focused.explorerTabActive = false;
+});
+
+/** 'Download Explorer' button */
+$('#download-explorer-btn').on('click', () => {
+  storage.set('explorer-downloaded', 'true');
+  initExplorerPane();
+})
+
+/** User presses the back arrow in the explorer panel */
+$('#explorer-back').on('click', () => {
+  backward();
+});
+
+/** User long presses the back arrow in the explorer panel to go back to start */
+Utils.createContextMenuTrigger((event) => {
+  const target = $(event.target);
+  return !!(target.closest('#explorer-back').length);
+}, fastBackward, false, false, true);
+
+/** User presses the shrink/grow explorer button on mobile */
+let explorerShrunk = true;
+$('#explorer-shrink-grow').on('click', () => {
+  explorerShrunk = !explorerShrunk;
+  if(explorerShrunk) {
+    $('#explorer-shrink-grow-icon').removeClass('fa-angle-up');
+    $('#explorer-shrink-grow-icon').addClass('fa-angle-down');
+  }
+  else {
+    $('#explorer-shrink-grow-icon').removeClass('fa-angle-down');
+    $('#explorer-shrink-grow-icon').addClass('fa-angle-up');
+  }
+  $('#left-panel').toggleClass('shrunk-explorer-showing', explorerShrunk);
+});
+
+/** User clicks a move in the explorer (show that position) */
+$('#explorer-moves').on('click', '.explorer-move', (e) => {
+  const move = $(e.currentTarget).data('move');
+  movePiece(move.from, move.to, null, move.piece, move.promotion);
+});
+
+/** User clicks a 'Top Game' in the Explorer (open that game in a new board) */
+$('#explorer-games').on('click', '.explorer-game', async (e) => {
+  const gameId = $(e.currentTarget).data('id');
+  const pgn = await lichessExplorer?.getGame(gameId);
+  if(!pgn)
+    return;
+  
+  // We open the game in any unused board except this one, since the user is exploring with this one.
+  const freeGame = games.getFreeGame(true); 
+  const fen = games.focused.history.current().fen;
+  const fenWithoutPly = fen.split(' ').slice(0, -2).join(' ')
+  const newGame = await loadPGN(pgn, freeGame);
+  if(newGame) {
+    if(games.focused.board.state.orientation === 'black')
+      flipBoard(newGame);
+    newGame.history.display(newGame.history.find(fenWithoutPly)); // Go to the position in the explorer
+  }
+});
+
+/** 
+ * User presses the 'Connect to Lichess' button, which will show OAuth authorisation popup 
+ */
+$('#connect-lichess-btn').on('click', () => { 
+  lichessClient.auth().then(() => {  
+    $('#connect-lichess').addClass('d-none');
+    showLichessExplorerGames(games.focused);
+  }).catch((e) => {
+    if(!(e instanceof LichessAuthTimeoutError)) // User closed the OAuth popup without authorizing
+      throw e;
+  });
+});
+
+/**
+ * Initialse explorer panel
+ */
+async function initExplorerPane() {
+  const { Explorer, LichessExplorer } = await import('./explorer');
+
+  if(storage.get('explorer-downloaded') === 'true') { // User has at some point agreed to download the Explorer
+    if(!explorer) 
+      explorer = new Explorer();
+    if(!lichessClient)
+      lichessClient = new LichessClient();
+    if(!lichessExplorer)
+      lichessExplorer = new LichessExplorer(lichessClient);
+
+    $('#download-explorer').addClass('d-none'); // Hide the 'Download Explorer' button
+    try {
+      await explorer.init((status: string) => {
+        // Progress indicator callback function for downloading the explorer
+        if(status === 'downloading')
+          $('#explorer-pane-status').show();
+
+        if(status === 'downloading')
+          $('#explorer-pane-status').text('Downloading Explorer...');
+        else if(status === 'download-failed')
+          $('#explorer-pane-status').text('Explorer download failed.');
+        else if(status === 'update-failed')
+          console.error('Failed to update explorer.');
+        else if(status === 'ready')
+          $('#explorer-pane-status').hide();
+      });
+    }
+    catch(e) { 
+      $('#download-explorer').removeClass('d-none');
+      storage.set('explorer-downloaded', 'false');
+      explorer = null;
+      console.error(e); 
+      return;
+    }
+    updateExplorer(games.focused); // Show current position
+  }
+  else
+    $('#download-explorer').removeClass('d-none'); // Show 'Download Explorer' button
+}
+
+/**
+ * Check if we need to update the current position in the Explorer 
+ */
+function updateExplorer(game: Game) {
+  if(game !== games.focused || !$('#pills-explorer').hasClass('active') || !explorer?.ready())
+    return;
+
+  const isPlaying = game.isPlaying();
+  const isVariant = !standardCategories.includes(game.category);
+  $('#explorer').toggle(!isPlaying && !isVariant);
+  if(isPlaying) 
+    $('#explorer-pane-status').text('Can\'t view explorer while playing a game.');
+  if(isVariant)
+    $('#explorer-pane-status').text(`No explorer for ${game.category} games.`);
+  else
+    showExplorerPosition(game);
+  
+  $('#explorer-pane-status').toggle(isPlaying || isVariant);
+}
+
+/** Display the current position in the explorer panel */
+async function showExplorerPosition(game: Game) {
+  if(!$('#pills-explorer').hasClass('active') || !explorer?.ready())
+    return;
+  const fen = game.history.current().fen;
+
+  if(fen === explorerLastFen) // Already showing current position
+    return;
+  explorerLastFen = fen;
+
+  const position = await explorer.findPosition(fen); // Get the position from local Explorer data
+
+  // Make sure position didn't change while we were fetching the data
+  if(game !== games.focused || fen !== game.history.current().fen || game.isPlaying())
+    return;
+
+  $('#explorer-back').css('visibility', game.history.current() === game.history.first() ? 'hidden' : 'visible');
+  $('#explorer-moves > tbody').html(''); 
+  $('#explorer-games > tbody').html('');
+  $('#explorer-games').hide();
+  const turnColor = game.history.current().turnColor;
+  showExplorerMoves(position?.moves, turnColor); // Display moves for the current position
+  resizeExplorer(); // Resizes the White/Draw/Black results bar text
+  showLichessExplorerGames(game); // Add moves and top games from Lichess 
+}
+
+/**
+ * Display explorer moves for the current position
+ * @param moves moves to display
+ * @param turnColor color to move (for displaying white or black piece glyphs)
+ * @returns 
+ */
+function showExplorerMoves(moves: ExplorerMove[], turnColor: string) {
+  if(!moves || !moves.length)
+    return; 
+
+  // Don't add moves if they already exist 
+  const existingSans = $('#explorer-moves > tbody > tr').toArray().map(row => $(row).data('move').san);
+  moves = moves.filter(entry => !existingSans.includes(entry.move.san));
+
+  if(moves.length)
+    $('#explorer-moves').show();
+
+  moves.forEach(moveEntry => {
+    const move = moveEntry.move;
+    const moveStr = settings.pieceGlyphsToggle
+      ? History.glyphify(move.san, turnColor)
+      : move.san;
+    const lastYear = moveEntry.lastYear;
+    const stats = moveEntry.stats;
+    const whitePct = 100 * stats.white / stats.total;
+    const whitePctStr = `${whitePct.toFixed(0)}%`;
+    const drawPct = 100 * stats.draws / stats.total;
+    const drawPctStr = `${drawPct.toFixed(0)}%`;
+    const blackPct = 100 * stats.black / stats.total;
+    const blackPctStr = `${blackPct.toFixed(0)}%`;
+    let totalStr = '';
+    if(stats.total >= 1000000) // Abbreviate the 'Number of games' text
+      totalStr = `${(stats.total / 1000000).toPrecision(3)}M`; 
+    else if(stats.total >= 10000) 
+      totalStr = `${(stats.total / 1000).toPrecision(3)}K`;
+    else totalStr = stats.total.toString();
+    
+    const resultsBarHtml = `<div class="explorer-results-bar">
+        ${whitePct ? `<span class="white" data-pct="${whitePctStr}" style="width: ${whitePct}%;">${whitePctStr}</span>` : ''}
+        ${drawPct ? `<span class="draw" data-pct="${drawPctStr}" style="width: ${drawPct}%;">${drawPctStr}</span>` : ''}
+        ${blackPct ? `<span class="black" data-pct="${blackPctStr}" style="width: ${blackPct}%;">${blackPctStr}</span>` : ''}
+      </div>`;
+
+    const moveElem = $(`<tr class="explorer-move clickable-row">
+        <td class="san" data-color="${turnColor}">${moveStr}</td>
+        <td>${totalStr}</td>
+        <td>${lastYear || ''}</td>
+        <td>${resultsBarHtml}</td>
+      </tr>`);
+    moveElem.data('move', move);
+    $('#explorer-moves > tbody').append(moveElem);
+  });
+}
+
+/** Display 'Top Games' for the current position */
+function showExplorerGames(games: ExplorerGame[]) {
+  if(!games || !games.length)
+    return;
+
+  $('#explorer-games').show();
+
+  games.forEach(gameEntry => {
+    const white = `<span>${gameEntry.white.name}</span>${gameEntry.white.rating ? `&nbsp;&nbsp;<span class="rating">(${gameEntry.white.rating})</span>` : ''}`;
+    const black = `<span>${gameEntry.black.name}</span>${gameEntry.black.rating ? `&nbsp;&nbsp;<span class="rating">(${gameEntry.black.rating})</span>` : ''}`;
+    let result = '';
+    let resultClass = gameEntry.winner;
+    if(gameEntry.winner === 'white')
+      result = '1-0';
+    else if(gameEntry.winner === 'black')
+      result = '0-1';
+    else {
+      result = '½-½';
+      resultClass = 'draw';
+    }
+    const date = `${gameEntry.month || gameEntry.year || ''}`;
+    const gameElem = $(`<tr data-id="${gameEntry.id}" class="explorer-game clickable-row">
+        <td><div>${white}</div><div>${black}</div></td>
+        <td><span class="explorer-game-result ${resultClass}">${result}</span></td>
+        <td>${date}</td>
+      </tr>`);
+    $('#explorer-games > tbody').append(gameElem);
+  });
+}
+
+/**
+ * Fetches the current position from the Lichess Masters Database
+ * Adds any explorer moves that don't already exist to the explorer panel (Mostly those with 
+ * number of games = 1). Add the 'Top Games' for the position to the bottom of the Explorer panel
+ */
+async function showLichessExplorerGames(game) {
+  if(!lichessExplorer || $('#connect-lichess').is(':visible'))
+    return;
+
+  const fen = game.history.current().fen;
+  try {
+    const position = await lichessExplorer.findPosition(fen);
+
+    // Make sure the position hasn't changed while we were fetching the data
+    if(!$('#explorer-moves').is(':visible') && game !== games.focused || fen !== game.history.current().fen || game.isPlaying())
+      return; 
+
+    const turnColor = game.history.current().turnColor;
+    showExplorerMoves(position?.moves?.filter(moveEntry => moveEntry.stats.total === 1), turnColor);
+    showExplorerGames(position?.games);
+  }
+  catch (e) {
+    if(e instanceof LichessAuthError) // Token expired, get user to authorize again
+      $('#connect-lichess').removeClass('d-none');
+    else console.error(e);
+  }
+}
+
+/**
+ * Abbreviate the text on the results bars for moves in the Explorer panel if necessary
+ * For example if enough room show 85%, otherwise 85 otherwise nothing.
+ */
+function resizeExplorer() {
+  if(!$('#explorer-moves').is(':visible'))
+    return;
+
+  const segments = $('.explorer-results-bar > span');
+
+  // Note: Separate layout reads and write to minimise layout thrashing
+
+  segments.each((_, segment) => {
+    if(segment.textContent !== segment.dataset.pct)
+      segment.textContent = segment.dataset.pct;
+  });
+
+  let resizeSegs = segments.filter((_, segment) => {
+    return segment.scrollWidth > segment.clientWidth;
+  });
+
+  resizeSegs.each((_, segment) => {
+    segment.textContent = segment.textContent!.slice(0, -1)
+  });
+
+  resizeSegs = segments.filter((_, segment) => segment.scrollWidth > segment.clientWidth);
+  resizeSegs.each((_, segment) => {
+    segment.textContent = '';
+  });
+}
+
 /** *********************
  * GAME PANEL FUNCTIONS *
  ************************/
@@ -6216,6 +6545,13 @@ $('#movelists').on('click', '.comment', function() {
   else
     gotoMove($(this).prev().data('hEntry'));
 });
+
+function showExplorerOrGameTab() {
+  if(games.focused.explorerTabActive)
+    showTab($('#pills-explorer-tab'));
+  else
+    showTab($('#pills-game-tab'));
+}
 
 /**
  * Create right-click and long press trigger events for displaying the context menu when right clicking a move
@@ -6605,7 +6941,7 @@ $('#game-share').on('click', () => {
   if(game.history.first().fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
     params.set('f', game.history.first().fen);
   params.set('g', moves);
-  const url = `${getBaseUrl()}?${params.toString()}`;
+  const url = `${Utils.getBaseUrl()}?${params.toString()}`;
   
   const dialogHtml = `
   <div class="position-relative">
@@ -6951,6 +7287,27 @@ async function parsePGNMoves(game: Game, pgnStr: string) {
   catch(err) {
     Dialogs.showDialog({type: 'Failed to parse PGN', msg: err.message, btnSuccess: ['', 'OK']});
   }
+}
+
+async function loadPGN(pgnStr: string, game?: Game) {
+  const PgnParser = await import('@mliebelt/pgn-parser');
+  let pgn: PgnParser.ParseTree;
+  try {
+    pgn = PgnParser.parse(pgnStr, {startRule: 'game'}) as PgnParser.ParseTree;
+  }
+  catch(err) {
+    Dialogs.showDialog({type: 'Failed to parse PGN', msg: err.message, btnSuccess: ['', 'OK']});
+    return;
+  }
+
+  const createNewBoard = !game;
+  game = newGame(createNewBoard, game);
+  game.history.setMetatags(pgn.tags, true);
+  updateGameFromMetatags(game);
+  parsePGNVariation(game, pgn.moves);
+  game.history.goto(game.history.first());
+
+  return game;
 }
 
 /**
@@ -7803,7 +8160,7 @@ $('#game-tools-close').on('click', () => {
  *************************************/
 
 function initStatusPanel() {
-  if(games.focused.isPlaying())
+  if(games.focused.isPlaying()) 
     hideAnalysis();
   else {
     if(games.focused.analyzing) 
@@ -7857,7 +8214,7 @@ function showStatusPanel(animate = false) {
       $('#left-panel-bottom-content').css('transition', '');
       if(!Utils.isSmallWindow())
         $('#left-panel').css('transition', '');
-      showPanel('#left-panel-bottom-content');
+      setLeftColumnSizes();
       if($('#engine-tab').is(':visible') && evalEngine)
         evalEngine.evaluate();
     });
@@ -7869,7 +8226,7 @@ function showStatusPanel(animate = false) {
   }
   else { // Instantly show panel
     $('#left-panel-bottom').removeClass('minimized');
-    showPanel('#left-panel-bottom-content');
+    setLeftColumnSizes();
     if($('#engine-tab').is(':visible') && evalEngine)
       evalEngine.evaluate();
   }
@@ -7970,14 +8327,25 @@ async function showOpeningName(game: Game) {
   if(!game.history)
     return;
 
-  let hEntry = game.history.current();
-  if(!hEntry.move)
+  const currEntry = game.history.current();
+  const isStart = currEntry === game.history.first();
+  let hEntry: HEntry;
+  if(isStart) {
+    if(game === games.focused) {
+      $('#explorer-opening-name').text('Starting Position');
+      $('#explorer-opening-name').addClass('starting-pos');
+    }
     hEntry = game.history.last();
-
+  }
+  else 
+    hEntry = currEntry;
+  
   while(!hEntry.opening) {
     if(!hEntry.move) {
       game.statusElement.find('.opening-name').text('');
       game.statusElement.find('.opening-name').hide();
+      if(game === games.focused && !isStart) 
+        $('#explorer-opening-name').text('');
       return;
     }
     hEntry = hEntry.prev;
@@ -7986,6 +8354,10 @@ async function showOpeningName(game: Game) {
   game.statusElement.find('.info-panel-status').hide();
   game.statusElement.find('.opening-name').text(hEntry.opening.name);
   game.statusElement.find('.opening-name').show();
+  if(game === games.focused && !isStart) {
+    $('#explorer-opening-name').text(hEntry.opening.name);
+    $('#explorer-opening-name').removeClass('starting-pos');
+  }
 }
 
 /** ANALYSIS FUNCTIONS **/

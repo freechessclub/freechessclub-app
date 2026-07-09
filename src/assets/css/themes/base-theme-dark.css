@@ -566,3 +566,25 @@ a {
 .color-label-dark {
   color: #AAAAAA;
 }
+
+#explorer {
+  --head-bg-color: color-mix(in srgb, var(--bg-color) 90%, black 10%);
+}
+.explorer-table {
+  --bs-table-color: color-mix(in srgb, var(--fg-color) 80%, black 20%);
+}
+.explorer-table > thead {
+  --bs-table-bg: var(--head-bg-color);
+  --border-color: rgba(255, 255, 255, 0.05);
+}
+#explorer-navbar {
+  background-color: var(--head-bg-color);
+}
+#explorer-navbar .btn {
+  color: color-mix(in srgb, var(--fg-color) 50%, black 50%);
+}
+.explorer-table .rating { color: #bbb; }
+.explorer-results-bar, .explorer-game-result {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
