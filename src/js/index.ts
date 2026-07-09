@@ -764,8 +764,7 @@ $(window).on('resize', () => {
       useDesktopLayout();
   }
 
-  setPanelSizes();
-  updateBoardStatusText();
+  setPanelSizes(false);
 
   prevSizeCategory = Utils.getSizeCategory();
 
@@ -773,7 +772,7 @@ $(window).on('resize', () => {
     evalEngine.redraw();
 });
 
-function setPanelSizes() {
+function setPanelSizes(redrawBoard = true) {
   // Reset player status panels that may have been previously slimmed down on single column screen
   const maximizedGame = games.getMainGame();
   const maximizedGameCard = maximizedGame.element;
@@ -840,6 +839,11 @@ function setPanelSizes() {
     $('#notifications').css('width', '50%');
   else if(Utils.isLargeWindow())
     $('#notifications').width($(document).outerWidth(true) - $('#left-col').outerWidth(true) - $('#mid-col').outerWidth(true));
+
+  if(redrawBoard)
+    setTimeout(() => { games.getMainGame()?.board?.redrawAll(); }, 0);
+
+  updateBoardStatusText();
 }
 
 function setLeftColumnSizes(redrawBoard = true) {
@@ -4149,7 +4153,6 @@ export function maximizeGame(game: Game) {
     // Move card to main board area
     makeMainBoard(game);
     setPanelSizes();
-    updateBoardStatusText();
   }
   scrollToBoard(game);
 }
@@ -8041,7 +8044,8 @@ function startEngine() {
     else if(!game.movelistRequested)
       engine.move(game.history.current());
 
-    if(settings.evalBarToggle) {
+    const evalBarElem = game.element.find('.eval-bar');
+    if(settings.evalBarToggle && !evalBarElem.is(':visible')) {
       game.element.find('.eval-bar').css('display', 'flex');
       setPanelSizes();
     }
