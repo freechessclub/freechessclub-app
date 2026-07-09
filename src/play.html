@@ -83,6 +83,9 @@
                     <button class="nav-link py-2" id="pills-history-tab" data-bs-toggle="pill" data-bs-target="#pills-history" type="button" role="tab" aria-controls="pills-history" aria-selected="false">History</button>
                   </li>
                   <li class="nav-item active" role="presentation">
+                    <button class="nav-link py-2" id="pills-explorer-tab" data-bs-toggle="pill" data-bs-target="#pills-explorer" type="button" role="tab" aria-controls="pills-explorer" aria-selected="false">Explorer</button>
+                  </li>
+                  <li class="nav-item active" role="presentation">
                     <button class="nav-link py-2" id="pills-game-tab" data-bs-toggle="pill" data-bs-target="#pills-game" type="button" role="tab" aria-controls="pills-game" aria-selected="false">Game</button>
                   </li>
                   <li class="nav-item d-none" role="presentation" aria-hidden="true">
@@ -517,6 +520,9 @@
                           </form>
                           <div class="flex-grow-1 overflow-auto" style="min-height: 0" id="history-table"></div>
                         </div>
+                      </div>
+                      <div class="tab-pane pt-2 fade h-100" id="pills-explorer" role="tabpanel" aria-labelledby="pills-explorer-tab">
+                        <div class="px-2 pb-2" id="explorer-moves"></div>
                       </div>
                       <div class="tab-pane h-100 fade" id="pills-game" role="tabpanel" aria-labelledby="pills-game-tab">
                         <div class="d-flex flex-column h-100">
