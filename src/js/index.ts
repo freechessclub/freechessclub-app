@@ -17,6 +17,7 @@ import { tournaments, createTournaments } from './tournaments';
 import { users, createUsers } from './users';
 import { chat, createChat } from './chat';
 import { profile, createProfile } from './profile';
+import { explorer, createExplorer } from './explorer';
 import { Clock } from './clock';
 import { Engine, EvalEngine, MaiaEngine } from './engine';
 import { Game, GameData, Role, NewVariationMode, games } from './game';
@@ -468,6 +469,7 @@ async function onDeviceReady() {
   createTournaments();
   createUsers();
   createProfile();
+  createExplorer();
   
   const game = createGame();
   game.role = Role.NONE;
@@ -6158,7 +6160,11 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-explorer"]', () =>
   initExplorerPane();
 });
 
-async function initExplorerPane() {
+function initExplorerPane() {
+  explorer.download();
+}
+
+async function lichessAuth() {
   const {codeChallenge, codeVerifier} = await OAuth2AuthCodePKCE.generatePKCECodes();
   lichessOAuthCodeVerifier = codeVerifier;
 
