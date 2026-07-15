@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import { idbStorage } from './storage';
+import { zobrist128 } from './zobrist';
 
 interface ExplorerDatabase {
   metadata: ExplorerMetadata;
@@ -23,11 +24,11 @@ class Explorer {
   private readonly FORMAT_VERSION_SIZE = 2;
   private readonly REVISION_NUMBER_SIZE = 8;
   private readonly NUM_ENTRIES_SIZE = 4;
-  private readonly HASH_SIZE = 12;
+  private readonly KEY_SIZE = 12;
   private readonly OFFSET_SIZE = 4;
-  private readonly INDEX_ENTRY_SIZE = this.HASH_SIZE + this.OFFSET_SIZE;
+  private readonly INDEX_ENTRY_SIZE = this.KEY_SIZE + this.OFFSET_SIZE;
   private readonly NUM_MOVES_SIZE = 1;
-  private readonly MOVE_UCI_SIZE = 2;
+  private readonly UCI_MOVE_SIZE = 2;
   
   public async download() {
     const url = 'assets/data/masters.oe';
@@ -66,7 +67,7 @@ class Explorer {
     const numEntries = srcView.getUint32(srcOffset, true);
     srcOffset += this.NUM_ENTRIES_SIZE;
 
-    const totalHashSizes = numEntries * this.HASH_SIZE;
+    const totalKeySizes = numEntries * this.KEY_SIZE;
     const indexSize = numEntries * this.INDEX_ENTRY_SIZE;
     const indexBuffer = new ArrayBuffer(indexSize);
     const indexBytes = new Uint8Array(indexBuffer);
@@ -74,15 +75,15 @@ class Explorer {
     let indexOffset = 0;
 
     const headerSize = srcOffset;
-    const dstBuffer = new ArrayBuffer(srcBytes.length - totalHashSizes - headerSize);
+    const dstBuffer = new ArrayBuffer(srcBytes.length - totalKeySizes - headerSize);
     const dstBytes = new Uint8Array(dstBuffer);
     const dstView = new DataView(dstBuffer);
     let dstOffset = 0;
 
     for(let entry = 0; entry < numEntries; entry++) {
-      indexBytes.set(srcBytes.subarray(srcOffset, srcOffset + this.HASH_SIZE), indexOffset);
-      srcOffset += this.HASH_SIZE;
-      indexOffset += this.HASH_SIZE;
+      indexBytes.set(srcBytes.subarray(srcOffset, srcOffset + this.KEY_SIZE), indexOffset);
+      srcOffset += this.KEY_SIZE;
+      indexOffset += this.KEY_SIZE;
 
       indexView.setUint32(indexOffset, dstOffset, true);
       indexOffset += this.OFFSET_SIZE;
@@ -93,9 +94,9 @@ class Explorer {
       dstOffset += this.NUM_MOVES_SIZE;
 
       for(let move = 0; move < numMoves; move++) {
-        dstBytes.set(srcBytes.subarray(srcOffset, srcOffset + this.MOVE_UCI_SIZE), dstOffset);
-        srcOffset += this.MOVE_UCI_SIZE;
-        dstOffset += this.MOVE_UCI_SIZE;
+        dstBytes.set(srcBytes.subarray(srcOffset, srcOffset + this.UCI_MOVE_SIZE), dstOffset);
+        srcOffset += this.UCI_MOVE_SIZE;
+        dstOffset += this.UCI_MOVE_SIZE;
 
         const statsSize = this.getStatsSize(srcBytes, srcOffset);
         dstBytes.set(srcBytes.subarray(srcOffset, srcOffset + statsSize), dstOffset);
@@ -107,17 +108,29 @@ class Explorer {
     const metadata = { revision, formatVersion };
     this.save('masters', metadata, indexBuffer, dstBuffer);
     this.database = { metadata, index: indexBuffer, data: dstBuffer }
+
+    const moves = this.findPosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+    console.log('moves length:', moves.length);
   }
 
-  public findPosition(fen: string) {
-    const hash = someFunc(fen);    
-    this.findEntryByHash(hash);
+  public zobristToKey(hash: bigint): Uint8Array {
+    const bytes = new Uint8Array(this.KEY_SIZE);
+    for (let i = 0; i < this.KEY_SIZE; i++) 
+      bytes[i] = Number((hash >> BigInt(i * 8)) & 0xffn);
+    
+    return bytes;
   }
 
-  private findEntryByHash(hash: Uint8Array): number | undefined {
+  public findPosition(fen: string): { move: Uint8Array, stats: Uint8Array}[] | undefined {
+    const key = this.zobristToKey(zobrist128(fen));    
+    return this.findPositionByKey(key);
+  }
+
+  private findPositionByKey(key: Uint8Array): { move: Uint8Array, stats: Uint8Array}[] | undefined {
     const indexBuffer = this.database.index;
     const view = new DataView(indexBuffer);
     const numEntries = indexBuffer.byteLength / this.INDEX_ENTRY_SIZE;
+    let offset = undefined;
 
     let low = 0;
     let high = numEntries - 1;
@@ -128,10 +141,10 @@ class Explorer {
 
       let cmp = 0;
 
-      // Compare hash
-      for(let i = 0; i < this.HASH_SIZE; i++) {
+      // Compare key
+      for(let i = 0; i < this.KEY_SIZE; i++) {
         const a = view.getUint8(entryOffset + i);
-        const b = hash[i];
+        const b = key[i];
 
         if (a < b) {
           cmp = -1;
@@ -145,17 +158,37 @@ class Explorer {
       }
 
       if(cmp === 0) {
-        // Hash found, read the data offset
-        return view.getUint32(
-          entryOffset + this.HASH_SIZE,
-          true
-        );
+        // key found, read the data offset
+        offset = view.getUint32(entryOffset + this.KEY_SIZE, true);
       }
 
       if (cmp < 0) 
         low = mid + 1;
       else 
         high = mid - 1;
+    }
+
+    if(offset != null) {
+      const dataBuffer = this.database.data;
+      const dataBytes = new Uint8Array(dataBuffer);
+      const dataView = new DataView(dataBuffer);
+
+      const numMoves = dataView.getUint8(offset);
+      offset += this.NUM_MOVES_SIZE;
+
+      const moves = [];
+      for(let i = 0; i < numMoves; i++) {
+        const move = dataBytes.subarray(offset, offset + this.UCI_MOVE_SIZE);
+        offset += this.UCI_MOVE_SIZE;
+
+        const statsSize = this.getStatsSize(dataBytes, offset);
+        const stats = dataBytes.subarray(offset, offset + statsSize);
+        offset += statsSize;
+
+        moves.push({ move, stats });
+      }
+
+      return moves;
     }
 
     return undefined;
