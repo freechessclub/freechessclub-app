@@ -2,9 +2,6 @@ import { isMobile } from './utils';
 
 const deviceMemory = (navigator as any).deviceMemory || 4; // GB
 
-export const INDEXED_DB_NAME = 'FreeChessClub';
-export const INDEXED_DB_VERSION = 1;
-
 export const settings = {
   /** Main settings */
   

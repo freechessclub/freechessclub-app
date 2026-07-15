@@ -2,7 +2,7 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import { INDEXED_DB_NAME, INDEXED_DB_VERSION } from './settings';
+import { idbStorage } from './storage';
 
 interface ExplorerMetadata {
   revision: bigint;
@@ -62,11 +62,6 @@ class Explorer {
     const dstView = new DataView(dstBuffer);
     let dstOffset = 0;
 
-    console.log('num entries:', numEntries);
-    console.log('index length:', indexBytes.length);
-    console.log('src length:', srcBytes.length);
-    console.log('dst length:', dstBytes.length);
-
     for(let entry = 0; entry < numEntries; entry++) {
       indexBytes.set(srcBytes.subarray(srcOffset, srcOffset + 12), indexOffset);
       srcOffset += 12;
@@ -86,10 +81,6 @@ class Explorer {
         dstOffset += 2;
 
         const statsSize = this.getStatsSize(srcBytes, srcOffset);
-        if(dstOffset + statsSize > dstBytes.length) {
-          console.log('entry #:', entry);
-        }
-
         dstBytes.set(srcBytes.subarray(srcOffset, srcOffset + statsSize), dstOffset);
         srcOffset += statsSize;
         dstOffset += statsSize;      
@@ -99,54 +90,30 @@ class Explorer {
     this.save('masters', { revision, formatVersion }, indexBuffer, dstBuffer);
   }
 
-  private save(databaseName: string, metadata: ExplorerMetadata, indexBuffer: ArrayBuffer, dataBuffer: ArrayBuffer): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(INDEXED_DB_NAME, INDEXED_DB_VERSION);
+  private async save(databaseName: string, metadata: ExplorerMetadata, indexBuffer: ArrayBuffer, dataBuffer: ArrayBuffer): Promise<void> {
+    await idbStorage.putMany('explorer', [
+      [`${databaseName}:metadata`, metadata],
+      [`${databaseName}:index`, new Blob([indexBuffer])],
+      [`${databaseName}:data`, new Blob([dataBuffer])]
+    ]); 
+  }
 
-      request.onupgradeneeded = () => {
-        const db = request.result;
+  private async load(databaseName: string): Promise<{
+    metadata: ExplorerMetadata;
+    indexBuffer: ArrayBuffer;
+    dataBuffer: ArrayBuffer;
+  }> {
+    const [metadata, indexBlob, dataBlob] = await idbStorage.getMany<[
+      ExplorerMetadata, Blob, Blob]>(
+      'explorer',
+      [`${databaseName}:metadata`, `${databaseName}:index`, `${databaseName}:data`]
+    );
 
-        if (!db.objectStoreNames.contains("explorer")) {
-          db.createObjectStore("explorer");
-        }
-      };
-
-      request.onsuccess = () => {
-        const db = request.result;
-
-        const tx = db.transaction("explorer", "readwrite");
-        const store = tx.objectStore("explorer");
-
-        store.put(
-          metadata,
-          `${databaseName}:metadata`
-        );
-
-        store.put(
-          new Blob([indexBuffer]),
-          `${databaseName}:index`
-        );
-
-        store.put(
-          new Blob([dataBuffer]),
-          `${databaseName}:data`
-        );
-
-        tx.oncomplete = () => {
-          db.close();
-          resolve();
-        };
-
-        tx.onerror = () => {
-          db.close();
-          reject(tx.error);
-        };
-      };
-
-      request.onerror = () => {
-        reject(request.error);
-      };
-    });
+    return {
+      metadata,
+      indexBuffer: await indexBlob.arrayBuffer(),
+      dataBuffer: await dataBlob.arrayBuffer()
+    };
   }
 
   public readUint(bytes: Uint8Array, offset: number): { value: number; offset: number } {

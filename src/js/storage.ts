@@ -284,6 +284,143 @@ export class Storage {
   }
 }
 
+export class IDBStorage {
+  private readonly dbName = "FreeChessClub";
+  private readonly version = 1;
+
+  private db?: IDBDatabase;
+  private opening?: Promise<IDBDatabase>;
+
+  private async open(): Promise<IDBDatabase> {
+    if(this.db) 
+      return this.db;
+
+    if(this.opening) 
+      return this.opening;
+   
+    this.opening = new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, this.version);
+
+      request.onupgradeneeded = () => {
+        const db = request.result;
+
+        // Create object stores here as the schema evolves
+        if(!db.objectStoreNames.contains("explorer")) 
+          db.createObjectStore("explorer");
+      };
+
+      request.onsuccess = () => {
+        const db = request.result;
+
+        db.onversionchange = () => {
+          db.close();
+          this.db = undefined;
+        };
+
+        this.db = db;
+        this.opening = undefined;
+
+        resolve(db);
+      };
+
+      request.onerror = () => {
+        this.opening = undefined;
+        reject(request.error);
+      };
+    });
+
+    return this.opening;
+  }
+
+  async get<T>(storeName: string, key: IDBValidKey): Promise<T | undefined> {
+    const [result] = await this.getMany<[T]>(storeName, [key]);
+    return result;
+  }
+
+  async getMany<T extends unknown[]>(storeName: string, keys: IDBValidKey[]): Promise<T> {
+    const db = await this.open();
+
+    return new Promise<T>((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readonly');
+      const store = tx.objectStore(storeName);
+
+      const results = new Array(keys.length) as T;
+
+      let remaining = keys.length;
+
+      if(remaining === 0) {
+        resolve(results);
+        return;
+      }
+
+      keys.forEach((key, index) => {
+        const request = store.get(key);
+
+        request.onsuccess = () => {
+          results[index] = request.result;
+
+          remaining--;
+          if(remaining === 0) 
+            resolve(results);
+        };
+
+        request.onerror = () => {
+          reject(request.error);
+        };
+      });
+    });
+  }
+
+  async put(storeName: string, key: IDBValidKey, value: unknown): Promise<void> {
+    return this.putMany(storeName, [
+      [key, value]
+    ]);
+  }
+
+  async putMany(storeName: string, entries: [IDBValidKey, unknown][]): Promise<void> {
+    const db = await this.open();
+
+    return new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+
+      for (const [key, value] of entries) 
+        store.put(value, key);
+
+      tx.oncomplete = () => { resolve(); };
+      tx.onerror = () => { reject(tx.error); };
+      tx.onabort = () => { reject(tx.error); };
+    });
+  }
+
+  async delete(storeName: string, key: IDBValidKey): Promise<void> {
+    return this.deleteMany(storeName, [key]);
+  }
+
+  async deleteMany(storeName: string, keys: IDBValidKey[]): Promise<void> {
+    const db = await this.open();
+
+    return new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+
+      for(const key of keys)
+        store.delete(key);
+      
+      tx.oncomplete = () => { resolve(); };
+      tx.onerror = () => { reject(tx.error); };
+      tx.onabort = () => { reject(tx.error); };
+    });
+  }
+
+  close(): void {
+    if(this.db) {
+      this.db.close();
+      this.db = undefined;
+    }
+  }
+}
+
 /** ******************************************* 
  * Awaiting states class. 
  * Used to keep track of commands sent to the server and their corresponeding responses from the server
@@ -350,4 +487,5 @@ export class Awaiting {
 }
 
 export const storage = new Storage(); // The main Storage instance, declared here so it can be imported the other modules
+export const idbStorage = new IDBStorage();
 export const awaiting = new Awaiting();
