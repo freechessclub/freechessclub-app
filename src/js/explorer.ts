@@ -16,6 +16,15 @@ interface ExplorerMetadata {
   formatVersion: number;
 }
 
+interface ExplorerMove {
+  uciMove: string,
+  stats: {
+    white: number,
+    draws: number,
+    black: number
+  }
+}
+
 class Explorer {
   private database: ExplorerDatabase;
   private abortDownload: AbortController;
@@ -126,7 +135,7 @@ class Explorer {
     return this.findPositionByKey(key);
   }
 
-  private findPositionByKey(key: Uint8Array): { move: Uint8Array, stats: Uint8Array}[] | undefined {
+  private findPositionByKey(key: Uint8Array): ExplorerMove[] | undefined {
     const indexBuffer = this.database.index;
     const view = new DataView(indexBuffer);
     const numEntries = indexBuffer.byteLength / this.INDEX_ENTRY_SIZE;
@@ -169,26 +178,7 @@ class Explorer {
     }
 
     if(offset != null) {
-      const dataBuffer = this.database.data;
-      const dataBytes = new Uint8Array(dataBuffer);
-      const dataView = new DataView(dataBuffer);
-
-      const numMoves = dataView.getUint8(offset);
-      offset += this.NUM_MOVES_SIZE;
-
-      const moves = [];
-      for(let i = 0; i < numMoves; i++) {
-        const move = dataBytes.subarray(offset, offset + this.UCI_MOVE_SIZE);
-        offset += this.UCI_MOVE_SIZE;
-
-        const statsSize = this.getStatsSize(dataBytes, offset);
-        const stats = dataBytes.subarray(offset, offset + statsSize);
-        offset += statsSize;
-
-        moves.push({ move, stats });
-      }
-
-      return moves;
+      return this.readMoves(new Uint8Array(this.database.data), offset).value;
     }
 
     return undefined;
@@ -252,7 +242,7 @@ class Explorer {
     const first = this.readUint(bytes, offset);
     offset = first.offset;
 
-    if (first.value <= 2) {
+    if(first.value <= 2) {
         // white=1,draws=0,black=0
         // white=0,draws=0,black=1
         // white=0,draws=1,black=0
@@ -267,6 +257,27 @@ class Explorer {
     offset = this.readUint(bytes, offset).offset;
 
     return offset - startOffset;
+  }
+
+  private readMoves(dataBytes: Uint8Array, offset: number): { value: ExplorerMove[], offset: number } {
+    const dataView = new DataView(dataBytes.buffer);
+
+    const numMoves = dataView.getUint8(offset);
+    offset += this.NUM_MOVES_SIZE;
+
+    const moves = [];
+    for(let i = 0; i < numMoves; i++) {
+      const move = dataBytes.subarray(offset, offset + this.UCI_MOVE_SIZE);
+      offset += this.UCI_MOVE_SIZE;
+
+      const statsSize = this.getStatsSize(dataBytes, offset);
+      const stats = dataBytes.subarray(offset, offset + statsSize);
+      offset += statsSize;
+
+      moves.push({ move, stats });
+    }
+
+    return { value: moves, offset };
   }
 }
 
