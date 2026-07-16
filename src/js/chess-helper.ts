@@ -75,6 +75,43 @@ export class Position {
   }
 }
 
+export function legalEnPassant(fen: string): boolean {
+  const splitFen = splitFEN(fen);
+  const enPassant = splitFen.enPassant;
+  const turnColor = splitFen.color;
+  if(enPassant === '-')
+    return false;
+
+  const pos = new Position(fen);
+  const fromRank = turnColor === 'b' ? +enPassant.charAt(1) + 1 : +enPassant.charAt(1) - 1;
+  const file = enPassant.charAt(0);
+  let leftFromSquare = null, rightFromSquare = null;
+  if(file !== 'a') {
+    const fromFile = String.fromCharCode(file.charCodeAt(0) - 1);
+    const fromSquare = `${fromFile}${fromRank}`;
+    const piece = pos.get(fromSquare);
+    if(piece && piece.color === turnColor && piece.type === 'p') 
+      leftFromSquare = fromSquare;
+  }
+  if(file !== 'h') {
+    const fromFile = String.fromCharCode(file.charCodeAt(0) + 1);
+    const fromSquare = `${fromFile}${fromRank}`;
+    const piece = pos.get(fromSquare);
+    if(piece && piece.color === turnColor && piece.type === 'p') 
+      rightFromSquare = fromSquare;    
+  }
+
+  if(leftFromSquare || rightFromSquare) {
+    const chess = new Chess(fen);
+    if(leftFromSquare && chess.move({ from: leftFromSquare, to: enPassant }))
+      return true;
+    if(rightFromSquare && chess.move({ from: rightFromSquare, to: enPassant }))
+      return true;
+  }
+
+  return false;
+}
+
 /**
  * Checks if the position specified by fen is in stalemate for the plyaer to move.
  * For Crazyhouse/bughouse this takes into account captured/held pieces

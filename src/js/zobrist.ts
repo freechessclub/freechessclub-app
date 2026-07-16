@@ -1,3 +1,5 @@
+import { legalEnPassant } from './chess-helper';
+
 export function zobrist128(fen: string): bigint {
   const fields = fen.split(' ');
 
@@ -7,13 +9,12 @@ export function zobrist128(fen: string): bigint {
   let square = 0;
 
   for (const c of fields[0]) {
-    if (c === "/") {
-        continue;
-    }
+    if (c === "/") 
+      continue;
 
     if (c >= "1" && c <= "8") {
-        square += Number(c);
-        continue;
+      square += Number(c);
+      continue;
     }
 
     const color = c === c.toUpperCase() ? 0 : 1;
@@ -24,12 +25,11 @@ export function zobrist128(fen: string): bigint {
   }
 
   // side to move
-  if (fields[1] === "w") {
+  if(fields[1] === "w") 
     hash ^= WHITE_TURN_MASK;
-  }
 
   // castling
-  for (const c of fields[2]) {
+  for(const c of fields[2]) {
     switch (c) {
       case "K": hash ^= CASTLING_RIGHT_MASKS[0]; break;
       case "Q": hash ^= CASTLING_RIGHT_MASKS[1]; break;
@@ -39,7 +39,7 @@ export function zobrist128(fen: string): bigint {
   }
 
   // en passant
-  if (fields[3] !== "-") {
+  if(fields[3] !== "-" && legalEnPassant(fen)) {
     const file = fields[3].charCodeAt(0) - 97;
     hash ^= EN_PASSANT_FILE_MASKS[file];
   }
