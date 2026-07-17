@@ -223,24 +223,16 @@ class Explorer {
 
     while (true) {
       const b = bytes[offset++];
-      value |= (b & 127) << shift;
-      if ((b & 128) === 0) {
-        break;
-      }
+
+      value += (b & 127) * Math.pow(2, shift);
+
+      if ((b & 128) === 0) 
+          break;
+
       shift += 7;
     }
 
     return { value, offset };
-  }
-
-  public writeUint(bytes: Uint8Array, offset: number, n: number): number {
-    while (n > 127) {
-      bytes[offset++] = (n & 127) | 128;
-      n >>= 7;
-    }
-
-    bytes[offset++] = n;
-    return offset;
   }
 
   private getStatsSize(bytes: Uint8Array, offset: number): number {
@@ -351,7 +343,7 @@ class Explorer {
       move = {
         from,
         to,
-        promotion: piece
+        ...(piece !== undefined && { promotion: piece })
       };
       
     return {
