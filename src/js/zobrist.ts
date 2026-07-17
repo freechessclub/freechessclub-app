@@ -17,10 +17,15 @@ export function zobrist128(fen: string): bigint {
       continue;
     }
 
-    const color = c === c.toUpperCase() ? 0 : 1;
+    const color = c === c.toUpperCase() ? 1 : 0;
     const role = "pnbrqk".indexOf(c.toLowerCase()) + 1;
     const pieceIndex = (role - 1) * 2 + color;
-    hash ^= PIECE_MASKS[64 * pieceIndex + square];
+    
+    const file = square & 7;
+    const rank = square >> 3;
+    const shakmatySquare = (7 - rank) * 8 + file;
+    hash ^= PIECE_MASKS[64 * pieceIndex + shakmatySquare];
+
     square++;
   }
 
