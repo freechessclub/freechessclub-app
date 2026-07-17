@@ -16,13 +16,17 @@ interface ExplorerMetadata {
   formatVersion: number;
 }
 
+interface ExplorerStats {
+  total: number,
+  white: number,
+  draws: number,
+  black: number  
+}
+
 interface ExplorerMove {
   uciMove: string,
-  stats: {
-    white: number,
-    draws: number,
-    black: number
-  }
+  san?: string,
+  stats: ExplorerStats
 }
 
 class Explorer {
@@ -130,7 +134,7 @@ class Explorer {
     return bytes;
   }
 
-  public findPosition(fen: string): { move: Uint8Array, stats: Uint8Array}[] | undefined {
+  public findPosition(fen: string): ExplorerMove[] | undefined {
     const key = this.zobristToKey(zobrist128(fen));    
     return this.findPositionByKey(key);
   }
@@ -243,10 +247,10 @@ class Explorer {
     offset = first.offset;
 
     if(first.value <= 2) {
-        // white=1,draws=0,black=0
-        // white=0,draws=0,black=1
-        // white=0,draws=1,black=0
-        return offset - startOffset;
+      // white=1,draws=0,black=0
+      // white=0,draws=0,black=1
+      // white=0,draws=1,black=0
+      return offset - startOffset;
     }
 
     // normal case:
@@ -259,22 +263,71 @@ class Explorer {
     return offset - startOffset;
   }
 
+  private readStats(bytes: Uint8Array, offset: number): { value: ExplorerStats, offset: number } {
+    const startOffset = offset;
+    let value = null;
+    let white = 0, black = 0, draws = 0;
+
+    // rating_sum
+    ({ value, offset } = this.readUint(bytes, offset));
+    const ratingSum = value;
+
+    // first stats value (compressed cases)
+    ({ value, offset } = this.readUint(bytes, offset));
+    const first = value;
+
+    if(first <= 2) {
+      if(first === 0)
+        white = 1;
+      else if(first === 1)
+        black = 1;
+      else if(first === 2)
+        draws = 1;
+    }
+    else {
+      // normal case:
+      white = first;
+    
+      // draws
+      ({value, offset} = this.readUint(bytes, offset));
+      draws = value;
+
+      // black
+      ({value, offset} = this.readUint(bytes, offset));  
+      black = value;  
+    }
+
+    const total = white + draws + black;
+
+    return { 
+      value: { total, white, draws, black },
+      offset  
+    }
+  }
+
+  private readUCIMove(dataBytes: Uint8Array, offset: number): { value: string, offset: number } {
+    const value = dataBytes.subarray(offset, offset + this.UCI_MOVE_SIZE);
+    offset += this.UCI_MOVE_SIZE;
+
+    return { value, offset }
+  }
+
   private readMoves(dataBytes: Uint8Array, offset: number): { value: ExplorerMove[], offset: number } {
     const dataView = new DataView(dataBytes.buffer);
 
     const numMoves = dataView.getUint8(offset);
     offset += this.NUM_MOVES_SIZE;
 
-    const moves = [];
+    const moves: ExplorerMove[] = [];
     for(let i = 0; i < numMoves; i++) {
-      const move = dataBytes.subarray(offset, offset + this.UCI_MOVE_SIZE);
+      let value = null;
+      const uciMove = dataBytes.subarray(offset, offset + this.UCI_MOVE_SIZE);
       offset += this.UCI_MOVE_SIZE;
 
-      const statsSize = this.getStatsSize(dataBytes, offset);
-      const stats = dataBytes.subarray(offset, offset + statsSize);
-      offset += statsSize;
+      ({ value, offset} = this.readStats(dataBytes, offset));
+      const stats = value;
 
-      moves.push({ move, stats });
+      moves.push({ uciMove, stats });
     }
 
     return { value: moves, offset };
