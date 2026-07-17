@@ -3173,6 +3173,7 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
 
   showCapturedMaterial(game);
   showOpeningName(game);
+  showExplorerPosition(game);
   updateBoardStatusText();
   updateMoveRatingIcon(game);
 
@@ -3396,7 +3397,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   if(game.role === Role.PLAYING_COMPUTER) // Send move to engine in Play Computer mode
     getComputerMove(game);
 
-  showTab($('#pills-game-tab'));
+  showExplorerOrGameTab();
 }
 
 function movePieceAfter(game: Game, move: any, fen: string, serverIssued: boolean) {
@@ -4300,7 +4301,7 @@ function fastBackward() {
   gotoMove(game.history.first());
   if(!SupportedCategories.includes(game.category) && game.isExamining())
     session.send('back 999');
-  showTab($('#pills-game-tab'));
+  showExplorerOrGameTab();
 }
 
 $('#backward').off('click');
@@ -4317,7 +4318,7 @@ function backward() {
   else if(!SupportedCategories.includes(game.category) && game.isExamining())
     session.send('back');
 
-  showTab($('#pills-game-tab'));
+  showExplorerOrGameTab();
 }
 
 $('#forward').off('click');
@@ -4334,7 +4335,7 @@ function forward() {
   else if(!SupportedCategories.includes(game.category) && game.isExamining())
     session.send('forward');
 
-  showTab($('#pills-game-tab'));
+  showExplorerOrGameTab();
 }
 
 $('#fast-forward').off('click');
@@ -4348,7 +4349,7 @@ function fastForward() {
   if(!SupportedCategories.includes(game.category) && game.isExamining())
     session.send('forward 999');
 
-  showTab($('#pills-game-tab'));
+  showExplorerOrGameTab();
 }
 
 $('#exit-subvariation').off('click');
@@ -4360,7 +4361,7 @@ function exitSubvariation() {
   const curr = games.focused.history.current();
   const prev = curr.first.prev;
   gotoMove(prev);
-  showTab($('#pills-game-tab'));
+  showExplorerOrGameTab();
 }
 
 export function gotoMove(to: HEntry, playSound = false) {
@@ -6161,7 +6162,26 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-explorer"]', () =>
 });
 
 function initExplorerPane() {
-  explorer.download();
+  explorer.init();
+  showExplorerPosition(games.focused);
+}
+
+async function showExplorerPosition(game: Game) {
+  if(!$('#pills-explorer').hasClass('active'))
+    return;
+  const moves = await explorer.findPosition(game.history.current().fen);
+  if(moves) {
+    let movesHtml = '';
+    moves.forEach(moveEntry => {
+      const move = moveEntry.move;
+      const stats = moveEntry.stats;
+      const whitePct = Math.round(100 * stats.white / stats.total);
+      const drawsPct = Math.round(100 * stats.draws / stats.total);
+      const blackPct = Math.round(100 * stats.black / stats.total);
+      movesHtml += `${move.san} ${stats.ratingAvg} ${stats.total} ${whitePct}% ${drawsPct}% ${blackPct}%<br>`;
+    })
+    $('#explorer-moves').html(movesHtml);    
+  }
 }
 
 async function lichessAuth() {
@@ -6326,6 +6346,11 @@ $('#movelists').on('click', '.comment', function() {
   else
     gotoMove($(this).prev().data('hEntry'));
 });
+
+function showExplorerOrGameTab() {
+  if(!$('#pills-explorer').hasClass('active'))
+    showTab($('#pills-game-tab'));
+}
 
 /**
  * Create right-click and long press trigger events for displaying the context menu when right clicking a move

@@ -31,7 +31,9 @@ interface ExplorerMove {
     from?: string,
     to: string,
     piece?: string,
-    promotion?: string
+    promotion?: string,
+    flags?: string,
+    san?: string,
   },
   stats: ExplorerStats
 }
@@ -39,6 +41,7 @@ interface ExplorerMove {
 class Explorer {
   private database: ExplorerDatabase;
   private abortDownload: AbortController;
+  private initPromise?: Promise<void>;
   private readonly MAGIC_NUMBER = 'FCOE';
   private readonly MAGIC_NUMBER_SIZE = 4;
   private readonly FORMAT_VERSION_SIZE = 2;
@@ -50,11 +53,22 @@ class Explorer {
   private readonly NUM_MOVES_SIZE = 1;
   private readonly UCI_MOVE_SIZE = 2;
   
-  public async download() {
-    const url = 'assets/data/masters.oe';
-    this.abortDownload = new AbortController();
-    const signal = this.abortDownload.signal;
-    const srcBuffer = await (await fetch(url, { signal })).arrayBuffer();
+  public async init(): Promise<void> {
+    if(this.initPromise) 
+      return this.initPromise;
+
+    this.initPromise = (async () => {
+      const url = 'assets/data/masters.oe';
+      this.abortDownload = new AbortController();
+      const signal = this.abortDownload.signal;
+      const srcBuffer = await (await fetch(url, { signal })).arrayBuffer();
+      this.index(srcBuffer);
+    })();
+
+    return this.initPromise;
+  }
+
+  private index(srcBuffer: ArrayBuffer) {
     const srcBytes = new Uint8Array(srcBuffer);
     const srcView = new DataView(srcBuffer);
 
@@ -128,9 +142,6 @@ class Explorer {
     const metadata = { revision, formatVersion };
     this.save('masters', metadata, indexBuffer, dstBuffer);
     this.database = { metadata, index: indexBuffer, data: dstBuffer }
-
-    const moves = this.findPosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
-    console.log('moves:', moves);
   }
 
   public zobristToKey(hash: bigint): Uint8Array {
@@ -141,7 +152,11 @@ class Explorer {
     return bytes;
   }
 
-  public findPosition(fen: string): ExplorerMove[] | undefined {
+  public async findPosition(fen: string): Promise<ExplorerMove[] | undefined> {
+    if(!this.initPromise)
+      return;
+    await this.initPromise;
+
     const key = this.zobristToKey(zobrist128(fen));    
     const moves = this.findPositionByKey(key);
     const chess = new Chess(fen);
