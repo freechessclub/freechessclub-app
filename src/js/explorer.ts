@@ -159,6 +159,9 @@ class Explorer {
 
     const key = this.zobristToKey(zobrist128(fen));    
     const moves = this.findPositionByKey(key);
+    if(!moves)
+      return;
+
     const chess = new Chess(fen);
     for(let moveEntry of moves) {
       const outMove = chess.move(moveEntry.move);

@@ -6170,8 +6170,8 @@ async function showExplorerPosition(game: Game) {
   if(!$('#pills-explorer').hasClass('active'))
     return;
   const moves = await explorer.findPosition(game.history.current().fen);
+  let movesHtml = '';
   if(moves) {
-    let movesHtml = '';
     moves.forEach(moveEntry => {
       const move = moveEntry.move;
       const stats = moveEntry.stats;
@@ -6179,9 +6179,9 @@ async function showExplorerPosition(game: Game) {
       const drawsPct = Math.round(100 * stats.draws / stats.total);
       const blackPct = Math.round(100 * stats.black / stats.total);
       movesHtml += `${move.san} ${stats.ratingAvg} ${stats.total} ${whitePct}% ${drawsPct}% ${blackPct}%<br>`;
-    })
-    $('#explorer-moves').html(movesHtml);    
+    }) 
   }
+  $('#explorer-moves').html(movesHtml);  
 }
 
 async function lichessAuth() {
