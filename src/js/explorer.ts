@@ -4,6 +4,7 @@
 
 import { idbStorage } from './storage';
 import { zobrist128 } from './zobrist';
+import Chess from 'chess.js';
 
 interface ExplorerDatabase {
   metadata: ExplorerMetadata;
@@ -32,7 +33,6 @@ interface ExplorerMove {
     piece?: string,
     promotion?: string
   },
-  san?: string,
   stats: ExplorerStats
 }
 
@@ -143,7 +143,16 @@ class Explorer {
 
   public findPosition(fen: string): ExplorerMove[] | undefined {
     const key = this.zobristToKey(zobrist128(fen));    
-    return this.findPositionByKey(key);
+    const moves = this.findPositionByKey(key);
+    const chess = new Chess(fen);
+    for(let moveEntry of moves) {
+      const outMove = chess.move(moveEntry.move);
+      if(outMove) {
+        moveEntry.move = outMove;
+        chess.undo();
+      }
+    }
+    return moves;
   }
 
   private findPositionByKey(key: Uint8Array): ExplorerMove[] | undefined {
