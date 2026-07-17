@@ -17,6 +17,8 @@ interface ExplorerMetadata {
 }
 
 interface ExplorerStats {
+  ratingSum: number,
+  ratingAvg: number,
   total: number,
   white: number,
   draws: number,
@@ -24,7 +26,12 @@ interface ExplorerStats {
 }
 
 interface ExplorerMove {
-  uciMove: string,
+  move: {
+    from?: string,
+    to: string,
+    piece?: string,
+    promotion?: string
+  },
   san?: string,
   stats: ExplorerStats
 }
@@ -123,7 +130,7 @@ class Explorer {
     this.database = { metadata, index: indexBuffer, data: dstBuffer }
 
     const moves = this.findPosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
-    console.log('moves length:', moves.length);
+    console.log('moves:', moves);
   }
 
   public zobristToKey(hash: bigint): Uint8Array {
@@ -286,7 +293,7 @@ class Explorer {
     }
     else {
       // normal case:
-      white = first;
+      white = first - 3;
     
       // draws
       ({value, offset} = this.readUint(bytes, offset));
@@ -299,17 +306,58 @@ class Explorer {
 
     const total = white + draws + black;
 
+    const ratingAvg = total ? Math.round(ratingSum / total) : undefined;
+
     return { 
-      value: { total, white, draws, black },
+      value: { ratingSum, ratingAvg, total, white, draws, black },
       offset  
     }
   }
 
   private readUCIMove(dataBytes: Uint8Array, offset: number): { value: string, offset: number } {
-    const value = dataBytes.subarray(offset, offset + this.UCI_MOVE_SIZE);
+    const squareToString = (square: number): string => {
+      const file = square & 7;        // 0-7
+      const rank = (square >> 3) + 1; // 1-8
+      return String.fromCharCode(97 + file) + rank;
+    }
+
+    const pieceToString = (piece: number): string => {
+      switch(piece) {
+        case 0: 'p';
+        case 1: 'n';
+        case 2: 'b';
+        case 3: 'r';
+        case 4: 'q';
+        case 5: 'k';
+        default: return undefined;
+      }
+    }
+
+    const dataView = new DataView(dataBytes.buffer);
+    const packed = dataView.getUint16(offset);
     offset += this.UCI_MOVE_SIZE;
 
-    return { value, offset }
+    const from = squareToString(packed & 63);
+    const to = squareToString((packed >> 6) & 63);
+    const piece = pieceToString(packed >> 12);
+
+    let move = null;
+    if(from === to) {
+      move = piece !== undefined
+        ? { piece, to }
+        : { to };
+    }
+    else 
+      move = {
+        from,
+        to,
+        promotion: piece
+      };
+      
+    return {
+      value: move,
+      offset
+    };
   }
 
   private readMoves(dataBytes: Uint8Array, offset: number): { value: ExplorerMove[], offset: number } {
@@ -321,13 +369,14 @@ class Explorer {
     const moves: ExplorerMove[] = [];
     for(let i = 0; i < numMoves; i++) {
       let value = null;
-      const uciMove = dataBytes.subarray(offset, offset + this.UCI_MOVE_SIZE);
-      offset += this.UCI_MOVE_SIZE;
+
+      ({ value, offset} = this.readUCIMove(dataBytes, offset));
+      const move = value;
 
       ({ value, offset} = this.readStats(dataBytes, offset));
       const stats = value;
 
-      moves.push({ uciMove, stats });
+      moves.push({ move, stats });
     }
 
     return { value: moves, offset };
