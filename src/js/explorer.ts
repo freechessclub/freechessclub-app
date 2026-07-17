@@ -316,8 +316,8 @@ class Explorer {
 
   private readUCIMove(dataBytes: Uint8Array, offset: number): { value: string, offset: number } {
     const squareToString = (square: number): string => {
-      const file = square & 7;        // 0-7
-      const rank = (square >> 3) + 1; // 1-8
+      const file = square & 7;
+      const rank = (square >> 3) + 1;
       return String.fromCharCode(97 + file) + rank;
     }
 
@@ -334,7 +334,7 @@ class Explorer {
     }
 
     const dataView = new DataView(dataBytes.buffer);
-    const packed = dataView.getUint16(offset);
+    const packed = dataView.getUint16(offset, true);
     offset += this.UCI_MOVE_SIZE;
 
     const from = squareToString(packed & 63);
