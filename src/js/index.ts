@@ -9052,85 +9052,109 @@ $('#input-text').on('keydown', (event) => {
   }
 });
 
+let pendingInput: { start: number, end: number } | null = null;
+let composing = false;
+
 $('#input-text').on('beforeinput', (e) => {
   const event = e.originalEvent as InputEvent;
   const element = e.target as HTMLTextAreaElement;
 
-  const inserted = event.inputType.startsWith('insert')
-      ? event.data ?? ''
-      : '';
-  if(inserted) {
-    e.preventDefault();
-    insertInputText(inserted);
+  if(event.inputType.startsWith('insert')) {
+    pendingInput = {
+      start: element.selectionStart,
+      end: element.selectionEnd
+    };
   }
 });
 
-$('#input-text').on('input', (e) => {
-  adjustInputTextHeight();
+$('#input-text').on('input', () => {
+  updateInputText();
 });
 
-function insertInputText(inserted: string) {
-  if(!inserted) 
-    return;
+$('#input-text').on('compositionstart', () => {
+  composing = true;
+});
 
+$('#input-text').on('compositionend', () => {
+  composing = false;
+  updateInputText();
+});
+
+function updateInputText() {
+  if(!composing && pendingInput) {
+    insertInputText(pendingInput.start, pendingInput.end);
+    pendingInput = null;
+  }
+  adjustInputTextHeight();
+}
+
+function insertInputText(start: number, end: number) {
   const element = $('#input-text')[0] as HTMLTextAreaElement;
-  const start = element.selectionStart;
-  const end = element.selectionEnd;
 
-  let val = element.value as string;
+  let val = element.value;
 
-  // Stop the user being able to type more than max length characters
   const tab = chat.currentTab();
   let maxLength: number;
+
   if(val.charAt(0) === '@')
     maxLength = 1024;
   else if(tab === 'console')
     maxLength = 1023;
-  else if(val.startsWith('m;')) // User is sending a 'message' from chat tab
+  else if(val.startsWith('m;'))
     maxLength = 999;
-  else if(!session.isRegistered()) // Guests are limited to half the tell length
+  else if(!session.isRegistered())
     maxLength = 200;
   else
     maxLength = 400;
 
   const before = val.substring(0, start);
-  const after = val.substring(end);
-  const decodedVal = chat.unemojify(val);
 
+  // This is where the browser put the cursor after insertion.
+  const insertedEnd = element.selectionStart;
+
+  let inserted = val.substring(start, insertedEnd);
+  const after = val.substring(insertedEnd);
   inserted = inserted.replace(/[^\S ]/g, ' ');
 
-  // Convert emoji unicode chars to shortcodes in order to test the length then convert them back
-  // Note: as a side effect of this, it will convert shortcodes typed in the input in real time
+  // Convert unicode emoji to shortcodes for length checking
   inserted = chat.unemojify(inserted);
-  
-  const maxInsertionLength = maxLength - decodedVal.length;
+
+  const maxInsertionLength =
+    maxLength - chat.unemojify(before + after).length;
+
   if(maxInsertionLength < inserted.length) {
-    inserted = Utils.splitText(inserted, maxInsertionLength)[0];
-    // Flash text area when max characters reached
+    inserted = Utils.splitText(
+      inserted,
+      Math.max(0, maxInsertionLength)
+    )[0];
+
     $('#fake-input-text').addClass('flash');
+
     $('#fake-input-text').one('animationend', () => {
       $('#fake-input-text').removeClass('flash');
     });
   }
 
   val = before + inserted + after;
+
+  // Convert shortcodes back to unicode
   val = chat.emojify(val);
 
   element.value = val;
 
-  // Set the cursor to the first unchanged character in 'after' (the text following the insertion).
-  // This is because the insertion might combine with the character(s) after it forming an emoji
-  // Basically we are finding a common suffix between val and after
+  // Find the first unchanged character in 'after'.
+  // Needed because emoji conversion may consume characters
+  // from the text following the insertion.
   let i = after.length - 1;
   let j = val.length - 1;
+
   while(i >= 0 && j >= 0 && after[i] === val[j]) {
     i--;
     j--;
   }
+
   const newPos = j + 1;
   element.setSelectionRange(newPos, newPos);
-
-  adjustInputTextHeight(); // Resize text area
 }
 
 function adjustInputTextHeight() {
