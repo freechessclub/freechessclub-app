@@ -6170,7 +6170,7 @@ async function showExplorerPosition(game: Game) {
   if(!$('#pills-explorer').hasClass('active'))
     return;
   const moves = await explorer.findPosition(game.history.current().fen);
-  let movesHtml = '';
+  $('#explorer-moves').html('');  
   if(moves) {
     moves.forEach(moveEntry => {
       const move = moveEntry.move;
@@ -6178,11 +6178,17 @@ async function showExplorerPosition(game: Game) {
       const whitePct = Math.round(100 * stats.white / stats.total);
       const drawsPct = Math.round(100 * stats.draws / stats.total);
       const blackPct = Math.round(100 * stats.black / stats.total);
-      movesHtml += `${move.san} ${stats.ratingAvg} ${stats.total} ${whitePct}% ${drawsPct}% ${blackPct}%<br>`;
+      const moveElem = $(`<div><a class="explorer-move-link" href="javascript:void(0)">${move.san}</a> ${stats.ratingAvg} ${stats.total} ${whitePct}% ${drawsPct}% ${blackPct}%</div>`);
+      moveElem.find('a').data('move', move);
+      $('#explorer-moves').append(moveElem);
     }) 
   }
-  $('#explorer-moves').html(movesHtml);  
 }
+
+$('#explorer-moves').on('click', '.explorer-move-link', (e) => {
+  const move = $(e.currentTarget).data('move');
+  movePiece(move.from, move.to, null, move.piece, move.promotion);
+});
 
 async function lichessAuth() {
   const {codeChallenge, codeVerifier} = await OAuth2AuthCodePKCE.generatePKCECodes();
