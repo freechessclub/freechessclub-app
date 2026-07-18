@@ -4,7 +4,7 @@
 
 import { idbStorage } from './storage';
 import { zobrist128 } from './zobrist';
-import Chess from 'chess.js';
+import { parseMove } from './chess-helper';
 
 interface ExplorerDatabase {
   metadata: ExplorerMetadata;
@@ -162,13 +162,10 @@ class Explorer {
     if(!moves)
       return;
 
-    const chess = new Chess(fen);
     for(let moveEntry of moves) {
-      const outMove = chess.move(moveEntry.move);
-      if(outMove) {
-        moveEntry.move = outMove;
-        chess.undo();
-      }
+      const { move } = parseMove(fen, moveEntry.move, 'explorer');
+      if(move) 
+        moveEntry.move = move;
     }
     return moves;
   }
@@ -398,6 +395,7 @@ class Explorer {
       moves.push({ move, stats });
     }
 
+    moves.sort((a, b) => b.stats.total - a.stats.total);
     return { value: moves, offset };
   }
 }

@@ -1679,7 +1679,7 @@ export class History {
         this.goto(this.first());
         return false;
       }
-      const parsed = parseMove(hEntry.fen, move, startFen, category, hEntry.variantData);
+      const parsed = parseMove(hEntry.fen, move, category, startFen, hEntry.variantData);
       let wtime = hEntry.wtime;
       let btime = hEntry.btime;
       if(!untimed) {

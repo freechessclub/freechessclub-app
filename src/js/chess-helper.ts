@@ -195,7 +195,10 @@ export function insufficientMaterial(fen: string, variantData?: VariantData, col
   return (color === 'w' && whiteWeight < 2) || (color === 'b' && blackWeight < 2) || (!color && whiteWeight < 2 && blackWeight < 2);
 }
 
-export function parseMove(fen: string, move: any, startFen: string, category: string, variantData?: Partial<VariantData>, premove=false) {
+export function parseMove(fen: string, move: any, category?: string, startFen?: string, variantData?: Partial<VariantData>, premove=false) { 
+  if(!category)
+    category = 'standard';
+  
   // Check to see if the dest square is reachable from source square  
   // Basic, fast initial check for performance reasons
   if(move && typeof move === 'object' && move.from && move.to && move.piece 
@@ -206,7 +209,7 @@ export function parseMove(fen: string, move: any, startFen: string, category: st
 
   // Parse variant move or premove
   if(!standardCategories.includes(category) || premove)
-    return parseVariantMove(fen, move, startFen, category, variantData, premove);
+    return parseVariantMove(fen, move, category, startFen, variantData, premove);
 
   // Parse standard move
   const chess = new Chess(fen);
@@ -219,10 +222,13 @@ export function parseMove(fen: string, move: any, startFen: string, category: st
   return { fen: outFen, move: outMove };
 }
 
-function parseVariantMove(fen: string, move: any, startFen: string, category: string, variantData?: Partial<VariantData>, premove=false) {
-  const supportedCategories = ['crazyhouse', 'bughouse', 'losers', 'wild/fr', 'wild/0', 'wild/1', 'wild/2', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
-  if(!supportedCategories.includes(category) && !premove)
+function parseVariantMove(fen: string, move: any, category?: string, startFen?: string, variantData?: Partial<VariantData>, premove=false) { 
+  const supportedCategories = ['explorer', 'crazyhouse', 'bughouse', 'losers', 'wild/fr', 'wild/0', 'wild/1', 'wild/2', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
+  if(!category || (!supportedCategories.includes(category) && !premove))
     return null;
+
+  if(!startFen)
+    startFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
   // clear en passant from FEN for premove since it confuses chess.js (and doesn't make sense for a premove)
   if(premove) {
@@ -669,12 +675,12 @@ export function adjustKingDests(dests: string[], fen: string, startFen: string, 
       });
     }
 
-    let parsedMove = parseMove(fen, 'O-O', startFen, category, null, premove);
+    let parsedMove = parseMove(fen, 'O-O', category, startFen, null, premove);
     if(parsedMove) {
       const to = category === 'wild/fr' ? rightRook : parsedMove.move.to;
       dests.push(to);
     }
-    parsedMove = parseMove(fen, 'O-O-O', startFen, category, null, premove);
+    parsedMove = parseMove(fen, 'O-O-O', category, startFen, null, premove);
     if(parsedMove) {
       const to = category === 'wild/fr' ? leftRook : parsedMove.move.to;
       dests.push(to);

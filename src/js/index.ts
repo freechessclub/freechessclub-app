@@ -3797,7 +3797,7 @@ function parseGameMove(game: Game, fen: string, move: any, premove = false) {
   if(premove) 
     fen = ChessHelper.setFENTurnColor(fen, game.color);
   
-  return ChessHelper.parseMove(fen, move, game.history.first().fen, game.category, game.history.current().variantData, premove);
+  return ChessHelper.parseMove(fen, move, game.category, game.history.first().fen, game.history.current().variantData, premove);
 }
 
 /** Wrapper function for toDests */
