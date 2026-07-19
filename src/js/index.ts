@@ -6170,7 +6170,8 @@ async function showExplorerPosition(game: Game) {
   if(!$('#pills-explorer').hasClass('active'))
     return;
   const moves = await explorer.findPosition(game.history.current().fen);
-  $('#explorer-moves > tbody').html('');  
+  $('#explorer-moves').toggle(!!moves);
+  $('#explorer-moves > tbody').html(''); 
   if(moves) {
     moves.forEach(moveEntry => {
       const move = moveEntry.move;
@@ -6189,7 +6190,11 @@ async function showExplorerPosition(game: Game) {
           <td>${move.san}</td>
           <td>${totalStr}</td>
           <td>${stats.ratingAvg}</td>
-          <td><div class="explorer-results-bar"><span class="white" style="width: ${whitePct}%;">${whitePct.toFixed(1)}%</span><span class="draw" style="width: ${drawPct}%;">${drawPct.toFixed(1)}%</span><span class="black" style="width: ${blackPct}%;"><span>${blackPct.toFixed(1)}%</span></span></div></td>
+          <td><div class="explorer-results-bar">
+            ${whitePct ? `<span class="white" style="width: ${whitePct}%;">${whitePct.toFixed(0)}%</span>` : ''}
+            ${drawPct ? `<span class="draw" style="width: ${drawPct}%;">${drawPct.toFixed(0)}%</span>` : ''}
+            ${blackPct ? `<span class="black" style="width: ${blackPct}%;"><span>${blackPct.toFixed(0)}%</span>` : ''}
+          </div></td>
         </tr>`);
       moveElem.data('move', move);
       $('#explorer-moves > tbody').append(moveElem);
