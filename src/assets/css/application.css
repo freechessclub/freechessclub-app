@@ -1703,11 +1703,22 @@ input[type="number"]:focus {
 .explorer-results-bar {
   display: flex;
   width: 100%;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   overflow: hidden;
   border-radius: 8px;
 }
 
+#explorer-moves {
+  white-space: nowrap;
+  --bs-table-color: var(--fg-color);
+}
+#explorer-moves > tbody td {
+  vertical-align: baseline;
+}
+#explorer-moves td:nth-child(1) {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
 #explorer-moves td:nth-child(2),
 #explorer-moves th:nth-child(2) {
   text-align: right; 
@@ -1719,6 +1730,8 @@ input[type="number"]:focus {
 #explorer-moves td:nth-child(4),
 #explorer-moves th:nth-child(4) {
   text-align: center; 
+  vertical-align: middle;
+  width: 100%;
 }
 
 .explorer-results-bar > span {
@@ -1730,14 +1743,14 @@ input[type="number"]:focus {
 }
 
 .explorer-results-bar > .white {
-  color: black;
-  background-color: white;
+  color: #212529;
+  background-color: #CCC;
 }
 .explorer-results-bar > .draw {
-  color: white;
+  color: whitesmoke;
   background-color: grey;
 }
 .explorer-results-bar > .black {
-  color: white;
-  background-color: black;
+  color: whitesmoke;
+  background-color: #222;
 }
