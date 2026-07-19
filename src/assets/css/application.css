@@ -1703,14 +1703,41 @@ input[type="number"]:focus {
 .explorer-results-bar {
   display: flex;
   width: 100%;
+  font-size: 0.8rem;
   overflow: hidden;
+  border-radius: 8px;
+}
+
+#explorer-moves td:nth-child(2),
+#explorer-moves th:nth-child(2) {
+  text-align: right; 
+}
+#explorer-moves td:nth-child(3),
+#explorer-moves th:nth-child(3) {
+  text-align: right; 
+}
+#explorer-moves td:nth-child(4),
+#explorer-moves th:nth-child(4) {
+  text-align: center; 
 }
 
 .explorer-results-bar > span {
-  display: flex;
-  justify-content: center;
-  align-items: center;     
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  text-align: center;
   overflow: hidden;
   white-space: nowrap;
-  min-width: 0;
+}
+
+.explorer-results-bar > .white {
+  color: black;
+  background-color: white;
+}
+.explorer-results-bar > .draw {
+  color: white;
+  background-color: grey;
+}
+.explorer-results-bar > .black {
+  color: white;
+  background-color: black;
 }

@@ -6178,11 +6178,18 @@ async function showExplorerPosition(game: Game) {
       const whitePct = 100 * stats.white / stats.total;
       const drawPct = 100 * stats.draws / stats.total;
       const blackPct = 100 * stats.black / stats.total;
+      let totalStr = '';
+      if(stats.total >= 1000000) 
+        totalStr = `${(stats.total / 1000000).toPrecision(3)}M`; 
+      else if(stats.total >= 10000) 
+        totalStr = `${(stats.total / 1000).toPrecision(3)}K`;
+      else totalStr = stats.total.toString();
+      
       const moveElem = $(`<tr class="explorer-move">
           <td>${move.san}</td>
-          <td>${stats.total}</td>
+          <td>${totalStr}</td>
           <td>${stats.ratingAvg}</td>
-          <td><div class="explorer-results-bar"><span style="width: ${whitePct}%;">${whitePct.toFixed(1)}%</span><span style="width: ${drawPct}%;">${drawPct.toFixed(1)}%</span><span style="width: ${blackPct}%;">${blackPct.toFixed(1)}%</span></div></td>
+          <td><div class="explorer-results-bar"><span class="white" style="width: ${whitePct}%;">${whitePct.toFixed(1)}%</span><span class="draw" style="width: ${drawPct}%;">${drawPct.toFixed(1)}%</span><span class="black" style="width: ${blackPct}%;"><span>${blackPct.toFixed(1)}%</span></span></div></td>
         </tr>`);
       moveElem.data('move', move);
       $('#explorer-moves > tbody').append(moveElem);
