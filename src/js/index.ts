@@ -6170,22 +6170,27 @@ async function showExplorerPosition(game: Game) {
   if(!$('#pills-explorer').hasClass('active'))
     return;
   const moves = await explorer.findPosition(game.history.current().fen);
-  $('#explorer-moves').html('');  
+  $('#explorer-moves > tbody').html('');  
   if(moves) {
     moves.forEach(moveEntry => {
       const move = moveEntry.move;
       const stats = moveEntry.stats;
-      const whitePct = Math.round(100 * stats.white / stats.total);
-      const drawsPct = Math.round(100 * stats.draws / stats.total);
-      const blackPct = Math.round(100 * stats.black / stats.total);
-      const moveElem = $(`<div><a class="explorer-move-link" href="javascript:void(0)">${move.san}</a> ${stats.ratingAvg} ${stats.total} ${whitePct}% ${drawsPct}% ${blackPct}%</div>`);
-      moveElem.find('a').data('move', move);
-      $('#explorer-moves').append(moveElem);
+      const whitePct = 100 * stats.white / stats.total;
+      const drawPct = 100 * stats.draws / stats.total;
+      const blackPct = 100 * stats.black / stats.total;
+      const moveElem = $(`<tr class="explorer-move">
+          <td>${move.san}</td>
+          <td>${stats.total}</td>
+          <td>${stats.ratingAvg}</td>
+          <td><div class="explorer-results-bar"><span style="width: ${whitePct}%;">${whitePct.toFixed(1)}%</span><span style="width: ${drawPct}%;">${drawPct.toFixed(1)}%</span><span style="width: ${blackPct}%;">${blackPct.toFixed(1)}%</span></div></td>
+        </tr>`);
+      moveElem.data('move', move);
+      $('#explorer-moves > tbody').append(moveElem);
     }) 
   }
 }
 
-$('#explorer-moves').on('click', '.explorer-move-link', (e) => {
+$('#explorer-moves').on('click', '.explorer-move', (e) => {
   const move = $(e.currentTarget).data('move');
   movePiece(move.from, move.to, null, move.piece, move.promotion);
 });

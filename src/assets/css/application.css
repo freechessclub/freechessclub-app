@@ -1699,3 +1699,18 @@ input[type="number"]:focus {
 .color-picker-popover {
   z-index: 1082;
 }
+
+.explorer-results-bar {
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+}
+
+.explorer-results-bar > span {
+  display: flex;
+  justify-content: center;
+  align-items: center;     
+  overflow: hidden;
+  white-space: nowrap;
+  min-width: 0;
+}
