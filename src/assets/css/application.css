@@ -1705,6 +1705,7 @@ input[type="number"]:focus {
   width: 100%;
   font-size: 0.9rem;
   overflow: hidden;
+  border: 1px solid;
   border-radius: 8px;
 }
 

@@ -465,3 +465,7 @@
 .color-label-dark {
   color: black;
 }
+
+.explorer-results-bar {
+  border-color: rgba(0, 0, 0, 0.1);
+}
