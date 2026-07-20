@@ -13,8 +13,10 @@ interface ExplorerDatabase {
 }
 
 interface ExplorerMetadata {
-  revision: bigint;
-  formatVersion: number;
+  magicNumber: string,
+  formatVersion: number,
+  revisionNumber: bigint,
+  numEntries: number
 }
 
 interface ExplorerStats {
@@ -54,39 +56,59 @@ class Explorer {
   private readonly UCI_MOVE_SIZE = 2;
   
   public async init(): Promise<void> {
-    if(this.initPromise) 
+    if(this.initPromise)
       return this.initPromise;
 
     this.initPromise = (async () => {
       const url = 'assets/data/masters.oe';
+
       this.abortDownload = new AbortController();
-      const signal = this.abortDownload.signal;
-      const srcBuffer = await (await fetch(url, { signal })).arrayBuffer();
-      this.index(srcBuffer);
-    })();
+
+      const response = await fetch(url, {
+        signal: this.abortDownload.signal
+      });
+
+      if(!response.ok)
+        throw new Error(`Failed to load ${url}`);
+
+      const srcBuffer = await response.arrayBuffer();
+
+      const result = this.readHeader(new Uint8Array(srcBuffer));
+
+      if(!result)
+        throw new Error('Invalid masters file');
+
+      const newMetadata = result.value;
+      const oldMetadata = await this.loadMetadata('masters');
+
+      this.database =
+        oldMetadata?.revisionNumber === newMetadata.revisionNumber
+          ? await this.load('masters')
+          : this.index(srcBuffer);
+    })().catch(err => {
+      this.initPromise = null;
+      throw err;
+    });
 
     return this.initPromise;
   }
 
-  private index(srcBuffer: ArrayBuffer) {
-    const srcBytes = new Uint8Array(srcBuffer);
-    const srcView = new DataView(srcBuffer);
-
-    let srcOffset = 0;
+  private readHeader(srcBytes: Uint8Array, offset = 0): { value: ExplorerMetadata, offset: number } | undefined {
+    const srcView = new DataView(srcBytes.buffer);
 
     // 4-byte magic number
-    const magicBytes = new Uint8Array(srcBuffer, srcOffset, 4);
-    const magic = String.fromCharCode(...magicBytes);
-    srcOffset += this.MAGIC_NUMBER_SIZE;
+    const magicBytes = srcBytes.subarray(offset, offset + this.MAGIC_NUMBER_SIZE);
+    const magicNumber = String.fromCharCode(...magicBytes);
+    offset += this.MAGIC_NUMBER_SIZE;
 
-    if(magic !== this.MAGIC_NUMBER) {
+    if(magicNumber !== this.MAGIC_NUMBER) {
       console.error('Not an opening explorer file.')
       return;
     }
 
     // 2-byte format version
-    const formatVersion = srcView.getUint16(srcOffset, true);
-    srcOffset += this.FORMAT_VERSION_SIZE;
+    const formatVersion = srcView.getUint16(offset, true);
+    offset += this.FORMAT_VERSION_SIZE;
 
     if(formatVersion !== 1) {
       console.error('Unsupported opening explorer file format.')
@@ -94,13 +116,37 @@ class Explorer {
     }
 
     // 8-byte revision number
-    const revision = srcView.getBigUint64(srcOffset, true);
-    srcOffset += this.REVISION_NUMBER_SIZE;
+    const revisionNumber = srcView.getBigUint64(offset, true);
+    offset += this.REVISION_NUMBER_SIZE;
 
     // 4-byte Number of entries
-    const numEntries = srcView.getUint32(srcOffset, true);
-    srcOffset += this.NUM_ENTRIES_SIZE;
+    const numEntries = srcView.getUint32(offset, true);
+    offset += this.NUM_ENTRIES_SIZE;
 
+    const value = {
+      magicNumber,
+      formatVersion,
+      revisionNumber,
+      numEntries
+    };
+
+    return { value, offset }; 
+  }
+
+  private index(srcBuffer: ArrayBuffer): ExplorerDatabase | undefined {
+    const srcBytes = new Uint8Array(srcBuffer);
+    const srcView = new DataView(srcBuffer);
+
+    let srcOffset = 0;
+
+    const result = this.readHeader(srcBytes, srcOffset);
+    if(!result)
+      return;
+
+    const headerSize = srcOffset = result.offset;
+    const header = result.value;
+
+    const numEntries = header.numEntries;
     const totalKeySizes = numEntries * this.KEY_SIZE;
     const indexSize = numEntries * this.INDEX_ENTRY_SIZE;
     const indexBuffer = new ArrayBuffer(indexSize);
@@ -108,7 +154,6 @@ class Explorer {
     const indexView = new DataView(indexBuffer);
     let indexOffset = 0;
 
-    const headerSize = srcOffset;
     const dstBuffer = new ArrayBuffer(srcBytes.length - totalKeySizes - headerSize);
     const dstBytes = new Uint8Array(dstBuffer);
     const dstView = new DataView(dstBuffer);
@@ -139,9 +184,8 @@ class Explorer {
       }
     }
 
-    const metadata = { revision, formatVersion };
-    this.save('masters', metadata, indexBuffer, dstBuffer);
-    this.database = { metadata, index: indexBuffer, data: dstBuffer }
+    this.save('masters', header, indexBuffer, dstBuffer);
+    return { metadata: header, index: indexBuffer, data: dstBuffer }
   }
 
   public zobristToKey(hash: bigint): Uint8Array {
@@ -179,7 +223,7 @@ class Explorer {
     let low = 0;
     let high = numEntries - 1;
 
-    while (low <= high) {
+    while(low <= high) {
       const mid = (low + high) >>> 1;
       const entryOffset = mid * this.INDEX_ENTRY_SIZE;
 
@@ -239,6 +283,13 @@ class Explorer {
       index: await indexBlob.arrayBuffer(),
       data: await dataBlob.arrayBuffer()
     };
+  }
+
+  private async loadMetadata(databaseName: string): Promise<ExplorerMetadata> {
+    return await idbStorage.get<ExplorerMetadata>(
+      'explorer',
+      `${databaseName}:metadata`
+    );
   }
 
   public readUint(bytes: Uint8Array, offset: number): { value: number; offset: number } {
