@@ -58,33 +58,50 @@ class Explorer {
   public async init(): Promise<void> {
     if(this.initPromise)
       return this.initPromise;
+    
+    let fileBuffer: ArrayBuffer | undefined;
 
     this.initPromise = (async () => {
       const url = 'assets/data/masters.oe';
 
-      this.abortDownload = new AbortController();
-
-      const response = await fetch(url, {
-        signal: this.abortDownload.signal
-      });
-
-      if(!response.ok)
-        throw new Error(`Failed to load ${url}`);
-
-      const srcBuffer = await response.arrayBuffer();
-
-      const result = this.readHeader(new Uint8Array(srcBuffer));
-
-      if(!result)
-        throw new Error('Invalid masters file');
-
-      const newMetadata = result.value;
       const oldMetadata = await this.loadMetadata('masters');
+      if(oldMetadata) {
+        this.abortDownload = new AbortController();
+        const response = await fetch(url, {
+          signal: this.abortDownload.signal,
+          headers: {
+            Range: 'bytes=0-17'
+          },
+        });
+        if(!response.ok)
+          throw new Error(`Failed to load metadata from ${url}`);
+        fileBuffer = await response.arrayBuffer();
 
-      this.database =
-        oldMetadata?.revisionNumber === newMetadata.revisionNumber
-          ? await this.load('masters')
-          : this.index(srcBuffer);
+        const result = this.readHeader(new Uint8Array(fileBuffer));
+        if(!result)
+          throw new Error('Invalid masters file');
+
+        const newMetadata = result.value;
+
+        if(oldMetadata?.revisionNumber === newMetadata.revisionNumber) {
+          this.database = await this.load('masters');
+          return;
+        }
+
+        if(response.status === 206) 
+          fileBuffer = undefined;
+      }
+
+      if(!fileBuffer) {
+        this.abortDownload = new AbortController();
+        const response = await fetch(url, {
+          signal: this.abortDownload.signal
+        });
+        if(!response.ok)
+          throw new Error(`Failed to load ${url}`);
+        fileBuffer = await response.arrayBuffer();
+      }
+      this.database = this.index(fileBuffer);
     })().catch(err => {
       this.initPromise = null;
       throw err;
@@ -286,10 +303,15 @@ class Explorer {
   }
 
   private async loadMetadata(databaseName: string): Promise<ExplorerMetadata> {
-    return await idbStorage.get<ExplorerMetadata>(
-      'explorer',
-      `${databaseName}:metadata`
-    );
+    try {
+      return idbStorage.get<ExplorerMetadata>(
+        'explorer',
+        `${databaseName}:metadata`
+      );
+    }
+    catch {
+      return undefined;
+    }
   }
 
   public readUint(bytes: Uint8Array, offset: number): { value: number; offset: number } {
