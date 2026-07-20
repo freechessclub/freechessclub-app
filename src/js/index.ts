@@ -6199,11 +6199,15 @@ async function showExplorerPosition(game: Game) {
   if(!$('#pills-explorer').hasClass('active'))
     return;
   const moves = await explorer.findPosition(game.history.current().fen);
+  const turnColor = game.history.current().turnColor;
   $('#explorer-moves').toggle(!!moves);
   $('#explorer-moves > tbody').html(''); 
   if(moves) {
     moves.forEach(moveEntry => {
       const move = moveEntry.move;
+      const moveStr = settings.pieceGlyphsToggle
+        ? History.glyphify(move.san, turnColor)
+        : move.san;
       const stats = moveEntry.stats;
       const whitePct = 100 * stats.white / stats.total;
       const whitePctStr = `${whitePct.toFixed(0)}%`;
@@ -6219,7 +6223,7 @@ async function showExplorerPosition(game: Game) {
       else totalStr = stats.total.toString();
       
       const moveElem = $(`<tr class="explorer-move">
-          <td>${move.san}</td>
+          <td class="san" data-color="${turnColor}">${moveStr}</td>
           <td>${totalStr}</td>
           <td>${stats.ratingAvg}</td>
           <td><div class="explorer-results-bar">
@@ -6238,9 +6242,9 @@ async function showExplorerPosition(game: Game) {
 function resizeExplorer() {
   const resizeSegment = (segment: HTMLElement) => {
     segment.textContent = segment.dataset.pct;
-    if (segment.scrollWidth > segment.clientWidth)
+    if(segment.scrollWidth > segment.clientWidth)
       segment.textContent = segment.textContent!.slice(0, -1);
-    if (segment.scrollWidth > segment.clientWidth)
+    if(segment.scrollWidth > segment.clientWidth)
       segment.textContent = '';
   };
 

@@ -1143,6 +1143,13 @@ export class History {
         else
           this.unglyphifyElement($(element));
       });
+
+      $('#explorer-moves .san').each((_, element) => {
+        if(settings.pieceGlyphsToggle)
+          this.glyphifyElement($(element));
+        else
+          this.unglyphifyElement($(element));
+      });
     });
   }
 

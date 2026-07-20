@@ -466,6 +466,9 @@
   color: black;
 }
 
+#explorer-moves {
+  --bs-table-color: color-mix(in srgb, var(--fg-color) 70%, white 30%);
+}
 .explorer-results-bar {
   border-color: rgba(0, 0, 0, 0.1);
 }

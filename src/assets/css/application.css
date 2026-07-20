@@ -1711,7 +1711,6 @@ input[type="number"]:focus {
 
 #explorer-moves {
   white-space: nowrap;
-  --bs-table-color: var(--fg-color);
 }
 #explorer-moves > tbody td {
   vertical-align: baseline;
