@@ -6163,9 +6163,19 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-explorer"]', () =>
 });
 
 function initExplorerPane() {
-  explorer.init();
-  showExplorerPosition(games.focused);
+  if(storage.get('explorer-downloaded') === 'true') {
+    $('#download-explorer').addClass('d-none');
+    explorer.init();
+    showExplorerPosition(games.focused);
+  }
+  else
+    $('#download-explorer').removeClass('d-none');
 }
+
+$('#download-explorer-btn').on('click', () => {
+  storage.set('explorer-downloaded', 'true');
+  initExplorerPane();
+})
 
 async function showExplorerPosition(game: Game) {
   if(!$('#pills-explorer').hasClass('active'))
