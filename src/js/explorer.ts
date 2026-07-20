@@ -44,6 +44,7 @@ class Explorer {
   private database: ExplorerDatabase;
   private abortDownload: AbortController;
   private initPromise?: Promise<void>;
+  private _ready: boolean = false;
   private readonly MAGIC_NUMBER = 'FCOE';
   private readonly MAGIC_NUMBER_SIZE = 4;
   private readonly FORMAT_VERSION_SIZE = 2;
@@ -55,6 +56,10 @@ class Explorer {
   private readonly NUM_MOVES_SIZE = 1;
   private readonly UCI_MOVE_SIZE = 2;
   
+  public ready(): boolean {
+    return this._ready;
+  }
+
   public async init(): Promise<void> {
     if(this.initPromise)
       return this.initPromise;
@@ -85,6 +90,7 @@ class Explorer {
 
         if(oldMetadata.revisionNumber === newMetadata.revisionNumber) {
           this.database = await this.load('masters');
+          this._ready = true;
           return;
         }
 
@@ -102,6 +108,7 @@ class Explorer {
         fileBuffer = await response.arrayBuffer();
       }
       this.database = this.index(fileBuffer);
+      this._ready = true;
     })().catch(err => {
       this.initPromise = null;
       throw err;
@@ -314,7 +321,7 @@ class Explorer {
     }
   }
 
-  public readUint(bytes: Uint8Array, offset: number): { value: number; offset: number } {
+  private readUint(bytes: Uint8Array, offset: number): { value: number; offset: number } {
     let value = 0;
     let shift = 0;
 

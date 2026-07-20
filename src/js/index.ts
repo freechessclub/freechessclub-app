@@ -3174,7 +3174,7 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
 
   showCapturedMaterial(game);
   showOpeningName(game);
-  showExplorerPosition(game);
+  updateExplorer();
   updateBoardStatusText();
   updateMoveRatingIcon(game);
 
@@ -4118,6 +4118,7 @@ function initGameControls(game: Game) {
   if(!game.isObserving())
     hideHeaderFooterButton($('#stop-observing'));
 
+  updateExplorer();
   initStatusPanel();
 }
 
@@ -4277,6 +4278,7 @@ function cleanupGame(game: Game) {
   game.gameStatusRequested = false;
   game.board.cancelMove();
   updateBoard(game);
+  updateExplorer();
   initStatusPanel();
   initGameTools(game);
 
@@ -6162,17 +6164,33 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-explorer"]', () =>
   initExplorerPane();
 });
 
-function initExplorerPane() {
+async function initExplorerPane() {
   if(storage.get('explorer-downloaded') === 'true') {
     $('#download-explorer').addClass('d-none');
-    explorer.init();
-    showExplorerPosition(games.focused);
+    $('#explorer-pane-status').show();
+    await explorer.init();
+    updateExplorer(); 
   }
   else
     $('#download-explorer').removeClass('d-none');
 }
 
+function updateExplorer() {
+  if(!$('#pills-explorer').hasClass('active') || !explorer.ready())
+    return;
+
+  const isPlaying = games.focused.isPlaying();
+  $('#explorer-moves').toggle(!isPlaying);
+  if(!isPlaying) 
+    showExplorerPosition(games.focused);
+  else
+    $('#explorer-pane-status').text('Can\'t view explorer while playing a game.');
+  
+  $('#explorer-pane-status').toggle(isPlaying);
+}
+
 $('#download-explorer-btn').on('click', () => {
+  $('#explorer-pane-status').text('Downloading Explorer...');
   storage.set('explorer-downloaded', 'true');
   initExplorerPane();
 })
@@ -6356,7 +6374,7 @@ async function getOpeningExplorer(fen: string) {
   return await response.json();
 }
 
-async function updateExplorer() {
+async function updateLiChessExplorer() {
   const fen = games.focused.history.current().fen;
   getOpeningExplorer(fen)
     .then(data => {
@@ -7993,7 +8011,7 @@ $('#game-tools-close').on('click', () => {
  *************************************/
 
 function initStatusPanel() {
-  if(games.focused.isPlaying())
+  if(games.focused.isPlaying()) 
     hideAnalysis();
   else {
     if(games.focused.analyzing) 
