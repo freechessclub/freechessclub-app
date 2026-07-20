@@ -83,7 +83,7 @@ class Explorer {
 
         const newMetadata = result.value;
 
-        if(oldMetadata?.revisionNumber === newMetadata.revisionNumber) {
+        if(oldMetadata.revisionNumber === newMetadata.revisionNumber) {
           this.database = await this.load('masters');
           return;
         }
