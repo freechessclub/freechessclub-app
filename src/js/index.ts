@@ -874,6 +874,7 @@ function setLeftColumnSizes(redrawBoard = true) {
   
     seekGraph.update();
     lobbyStickyBottom.fixScroll();
+    resizeExplorer();
   }
 }
 
@@ -6177,8 +6178,11 @@ async function showExplorerPosition(game: Game) {
       const move = moveEntry.move;
       const stats = moveEntry.stats;
       const whitePct = 100 * stats.white / stats.total;
+      const whitePctStr = `${whitePct.toFixed(0)}%`;
       const drawPct = 100 * stats.draws / stats.total;
+      const drawPctStr = `${drawPct.toFixed(0)}%`;
       const blackPct = 100 * stats.black / stats.total;
+      const blackPctStr = `${blackPct.toFixed(0)}%`;
       let totalStr = '';
       if(stats.total >= 1000000) 
         totalStr = `${(stats.total / 1000000).toPrecision(3)}M`; 
@@ -6191,15 +6195,33 @@ async function showExplorerPosition(game: Game) {
           <td>${totalStr}</td>
           <td>${stats.ratingAvg}</td>
           <td><div class="explorer-results-bar">
-            ${whitePct ? `<span class="white" style="width: ${whitePct}%;">${whitePct.toFixed(0)}%</span>` : ''}
-            ${drawPct ? `<span class="draw" style="width: ${drawPct}%;">${drawPct.toFixed(0)}%</span>` : ''}
-            ${blackPct ? `<span class="black" style="width: ${blackPct}%;"><span>${blackPct.toFixed(0)}%</span>` : ''}
+            ${whitePct ? `<span class="white" data-pct="${whitePctStr}" style="width: ${whitePct}%;">${whitePctStr}</span>` : ''}
+            ${drawPct ? `<span class="draw" data-pct="${drawPctStr}" style="width: ${drawPct}%;">${drawPctStr}</span>` : ''}
+            ${blackPct ? `<span class="black" data-pct="${blackPctStr}" style="width: ${blackPct}%;">${blackPctStr}</span>` : ''}
           </div></td>
         </tr>`);
       moveElem.data('move', move);
       $('#explorer-moves > tbody').append(moveElem);
     }) 
+    resizeExplorer();
   }
+}
+
+function resizeExplorer() {
+  const resizeSegment = (segment: HTMLElement) => {
+    segment.textContent = segment.dataset.pct;
+    if (segment.scrollWidth > segment.clientWidth)
+      segment.textContent = segment.textContent!.slice(0, -1);
+    if (segment.scrollWidth > segment.clientWidth)
+      segment.textContent = '';
+  };
+
+  if(!$('#explorer-moves').is(':visible'))
+    return;
+
+  const segments = $('.explorer-results-bar > span');
+  for(const segment of segments) 
+    resizeSegment(segment);
 }
 
 $('#explorer-moves').on('click', '.explorer-move', (e) => {

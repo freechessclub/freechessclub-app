@@ -1735,8 +1735,8 @@ input[type="number"]:focus {
 }
 
 .explorer-results-bar > span {
-  padding-left: 0.25rem;
-  padding-right: 0.25rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
   text-align: center;
   overflow: hidden;
   white-space: nowrap;
