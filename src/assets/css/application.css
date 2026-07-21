@@ -779,9 +779,13 @@ body {
   flex-basis: 100%;
 }
 
-.nav-pills .nav-link.active,
-.nav-pills .show > .nav-link {
-  border: 1px solid;
+.nav-pills {
+  border: 1px solid transparent;
+}
+
+#pills-tab .nav-link {
+  white-space: nowrap;
+  padding-inline: 0;
 }
 
 .nav-tabs .nav-item .closeTab {
