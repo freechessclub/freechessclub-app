@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::{Write, Seek, SeekFrom};
 use bytes::{Buf, BufMut};
 use std::time::{SystemTime, UNIX_EPOCH};
+use time::{OffsetDateTime};
 
 fn main() -> std::io::Result<()> {
   const MAGIC: &[u8; 4] = b"FCOE";
@@ -18,6 +19,7 @@ fn main() -> std::io::Result<()> {
   let masters_db = db.masters();
   let mut record_count = 0;
   let mut pos_count = 0;
+  let base_year = OffsetDateTime::now_utc().year() as u16;
 
   let mut file = File::create("masters.oe")?;
   file.write_all(MAGIC)?;
@@ -27,6 +29,8 @@ fn main() -> std::io::Result<()> {
   // Reserve space for num_entries
   let num_entries_pos = file.stream_position()?;
   file.write_all(&0u32.to_le_bytes())?;
+
+  file.write_all(&base_year.to_le_bytes())?;
 
   let mut written_count: u32 = 0;
 
@@ -47,7 +51,7 @@ fn main() -> std::io::Result<()> {
 
     if curr_prefix != Some(prefix) {
       if let Some(entry) = curr_entry.take() {
-        write_pos(curr_prefix.as_ref().unwrap(), &entry, &mut buf, &mut pos_count, &mut written_count);
+        write_pos(curr_prefix.as_ref().unwrap(), &entry, &mut buf, base_year, &mut pos_count, &mut written_count);
         if buf.len() >= FLUSH_SIZE {
           file.write_all(&buf)?;
           buf.clear();
@@ -68,7 +72,7 @@ fn main() -> std::io::Result<()> {
 
   // Don't forget the last entry
   if let (Some(prefix), Some(entry)) = (curr_prefix.as_ref(), curr_entry) {
-    write_pos(prefix, &entry, &mut buf, &mut pos_count, &mut written_count);
+    write_pos(prefix, &entry, &mut buf, base_year, &mut pos_count, &mut written_count);
   }
 
   if !buf.is_empty() {
@@ -86,7 +90,7 @@ fn main() -> std::io::Result<()> {
   Ok(())
 }
 
-fn write_pos(prefix: &[u8; KeyPrefix::SIZE], entry: &MastersEntry, buf: &mut Vec<u8>, pos_count: &mut usize, written_count: &mut u32) {
+fn write_pos(prefix: &[u8; KeyPrefix::SIZE], entry: &MastersEntry, buf: &mut Vec<u8>, base_year: u16, pos_count: &mut usize, written_count: &mut u32) {
   *pos_count += 1;
 
   let mut total = Stats::default();
@@ -111,7 +115,7 @@ fn write_pos(prefix: &[u8; KeyPrefix::SIZE], entry: &MastersEntry, buf: &mut Vec
   for (uci, group) in &entry.groups {
     if group.stats.total() >= 2 {
       uci.write(buf);
-      write_uint(buf, group.last_year as u64);
+      write_uint(buf, (base_year - group.last_year) as u64);
       write_stats(&group.stats, buf);
     }
   }
