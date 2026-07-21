@@ -37,7 +37,7 @@
           <div class="toast-container dialog-container"></div>
           <div class="card bg-transparent" id="left-card">
             <div class="card-header top-panel d-flex" id="left-panel-header" style="visibility: hidden">
-              <div id="navigation-toolbar" class="btn-toolbar m-auto" style="min-width: 0">
+              <div id="navigation-toolbar" class="button-toolbar w-100" style="min-width: 0">
                 <button type="button" id="fast-backward" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" data-fallback-placements="left,right" title="Beginning">
                   <span class="fa-solid fa-backward-fast" aria-hidden="false"></span>
                 </button>
@@ -55,24 +55,22 @@
                   <span class="fa-solid fa-eject" aria-hidden="false"></span>
                 </button>
               </div>
-              <div id="chat-collapse-toolbar" class="btn-toolbar d-md-none my-auto align-self-end">
+              <div id="chat-collapse-toolbar" class="button-toolbar d-md-none justify-self-end">
               </div>
             </div>
             <div id="inner-left-panels">
               <div id="left-panel-setup-board" class="card-header top-panel center" style="display: none">
-                <div class="btn-toolbar center w-100">
+                <div class="button-toolbar w-100">
                   <button type="button" id="setup-done" class="btn btn-outline-success btn-md" title="Setup Done"><span class="fa-solid fa-circle-check me-2" aria-hidden="false"></span>Setup Done</button>
                   <button type="button" id="cancel-setup" class="btn btn-outline-secondary btn-md" title="Cancel Setup"><span class="fa-solid fa-circle-xmark me-2" aria-hidden="false"></span>Cancel Setup</button>
                 </div>
               </div>
-              <div id="left-panel-header-2" class="card-header top-panel center" style="display: none">
-                <div class="d-flex justify-content-center gap-1 w-100">
-                  <button type="button" id="stop-observing" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Observing">Stop Observing</button>
-                  <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Examining">Stop Examining</button>
-                </div>
+              <div id="left-panel-header-2" class="card-header top-panel center gap-1" style="display: none">
+                <button type="button" id="stop-observing" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Observing">Stop Observing</button>
+                <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Examining">Stop Examining</button>
               </div>
               <div class="card-body p-0">
-                <ul class="nav nav-pills nav-fill user-select-none" id="pills-tab" role="tablist">
+                <ul class="nav nav-pills nav-fill user-select-none flex-nowrap" id="pills-tab" role="tablist">
                   <li class="nav-item" role="presentation">
                     <button class="nav-link py-2" id="pills-play-tab" data-bs-toggle="pill" data-bs-target="#pills-play" type="button" role="tab" aria-controls="pills-play" aria-selected="true">Play</button>
                   </li>
@@ -193,7 +191,7 @@
                               </div>
                             </div>
                           </div>
-                          <div class="mb-2 border-bottom border-top py-2 btn-toolbar center w-100">
+                          <div class="mb-2 border-bottom border-top py-2 button-toolbar w-100">
                             <button type="button" class="btn btn-outline-secondary btn-block btn-md" aria-expanded="false" id="quick-game">Quick Game</button>
                             <button type="button" class="btn btn-outline-secondary btn-block btn-md" data-bs-toggle="modal" data-bs-target="#play-computer-modal" aria-expanded="false" id="play-computer"><span class="me-2 fa-solid fa-desktop" aria-hidden="false"></span>Play Computer</button>
                           </div>
@@ -428,7 +426,7 @@
                                           <col />
                                         </colgroup>
                                         <thead>
-                                          <tr data-sort="asc">
+                                          <tr data-sort="desc">
                                             <th colspan="2" scope="col" class="sortable-column"><div class="sort-header-wrapper">Name<i class="fa-solid fa-sort"></i></div></th>
                                             <th colspan="2" scope="col" class="sortable-column"><div class="sort-header-wrapper">Rat<i class="fa-solid fa-sort"></i></div></th>
                                             <th colspan="2" scope="col" class="sortable-column"><div class="sort-header-wrapper">Time<i class="fa-solid fa-sort"></i></div></th>
@@ -635,7 +633,7 @@
                                 <li><a class="dropdown-item noselect" id="game-tools-save-game" data-bs-toggle="modal" data-bs-target="#save-game-modal"><span class="menu-icon fa-solid fa-file-export dropdown-icon" aria-hidden="false"></span>Save Game (PGN/FEN)</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item noselect" id="game-tools-clone"><span class="menu-icon fa-solid fa-copy dropdown-icon" aria-hidden="false"></span>Duplicate Game</a></li>
-                                <li><a class="dropdown-item noselect" id="game-tools-examine"><span class="menu-icon fa-solid fa-share-nodes dropdown-icon" aria-hidden="false"></span>Examine Mode (Shared)</a></li>
+                                <li><a class="dropdown-item noselect" id="game-tools-examine"><span class="menu-icon fa-solid fa-user-group dropdown-icon" aria-hidden="false"></span>Examine Mode (Shared)</a></li>
                                 <li><a class="dropdown-item noselect" id="game-tools-setup-board"><span class="menu-icon fa-solid fa-chess-board dropdown-icon" aria-hidden="false"></span>Setup Board</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item noselect" id="game-tools-properties"><span class="menu-icon fa-solid fa-file-pen dropdown-icon" aria-hidden="false"></span>Game Properties</a></li>
@@ -660,7 +658,7 @@
               </div>
               <div class="card-footer p-0 minimized" id="left-panel-bottom">
                 <div class="h-100 w-100 position-relative">
-                  <button id="close-status" class="btn btn-default position-absolute"><span id="close-status-icon" class="fa-solid fa-angle-down" aria-hidden="false"></span></button>
+                  <button id="close-status" class="btn btn-default position-absolute"><span id="close-status-icon" class="fa-solid fa-angle-up" aria-hidden="false"></span></button>
                   <ul class="nav nav-tabs pt-2" id="left-bottom-tabs" style="visibility: hidden" role="tablist">
                     <li class="nav-item" role="presentation">
                       <button class="nav-link active" id="status-tab" data-bs-toggle="tab" data-bs-target="#status-panel" type="button" role="tab" aria-controls="status-panel" aria-selected="true">Info</button>
@@ -736,7 +734,7 @@
               </div>
             </div>
             <div class="card-footer bottom-panel" id="left-panel-footer">
-              <div id="playing-game-buttons" class="btn-toolbar m-auto" style="display: none">
+              <div id="playing-game-buttons" class="button-toolbar" style="display: none">
                 <button type="button" id="takeback" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Takeback">
                   <span class="fa-solid fa-rotate-left" aria-hidden="false"></span>
                 </button>
@@ -753,7 +751,7 @@
                   <span class="fa-regular fa-flag" aria-hidden="false"></span>
                 </button>
               </div>
-              <div id="viewing-game-buttons" class="btn-toolbar center w-100">
+              <div id="viewing-game-buttons" class="button-toolbar w-100">
                 <button type="button" id="analyze-btn" class="btn btn-outline-secondary btn-md" style="display: none;" title="Analyze Game">Analyze</button>
               </div>
             </div>
@@ -884,9 +882,9 @@
         </div>
         <div id="right-col" class="main-col col-sm-12 col-md-12 col-lg position-relative">
           <div class="card bg-transparent" id="right-card">
-            <div class="top-panel card-header" id="right-panel-header" style="visibility: hidden">
-              <div id="user-dropdown" class="dropdown btn-toolbar my-auto me-auto position-relative" style="max-width: 42%">
-                <button class="w-100 btn btn-outline-secondary btn-md dropdown-toggle hide-caret" type="button" id="connectButton" data-bs-toggle="dropdown" aria-label="Profile Menu" aria-expanded="false">
+            <div class="top-panel card-header button-toolbar" id="right-panel-header" style="visibility: hidden">
+              <div id="user-dropdown" class="dropdown position-relative flex-grow-1" style="min-width: 0;">
+                <button style="max-width: 100%" class="btn btn-outline-secondary btn-md position-relative dropdown-toggle hide-caret" type="button" id="connectButton" data-bs-toggle="dropdown" aria-label="Profile Menu" aria-expanded="false">
                   <div class="tooltip-overlay" data-tooltip-hover-only data-bs-toggle="tooltip" title="Profile Menu"></div>
                   <div id="session-status" class="w-100"></div>
                 </button>
@@ -897,7 +895,7 @@
                   <a class="dropdown-item noselect" id="show-profile" style="display: none;"><span class="fa-solid fa-circle-user dropdown-icon" aria-hidden="false"></span>Profile & Stats</a>
                 </div>
               </div>
-              <div class="btn-toolbar my-auto ms-auto">
+              <div id="utility-toolbar" class="button-toolbar justify-content-end">
                 <button id="users-btn" class="btn btn-outline-secondary btn-md" type="button" aria-label="Users" data-bs-toggle="tooltip" data-fallback-placements="left, right" title="Users">
                   <span id="users-icon" class="fa-solid fa-users" aria-hidden="false"></span>
                 </button>
@@ -921,7 +919,6 @@
                       <text id="notifications-number" class="counter-number" x="50%" y="50%" transform="translate(6, -5)" text-anchor="middle" alignment-baseline="middle"></text>
                     </svg>
                   </button>
-                  <span></span> <!-- This tricks bootstrap into allowing the outer <span> wrapper in a btn-toolbar (so we can have a tooltip on a disabled button) -->
                 </span>
                 <div>
                   <button id="chat-toggle-btn" style="position: relative" class="btn btn-outline-secondary btn-md" type="button" data-bs-toggle="dropdown" data-bs-target="#chat-toggle-menu" aria-controls="chat-toggle-menu" aria-expanded="false" aria-label="Chat">
@@ -1272,8 +1269,8 @@
           <h5 class="modal-title" id="settings-modal-label"><span class="fa-solid fa-gear me-2" aria-hidden="false"></span><span id="settings-title-text">Settings</span></h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">
-          <form id="basic-settings" class="settings-pane">
+        <div class="modal-body px-0">
+          <form id="main-settings" class="settings-pane">
             <ul class="nav nav-tabs mb-3" id="settings-tabs" role="tablist">
               <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="settings-general-tab" data-bs-toggle="tab" data-bs-target="#settings-general" type="button" role="tab" aria-controls="settings-general" aria-selected="true">General</button>

@@ -118,7 +118,6 @@ let activeTab;
 let newTabShown = false;
 let newGameVariant = '';
 let lobbyEntries = [];
-let lobbyStickyBottom = new Utils.StickyBottomScroller($('#lobby-table-container')[0]);
 let lobbyCounter = 0;
 const noSleep = new NoSleep(); // Prevent screen dimming
 let screenWakeLockPending = false;
@@ -915,7 +914,6 @@ function setLeftColumnSizes(redrawBoard = true) {
       setTimeout(() => { games.getMainGame()?.board?.redrawAll(); }, 0);
   
     seekGraph.update();
-    lobbyStickyBottom.fixScroll();
   }
 }
 
@@ -1079,10 +1077,8 @@ function useMobileLayout() {
 
   $('#chat-toggle-btn').removeAttr('data-bs-toggle');
 
-  $('#viewing-games-buttons:visible:last').removeClass('me-0');
   $('#stop-observing').appendTo($('#viewing-game-buttons').last());
   $('#stop-examining').appendTo($('#viewing-game-buttons').last());
-  $('#viewing-games-buttons:visible:last').addClass('me-0'); // This is so visible buttons in the btn-toolbar center properly
   hidePanel('#left-panel-header-2');
   
   $('#input-text').attr('placeholder', 'Type message here and press Enter');
@@ -1105,7 +1101,7 @@ function useDesktopLayout() {
 
   $('#stop-observing').appendTo($('#left-panel-header-2').last());
   $('#stop-examining').appendTo($('#left-panel-header-2').last());
-  if($('#left-panel-header-2').find('.btn:visible').length)
+  if(hasVisibleButton($('#left-panel-header-2')))
     $('#left-panel-header-2').show();
   $('#left-panel-footer').css('display', 'flex');  
   
@@ -1132,7 +1128,7 @@ function setPanelHeaderOrder(swapped: boolean) {
   if(Utils.isSmallWindow())
     $('#chat-toggle-btn').parent().appendTo($('#chat-collapse-toolbar').last());
   else
-    $('#chat-toggle-btn').parent().appendTo($('#right-panel-header .btn-toolbar').last());
+    $('#chat-toggle-btn').parent().appendTo($('#right-panel-header .button-toolbar').last());
 }
 
 /** ******************************************
@@ -1697,9 +1693,11 @@ function gameEnd(data: any) {
 
 function handleOffers(offers: any[]) {
   tournaments?.handleOffers(offers);
+  let oldLobbyEntries = null;
 
   // Clear the lobby
   if(offers[0]?.type === 'sc') {
+    oldLobbyEntries = lobbyEntries;
     lobbyEntries = [];
     $('#lobby-table-body').html('');
     seekGraph.removeAllPoints();
@@ -1708,7 +1706,16 @@ function handleOffers(offers: any[]) {
   // Add seeks to the lobby
   const seeks = offers.filter((item) => item.type === 's');
   if(seeks.length && awaiting.has('lobby')) {
-    seeks.forEach(s => s.lobbyId = lobbyCounter++);
+    const seekKeys = ['id', 'type', 'toFrom', 'title', 'rating', 'initialTime', 'increment', 'ratedUnrated', 'category', 'color', 'ratingRange', 'automatic', 'formula'] as const;
+    seeks.forEach(s => {
+      if(oldLobbyEntries) {
+        const matching = oldLobbyEntries.find(old => seekKeys.every(key => s[key] === old[key]));
+        if(matching)
+          s.lobbyId = matching.lobbyId;
+      }
+      if(s.lobbyId === undefined)
+        s.lobbyId = lobbyCounter++;
+    });
     lobbyEntries.push(...seeks);
   }
 
@@ -2432,8 +2439,8 @@ function handleMiscMessage(data: any) {
 
         const tags = game.history.metatags;
         game.history.setMetatags({
-          ...(!('WhiteElo' in tags) && { WhiteElo: game.wrating || '-' }),
-          ...(!('BlackElo' in tags) && { BlackElo: game.brating || '-' }),
+          ...((!('WhiteElo' in tags) || tags.WhiteElo === '-') && { WhiteElo: game.wrating || '-' }),
+          ...((!('BlackElo' in tags) || tags.BlackElo === '-') && { BlackElo: game.brating || '-' }),
           ...(!('Variant' in tags) && { Variant: game.category })
         });
         const chatTab = chat.getTabFromGameID(game.id);
@@ -4583,6 +4590,12 @@ function hideHeaderFooterButton(button: JQuery<HTMLElement>) {
     hidePanel(panel);
 }
 
+function hasVisibleButton(container: JQuery<HTMLElement>) {
+  return container.find('.btn').filter(function() {
+    return this.style.display !== 'none';
+  }).length;
+}
+
 $('#stop-observing').on('click', () => {
   session.send(`unobs ${games.focused.id}`);
 });
@@ -5801,12 +5814,9 @@ function initLobbyPane() {
     $('#lobby').show();
     setLobbyViewMode();
 
-    lobbyEntries = [];
     updateLobbyFilters();
-
-    let defaultSortAttr = $('#lobby-table > thead > tr').attr('data-sort');
-    const defaultSort = defaultSortAttr === 'asc' || defaultSortAttr === 'desc';
-    lobbyStickyBottom.stick(defaultSort); 
+    $('#lobby-table-body').html('');
+    seekGraph.removeAllPoints();
 
     awaiting.set('lobby');
     session.send('iset seekremove 1');
@@ -5820,7 +5830,6 @@ $(document).on('hidden.bs.tab', 'button[data-bs-target="#pills-lobby"]', () => {
 
 function leaveLobbyPane() {
   if(awaiting.resolve('lobby')) {
-    lobbyEntries = [];
     $('#lobby-table-body').html('');
     seekGraph.removeAllPoints();
     if(session && session.isConnected()) {
@@ -5875,7 +5884,6 @@ function setLobbyViewMode(mode?: string) {
     $('#lobby-list-view').prop('checked', true);
     $('#lobby-graph-container').hide();
     $('#lobby-table-container').show();
-    lobbyStickyBottom.fixScroll();
   }
   else {
     settings.lobbyViewMode = 'graph';
@@ -5888,20 +5896,9 @@ function setLobbyViewMode(mode?: string) {
 }
 
 $('#lobby-table thead').on('click', '.sortable-column', (e) => {
-  let defaultSortAttr = $('#lobby-table > thead > tr').attr('data-sort');
-  const defaultSortBefore = defaultSortAttr === 'asc' || defaultSortAttr === 'desc';
-
   const col = $(e.currentTarget);
-  Utils.sortTable($('#lobby-table'), col, true);
-
-  defaultSortAttr = $('#lobby-table > thead > tr').attr('data-sort');
-  const defaultSortAfter = defaultSortAttr === 'asc' || defaultSortAttr === 'desc';
-  
-  const container = $('#lobby-table-container')[0];
-  if(defaultSortAfter) 
-    container.scrollTop = container.scrollHeight;
-  else if(defaultSortBefore) 
-    container.scrollTop = 0;
+  Utils.sortTable($('#lobby-table'), col, true); 
+  $('#lobby-table-container')[0].scrollTop = 0;
 });
 
 $('#lobby-table-body').on('click', 'tr', function() {
@@ -5990,7 +5987,7 @@ function updateLobby() {
         <td colspan="2" data-sort-value="${item.initialTime + item.increment * 2/3}">${item.initialTime} ${item.increment}</td>
         <td colspan="2">${item.ratedUnrated} ${item.category === 'wild/fr' ? 'chess960' : item.category}${item.color !== '?' ? ` ${item.color}` : ''}</td>
       </tr>`);
-    $('#lobby-table-body').append(lobbyTableRow);
+    $('#lobby-table-body').prepend(lobbyTableRow);
 
     item.text = formatLobbyEntry(item);
     seekGraph.addPoint(item);
@@ -6004,10 +6001,8 @@ function updateLobby() {
     }
   });
 
-  if(entriesAdded) {
+  if(entriesAdded) 
     Utils.sortTable($('#lobby-table'));
-    lobbyStickyBottom.fixScroll();
-  }
 }
 
 function formatLobbyEntry(seek: any): string {

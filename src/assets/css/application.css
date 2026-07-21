@@ -35,6 +35,13 @@ body {
   min-height: 100vh;
 }
 
+.button-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.625rem;
+}
+
 #chat-tabContent .tab-pane {
   max-height: 100%;
   min-height: 100%;
@@ -358,22 +365,6 @@ body {
 
 .counter-number {
   font-size: 8px;
-}
-
-.btn-toolbar .btn {
-  margin-right: 10px;
-}
-.btn-toolbar > :last-child.btn, .btn-toolbar > :last-child .btn {
-  margin-right: 0;
-}
-
-#right-panel-header > .btn-toolbar.ms-auto {
-  flex-wrap: nowrap;
-  gap: 0.4rem;
-}
-#right-panel-header > .btn-toolbar.ms-auto .btn {
-  --bs-btn-padding-x: 0.625rem;
-  margin-right: 0;
 }
 
 #session-status {
@@ -781,9 +772,13 @@ body {
   flex-basis: 100%;
 }
 
-.nav-pills .nav-link.active,
-.nav-pills .show > .nav-link {
-  border: 1px solid;
+.nav-pills {
+  border: 1px solid transparent;
+}
+
+#pills-tab .nav-link {
+  white-space: nowrap;
+  padding-inline: 0;
 }
 
 .nav-tabs .nav-item .closeTab {
@@ -1045,21 +1040,138 @@ body {
   max-width: 400px;
 }
 
+.settings-pane {
+  max-height: calc(100vh - 180px - 1rem);
+  overflow: auto;
+  padding-left: var(--bs-modal-padding);
+  padding-right: var(--bs-modal-padding);
+}
+.settings-pane .form-check-label {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
 #settings-modal .modal-dialog {
   max-width: 680px;
+}
+#settings-modal .tab-pane {
+  overflow: hidden;
 }
 #settings-tabs {
   position: sticky;
   top: 0;
   z-index: 10;
   background: var(--bs-modal-bg);
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
 }
-.settings-pane {
-  max-height: calc(100vh - 180px - 1rem);
-  overflow: auto;
+#settings-tabs .nav-link {
+  white-space: nowrap;
 }
-#settings-modal .tab-pane {
-  overflow: hidden;
+
+@media (max-width: 767px) {
+  #settings-tabs {
+    row-gap: 0.2rem;
+    column-gap: 0.2rem;
+  }
+
+  #settings-tabs .nav-item {
+    margin-bottom: 0;
+  }
+
+  #settings-tabs .nav-link {
+    padding: 0.25rem 0.45rem;
+    font-size: 0.85rem;
+    line-height: 1.2;
+  }
+
+  #settings-shortcuts-tab {
+    display: none;
+  }
+
+  #settings-shortcuts {
+    display: none !important;
+  }
+
+  #main-settings .form-group.row > .col {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+
+  #main-settings .form-group.row {
+    row-gap: 0.35rem;
+  }
+
+  .settings-toggle-help {
+    font-size: 0.75rem;
+  }
+}
+
+.settings-back {
+  font-size: 1.5rem;
+}
+
+.info-icon {
+  cursor: pointer;
+  vertical-align: middle;
+  width: 1em;
+  height: 1em;
+}
+
+.settings-info-icon {
+  vertical-align: text-top;
+}
+
+.settings-toggle-help {
+  margin-top: 0.2rem;
+  margin-left: 0;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+.settings-shortcuts-layout {
+  min-height: 0;
+}
+
+.settings-shortcuts-body {
+  min-height: 0;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+#settings-shortcuts #shortcut-settings-right-col {
+  flex: 0 0 360px;
+  width: 360px;
+  max-width: 100%;
+}
+
+#settings-shortcuts #shortcut-buttons {
+  white-space: nowrap;
+  display: flex;
+  gap: 0.625rem;
+}
+
+#settings-shortcuts #shortcut-input-group {
+  margin-bottom: 0.75rem;
+}
+
+#shortcuts-list {
+  position: static;
+  align-self: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 340px;
+  overflow-y: auto; 
+  overflow-x: hidden;
+  z-index: 0;
+}
+
+#macros-key {
+  font-size: 0.8rem;
+}
+.macros-key-description {
+  font-style: italic;
 }
 
 .tooltip-separator {
@@ -1093,25 +1205,6 @@ input[type="number"]:focus {
   pointer-events: none;
 }
 
-.info-icon {
-  cursor: pointer;
-  vertical-align: middle;
-  width: 1em;
-  height: 1em;
-}
-
-.settings-info-icon {
-  vertical-align: text-top;
-}
-
-.settings-toggle-help {
-  margin-top: 0.2rem;
-  margin-left: 0;
-  font-size: 0.8rem;
-  line-height: 1.3;
-  color: var(--bs-secondary-color, #6c757d);
-}
-
 .eye-toggle {
   --eye-toggle-icon-width: 1.125rem;
 }
@@ -1129,21 +1222,6 @@ input[type="number"]:focus {
 .eye-toggle-help {
   margin-top: -0.25rem; 
   margin-left: calc(var(--eye-toggle-icon-width) + 1.25rem);
-}
-
-#settings-tabs {
-  flex-wrap: wrap;
-  row-gap: 0.25rem;
-}
-
-#settings-tabs .nav-link {
-  white-space: nowrap;
-}
-
-#basic-settings .form-check-label {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
 }
 
 .not-signed-in-notice {
@@ -1177,90 +1255,6 @@ input[type="number"]:focus {
 }
 .banner-alert.show {
   transform: translateY(0); 
-}
-
-@media (max-width: 767px) {
-  #settings-tabs {
-    row-gap: 0.2rem;
-    column-gap: 0.2rem;
-  }
-
-  #settings-tabs .nav-item {
-    margin-bottom: 0;
-  }
-
-  #settings-tabs .nav-link {
-    padding: 0.25rem 0.45rem;
-    font-size: 0.85rem;
-    line-height: 1.2;
-  }
-
-  #settings-shortcuts-tab {
-    display: none;
-  }
-
-  #settings-shortcuts {
-    display: none !important;
-  }
-
-  #basic-settings .form-group.row > .col {
-    flex: 0 0 100%;
-    max-width: 100%;
-  }
-
-  #basic-settings .form-group.row {
-    row-gap: 0.35rem;
-  }
-
-  .settings-toggle-help {
-    font-size: 0.75rem;
-  }
-}
-
-.settings-back {
-  font-size: 1.5rem;
-}
-
-.settings-shortcuts-layout {
-  min-height: 0;
-}
-
-.settings-shortcuts-body {
-  min-height: 0;
-  gap: 20px;
-  align-items: flex-start;
-}
-
-#settings-shortcuts #shortcut-settings-right-col {
-  flex: 0 0 360px;
-  width: 360px;
-  max-width: 100%;
-}
-
-#settings-shortcuts #shortcut-buttons {
-  white-space: nowrap;
-  display: inline-block;
-}
-
-#settings-shortcuts #shortcut-input-group {
-  margin-bottom: 0.75rem;
-}
-
-#shortcuts-list {
-  position: static;
-  align-self: stretch;
-  flex: 1 1 auto;
-  min-width: 0;
-  max-height: 340px;
-  overflow-y: auto; 
-  overflow-x: hidden;
-}
-
-#macros-key {
-  font-size: 0.8rem;
-}
-.macros-key-description {
-  font-style: italic;
 }
 
 .tournament-group {

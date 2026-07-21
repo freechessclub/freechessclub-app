@@ -752,6 +752,7 @@ export class Chat {
       return;
 
     const tabElement = this.createTab(tabName);
+
     let who = '';
     if(data.user !== undefined) {
       const classes = ['clickable-user'];
@@ -822,10 +823,11 @@ export class Chat {
 
     const tabData = this.getTabDataFromElement(tabElement); 
     tabData.messages = tabData.messages.concat(`${timestamp}${who}${text}`);
-    tabData.virtualScroller.update(tabData.messages);
 
     if(this.user !== data.user || from.toLowerCase() === this.user.toLowerCase())
       this.updateViewedState(tabElement, false, data.type !== 'whisper');
+
+    tabData.virtualScroller.update(tabData.messages);
   }
 
   private ignoreUnviewed(from: string) {
