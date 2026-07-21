@@ -6208,6 +6208,7 @@ async function showExplorerPosition(game: Game) {
       const moveStr = settings.pieceGlyphsToggle
         ? History.glyphify(move.san, turnColor)
         : move.san;
+      const lastYear = moveEntry.lastYear;
       const stats = moveEntry.stats;
       const whitePct = 100 * stats.white / stats.total;
       const whitePctStr = `${whitePct.toFixed(0)}%`;
@@ -6225,7 +6226,7 @@ async function showExplorerPosition(game: Game) {
       const moveElem = $(`<tr class="explorer-move">
           <td class="san" data-color="${turnColor}">${moveStr}</td>
           <td>${totalStr}</td>
-          <td>${stats.ratingAvg}</td>
+          <td>${lastYear}</td>
           <td><div class="explorer-results-bar">
             ${whitePct ? `<span class="white" data-pct="${whitePctStr}" style="width: ${whitePct}%;">${whitePctStr}</span>` : ''}
             ${drawPct ? `<span class="draw" data-pct="${drawPctStr}" style="width: ${drawPct}%;">${drawPctStr}</span>` : ''}

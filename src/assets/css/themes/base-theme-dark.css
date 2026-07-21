@@ -568,7 +568,7 @@ a {
 }
 
 #explorer-moves {
-  --bs-table-color: color-mix(in srgb, var(--fg-color) 70%, black 30%);
+  --bs-table-color: color-mix(in srgb, var(--fg-color) 80%, black 20%);
 }
 .explorer-results-bar {
   border-color: rgba(255, 255, 255, 0.1);

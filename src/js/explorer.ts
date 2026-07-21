@@ -20,8 +20,8 @@ interface ExplorerMetadata {
 }
 
 interface ExplorerStats {
-  ratingSum: number,
-  ratingAvg: number,
+  /*ratingSum: number,
+  ratingAvg: number,*/
   total: number,
   white: number,
   draws: number,
@@ -37,6 +37,7 @@ interface ExplorerMove {
     flags?: string,
     san?: string,
   },
+  lastYear: number,
   stats: ExplorerStats
 }
 
@@ -201,6 +202,11 @@ class Explorer {
         srcOffset += this.UCI_MOVE_SIZE;
         dstOffset += this.UCI_MOVE_SIZE;
 
+        const lastYearSize = this.readUint(srcBytes, srcOffset).offset - srcOffset;
+        dstBytes.set(srcBytes.subarray(srcOffset, srcOffset + lastYearSize), dstOffset);
+        srcOffset += lastYearSize;
+        dstOffset += lastYearSize;
+
         const statsSize = this.getStatsSize(srcBytes, srcOffset);
         dstBytes.set(srcBytes.subarray(srcOffset, srcOffset + statsSize), dstOffset);
         srcOffset += statsSize;
@@ -343,13 +349,13 @@ class Explorer {
     const startOffset = offset;
 
     // rating_sum
-    offset = this.readUint(bytes, offset).offset;
+    //offset = this.readUint(bytes, offset).offset;
 
     // first stats value (compressed cases)
     const first = this.readUint(bytes, offset);
     offset = first.offset;
 
-    if(first.value <= 2) {
+    if(first.value <= 5) {
       // white=1,draws=0,black=0
       // white=0,draws=0,black=1
       // white=0,draws=1,black=0
@@ -367,25 +373,28 @@ class Explorer {
   }
 
   private readStats(bytes: Uint8Array, offset: number): { value: ExplorerStats, offset: number } {
-    const startOffset = offset;
     let value = null;
     let white = 0, black = 0, draws = 0;
 
     // rating_sum
-    ({ value, offset } = this.readUint(bytes, offset));
-    const ratingSum = value;
+    //({ value, offset } = this.readUint(bytes, offset));
+    //const ratingSum = value;
 
     // first stats value (compressed cases)
     ({ value, offset } = this.readUint(bytes, offset));
     const first = value;
 
-    if(first <= 2) {
-      if(first === 0)
-        white = 1;
-      else if(first === 1)
-        black = 1;
-      else if(first === 2)
-        draws = 1;
+    if(first <= 5) {
+      const special = [
+        [2, 0, 0],
+        [0, 2, 0],
+        [0, 0, 2],
+        [1, 1, 0],
+        [1, 0, 1],
+        [0, 1, 1],
+      ];
+      
+      [white, draws, black] = special[first];
     }
     else {
       // normal case:
@@ -402,12 +411,16 @@ class Explorer {
 
     const total = white + draws + black;
 
-    const ratingAvg = total ? Math.round(ratingSum / total) : undefined;
+    //const ratingAvg = total ? Math.round(ratingSum / total) : undefined;
 
     return { 
-      value: { ratingSum, ratingAvg, total, white, draws, black },
+      value: { /*ratingSum, ratingAvg,*/ total, white, draws, black },
       offset  
     }
+  }
+
+  private readLastYear(dataBytes: Uint8Array, offset: number): { value: number, offset: number } {
+    return this.readUint(dataBytes, offset);
   }
 
   private readUCIMove(dataBytes: Uint8Array, offset: number): { value: string, offset: number } {
@@ -469,10 +482,13 @@ class Explorer {
       ({ value, offset} = this.readUCIMove(dataBytes, offset));
       const move = value;
 
+      ({ value, offset} = this.readLastYear(dataBytes, offset));
+      const lastYear = value;
+
       ({ value, offset} = this.readStats(dataBytes, offset));
       const stats = value;
 
-      moves.push({ move, stats });
+      moves.push({ move, lastYear, stats });
     }
 
     moves.sort((a, b) => b.stats.total - a.stats.total);
