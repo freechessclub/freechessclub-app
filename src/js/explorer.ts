@@ -16,7 +16,8 @@ interface ExplorerMetadata {
   magicNumber: string,
   formatVersion: number,
   revisionNumber: bigint,
-  numEntries: number
+  numEntries: number,
+  baseYear: number,
 }
 
 interface ExplorerStats {
@@ -51,6 +52,8 @@ class Explorer {
   private readonly FORMAT_VERSION_SIZE = 2;
   private readonly REVISION_NUMBER_SIZE = 8;
   private readonly NUM_ENTRIES_SIZE = 4;
+  private readonly BASE_YEAR_SIZE = 2;
+  private readonly HEADER_SIZE = this.MAGIC_NUMBER_SIZE + this.FORMAT_VERSION_SIZE + this.REVISION_NUMBER_SIZE + this.NUM_ENTRIES_SIZE + this.BASE_YEAR_SIZE;
   private readonly KEY_SIZE = 12;
   private readonly OFFSET_SIZE = 4;
   private readonly INDEX_ENTRY_SIZE = this.KEY_SIZE + this.OFFSET_SIZE;
@@ -76,7 +79,7 @@ class Explorer {
         const response = await fetch(url, {
           signal: this.abortDownload.signal,
           headers: {
-            Range: 'bytes=0-17'
+            Range: `bytes=0-${this.HEADER_SIZE - 1}`
           },
         });
         if(!response.ok)
@@ -148,11 +151,16 @@ class Explorer {
     const numEntries = srcView.getUint32(offset, true);
     offset += this.NUM_ENTRIES_SIZE;
 
+    // 2-byte base year
+    const baseYear = srcView.getUint16(offset, true);
+    offset += this.BASE_YEAR_SIZE;
+
     const value = {
       magicNumber,
       formatVersion,
       revisionNumber,
-      numEntries
+      numEntries,
+      baseYear
     };
 
     return { value, offset }; 
@@ -287,7 +295,7 @@ class Explorer {
     }
 
     if(offset != null) {
-      return this.readMoves(new Uint8Array(this.database.data), offset).value;
+      return this.readMoves(new Uint8Array(this.database.data), offset, this.database.metadata.baseYear).value;
     }
 
     return undefined;
@@ -419,8 +427,10 @@ class Explorer {
     }
   }
 
-  private readLastYear(dataBytes: Uint8Array, offset: number): { value: number, offset: number } {
-    return this.readUint(dataBytes, offset);
+  private readLastYear(dataBytes: Uint8Array, offset: number, baseYear: number): { value: number, offset: number } {
+    let value: number;
+    ({ value, offset } = this.readUint(dataBytes, offset));
+    return { value: baseYear - value, offset };
   }
 
   private readUCIMove(dataBytes: Uint8Array, offset: number): { value: string, offset: number } {
@@ -469,7 +479,7 @@ class Explorer {
     };
   }
 
-  private readMoves(dataBytes: Uint8Array, offset: number): { value: ExplorerMove[], offset: number } {
+  private readMoves(dataBytes: Uint8Array, offset: number, baseYear: number): { value: ExplorerMove[], offset: number } {
     const dataView = new DataView(dataBytes.buffer);
 
     const numMoves = dataView.getUint8(offset);
@@ -482,7 +492,7 @@ class Explorer {
       ({ value, offset} = this.readUCIMove(dataBytes, offset));
       const move = value;
 
-      ({ value, offset} = this.readLastYear(dataBytes, offset));
+      ({ value, offset} = this.readLastYear(dataBytes, offset, baseYear));
       const lastYear = value;
 
       ({ value, offset} = this.readStats(dataBytes, offset));
