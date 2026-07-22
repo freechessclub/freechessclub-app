@@ -21,8 +21,6 @@ interface ExplorerMetadata {
 }
 
 interface ExplorerStats {
-  /*ratingSum: number,
-  ratingAvg: number,*/
   total: number,
   white: number,
   draws: number,
@@ -54,7 +52,7 @@ class Explorer {
   private readonly NUM_ENTRIES_SIZE = 4;
   private readonly BASE_YEAR_SIZE = 2;
   private readonly HEADER_SIZE = this.MAGIC_NUMBER_SIZE + this.FORMAT_VERSION_SIZE + this.REVISION_NUMBER_SIZE + this.NUM_ENTRIES_SIZE + this.BASE_YEAR_SIZE;
-  private readonly KEY_SIZE = 12;
+  private readonly KEY_SIZE = 8;
   private readonly OFFSET_SIZE = 4;
   private readonly INDEX_ENTRY_SIZE = this.KEY_SIZE + this.OFFSET_SIZE;
   private readonly NUM_MOVES_SIZE = 1;
@@ -246,8 +244,10 @@ class Explorer {
 
     for(let moveEntry of moves) {
       const { move } = parseMove(fen, moveEntry.move, 'explorer');
-      if(move) 
-        moveEntry.move = move;
+      if(!move) 
+        return; 
+      
+      moveEntry.move = move;
     }
     return moves;
   }
@@ -356,9 +356,6 @@ class Explorer {
   private getStatsSize(bytes: Uint8Array, offset: number): number {
     const startOffset = offset;
 
-    // rating_sum
-    //offset = this.readUint(bytes, offset).offset;
-
     // first stats value (compressed cases)
     const first = this.readUint(bytes, offset);
     offset = first.offset;
@@ -383,10 +380,6 @@ class Explorer {
   private readStats(bytes: Uint8Array, offset: number): { value: ExplorerStats, offset: number } {
     let value = null;
     let white = 0, black = 0, draws = 0;
-
-    // rating_sum
-    //({ value, offset } = this.readUint(bytes, offset));
-    //const ratingSum = value;
 
     // first stats value (compressed cases)
     ({ value, offset } = this.readUint(bytes, offset));
@@ -419,10 +412,8 @@ class Explorer {
 
     const total = white + draws + black;
 
-    //const ratingAvg = total ? Math.round(ratingSum / total) : undefined;
-
     return { 
-      value: { /*ratingSum, ratingAvg,*/ total, white, draws, black },
+      value: { total, white, draws, black },
       offset  
     }
   }
