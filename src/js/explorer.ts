@@ -134,27 +134,23 @@ class Explorer {
     return result.value;
   }
 
-  private readHeader(srcBytes: Uint8Array, offset = 0): { value: ExplorerMetadata, offset: number } | undefined {
-    const srcView = new DataView(srcBytes.buffer);
+  private readHeader(srcBytes: Uint8Array, offset = 0): { value: ExplorerMetadata, offset: number } {
+    const srcView = new DataView(srcBytes.buffer, srcBytes.byteOffset, srcBytes.byteLength);
 
     // 4-byte magic number
     const magicBytes = srcBytes.subarray(offset, offset + this.MAGIC_NUMBER_SIZE);
     const magicNumber = String.fromCharCode(...magicBytes);
     offset += this.MAGIC_NUMBER_SIZE;
 
-    if(magicNumber !== this.MAGIC_NUMBER) {
-      console.error('Not an opening explorer file.')
-      return;
-    }
+    if(magicNumber !== this.MAGIC_NUMBER) 
+      throw new Error('Not an opening explorer file.');
 
     // 2-byte format version
     const formatVersion = srcView.getUint16(offset, true);
     offset += this.FORMAT_VERSION_SIZE;
 
-    if(formatVersion !== 1) {
-      console.error('Unsupported opening explorer file format.')
-      return;
-    }
+    if(formatVersion !== 1) 
+      throw new Error('Unsupported opening explorer file format.');
 
     // 8-byte revision number
     const revisionNumber = srcView.getBigUint64(offset, true);
@@ -168,15 +164,16 @@ class Explorer {
     const baseYear = srcView.getUint16(offset, true);
     offset += this.BASE_YEAR_SIZE;
 
-    const value = {
-      magicNumber,
-      formatVersion,
-      revisionNumber,
-      numEntries,
-      baseYear
+    return {
+      value: {
+        magicNumber,
+        formatVersion,
+        revisionNumber,
+        numEntries,
+        baseYear
+      },
+      offset
     };
-
-    return { value, offset }; 
   }
 
   private async fetchData(urls: string[]): Promise<ExplorerDatabase> {
@@ -204,24 +201,22 @@ class Explorer {
         merged.set(new Uint8Array(part), offset);
         offset += part.byteLength;
       }
-      parts.length = null;
+      parts.length = 0;
 
       return this.index(merged.buffer);
     } catch (e) {
-      this.abortDownload.abort();
+      this.abortDownload?.abort();
       throw e;
     }
   }
 
-  private index(srcBuffer: ArrayBuffer): ExplorerDatabase | undefined {
+  private index(srcBuffer: ArrayBuffer): ExplorerDatabase {
     const srcBytes = new Uint8Array(srcBuffer);
     const srcView = new DataView(srcBuffer);
 
     let srcOffset = 0;
 
     const result = this.readHeader(srcBytes, srcOffset);
-    if(!result)
-      return;
 
     const headerSize = srcOffset = result.offset;
     const header = result.value;
@@ -482,17 +477,17 @@ class Explorer {
 
     const pieceToString = (piece: number): string => {
       switch(piece) {
-        case 0: 'p';
-        case 1: 'n';
-        case 2: 'b';
-        case 3: 'r';
-        case 4: 'q';
-        case 5: 'k';
+        case 0: return 'p';
+        case 1: return 'n';
+        case 2: return 'b';
+        case 3: return 'r';
+        case 4: return 'q';
+        case 5: return 'k';
         default: return undefined;
       }
     }
 
-    const dataView = new DataView(dataBytes.buffer);
+    const dataView = new DataView(dataBytes.buffer, dataBytes.byteOffset, dataBytes.byteLength);
     const packed = dataView.getUint16(offset, true);
     offset += this.UCI_MOVE_SIZE;
 
@@ -520,7 +515,7 @@ class Explorer {
   }
 
   private readMoves(dataBytes: Uint8Array, offset: number, baseYear: number): { value: ExplorerMove[], offset: number } {
-    const dataView = new DataView(dataBytes.buffer);
+    const dataView = new DataView(dataBytes.buffer, dataBytes.byteOffset, dataBytes.byteLength);
 
     const numMoves = dataView.getUint8(offset);
     offset += this.NUM_MOVES_SIZE;
