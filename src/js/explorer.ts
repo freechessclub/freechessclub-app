@@ -73,43 +73,22 @@ class Explorer {
 
       const oldMetadata = await this.loadMetadata('masters');
       if(oldMetadata) {
-        this.abortDownload = new AbortController();
-        const response = await fetch(url, {
-          signal: this.abortDownload.signal,
-          headers: {
-            Range: `bytes=0-${this.HEADER_SIZE - 1}`
-          },
-        });
-        if(!response.ok)
-          throw new Error(`Failed to load metadata from ${url}`);
-        fileBuffer = await response.arrayBuffer();
-
-        const result = this.readHeader(new Uint8Array(fileBuffer));
-        if(!result)
-          throw new Error('Invalid masters file');
-
-        const newMetadata = result.value;
+        const newMetadata = await this.fetchHeader(`${url}.00`);
 
         if(oldMetadata.revisionNumber === newMetadata.revisionNumber) {
           this.database = await this.load('masters');
           this._ready = true;
           return;
         }
-
-        if(response.status === 206) 
-          fileBuffer = undefined;
       }
 
-      if(!fileBuffer) {
-        this.abortDownload = new AbortController();
-        const response = await fetch(url, {
-          signal: this.abortDownload.signal
-        });
-        if(!response.ok)
-          throw new Error(`Failed to load ${url}`);
-        fileBuffer = await response.arrayBuffer();
-      }
-      this.database = this.index(fileBuffer);
+      this.database = await this.fetchData([
+        `${url}.00`,
+        `${url}.01`,
+        `${url}.02`,
+        `${url}.03`
+      ]);
+
       this._ready = true;
     })().catch(err => {
       this.initPromise = null;
@@ -117,6 +96,42 @@ class Explorer {
     });
 
     return this.initPromise;
+  }
+
+  private async fetchHeader(url: string): Promise<ExplorerMetadata> {
+    const response = await fetch(url, {
+      headers: {
+        Range: `bytes=0-${this.HEADER_SIZE - 1}`
+      },
+    });
+    if(!response.ok)
+      throw new Error(`Failed to load metadata from ${url}`);
+
+    const reader = response.body!.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while(total < this.HEADER_SIZE) {
+      const { done, value } = await reader.read();
+      if(done) break;
+
+      chunks.push(value);
+      total += value.length;
+    }
+    await reader.cancel();
+
+    const header = new Uint8Array(total);
+    let offset = 0;
+
+    for(const chunk of chunks) {
+      header.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    const result = this.readHeader(header);
+    if(!result)
+      throw new Error(`Invalid opening explorer file: ${url}`);
+
+    return result.value;
   }
 
   private readHeader(srcBytes: Uint8Array, offset = 0): { value: ExplorerMetadata, offset: number } | undefined {
@@ -162,6 +177,40 @@ class Explorer {
     };
 
     return { value, offset }; 
+  }
+
+  private async fetchData(urls: string[]): Promise<ExplorerDatabase> {
+    this.abortDownload = new AbortController();
+
+    try {
+      const parts = await Promise.all(
+        urls.map(url =>
+          fetch(url, { signal: this.abortDownload!.signal })
+            .then(r => {
+              if(!r.ok) {
+                throw new Error(`Failed to fetch ${url}: ${r.status}`);
+              }
+              return r.arrayBuffer();
+            })
+        )
+      );
+
+      const totalSize = parts.reduce((sum, part) => sum + part.byteLength, 0);
+
+      const merged = new Uint8Array(totalSize);
+
+      let offset = 0;
+      for(const part of parts) {
+        merged.set(new Uint8Array(part), offset);
+        offset += part.byteLength;
+      }
+      parts.length = null;
+
+      return this.index(merged.buffer);
+    } catch (e) {
+      this.abortDownload.abort();
+      throw e;
+    }
   }
 
   private index(srcBuffer: ArrayBuffer): ExplorerDatabase | undefined {
@@ -246,7 +295,7 @@ class Explorer {
       const { move } = parseMove(fen, moveEntry.move, 'explorer');
       if(!move) 
         return; 
-      
+
       moveEntry.move = move;
     }
     return moves;
