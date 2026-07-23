@@ -44,7 +44,9 @@ class Explorer {
   private database: ExplorerDatabase;
   private abortDownload: AbortController;
   private initPromise?: Promise<void>;
+  private statusCallback: (status: string) => void;
   private _ready: boolean = false;
+  private updating: boolean = false;
   private readonly MAGIC_NUMBER = 'FCOE';
   private readonly MAGIC_NUMBER_SIZE = 4;
   private readonly FORMAT_VERSION_SIZE = 2;
@@ -62,24 +64,26 @@ class Explorer {
     return this._ready;
   }
 
-  public async init(): Promise<void> {
+  public async init(statusCallback?: (status: string) => void): Promise<void> {
     if(this.initPromise)
       return this.initPromise;
-    
-    let fileBuffer: ArrayBuffer | undefined;
+
+    this.statusCallback = statusCallback;
 
     this.initPromise = (async () => {
       const url = 'assets/data/masters.oe';
-
+       
       const oldMetadata = await this.loadMetadata('masters');
       if(oldMetadata) {
         const newMetadata = await this.fetchHeader(`${url}.00`);
 
-        if(oldMetadata.revisionNumber === newMetadata.revisionNumber) {
+        if(oldMetadata.revisionNumber === newMetadata.revisionNumber) {      
           this.database = await this.load('masters');
           this._ready = true;
           return;
         }
+
+        this.updating = true;
       }
 
       this.database = await this.fetchData([
@@ -90,6 +94,7 @@ class Explorer {
       ]);
 
       this._ready = true;
+      this.statusCallback?.('ready');
     })().catch(err => {
       this.initPromise = null;
       throw err;
@@ -180,6 +185,7 @@ class Explorer {
     this.abortDownload = new AbortController();
 
     try {
+      this.statusCallback?.(this.updating ? 'updating' : 'downloading');
       const parts = await Promise.all(
         urls.map(url =>
           fetch(url, { signal: this.abortDownload!.signal })
@@ -192,6 +198,7 @@ class Explorer {
         )
       );
 
+      this.statusCallback?.('building');
       const totalSize = parts.reduce((sum, part) => sum + part.byteLength, 0);
 
       const merged = new Uint8Array(totalSize);
@@ -354,6 +361,7 @@ class Explorer {
   }
 
   private async load(databaseName: string): Promise<ExplorerDatabase> {
+    this.statusCallback?.('loading');   
     const [metadata, indexBlob, dataBlob] = await idbStorage.getMany<[
       ExplorerMetadata, Blob, Blob]>(
       'explorer',
@@ -404,12 +412,8 @@ class Explorer {
     const first = this.readUint(bytes, offset);
     offset = first.offset;
 
-    if(first.value <= 5) {
-      // white=1,draws=0,black=0
-      // white=0,draws=0,black=1
-      // white=0,draws=1,black=0
+    if(first.value <= 5) 
       return offset - startOffset;
-    }
 
     // normal case:
     // draws

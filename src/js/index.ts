@@ -6167,8 +6167,21 @@ $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-explorer"]', () =>
 async function initExplorerPane() {
   if(storage.get('explorer-downloaded') === 'true') {
     $('#download-explorer').addClass('d-none');
-    $('#explorer-pane-status').show();
-    await explorer.init();
+    await explorer.init((status: string) => {
+      if(status === 'loading' || status === 'downloading' || status === 'updating' || status === 'building')
+        $('#explorer-pane-status').show();
+
+      if(status === 'loading')
+        $('#explorer-pane-status').text('Loading Explorer...');
+      else if(status === 'downloading')
+        $('#explorer-pane-status').text('Downloading Explorer...');
+      else if(status === 'updating')
+        $('#explorer-pane-status').text('Updating Explorer...');
+      else if(status === 'building')
+        $('#explorer-pane-status').text('Building Explorer...');
+      else 
+        $('#explorer-pane-status').hide();
+    });
     updateExplorer(); 
   }
   else
@@ -6190,7 +6203,6 @@ function updateExplorer() {
 }
 
 $('#download-explorer-btn').on('click', () => {
-  $('#explorer-pane-status').text('Downloading Explorer...');
   storage.set('explorer-downloaded', 'true');
   initExplorerPane();
 })
