@@ -15,6 +15,8 @@ interface ExplorerDatabase {
 interface ExplorerMetadata {
   magicNumber: string,
   formatVersion: number,
+  flags: number,
+  keySizeBytes: number,
   revisionNumber: bigint,
   numEntries: number,
   baseYear: number,
@@ -50,13 +52,13 @@ class Explorer {
   private readonly MAGIC_NUMBER = 'FCOE';
   private readonly MAGIC_NUMBER_SIZE = 4;
   private readonly FORMAT_VERSION_SIZE = 2;
+  private readonly FLAGS_SIZE = 2;
+  private readonly KEY_SIZE_BYTES_SIZE = 1;
   private readonly REVISION_NUMBER_SIZE = 8;
   private readonly NUM_ENTRIES_SIZE = 4;
   private readonly BASE_YEAR_SIZE = 2;
-  private readonly HEADER_SIZE = this.MAGIC_NUMBER_SIZE + this.FORMAT_VERSION_SIZE + this.REVISION_NUMBER_SIZE + this.NUM_ENTRIES_SIZE + this.BASE_YEAR_SIZE;
-  private readonly KEY_SIZE = 8;
+  private readonly HEADER_SIZE = this.MAGIC_NUMBER_SIZE + this.FORMAT_VERSION_SIZE + this.FLAGS_SIZE + this.KEY_SIZE_BYTES_SIZE + this.REVISION_NUMBER_SIZE + this.NUM_ENTRIES_SIZE + this.BASE_YEAR_SIZE;
   private readonly OFFSET_SIZE = 4;
-  private readonly INDEX_ENTRY_SIZE = this.KEY_SIZE + this.OFFSET_SIZE;
   private readonly NUM_MOVES_SIZE = 1;
   private readonly UCI_MOVE_SIZE = 2;
   
@@ -157,6 +159,14 @@ class Explorer {
     if(formatVersion !== 1) 
       throw new Error('Unsupported opening explorer file format.');
 
+    // 2-byte flags
+    const flags = srcView.getUint16(offset, true);
+    offset += this.FLAGS_SIZE;
+
+    // 1-byte key size 
+    const keySizeBytes = srcView.getUint8(offset);
+    offset += this.KEY_SIZE_BYTES_SIZE;
+
     // 8-byte revision number
     const revisionNumber = srcView.getBigUint64(offset, true);
     offset += this.REVISION_NUMBER_SIZE;
@@ -173,6 +183,8 @@ class Explorer {
       value: {
         magicNumber,
         formatVersion,
+        flags,
+        keySizeBytes,
         revisionNumber,
         numEntries,
         baseYear
@@ -229,8 +241,8 @@ class Explorer {
     const header = result.value;
 
     const numEntries = header.numEntries;
-    const totalKeySizes = numEntries * this.KEY_SIZE;
-    const indexSize = numEntries * this.INDEX_ENTRY_SIZE;
+    const totalKeySizes = numEntries * header.keySizeBytes;
+    const indexSize = numEntries * (header.keySizeBytes + this.OFFSET_SIZE);
     const indexBuffer = new ArrayBuffer(indexSize);
     const indexBytes = new Uint8Array(indexBuffer);
     const indexView = new DataView(indexBuffer);
@@ -242,9 +254,9 @@ class Explorer {
     let dstOffset = 0;
 
     for(let entry = 0; entry < numEntries; entry++) {
-      indexBytes.set(srcBytes.subarray(srcOffset, srcOffset + this.KEY_SIZE), indexOffset);
-      srcOffset += this.KEY_SIZE;
-      indexOffset += this.KEY_SIZE;
+      indexBytes.set(srcBytes.subarray(srcOffset, srcOffset + header.keySizeBytes), indexOffset);
+      srcOffset += header.keySizeBytes;
+      indexOffset += header.keySizeBytes;
 
       indexView.setUint32(indexOffset, dstOffset, true);
       indexOffset += this.OFFSET_SIZE;
@@ -275,9 +287,9 @@ class Explorer {
     return { metadata: header, index: indexBuffer, data: dstBuffer }
   }
 
-  public zobristToKey(hash: bigint): Uint8Array {
-    const bytes = new Uint8Array(this.KEY_SIZE);
-    for (let i = 0; i < this.KEY_SIZE; i++) 
+  public zobristToKey(hash: bigint, keySizeBytes: number): Uint8Array {
+    const bytes = new Uint8Array(keySizeBytes);
+    for (let i = 0; i < keySizeBytes; i++) 
       bytes[i] = Number((hash >> BigInt(i * 8)) & 0xffn);
     
     return bytes;
@@ -288,7 +300,7 @@ class Explorer {
       return;
     await this.initPromise;
 
-    const key = this.zobristToKey(zobrist128(fen));    
+    const key = this.zobristToKey(zobrist128(fen), this.database.metadata.keySizeBytes);    
     const moves = this.findPositionByKey(key);
     if(!moves)
       return;
@@ -305,8 +317,9 @@ class Explorer {
 
   private findPositionByKey(key: Uint8Array): ExplorerMove[] | undefined {
     const indexBuffer = this.database.index;
+    const indexEntrySize = this.database.metadata.keySizeBytes + this.OFFSET_SIZE;
     const view = new DataView(indexBuffer);
-    const numEntries = indexBuffer.byteLength / this.INDEX_ENTRY_SIZE;
+    const numEntries = indexBuffer.byteLength / indexEntrySize;
     let offset = undefined;
 
     let low = 0;
@@ -314,12 +327,12 @@ class Explorer {
 
     while(low <= high) {
       const mid = (low + high) >>> 1;
-      const entryOffset = mid * this.INDEX_ENTRY_SIZE;
+      const entryOffset = mid * indexEntrySize;
 
       let cmp = 0;
 
       // Compare key
-      for(let i = 0; i < this.KEY_SIZE; i++) {
+      for(let i = 0; i < key.length; i++) {
         const a = view.getUint8(entryOffset + i);
         const b = key[i];
 
@@ -336,7 +349,7 @@ class Explorer {
 
       if(cmp === 0) {
         // key found, read the data offset
-        offset = view.getUint32(entryOffset + this.KEY_SIZE, true);
+        offset = view.getUint32(entryOffset + key.length, true);
       }
 
       if (cmp < 0) 
