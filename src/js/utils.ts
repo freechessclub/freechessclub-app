@@ -1333,12 +1333,13 @@ export async function getAudioDuration(audio) {
 }
 
 /** Plays a sound. If there is a current instance playing, restarts it from the beginning */
-export function replaySound(sound: any) {
-  if(!sound.paused) {
-    sound.pause();
-    sound.currentTime = 0;
-  }
-  sound.play();
+export function replaySound(sound: HTMLAudioElement) {
+  sound.pause();
+  sound.currentTime = 0;
+
+  sound.play().catch(() => {
+    // Ignore interrupted playback
+  });
 }
 
 /**
