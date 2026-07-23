@@ -13,20 +13,23 @@ interface ExplorerDatabase {
 }
 
 interface ExplorerMetadata {
-  magicNumber: string,
-  formatVersion: number,
-  flags: number,
-  keySizeBytes: number,
-  revisionNumber: bigint,
-  numEntries: number,
-  baseYear: number,
+  magicNumber: string;
+  formatVersion: number;
+  flags: number;
+  keySizeBytes: number;
+  revisionNumber: bigint;
+  numEntries: number;
+  baseYear: number;
+  includeRatingAvg: boolean;
+  includeLastYear: boolean;
 }
 
 interface ExplorerStats {
-  total: number,
-  white: number,
-  draws: number,
-  black: number  
+  ratingAvg?: number;
+  total: number;
+  white: number;
+  draws: number;
+  black: number; 
 }
 
 interface ExplorerMove {
@@ -38,7 +41,7 @@ interface ExplorerMove {
     flags?: string,
     san?: string,
   },
-  lastYear: number,
+  lastYear?: number,
   stats: ExplorerStats
 }
 
@@ -46,7 +49,7 @@ class Explorer {
   private database: ExplorerDatabase;
   private abortDownload: AbortController;
   private initPromise?: Promise<void>;
-  private statusCallback: (status: string) => void;
+  private statusCallback?: (status: string) => void;
   private _ready: boolean = false;
   private updating: boolean = false;
   private readonly MAGIC_NUMBER = 'FCOE';
@@ -61,6 +64,8 @@ class Explorer {
   private readonly OFFSET_SIZE = 4;
   private readonly NUM_MOVES_SIZE = 1;
   private readonly UCI_MOVE_SIZE = 2;
+  private readonly FLAG_RATING_AVG = 1 << 0;
+  private readonly FLAG_LAST_YEAR = 1 << 1;
   
   public ready(): boolean {
     return this._ready;
@@ -163,6 +168,9 @@ class Explorer {
     const flags = srcView.getUint16(offset, true);
     offset += this.FLAGS_SIZE;
 
+    const includeRatingAvg = (flags & this.FLAG_RATING_AVG) !== 0;
+    const includeLastYear = (flags & this.FLAG_LAST_YEAR) !== 0;
+
     // 1-byte key size 
     const keySizeBytes = srcView.getUint8(offset);
     offset += this.KEY_SIZE_BYTES_SIZE;
@@ -187,7 +195,9 @@ class Explorer {
         keySizeBytes,
         revisionNumber,
         numEntries,
-        baseYear
+        baseYear,
+        includeRatingAvg,
+        includeLastYear
       },
       offset
     };
@@ -238,11 +248,11 @@ class Explorer {
     const result = this.readHeader(srcBytes, srcOffset);
 
     const headerSize = srcOffset = result.offset;
-    const header = result.value;
+    const metadata = result.value;
 
-    const numEntries = header.numEntries;
-    const totalKeySizes = numEntries * header.keySizeBytes;
-    const indexSize = numEntries * (header.keySizeBytes + this.OFFSET_SIZE);
+    const numEntries = metadata.numEntries;
+    const totalKeySizes = numEntries * metadata.keySizeBytes;
+    const indexSize = numEntries * (metadata.keySizeBytes + this.OFFSET_SIZE);
     const indexBuffer = new ArrayBuffer(indexSize);
     const indexBytes = new Uint8Array(indexBuffer);
     const indexView = new DataView(indexBuffer);
@@ -254,9 +264,9 @@ class Explorer {
     let dstOffset = 0;
 
     for(let entry = 0; entry < numEntries; entry++) {
-      indexBytes.set(srcBytes.subarray(srcOffset, srcOffset + header.keySizeBytes), indexOffset);
-      srcOffset += header.keySizeBytes;
-      indexOffset += header.keySizeBytes;
+      indexBytes.set(srcBytes.subarray(srcOffset, srcOffset + metadata.keySizeBytes), indexOffset);
+      srcOffset += metadata.keySizeBytes;
+      indexOffset += metadata.keySizeBytes;
 
       indexView.setUint32(indexOffset, dstOffset, true);
       indexOffset += this.OFFSET_SIZE;
@@ -271,20 +281,22 @@ class Explorer {
         srcOffset += this.UCI_MOVE_SIZE;
         dstOffset += this.UCI_MOVE_SIZE;
 
-        const lastYearSize = this.readUint(srcBytes, srcOffset).offset - srcOffset;
-        dstBytes.set(srcBytes.subarray(srcOffset, srcOffset + lastYearSize), dstOffset);
-        srcOffset += lastYearSize;
-        dstOffset += lastYearSize;
+        if(metadata.includeLastYear) {
+          const lastYearSize = this.readUint(srcBytes, srcOffset).offset - srcOffset;
+          dstBytes.set(srcBytes.subarray(srcOffset, srcOffset + lastYearSize), dstOffset);
+          srcOffset += lastYearSize;
+          dstOffset += lastYearSize;
+        }
 
-        const statsSize = this.getStatsSize(srcBytes, srcOffset);
+        const statsSize = this.getStatsSize(srcBytes, srcOffset, metadata);
         dstBytes.set(srcBytes.subarray(srcOffset, srcOffset + statsSize), dstOffset);
         srcOffset += statsSize;
         dstOffset += statsSize;      
       }
     }
 
-    this.save('masters', header, indexBuffer, dstBuffer);
-    return { metadata: header, index: indexBuffer, data: dstBuffer }
+    this.save('masters', metadata, indexBuffer, dstBuffer);
+    return { metadata, index: indexBuffer, data: dstBuffer }
   }
 
   public zobristToKey(hash: bigint, keySizeBytes: number): Uint8Array {
@@ -359,7 +371,7 @@ class Explorer {
     }
 
     if(offset != null) {
-      return this.readMoves(new Uint8Array(this.database.data), offset, this.database.metadata.baseYear).value;
+      return this.readMoves(new Uint8Array(this.database.data), offset, this.database.metadata).value;
     }
 
     return undefined;
@@ -390,7 +402,7 @@ class Explorer {
 
   private async loadMetadata(databaseName: string): Promise<ExplorerMetadata> {
     try {
-      return idbStorage.get<ExplorerMetadata>(
+      return await idbStorage.get<ExplorerMetadata>(
         'explorer',
         `${databaseName}:metadata`
       );
@@ -418,8 +430,12 @@ class Explorer {
     return { value, offset };
   }
 
-  private getStatsSize(bytes: Uint8Array, offset: number): number {
+  private getStatsSize(bytes: Uint8Array, offset: number, metadata: ExplorerMetadata): number {
     const startOffset = offset;
+
+    // rating avg
+    if(metadata.includeRatingAvg)
+      offset = this.readUint(bytes, offset).offset;
 
     // first stats value (compressed cases)
     const first = this.readUint(bytes, offset);
@@ -438,9 +454,15 @@ class Explorer {
     return offset - startOffset;
   }
 
-  private readStats(bytes: Uint8Array, offset: number): { value: ExplorerStats, offset: number } {
+  private readStats(bytes: Uint8Array, offset: number, metadata: ExplorerMetadata): { value: ExplorerStats, offset: number } {
     let value = null;
     let white = 0, black = 0, draws = 0;
+    let ratingAvg: number;
+
+    if(metadata.includeRatingAvg) {
+      ({ value, offset } = this.readUint(bytes, offset));
+      ratingAvg = value;
+    }
 
     // first stats value (compressed cases)
     ({ value, offset } = this.readUint(bytes, offset));
@@ -474,25 +496,31 @@ class Explorer {
     const total = white + draws + black;
 
     return { 
-      value: { total, white, draws, black },
+      value: { 
+        ...(ratingAvg !== undefined && { ratingAvg }),
+        total, 
+        white, 
+        draws, 
+        black 
+      },
       offset  
     }
   }
 
-  private readLastYear(dataBytes: Uint8Array, offset: number, baseYear: number): { value: number, offset: number } {
+  private readLastYear(dataBytes: Uint8Array, offset: number, metadata: ExplorerMetadata): { value: number, offset: number } {
     let value: number;
     ({ value, offset } = this.readUint(dataBytes, offset));
-    return { value: baseYear - value, offset };
+    return { value: metadata.baseYear - value, offset };
   }
 
-  private readUCIMove(dataBytes: Uint8Array, offset: number): { value: string, offset: number } {
+  private readUCIMove(dataBytes: Uint8Array, offset: number): { value: ExplorerMove['move'], offset: number } {
     const squareToString = (square: number): string => {
       const file = square & 7;
       const rank = (square >> 3) + 1;
       return String.fromCharCode(97 + file) + rank;
     }
 
-    const pieceToString = (piece: number): string => {
+    const pieceToString = (piece: number): string | undefined => {
       switch(piece) {
         case 0: return 'p';
         case 1: return 'n';
@@ -531,7 +559,8 @@ class Explorer {
     };
   }
 
-  private readMoves(dataBytes: Uint8Array, offset: number, baseYear: number): { value: ExplorerMove[], offset: number } {
+  private readMoves(dataBytes: Uint8Array, offset: number, metadata: ExplorerMetadata): { value: ExplorerMove[], offset: number } {
+    const baseYear = metadata.baseYear;
     const dataView = new DataView(dataBytes.buffer, dataBytes.byteOffset, dataBytes.byteLength);
 
     const numMoves = dataView.getUint8(offset);
@@ -544,13 +573,20 @@ class Explorer {
       ({ value, offset} = this.readUCIMove(dataBytes, offset));
       const move = value;
 
-      ({ value, offset} = this.readLastYear(dataBytes, offset, baseYear));
-      const lastYear = value;
+      let lastYear: number;
+      if(metadata.includeLastYear) {
+        ({ value, offset} = this.readLastYear(dataBytes, offset, metadata));
+        lastYear = value;
+      }
 
-      ({ value, offset} = this.readStats(dataBytes, offset));
+      ({ value, offset} = this.readStats(dataBytes, offset, metadata));
       const stats = value;
 
-      moves.push({ move, lastYear, stats });
+      moves.push({ 
+        move, 
+        ...(lastYear !== undefined && { lastYear }), 
+        stats 
+      });
     }
 
     moves.sort((a, b) => b.stats.total - a.stats.total);

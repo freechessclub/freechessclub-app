@@ -6238,7 +6238,7 @@ async function showExplorerPosition(game: Game) {
       const moveElem = $(`<tr class="explorer-move">
           <td class="san" data-color="${turnColor}">${moveStr}</td>
           <td>${totalStr}</td>
-          <td>${lastYear}</td>
+          <td>${lastYear || ''}</td>
           <td><div class="explorer-results-bar">
             ${whitePct ? `<span class="white" data-pct="${whitePctStr}" style="width: ${whitePct}%;">${whitePctStr}</span>` : ''}
             ${drawPct ? `<span class="draw" data-pct="${drawPctStr}" style="width: ${drawPct}%;">${drawPctStr}</span>` : ''}
