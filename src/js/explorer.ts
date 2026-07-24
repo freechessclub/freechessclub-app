@@ -78,11 +78,12 @@ class Explorer {
     this.statusCallback = statusCallback;
 
     this.initPromise = (async () => {
-      const url = 'assets/data/masters.oe';
+      const metadataUrl = 'https://fastly.jsdelivr.net/gh/dhirallin/freechessclub-openingexplorer/data/masters.oe'; 
+      const url = 'https://cdn.jsdelivr.net/gh/dhirallin/freechessclub-openingexplorer/data/masters.oe';
        
       const oldMetadata = await this.loadMetadata('masters');
       if(oldMetadata) {
-        const newMetadata = await this.fetchHeader(`${url}.00`);
+        const newMetadata = await this.fetchHeader(`${metadataUrl}.00`);
 
         if(oldMetadata.revisionNumber === newMetadata.revisionNumber) {      
           this.database = await this.load('masters');
@@ -92,6 +93,8 @@ class Explorer {
 
         this.updating = true;
       }
+      else
+        this.fetchHeader(`${metadataUrl}.00`);
 
       this.database = await this.fetchData([
         `${url}.00`,
@@ -116,6 +119,7 @@ class Explorer {
         Range: `bytes=0-${this.HEADER_SIZE - 1}`
       },
     });
+
     if(!response.ok)
       throw new Error(`Failed to load metadata from ${url}`);
 
