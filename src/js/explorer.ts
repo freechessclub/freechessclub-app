@@ -45,7 +45,7 @@ interface ExplorerMove {
   stats: ExplorerStats
 }
 
-class Explorer {
+export class Explorer {
   private database: ExplorerDatabase;
   private abortDownload: AbortController;
   private initPromise?: Promise<void>;
@@ -601,9 +601,148 @@ class Explorer {
   }
 }
 
-export let explorer: Explorer;
-export function createExplorer() {
-  explorer = new Explorer();
+import { Deferred, getBaseUrl } from './utils';
+import { OAuth2AuthCodePKCE, RECOMMENDED_STATE_LENGTH } from "@bity/oauth2-auth-code-pkce";
+
+export class LichessOAuth {
+  private OAuthCodeVerifier;
+  private OAuthState;
+  private OAuthChannel;
+  private tokenDeferred = new Deferred<string>();
+
+  constructor() {
+    this.OAuthChannel = new BroadcastChannel("lichess-oauth");
+    this.OAuthChannel.addEventListener("message", async (event) => {
+      if(event.data.type !== "lichess-auth-result")
+        return;
+
+      if(event.data.state !== this.OAuthState) {
+        this.tokenDeferred.reject(new Error("Invalid state"));
+        return;
+      }
+
+      try {
+        const token = await this.exchangeCodeForToken(
+          event.data.code,
+          this.OAuthCodeVerifier
+        );
+
+        localStorage.setItem("lichess_access_token", token);
+        this.tokenDeferred.resolve(token);
+      }
+      catch (e) {
+        this.tokenDeferred.reject(e);
+      }
+    });
+  }
+
+  public async getToken() {
+    this.auth();
+    return this.tokenDeferred.promise;
+  }
+
+  private async auth() {
+    const {codeChallenge, codeVerifier} = await OAuth2AuthCodePKCE.generatePKCECodes();
+    this.OAuthCodeVerifier = codeVerifier;
+
+    const clientId = "FreeChessClub";
+    this.OAuthState = OAuth2AuthCodePKCE.generateRandomState(RECOMMENDED_STATE_LENGTH);
+
+    const redirectUri = new URL(
+      "lichess-oauth-callback.html",
+      getBaseUrl()
+    ).href;
+
+    const authUrl =
+      "https://lichess.org/oauth?" +
+      new URLSearchParams({
+        response_type: "code",
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
+        state: this.OAuthState
+      });
+
+    const width = 600;
+    const height = 700;
+
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+
+    window.open(
+      authUrl,
+      "lichess-login",
+      `width=${width},height=${height},left=${Math.round(left)},top=${Math.round(top)}`
+    );
+  }
+
+  private async exchangeCodeForToken(code: string, codeVerifier: string): Promise<string> {
+    const redirectUri = new URL(
+      "lichess-oauth-callback.html",
+      getBaseUrl()
+    ).href;
+    
+    const response = await fetch("https://lichess.org/api/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: "FreeChessClub",
+        code: code,
+        redirect_uri: redirectUri,
+        code_verifier: codeVerifier
+      })
+    });
+
+    if(!response.ok) {
+      throw new Error(
+        `Token exchange failed: ${response.status} ${await response.text()}`
+      );
+    }
+
+    const data = await response.json();
+    return data.access_token;
+  }
+}
+
+export class LichessExplorer {
+  private oauth: LichessOAuth;
+
+  constructor() {
+    this.oauth = new LichessOAuth();
+  }
+
+  public async getPosition(fen: string) {
+    let token = null;
+    try {
+      token = await this.oauth.getToken();
+    }
+    catch (error) {
+      console.error("Lichess OAuth failed:", error);
+      return;
+    }
+
+    console.log('HELLO?');
+
+    const url = 
+      "https://explorer.lichess.org/masters?fen=" +
+      encodeURIComponent(fen);
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if(!response.ok) {
+      throw new Error(`Lichess API error: ${response.status}`);
+    }
+
+    return await response.json();
+  }
 }
 
 export default Explorer;

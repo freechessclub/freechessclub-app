@@ -17,7 +17,7 @@ import { tournaments, createTournaments } from './tournaments';
 import { users, createUsers } from './users';
 import { chat, createChat } from './chat';
 import { profile, createProfile } from './profile';
-import { explorer, createExplorer } from './explorer';
+import { Explorer, LichessExplorer } from './explorer';
 import { Clock } from './clock';
 import { Engine, EvalEngine, MaiaEngine } from './engine';
 import { Game, GameData, Role, NewVariationMode, games } from './game';
@@ -91,6 +91,8 @@ let evalEngine: EvalEngine | null;
 let playEngine: Engine | MaiaEngine | null;
 let playEngineNames: string[] = ['Stockfish', 'Maia'];
 let seekGraph: SeekGraph | null;
+let explorer: Explorer | null;
+let lichessExplorer: LichessExplorer | null;
 let userVariables: any = {};
 let pendingTells: any[] = [];
 let gameExitPending = [];
@@ -469,7 +471,8 @@ async function onDeviceReady() {
   createTournaments();
   createUsers();
   createProfile();
-  createExplorer();
+  explorer = new Explorer();
+  lichessExplorer = new LichessExplorer();
   
   const game = createGame();
   game.role = Role.NONE;
@@ -5123,29 +5126,6 @@ function generateInviteToken(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function getBaseUrl(): string {
-  const fallbackOrigin = 'https://fics-raj.duckdns.org';
-  const protocol = window.location.protocol;
-  const hostname = window.location.hostname;
-  let origin = window.location.origin;
-  let pathname = window.location.pathname || '/play.html';
-
-  const isLocalhost = hostname === 'localhost'
-    || hostname === '127.0.0.1'
-    || hostname === '0.0.0.0'
-    || hostname === '[::1]'
-    || origin === 'null';
-  const isUnsupportedProtocol = protocol !== 'http:' && protocol !== 'https:';
-
-  if(isLocalhost || isUnsupportedProtocol) {
-    origin = fallbackOrigin;
-    if(!pathname || pathname === '/' || pathname.includes('android_asset'))
-      pathname = '/play.html';
-  }
-
-  return `${origin}${pathname}`;
-}
-
 function buildInviteLink(invite: InviteCreateState): string {
   const params = new URLSearchParams();
   params.set('invite', '1');
@@ -5156,7 +5136,7 @@ function buildInviteLink(invite: InviteCreateState): string {
   params.set('inc', String(invite.inc));
   params.set('rated', invite.rated === 'r' ? '1' : '0');
   params.set('color', invite.color);
-  const baseUrl = getBaseUrl();
+  const baseUrl = Utils.getBaseUrl();
   return `${baseUrl}?${params.toString()}`;
 }
 
@@ -6155,11 +6135,6 @@ function showHistory(user: string, history: string) {
  * EXPLORER PANEL FUNCTIONS *
  ****************************/
 
-import { OAuth2AuthCodePKCE, RECOMMENDED_STATE_LENGTH } from "@bity/oauth2-auth-code-pkce";
-let lichessOAuthCodeVerifier = null;
-let lichessOAuthState = null;
-let lichessTokenDeferred = new Utils.Deferred<string>();
-
 $(document).on('shown.bs.tab', 'button[data-bs-target="#pills-explorer"]', () => {
   initExplorerPane();
 });
@@ -6250,6 +6225,7 @@ async function showExplorerPosition(game: Game) {
     }) 
     resizeExplorer();
   }
+  updateLichessExplorer();
 }
 
 function resizeExplorer() {
@@ -6274,133 +6250,16 @@ $('#explorer-moves').on('click', '.explorer-move', (e) => {
   movePiece(move.from, move.to, null, move.piece, move.promotion);
 });
 
-async function lichessAuth() {
-  const {codeChallenge, codeVerifier} = await OAuth2AuthCodePKCE.generatePKCECodes();
-  lichessOAuthCodeVerifier = codeVerifier;
-
-  const clientId = "FreeChessClub";
-  lichessOAuthState = OAuth2AuthCodePKCE.generateRandomState(RECOMMENDED_STATE_LENGTH);
-
-  const redirectUri = new URL(
-    "lichess-oauth-callback.html",
-    getBaseUrl()
-  ).href;
-
-  const authUrl =
-    "https://lichess.org/oauth?" +
-    new URLSearchParams({
-      response_type: "code",
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      code_challenge: codeChallenge,
-      code_challenge_method: "S256",
-      state: lichessOAuthState
-    });
-
-  const width = 600;
-  const height = 700;
-
-  const left = window.screenX + (window.outerWidth - width) / 2;
-  const top = window.screenY + (window.outerHeight - height) / 2;
-
-  window.open(
-    authUrl,
-    "lichess-login",
-    `width=${width},height=${height},left=${Math.round(left)},top=${Math.round(top)}`
-  );
-}
-
-const lichessAuthChannel = new BroadcastChannel("lichess-oauth");
-lichessAuthChannel.addEventListener("message", async (event) => {
-  if(event.data.type !== "lichess-auth-result")
-    return;
-
-  if(event.data.state !== lichessOAuthState) {
-    lichessTokenDeferred.reject(new Error("Invalid state"));
-    return;
-  }
-
-  try {
-    const token = await lichessExchangeCodeForToken(
-      event.data.code,
-      lichessOAuthCodeVerifier
-    );
-
-    localStorage.setItem("lichess_access_token", token);
-    lichessTokenDeferred.resolve(token);
-  }
-  catch (e) {
-    lichessTokenDeferred.reject(e);
-  }
-});
-
-async function lichessExchangeCodeForToken(code: string, codeVerifier: string): Promise<string> {
-  const redirectUri = new URL(
-    "lichess-oauth-callback.html",
-    getBaseUrl()
-  ).href;
-  
-  const response = await fetch("https://lichess.org/api/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: "FreeChessClub",
-      code: code,
-      redirect_uri: redirectUri,
-      code_verifier: codeVerifier
-    })
-  });
-
-  if(!response.ok) {
-    throw new Error(
-      `Token exchange failed: ${response.status} ${await response.text()}`
-    );
-  }
-
-  const data = await response.json();
-  return data.access_token;
-}
-
-async function getOpeningExplorer(fen: string) {
-  let token = null;
-  try {
-    token = await lichessTokenDeferred.promise;
-  }
-  catch (error) {
-    console.error("Lichess OAuth failed:", error);
-    return;
-  }
-
-  const url = 
-    "https://explorer.lichess.org/masters?fen=" +
-    encodeURIComponent(fen);
-
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
-
-  if(!response.ok) {
-    throw new Error(`Lichess API error: ${response.status}`);
-  }
-
-  return await response.json();
-}
-
-async function updateLiChessExplorer() {
+async function updateLichessExplorer() {
   const fen = games.focused.history.current().fen;
-  getOpeningExplorer(fen)
+  lichessExplorer.getPosition(fen)
     .then(data => {
       console.log(data);
       let moves = '';
       for(const move of data.moves) {
         moves += `${move.san} ${move.white + move.draws + move.black} ${move.white} ${move.draws} ${move.black}<br>`;
       }
-      $('#explorer-moves').html(moves);
+      $('#explorer-moves-container').append(moves);
     })
     .catch(console.error);
 }
@@ -6830,7 +6689,7 @@ $('#game-share').on('click', () => {
   if(game.history.first().fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
     params.set('f', game.history.first().fen);
   params.set('g', moves);
-  const url = `${getBaseUrl()}?${params.toString()}`;
+  const url = `${Utils.getBaseUrl()}?${params.toString()}`;
   
   const dialogHtml = `
   <div class="position-relative">

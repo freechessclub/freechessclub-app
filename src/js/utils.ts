@@ -76,6 +76,29 @@ const timezoneOffsets = {
   WETDST: 1
 };
 
+export function getBaseUrl(): string {
+  const fallbackOrigin = 'https://fics-raj.duckdns.org';
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  let origin = window.location.origin;
+  let pathname = window.location.pathname || '/play.html';
+
+  const isLocalhost = hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '0.0.0.0'
+    || hostname === '[::1]'
+    || origin === 'null';
+  const isUnsupportedProtocol = protocol !== 'http:' && protocol !== 'https:';
+
+  if(isLocalhost || isUnsupportedProtocol) {
+    origin = fallbackOrigin;
+    if(!pathname || pathname === '/' || pathname.includes('android_asset'))
+      pathname = '/play.html';
+  }
+
+  return `${origin}${pathname}`;
+}
+
 /** Convert a month from a 3 letter name to a number [1-12] */
 export function monthShortNameToNumber(month: string) {
   const cleanedMonth = month.trim().charAt(0).toUpperCase() + month.slice(1, 3).toLowerCase();
