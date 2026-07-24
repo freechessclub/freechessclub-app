@@ -486,7 +486,7 @@ class Explorer {
     }
     else {
       // normal case:
-      white = first - 3;
+      white = first - 6;
     
       // draws
       ({value, offset} = this.readUint(bytes, offset));
