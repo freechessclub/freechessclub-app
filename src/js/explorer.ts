@@ -116,8 +116,9 @@ class Explorer {
   private async fetchHeader(url: string): Promise<ExplorerMetadata> {
     const response = await fetch(url, {
       headers: {
-        Range: `bytes=0-${this.HEADER_SIZE - 1}`
+        Range: `bytes=0-${this.HEADER_SIZE - 1}`,
       },
+      cache: 'no-store'
     });
 
     if(!response.ok)
@@ -214,8 +215,10 @@ class Explorer {
       this.statusCallback?.(this.updating ? 'updating' : 'downloading');
       const parts = await Promise.all(
         urls.map(url =>
-          fetch(url, { signal: this.abortDownload!.signal })
-            .then(r => {
+          fetch(url, { 
+            signal: this.abortDownload!.signal,
+            cache: 'no-store' 
+          }).then(r => {
               if(!r.ok) {
                 throw new Error(`Failed to fetch ${url}: ${r.status}`);
               }
