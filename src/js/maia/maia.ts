@@ -60,7 +60,8 @@ class Maia {
       return
     }
 
-    this.worker = new Worker(new URL('./maia-worker.mjs', import.meta.url), { type: 'module' });
+    const source = await fetch(new URL('./maia-worker.js', import.meta.url)).then(r => r.text());
+    this.worker = new Worker(URL.createObjectURL(new Blob([source], { type: 'text/javascript' })));
 
     this.worker.onmessage = (e) => {
       const msg = e.data

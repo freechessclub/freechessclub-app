@@ -5,7 +5,7 @@
   "description": "Free Chess Club: A modern web interface for FICS.",
   "main": "./dist/js/app.js",
   "scripts": {
-    "app": "tsc src/js/app.ts && electron src/js/app.js",
+    "app": "webpack --config electron.webpack.js && electron dist/js/app.js",
     "lint": "eslint -c eslint.config.js \"src/**/*.ts\"",
     "bundle": "webpack --mode production",
     "dev": "webpack --mode development",
