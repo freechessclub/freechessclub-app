@@ -147,10 +147,17 @@
   --box-shadow-color: rgba(13, 110, 253, .25);
 }
 
-#game-toolbar {
+#game-toolbar, #game-opening-name {
   background-color: rgba(255, 255, 255, 0.2);
+}
+#game-toolbar {
   border-bottom-color: rgba(0, 0, 0, 0.1);
 }
+#game-opening-name {
+  border-top-color: rgba(0, 0, 0, 0.15);
+  color: color-mix(in srgb, var(--fg-color) 70%, white 30%);
+}
+
 #game-toolbar .btn {
   --bs-btn-active-color: rgba(159, 184, 228, 0.75);
 }

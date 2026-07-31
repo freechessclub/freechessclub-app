@@ -691,20 +691,21 @@
                           </div>
                           <span id="game-pane-status" class="pane-status">You're not playing a game.</span>
                           <div id="movelist-container" class="flex-grow-1 overflow-auto" style="min-height: 0">
-                            <table id="move-table" class="table table-sm mb-0">
+                            <table id="move-table" class="table table-sm mb-1">
                               <tbody></tbody>
                             </table>
                             <div id="movelists">
                               <div class="movelist px-2 pt-2 pb-1"></div>
                             </div>
                           </div>
+                          <div id="game-opening-name" class="center" style="display: none"></div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div class="card-footer p-0 minimized" id="left-panel-bottom">
+              <div class="card-footer p-0 minimized" id="left-panel-bottom" style="display: none;">
                 <div class="h-100 w-100 position-relative">
                   <button id="close-status" class="btn btn-default position-absolute"><span id="close-status-icon" class="fa-solid fa-angle-up" aria-hidden="false"></span></button>
                   <ul class="nav nav-tabs pt-2" id="left-bottom-tabs" style="visibility: hidden" role="tablist">
@@ -725,13 +726,11 @@
                     </li>
                   </ul>
                   <div id="left-panel-bottom-content" class="tab-content overflow-hidden">
-                    <div class="tab-pane fade show active p-1 h-100" id="status-panel" role="tabpanel" aria-labelledby="status-panel">
-                      <div id="game-status-list" class="d-flex flex-column overflow-auto center h-100">
-                        <div class="px-2 w-100 h-100">
-                          <div class="center py-1 info-panel-status" style="font-style: italic;">No game info</div>
-                          <div class="center py-1" style="text-align: center"><span class="game-status"></span></div>
-                          <div class="opening-name center py-1 border-top" style="display: none"></div>
-                          <div class="game-watchers center flex-wrap pt-2 pb-1 border-top"></div>
+                    <div class="tab-pane fade show active px-1 h-100" id="status-panel" role="tabpanel" aria-labelledby="status-panel">
+                      <div id="game-status-list" class="d-flex flex-column h-100 overflow-auto">
+                        <div class="game-info px-2">
+                          <div class="game-status-outer center" style="text-align: center"><span class="game-status"></span></div>
+                          <div class="game-watchers center flex-wrap border-top" style="display: none;"></div>
                         </div>
                       </div>
                     </div>
@@ -782,7 +781,7 @@
               </div>
             </div>
             <div class="card-footer bottom-panel" id="left-panel-footer">
-              <div id="playing-game-buttons" class="button-toolbar" style="display: none">
+              <div id="playing-game-buttons" class="button-toolbar w-100" style="display: none">
                 <button type="button" id="takeback" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Takeback">
                   <span class="fa-solid fa-rotate-left" aria-hidden="false"></span>
                 </button>

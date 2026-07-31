@@ -184,27 +184,11 @@ body {
   z-index: 101;
 }
 
-.game-status {
-  font-weight: bold;
-}
-.game-status:empty::before {
-  content: "\00a0";
-}
-.game-status .game-id {
-  font-weight: normal;
-}
-.opening-name {
-  text-align: center;
-}
-.game-watchers {
-  white-space: pre-wrap;
-}
-
 #left-panel {
   height: 546px;
 }
 #left-panel.list-view-showing {
-  height: 200px;
+  height: 232px;
 }
 #left-panel.shrunk-explorer-showing {
   height: 200px;
@@ -213,6 +197,18 @@ body {
   width: 100%;
   --content-height: 160px;
   cursor: pointer;
+}
+@media (max-width: 767px) {
+  #left-panel-bottom:not(.analyzing) {
+    --content-height: 5rem;
+  }
+  #left-panel-bottom:not(.analyzing) #status-panel {
+    --padding-y: 0px;
+  }
+}
+
+#status-panel .game-info {
+  margin-block: auto;
 }
 #left-panel-bottom-content {
   height: var(--content-height);
@@ -231,6 +227,30 @@ body {
   right: 9px;
   line-height: 0px;
   padding: 0px;
+}
+
+#status-panel {
+  --padding-y: 0.25rem;
+  padding-top: var(--padding-y);
+  padding-bottom: 0.25rem;
+}
+.game-status-outer {
+  padding-top: var(--padding-y);
+  padding-bottom: var(--padding-y);
+}
+.game-status {
+  font-weight: bold;
+}
+.game-status:empty::before {
+  content: "\00a0";
+}
+.game-status .game-id {
+  font-weight: normal;
+}
+.game-watchers {
+  white-space: pre-wrap;
+  padding-top: calc(var(--padding-y) + 0.25rem);
+  padding-bottom: var(--padding-y);
 }
 
 .chat-text strong.mine {
@@ -639,6 +659,15 @@ body {
 #game-list-menu th:nth-child(8),
 #game-list-menu td:nth-child(8) {
   width: auto;
+}
+
+#game-opening-name {
+  text-align: center;
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  border-top: 1px solid;
 }
 
 #move-table {

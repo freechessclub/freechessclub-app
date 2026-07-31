@@ -218,10 +218,17 @@ a {
   --bs-card-cap-bg: rgba(0, 0, 0, 0.06);
 }
 
-#game-toolbar {
+#game-toolbar, #game-opening-name {
   background-color: rgba(0, 0, 0, 0.035);
+}
+#game-toolbar {
   border-bottom-color: rgba(255, 255, 255, 0.035);
 }
+#game-opening-name {
+  color: color-mix(in srgb, currentColor 90%, black 10%);
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
 #game-toolbar .btn {
   --bs-btn-active-color: rgba(159, 184, 228, 0.75);
 }

@@ -7,7 +7,7 @@ import { Role } from './game';
 import { Reason } from './parser';
 import { storage } from './storage';
 import { settings } from './settings';
-import { setCaretToEnd, initContentEditable, BitWriter, BitReader, zigzagEncode, zigzagDecode, logError } from './utils';
+import { setCaretToEnd, initContentEditable, BitWriter, BitReader, zigzagEncode, zigzagDecode, logError, StickyBottomScroller } from './utils';
 import { getPlyFromFEN, getMoveNoFromFEN, getTurnColorFromFEN, updateVariantMoveData, VariantData, toDests, parseMove, getNumLegalMoves, moveToLegalMoveIndex, legalMoveIndexToMove } from './chess-helper';
 import { Clock } from './clock';
 import { Game } from './game';
@@ -203,6 +203,7 @@ export class History {
   public pgn: string; // The PGN associated with this History as a string, used for lazy loading the game
   public static openings; // Opening names with corresponding moves
   public static fetchOpeningsPromise = null;
+  public static scroller = new StickyBottomScroller($('#movelist-container')[0]);
 
   public static annotations = [
     {nags: '$1', symbol: '!', description: 'Good move'},
@@ -239,7 +240,7 @@ export class History {
     this.reset(fen, wtime, btime);
     this.initMetatags();
   }
-
+ 
   public reset(fen: string, wtime: number, btime: number) {
     if(!fen)
       fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -760,6 +761,8 @@ export class History {
 
     if(!this.currEntry.move)
       $('#movelist-container').scrollTop(0);
+
+    History.scroller.checkStuck();
   }
 
   public addMoveElements(entry: HEntry) {
