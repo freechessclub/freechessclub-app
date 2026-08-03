@@ -76,6 +76,14 @@ const timezoneOffsets = {
   WETDST: 1
 };
 
+export function safeAreaWidth() {
+  return parseFloat($('#content').css('padding-left')) + parseFloat($('#content').css('padding-right'));
+} 
+
+export function safeAreaHeight() {
+  return parseFloat($('#content').css('padding-top')) + parseFloat($('#content').css('padding-bottom'));
+} 
+
 export function getBaseUrl(): string {
   const fallbackOrigin = 'https://freechess.org';
   const protocol = window.location.protocol;
@@ -353,11 +361,62 @@ export function createTooltip(element: JQuery<HTMLElement>) {
     title = `<b>${title}</b><hr class="tooltip-separator"><div>${description}</div>`;
 
   element.tooltip('dispose').tooltip({
-    trigger: (isSmallWindow() ? 'hover focus' : 'hover'), // Tooltips stay visible after element is clicked on mobile, but only when hovering on desktop
+    trigger: isSmallWindow() ? 'manual' : 'hover', // Manually handle tooltips on mobile
     title,
     ...fallbackPlacements && { fallbackPlacements },
     html: !!description,
   });
+}
+
+/** Manual showing / hiding of tooltips on mobile **/
+
+/** Show / hide tooltips when the user clicks */
+document.addEventListener('click', (e: MouseEvent) => {
+  if(!isSmallWindow() || !(e.target instanceof Element)) 
+    return;
+
+  const tooltipTrigger = getTooltipTrigger(e.target);
+
+  document.querySelectorAll<HTMLElement>('[data-bs-toggle="tooltip"]').forEach(el => {
+    if(el !== tooltipTrigger) 
+      bootstrap.Tooltip.getInstance(el)?.hide(); // User has clicked away from a tooltip element so hide it
+  });
+
+  const ttInstance = bootstrap.Tooltip.getInstance(tooltipTrigger);
+  if(tooltipTrigger && !tooltipTrigger.hasAttribute('data-tooltip-hover-only') && !ttInstance?._isShown()) 
+    ttInstance?.show(); // Show the tooltip for the element that was clicked
+});
+
+/** Hide a tooltip if its element loses focus somehow */
+document.addEventListener('focusout', (e: FocusEvent) => {
+  if(!isSmallWindow())
+    return;
+
+  const target = e.target as Node;
+  if(e.target instanceof HTMLElement) {
+    const instance = bootstrap.Tooltip.getInstance(e.target);
+    if(instance) 
+      instance?.hide();
+  }
+});
+
+/**
+ * When an element is clicked, find the tooltip trigger element associated with it.
+ * Could be this element, a parent or a sibling element (in the case of labels).
+ */
+function getTooltipTrigger(target: Element): HTMLElement | null {
+  const trigger = target.closest<HTMLElement>('[data-bs-toggle="tooltip"]');
+
+  if(trigger) 
+    return trigger;
+
+  if(target instanceof HTMLInputElement && target.id) {
+    return document.querySelector<HTMLElement>(
+      `label[for="${CSS.escape(target.id)}"][data-bs-toggle="tooltip"]`
+    );
+  }
+
+  return null;
 }
 
 // tooltip overlays are used for elements such as dropdowns and collapsables where we usually
@@ -365,13 +424,6 @@ export function createTooltip(element: JQuery<HTMLElement>) {
 $(document).on('click', '.tooltip-overlay', (event) => {
   $(event.target).tooltip('hide');
 });
-
-// If a tooltip is marked as 'hover only' then only show it on mouseover not on touch
-document.addEventListener('touchstart', (event) => {
-  const tooltipTrigger = $(event.target).closest('[data-tooltip-hover-only]');
-  tooltipTrigger.tooltip('disable');
-  setTimeout(() => { tooltipTrigger.tooltip('enable'); }, 1000);
-}, {passive: true});
 
 /**
  * Removes an element from the DOM with any tooltips and popovers associated with it
@@ -682,17 +734,38 @@ export function hideButton(button: any): boolean {
 /**
  * Scroll to the given offset, adjusting for the top safe area.
  */
-export function safeScrollTo(offset: number) {
-  const topPadding = parseInt($('body').css('--safe-area-inset-top'), 10) || 0;
-  $(document).scrollTop(offset - topPadding);
+export function safeScrollTo(target: JQuery<HTMLElement> | number, smooth = true) {
+  const offset = (typeof target === 'number')
+    ? target
+    : target.offset().top;
+  
+  const app = $('#app')[0];
+  const appOffset = $('#app').offset().top;
+  const appScrollTop = offset - appOffset + app.scrollTop;
+
+  const topPadding =
+    parseFloat($('#content').css('padding-top')) || 0;
+
+  app.scrollTo({
+    top: appScrollTop,
+    behavior: smooth ? 'smooth' : 'instant'
+  });
 }
 
 /*
  * Scroll to the top of the page
  */
-export function scrollToTop() {
+export function scrollToTop(smooth = true) {
   if(isSmallWindow())
-    $(document).scrollTop(0);
+    safeScrollTo(0);
+}
+
+/*
+ * Scroll to the bottom of the page
+ */
+export function scrollToBottom(smooth = true) {
+  if(isSmallWindow())
+    safeScrollTo($('#app').offset().top + $('#app')[0].scrollHeight - $('#app')[0].clientHeight, smooth);
 }
 
 /**
@@ -768,9 +841,8 @@ export function createContextMenuTrigger(isTriggered: (event: any) => boolean, t
     $(document).one('touchend.longPress touchcancel.longPress wheel.longPress', (e) => {
       clearTimeout(longPressTimeout);
       $(document).off('touchmove.longPress');
-      if(longPressTriggered) {
+      if(longPressTriggered) 
         e.preventDefault();
-      }
     });
   }; 
   if(longPress)
@@ -808,8 +880,15 @@ export function removeContextMenuTrigger(handlers: any[]) {
  * @param menuClosedCallback Function called when the user hides the menu by clicking outside it etc
  * @param placement Popper placement of the menu relative to x, y ('top-left', 'bottom-left' etc)
  * @param fallbackPlacements Backup popper placements
+ * @param borrowed The menu element is borrowed, so return it to its original DOM position afterwards
  */
-export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: number, itemSelectedCallback?: (event: any) => void, menuClosedCallback?: (event: any) => void, placement?: Placement, fallbackPlacements?: Placement[]) {
+export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: number, itemSelectedCallback?: (event: any) => void, menuClosedCallback?: (event: any) => void, placement?: Placement, fallbackPlacements?: Placement[], borrowed = false) {
+  let originalParent = null, originalNextSibling = null;
+  if(borrowed) {
+    originalParent = menu.parent();
+    originalNextSibling = menu.next();
+  }
+ 
   // Use Popper.js to position the context menu dynamically
   menu.css({
     'position': 'fixed',
@@ -818,7 +897,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
   });
   $('body').append(menu);
 
-  Popper.createPopper({
+  const popperInstance = Popper.createPopper({
     getBoundingClientRect: () => ({ // Position the menu relative to a virtual element
       x,
       y,
@@ -850,6 +929,20 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
     ]
   });
 
+  const cleanupMenu = () => {
+    if(borrowed) {
+      menu.css({'position': '', 'display': '', 'z-index': ''});
+      if(originalNextSibling.length) 
+        menu.insertBefore(originalNextSibling);
+      else 
+        originalParent.append(menu);
+    }
+    else
+      removeWithPoppers(menu);
+
+    popperInstance.destroy();
+  }
+
   /** Triggered when menu item is selected */
   menu.find('.dropdown-item').on('click contextmenu', (event) => {
     // Allow native context menu to be displayed when right clicking with modifier key
@@ -857,7 +950,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
         || event.shiftKey || event.altKey || event.metaKey))
       return;
 
-    removeWithPoppers(menu);
+    cleanupMenu();
 
     $(document).off('wheel.closeMenu mousedown.closeMenu keydown.closeMenu touchend.closeMenu touchmove.closeMenu');
     if(itemSelectedCallback)
@@ -877,7 +970,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
     if(((event.type === 'touchstart' || event.type === 'mousedown') && !$(event.target).closest('.dropdown-menu').length)
         || (event.type === 'keydown' && event.key === 'Escape')
         || event.type === 'wheel' || event.type === 'touchmove') {
-      removeWithPoppers(menu);
+      cleanupMenu();
       $(document).off('wheel.closeMenu mousedown.closeMenu keydown.closeMenu touchend.closeMenu touchmove.closeMenu');
       document.removeEventListener('touchstart', closeMenuEventHandler);
       if(menuClosedCallback)

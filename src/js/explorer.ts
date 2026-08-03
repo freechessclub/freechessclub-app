@@ -4,7 +4,7 @@
 
 import { idbStorage } from './storage';
 import { zobrist128 } from './zobrist';
-import { parseMove } from './chess-helper';
+import { parseMove, isPromotion } from './chess-helper';
 import { LichessClient } from './clients';
 import { ByteReader, ByteWriter, ByteStreamReader, EndOfStreamError } from './utils';
 
@@ -60,7 +60,6 @@ export interface ExplorerMove {
     promotion?: string,
     flags?: string,
     san?: string,
-    uci?: string,
   },
   lastYear?: number,
   stats: ExplorerStats,
@@ -680,31 +679,14 @@ export class Explorer {
 
     if(from === to) {
       return piece !== undefined
-        ? { piece, to, uci: `${piece}@${to}` }
-        : { to, uci: to };
-    }
-
-    // Convert rook-castling notation to standard uci
-    if(piece === 'k') {
-      if(from === 'e1') {
-        if(to === 'a1')
-          to = 'c1';
-        else if(to === 'h1')
-          to = 'g1';
-      }
-      else if(from === 'e8') {
-        if(to === 'a8')
-          to = 'c8';
-        else if(to === 'h8')
-          to = 'g8';
-      }
+        ? { piece, to }
+        : { to };
     }
 
     return {
       from,
       to,
-      ...(piece !== undefined ? { promotion: piece } : {}),
-      uci: `${from}${to}${piece ?? ''}`
+      ...(piece !== undefined ? { promotion: piece } : {})
     };
   }
 }

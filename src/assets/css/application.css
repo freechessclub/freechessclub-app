@@ -9,16 +9,32 @@
                                   supported by Chrome and Opera */
 }
 
-/* Fixes problem of body width not updating properly after screen rotate on mobile */
-html, body {
-  overflow-x: hidden;
+:root {
+  --safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-area-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-area-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --safe-area-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px)); 
+  --safe-area-width: calc(var(--safe-area-left) + var(--safe-area-right));
+  --safe-area-height: calc(var(--safe-area-top) + var(--safe-area-bottom));
 }
 
-body {
-  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
-  padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
-  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
-  padding-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+html, body {
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+#app {
+  overflow-y: auto;
+  height: 100%;
+}
+
+#content {
+  padding-top: var(--safe-area-top);
+  padding-bottom: var(--safe-area-bottom);
+  padding-right: var(--safe-area-right);
+  padding-left: var(--safe-area-left);
 }
 
 .status-shim {
@@ -26,13 +42,9 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  height: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  height: var(--safe-area-top);
   background-color: var(--bg-color);
   z-index: 1000;
-}
-
-.feature3 {
-  min-height: 100vh;
 }
 
 .button-toolbar {
@@ -163,6 +175,8 @@ body {
 }
 
 .dialog-container {
+  left: 0;
+  right: 0;
   width: 100%;
   height: 100%;
   display: flex;
@@ -302,7 +316,6 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    width: 100%;
     height: auto;
   }
   body.chat-hidden #main-row {
@@ -451,6 +464,10 @@ body {
   font-size: 1.0rem;
 }
 
+.clock.my-turn {
+  box-shadow: inset 0 0 0 1px var(--box-shadow-color);
+}
+
 .top-panel, .bottom-panel {
   height: 3.5rem;
   padding-top: 0;
@@ -525,16 +542,12 @@ body {
 .game-card .title-bar .btn {
   padding: 2px;
   line-height: 1;
-}
-
-.game-card .title-bar .game-maximize-icon {
   font-size: 1em;
 }
 
-.game-card .title-bar .game-close-icon {
-  font-size: 1.39em;   /* Randomely tweaked some values until the icons aligned properly */
-  line-height: 0.72em;
-  vertical-align: -0.11em;
+.game-card .title-bar .game-close-button {
+  padding-left: 1px;
+  padding-right: 1px;
 }
 
 .game-card-sm .player-status {
@@ -726,6 +739,7 @@ body {
 }
 #move-table .selected {
   font-weight: bold;
+  box-shadow: inset 0 0 0 1px var(--box-shadow-color);
 }
 
 .movelist .move:not(.selected) {
@@ -1019,6 +1033,14 @@ body {
   border-bottom: none;
 }
 
+#notifications {
+  position: fixed; 
+  z-index: 2000; 
+  top: var(--safe-area-top); 
+  right: var(--safe-area-right);
+  max-height: calc(100dvh - var(--safe-area-height)); 
+  overflow-y: auto;
+}
 .notification-panel {
   transition: none;
   width: 100%;
@@ -1051,7 +1073,7 @@ body {
 }
 #notifications-close-icon {
   font-size: 19px;
-  transform: translate(-1.5px, -3.2px);
+  transform: translate(-4.8px, -3.2px);
 }
 #notifications-footer .toast-body {
   padding-top: 3px;
@@ -1272,8 +1294,8 @@ input[type="number"]:focus {
   position: fixed; 
   width: fit-content; 
   white-space: nowrap;
-  top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
-  left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  top: var(--safe-area-top);
+  left: var(--safe-area-left);
   transform: translateY(-100%);
   transition: opacity 0.8s ease, transform 0.8s ease;
   z-index: 1050;

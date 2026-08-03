@@ -239,7 +239,7 @@ export class Engine {
           const wasmParts = [];
           const numParts = 6;
           for(let i = 0; i < numParts; i++) 
-            wasmParts[i] = await (await fetch(`${url}-part-${i}.wasm`, { signal })).blob();
+            wasmParts[i] = await (await fetch(`${url}-part-${i}.wasm`, { signal })).arrayBuffer();
           
           const wasmBlob = new Blob(wasmParts, { type: 'application/wasm' });
           const wasmBlobUrl = URL.createObjectURL(wasmBlob); 
@@ -249,7 +249,7 @@ export class Engine {
           
           // Patch the locateFile function in the wasm loader so that it can fetch the .wasm and the loader itself from Blob URLs 
           jsCode = jsCode.replace(/locateFile:function[^}]*,worker"}/,
-            `locateFile:function(e){return-1<e.indexOf(".wasm")?"${wasmBlobUrl}":"blob:"+self.location.pathname+"#"+"${wasmBlobUrl}"+",worker"}`);
+            `locateFile:function(e){return-1<e.indexOf(".wasm")?"${wasmBlobUrl}":self.location.href.split("#")[0]+"#"+"${wasmBlobUrl}"+",worker"}`);
         }
         else 
           jsCode = await (await fetch('https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js@7fa3404/src/stockfish-17.1-asm-341ff22.js', { signal })).text();
@@ -272,7 +272,7 @@ export class Engine {
 
           // Patch the locateFile function in the wasm loader so that it can fetch the .wasm and the loader itself from Blob URLs 
           jsCode = jsCode.replace(/locateFile:function[^}]*,worker"}/,
-            `locateFile:function(e){return-1<e.indexOf(".wasm")?"${wasmBlobUrl}":"blob:"+self.location.pathname+"#"+"${wasmBlobUrl}"+",worker"}`);
+            `locateFile:function(e){return-1<e.indexOf(".wasm")?"${wasmBlobUrl}":self.location.href.split("#")[0]+"#"+"${wasmBlobUrl}"+",worker"}`);
         }
         else 
           jsCode = await (await fetch('https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js@7fa3404/src/stockfish-17.1-asm-341ff22.js', { signal })).text();
@@ -511,6 +511,9 @@ export class EvalEngine extends Engine {
     const margin = {top: 6, right: 6, bottom: 6, left: 18};
     const width = container.width() - margin.left - margin.right; // Use the window's width
     const height = container.height() - margin.top - margin.bottom; // Use the window's height
+
+    if(width <= 0 || height <= 0)
+      return;
 
     // Prepare data set
     const n = this.numGraphMoves = dataset.length;

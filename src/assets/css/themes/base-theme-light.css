@@ -64,6 +64,7 @@
 
 .clock.my-turn {
   background-color: rgba(0, 0, 0, 0.125);
+  --box-shadow-color: rgba(0, 0, 0, 0.175);
 }
 .clock.low-time {
   color: red;
@@ -176,6 +177,7 @@
 }
 #move-table .selected {
   background-color: rgba(0, 0, 0, 0.1);
+  --box-shadow-color: rgba(0, 0, 0, 0.125);
 }
 #move-table .subvariation table {
   --bracket-color: #bf8090;
