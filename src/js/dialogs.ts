@@ -85,8 +85,8 @@ export function showDialog(params: DialogParams, position = 'middle'): any {
   else if(position === 'top' || position === 'bottom') {
     dialog.css({
       position: 'fixed',
-      ...(position === 'top' && { top: 'env(safe-area-inset-top)' }),
-      ...(position === 'bottom' && { bottom: 'env(safe-area-inset-bottom)' }),
+      ...(position === 'top' && { top: 'var(--safe-area-inset-top, env(safe-area-inset-top, 0px))' }),
+      ...(position === 'bottom' && { bottom: 'var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))' }),
       left: '50%',
       transform: 'translate(-50%)',
       'z-index': '101',

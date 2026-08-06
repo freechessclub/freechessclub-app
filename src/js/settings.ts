@@ -38,10 +38,10 @@ export const settings = {
   notificationsToggle: true,
   // toggle for showing highlights/graphics on the board
   highlightsToggle: true,
-  // toggle for showing highlights/graphics on the board
+  // toggle for keeping the screen awake while playing
   wakelockToggle: true,
   // toggle for Android foreground service
-  foregroundServiceToggle: true,
+  foregroundServiceToggle: false,
   // toggle for multi-board mode / single-board mode
   multiboardToggle: true,
   // toggle for enabling multiple premoves
@@ -85,4 +85,3 @@ export const settings = {
 
   pieceGlyphsToggle: true,
 }
-

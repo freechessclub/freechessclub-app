@@ -3,8 +3,9 @@
 // license that can be found in the LICENSE file.
 
 import packageInfo from '../../package.json';
+import { SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { storage } from './storage';
-import { isMac, isCapacitor, rgbToHex, isTouchscreen, getBrightness, removeWithPoppers, loadSvg, svgToImg, svgToUrl, normalizeColor, parseRgb, rgbToHsl, hslToRgb, createColorPicker } from './utils';
+import { isMac, isCapacitor, isTouchscreen, getBrightness, removeWithPoppers, loadSvg, svgToImg, svgToUrl, normalizeColor, parseRgb, rgbToHsl, hslToRgb, createColorPicker } from './utils';
 import { showDialog } from './dialogs';
 
 $('#version').text(`Version: ${packageInfo.version}`);
@@ -459,8 +460,8 @@ async function setBaseTheme(baseTheme: string) {
     baseTheme === 'base-theme-dark' ? 'dark' : 'light'
   );
 
-  if(isCapacitor()) 
-    Capacitor.Plugins.StatusBar.setStyle({ style: baseTheme === 'base-theme-dark' ? "DARK" : "LIGHT" });
+  if(isCapacitor())
+    SystemBars.setStyle({ style: baseTheme === 'base-theme-dark' ? SystemBarsStyle.Dark : SystemBarsStyle.Light });
 
   $('#base-theme').remove();
   if(themes[baseTheme]) {
@@ -526,9 +527,6 @@ async function setTheme(theme: string) {
     elem.setAttribute('id', 'theme');
   }
 
-  // Set StatusBar background color for phones that don't have EdgeToEdge
-  if(isCapacitor())
-    Capacitor.Plugins.StatusBar.setBackgroundColor({ color: rgbToHex($('body').css('background-color')) });
 }
 
 /**

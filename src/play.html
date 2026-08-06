@@ -1247,7 +1247,7 @@
   <div class="toast-container" id="fixed-dialog-container"></div>
   <div class="status-shim"></div>
   <div id="sign-in-alert" class="banner-alert fade" role="alert">Signing in...</div>
-  <div id="notifications" style="z-index: 2000; position: fixed; top: env(safe-area-inset-top); right: 0; width: 100%">
+  <div id="notifications" style="z-index: 2000; position: fixed; top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px)); right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px)); left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px))">
     <div class="toast notification-panel" data-bs-animation="false" data-bs-autohide="false" role="status" aria-live="polite" aria-atomic="true" id="notifications-header">
       <div class="toast-body position-relative d-flex">
         <span class="mx-auto">Notifications</span>
@@ -1307,8 +1307,8 @@
                   <div class="col">
                     <div class="form-check form-switch">
                       <input class="form-check-input" type="checkbox" role="switch" id="wakelock-toggle" checked>
-                      <label class="form-check-label" for="wakelock-toggle"><span id="wakelock-toggle-icon" class="fa-solid fa-lock dropdown-icon" aria-hidden="false"></span>Wake Lock
-                        <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Wake Lock" data-description="Prevents your screen from sleeping while the app is in use." role="button" aria-label="Wake Lock help"><use href="#icon-info"/></svg>
+                      <label class="form-check-label" for="wakelock-toggle"><span id="wakelock-toggle-icon" class="fa-solid fa-lock dropdown-icon" aria-hidden="false"></span>Keep Screen Awake
+                        <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Keep Screen Awake" data-description="Prevents your screen from sleeping while you are playing." role="button" aria-label="Keep Screen Awake help"><use href="#icon-info"/></svg>
                       </label>
                       <div class="settings-toggle-help">Keeps your screen awake while you are playing.</div>
                     </div>
@@ -1358,11 +1358,11 @@
                   </div>
                   <div id="foreground-service-row" class="col">
                     <div class="form-check form-switch">
-                      <input class="form-check-input" type="checkbox" role="switch" id="foreground-service-toggle" checked>
-                      <label class="form-check-label" for="foreground-service-toggle"><span id="foreground-service-toggle-icon" class="fa-solid fa-signal dropdown-icon" aria-hidden="false"></span>Foreground Service
-                        <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Foreground Service" data-description="On Android, keeps the app connection active while running in the background." role="button" aria-label="Foreground Service help"><use href="#icon-info"/></svg>
+                      <input class="form-check-input" type="checkbox" role="switch" id="foreground-service-toggle">
+                      <label class="form-check-label" for="foreground-service-toggle"><span id="foreground-service-toggle-icon" class="fa-solid fa-signal dropdown-icon" aria-hidden="false"></span>Background Connection
+                        <svg class="ms-1 info-icon settings-info-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="Background Connection" data-description="On Android, keeps the connection active in the background. This uses more battery and shows a permanent notification." role="button" aria-label="Background Connection help"><use href="#icon-info"/></svg>
                       </label>
-                      <div class="settings-toggle-help">Keeps the connection active in the background on Android.</div>
+                      <div class="settings-toggle-help">Keeps the connection active in the background on Android. Uses more battery.</div>
                     </div>
                   </div>
                 </div>

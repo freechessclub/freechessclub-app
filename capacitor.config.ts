@@ -8,6 +8,9 @@ const config: CapacitorConfig = {
     Keyboard: {
       resize: 'body',
       resizeOnFullScreen: true
+    },
+    SystemBars: {
+      insetsHandling: 'css'
     }
   },
   cordova: {

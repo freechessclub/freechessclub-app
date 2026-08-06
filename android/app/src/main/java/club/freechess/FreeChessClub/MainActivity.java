@@ -8,11 +8,13 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.ServiceWorkerClient;
 import android.webkit.ServiceWorkerController;
+import androidx.activity.EdgeToEdge;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
+    EdgeToEdge.enable(this);
     super.onCreate(savedInstanceState);
 
   if(Build.VERSION.SDK_INT >= 24 ){
@@ -27,5 +29,4 @@ public class MainActivity extends BridgeActivity {
     }
   }
 }
-
 

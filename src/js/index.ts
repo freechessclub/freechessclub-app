@@ -121,6 +121,7 @@ let lobbyEntries = [];
 let lobbyStickyBottom = new Utils.StickyBottomScroller($('#lobby-table-container')[0]);
 let lobbyCounter = 0;
 const noSleep = new NoSleep(); // Prevent screen dimming
+let screenWakeLockPending = false;
 let book; // Opening book used in 'Play Computer' mode
 let isRegistered = false;
 let lastComputerGame = null; // Attributes of the last game played against the Computer. Used for Rematch and alternating colors each game.
@@ -132,6 +133,7 @@ const mainBoard: any = createBoard($('#main-board-area').children().first().find
 let ForegroundService = null;
 let foregroundServiceActive = false;
 let foregroundServiceChannelReady = false;
+let foregroundServiceTransition: Promise<void> = Promise.resolve();
 let pendingInviteCreate: InviteCreateState | null = null;
 let activeInvite: InviteCreateState | null = null;
 let pendingInviteJoin: InviteJoinState | null = null;
@@ -363,13 +365,21 @@ async function updateForegroundServiceNotification() {
   }
 }
 
+async function loadForegroundService() {
+  if(ForegroundService)
+    return;
+
+  const mod = await import('@capawesome-team/capacitor-android-foreground-service');
+  ForegroundService = mod.ForegroundService;
+}
+
 async function startForegroundService() {
   if(!Utils.isAndroidCapacitor() || foregroundServiceActive)
     return;
 
   try {
+    await loadForegroundService();
     const mod = await import('@capawesome-team/capacitor-android-foreground-service');
-    ForegroundService = mod.ForegroundService;
     const Importance = mod.Importance;
 
     const permissionStatus = await ForegroundService.checkPermissions();
@@ -405,10 +415,11 @@ async function startForegroundService() {
 }
 
 async function stopForegroundService() {
-  if(!Utils.isAndroidCapacitor() || !foregroundServiceActive)
+  if(!Utils.isAndroidCapacitor())
     return;
 
   try {
+    await loadForegroundService();
     await ForegroundService.stopForegroundService();
   }
   catch(error) {
@@ -423,18 +434,47 @@ function updateForegroundServiceState() {
   if(!Utils.isAndroidCapacitor())
     return;
 
-  if(!settings.foregroundServiceToggle) {
-    stopForegroundService();
+  const shouldRun = settings.foregroundServiceToggle && !!session?.isConnected();
+  foregroundServiceTransition = foregroundServiceTransition
+    .catch(error => Utils.logError('Error changing foreground service state:', error))
+    .then(async () => {
+      if(shouldRun) {
+        await startForegroundService();
+        await updateForegroundServiceNotification();
+      }
+      else
+        await stopForegroundService();
+    });
+}
+
+function hasPlayingGame() {
+  return Array.from(games).some(game => game.isPlaying());
+}
+
+async function updateScreenWakeLock() {
+  const shouldRun = settings.wakelockToggle && !document.hidden && hasPlayingGame();
+
+  if(!shouldRun) {
+    if(noSleep.isEnabled)
+      noSleep.disable();
     return;
   }
 
-  const shouldRun = !!session?.isConnected();
-  if(shouldRun) {
-    startForegroundService();
-    updateForegroundServiceNotification();
+  if(noSleep.isEnabled || screenWakeLockPending)
+    return;
+
+  screenWakeLockPending = true;
+  try {
+    await noSleep.enable();
   }
-  else
-    stopForegroundService();
+  catch(error) {
+    Utils.logError('Error enabling screen wake lock:', error);
+  }
+  finally {
+    screenWakeLockPending = false;
+    if((!settings.wakelockToggle || document.hidden || !hasPlayingGame()) && noSleep.isEnabled)
+      noSleep.disable();
+  }
 }
 
 /** *********************************************
@@ -534,7 +574,10 @@ async function onDeviceReady() {
   else if(hasInvite)
     initInviteFromUrl();
 
-  document.addEventListener('visibilitychange', updateForegroundServiceState);
+  document.addEventListener('visibilitychange', () => {
+    updateForegroundServiceState();
+    updateScreenWakeLock();
+  });
 }
 
 $(window).on('load', async () => {
@@ -566,11 +609,9 @@ $(window).on('beforeunload', () => {
     return true;
 });
 
-// Prevent screen dimming, must be enabled in a user input event handler
-$(document).one('click', () => {
-  if(settings.wakelockToggle) {
-    noSleep.enable();
-  }
+// Retry from user interaction for browsers that require a gesture to prevent screen dimming.
+$(document).on('click', () => {
+  updateScreenWakeLock();
 });
 
 $(document).on('click', 'a', function(event) {
@@ -1182,7 +1223,6 @@ function messageHandler(data: any) {
           session?.reconnect();
         });
         $('#sign-in-alert').removeClass('show');
-        stopForegroundService();
         updateForegroundServiceState();
       }
       else if(data.command === 4) { // Connecting
@@ -1588,6 +1628,8 @@ function gameStart(game: Game) {
 
   if(!mainGame || game.id !== mainGame.partnerGameId)
     scrollToBoard(game);
+
+  updateScreenWakeLock();
 }
 
 function gameEnd(data: any) {
@@ -4282,6 +4324,7 @@ function cleanupGame(game: Game) {
   game.removeMoveRequested = null;
   game.pendingMoves = [];
   game.restoreMove = null;
+  updateScreenWakeLock();
 }
 
 /** *********************
@@ -8678,7 +8721,7 @@ function initSettings() {
   settings.wakelockToggle = (storage.get('wakelock') !== 'false');
   $('#wakelock-toggle').prop('checked', settings.wakelockToggle);
 
-  settings.foregroundServiceToggle = (storage.get('foregroundservice') !== 'false');
+  settings.foregroundServiceToggle = (storage.get('foregroundservice') === 'true');
   $('#foreground-service-toggle').prop('checked', settings.foregroundServiceToggle);
   if(!Utils.isAndroidCapacitor())
     $('#foreground-service-row').hide();
@@ -8798,10 +8841,7 @@ $('#highlights-toggle').on('click', () => {
 
 $('#wakelock-toggle').on('click', () => {
   settings.wakelockToggle = !settings.wakelockToggle;
-  if(settings.wakelockToggle)
-    noSleep.enable();
-  else
-    noSleep.disable();
+  updateScreenWakeLock();
   storage.set('wakelock', String(settings.wakelockToggle));
 });
 
@@ -9249,5 +9289,3 @@ function loadAtomicSprite() {
   }
   return atomicSpritePromise;
 }
-
-
