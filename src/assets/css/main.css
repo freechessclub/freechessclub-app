@@ -354,6 +354,18 @@ p.paragraph {
   color: #ffffff;
 }
 
+.site-btn-playstore {
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(16, 21, 18, 0.08);
+  color: var(--site-primary-dark);
+}
+
+.site-btn-playstore:hover,
+.site-btn-playstore:focus {
+  background: #f4f8f5;
+  color: var(--site-primary-dark);
+}
+
 .site-band {
   padding: 5rem 0;
 }
