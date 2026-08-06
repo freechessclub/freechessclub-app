@@ -14,6 +14,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
+    setTheme(R.style.AppTheme_NoActionBar);
     EdgeToEdge.enable(this);
     super.onCreate(savedInstanceState);
 
@@ -29,4 +30,3 @@ public class MainActivity extends BridgeActivity {
     }
   }
 }
-

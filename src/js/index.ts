@@ -720,8 +720,9 @@ $(document).on("keydown", (e) => {
 });
 
 /**
- * Fix scroll position when focusing input-text on mobile.
- * When the on-screen keyboard pops up, the scroll position gets incorrectly changed
+ * Fix scroll position when focusing input-text in mobile browsers.
+ * Android Capacitor handles IME resizing natively; manually scrolling the footer
+ * there fights the WebView resize and can move the composer to the top.
  */
 let lastViewPortHeight = window.visualViewport.height;
 let inputTextFocused = false;
@@ -733,13 +734,15 @@ window.visualViewport.addEventListener('resize', () => {
       setTimeout(() => {
         if($('#input-text').is(':focus')) {
           inputTextFocused = true;
-          $('body').css('padding-bottom', 0);   
-          setTimeout(() => {
-            $('#right-panel-footer')[0].scrollIntoView({ behavior: 'instant', block: 'end' });
-          }, 0);
+          if(!Utils.isAndroidCapacitor()) {
+            $('body').css('padding-bottom', 0);
+            setTimeout(() => {
+              $('#right-panel-footer')[0].scrollIntoView({ behavior: 'instant', block: 'end' });
+            }, 0);
+          }
         }
-      }, 50);  
-    }  
+      }, 50);
+    }
     else if(heightDiff > 100) {
       if(inputTextFocused) {
         inputTextFocused = false;

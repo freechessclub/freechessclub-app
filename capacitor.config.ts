@@ -6,8 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'app',
   plugins: {
     Keyboard: {
-      resize: 'body',
-      resizeOnFullScreen: true
+      resize: 'body'
     },
     SystemBars: {
       insetsHandling: 'css'
