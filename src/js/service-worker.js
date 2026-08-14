@@ -26,7 +26,7 @@ else
   precacheAndRoute([...self.__WB_MANIFEST, ...externals]); // __WB_MANIFEST is injected by inject-manifest.js
 
 registerRoute(
-  ({ url }) => url.origin === 'https://cdn.jsdelivr.net',
+  ({ url }) => url.origin.endsWith('.jsdelivr.net'),
       new StaleWhileRevalidate({ cacheName: 'stalewhile-cache' })
 );
 

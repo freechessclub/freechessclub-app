@@ -1263,8 +1263,8 @@ export class Tournaments {
                 <div class="tournament-date" style="white-space: pre-wrap;"></div>
                 <div class="tournament-num-players" style="white-space: pre-wrap;"></div>
               </div>
-              <div class="d-flex" style="justify-content: end; align-items: center">
-                <div class="btn-group-vertical" style="gap: 10px">
+              <div class="d-flex justify-content-end align-items-center">
+                <div class="d-flex flex-column" style="gap: 10px">
                   <button type="button" class="btn btn-outline-secondary btn-md tournament-notify" title="Notify Me" style="display: none; white-space: nowrap;">Notify Me</button>
                   <button type="button" class="btn btn-outline-secondary btn-md tournament-unnotify" title="Stop Notifying" style="display: none; white-space: nowrap;">Stop Notifying</button>
                   <button type="button" class="btn btn-outline-secondary btn-md tournament-join" title="Join" style="display: none; white-space: nowrap;">Join</button>
@@ -1577,8 +1577,8 @@ export class Tournaments {
               <div class="koth-king-stats" style="white-space: pre;"></div>
               <div class="koth-challenger" style="white-space: pre;"></div>
             </div>
-            <div class="d-flex" style="justify-content: end; align-items: center">
-              <div class="btn-group-vertical" style="gap: 10px">
+            <div class="d-flex justify-content-end align-items-center">
+              <div class="d-flex flex-column" style="gap: 10px">
                 <button type="button" class="btn btn-outline-secondary btn-md koth-claim-throne" title="Claim Throne" style="display: none" onclick="sessionSend('td claimthrone ${data.id}')">Claim Throne</button>
                 <button type="button" class="btn btn-outline-secondary btn-md koth-seek" title="Seek Game" style="display: none" onclick="sessionSend('seek ${data.type} m')">Seek Game</button>
                 <button type="button" class="btn btn-outline-secondary btn-md koth-unseek" title="Stop Seeking" style="display: none">Stop Seeking</button>
@@ -1723,8 +1723,8 @@ export class Tournaments {
               <div class="mt-1 tournament-date" style="white-space: pre-wrap;"></div>
               <div class="mt-1 tournament-description" style="white-space: pre-wrap;"></div>
             </div>
-            <div class="d-flex" style="justify-content: end; align-items: center">
-              <div class="btn-group-vertical" style="gap: 10px">
+            <div class="d-flex justify-content-end align-items-center">
+              <div class="d-flex flex-column" style="gap: 10px">
                 <button type="button" class="btn btn-outline-secondary btn-md tournament-interested" title="I'm Interested!" style="display: none; white-space: nowrap;">I'm Interested!</button>
                 <button type="button" class="btn btn-outline-secondary btn-md tournament-uninterested" title="Stop Interest" style="display: none; white-space: nowrap;">Remove Interest</button>
               </div>

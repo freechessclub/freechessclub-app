@@ -75,6 +75,43 @@ export class Position {
   }
 }
 
+export function legalEnPassant(fen: string): boolean {
+  const splitFen = splitFEN(fen);
+  const enPassant = splitFen.enPassant;
+  const turnColor = splitFen.color;
+  if(enPassant === '-')
+    return false;
+
+  const pos = new Position(fen);
+  const fromRank = turnColor === 'b' ? +enPassant.charAt(1) + 1 : +enPassant.charAt(1) - 1;
+  const file = enPassant.charAt(0);
+  let leftFromSquare = null, rightFromSquare = null;
+  if(file !== 'a') {
+    const fromFile = String.fromCharCode(file.charCodeAt(0) - 1);
+    const fromSquare = `${fromFile}${fromRank}`;
+    const piece = pos.get(fromSquare);
+    if(piece && piece.color === turnColor && piece.type === 'p') 
+      leftFromSquare = fromSquare;
+  }
+  if(file !== 'h') {
+    const fromFile = String.fromCharCode(file.charCodeAt(0) + 1);
+    const fromSquare = `${fromFile}${fromRank}`;
+    const piece = pos.get(fromSquare);
+    if(piece && piece.color === turnColor && piece.type === 'p') 
+      rightFromSquare = fromSquare;    
+  }
+
+  if(leftFromSquare || rightFromSquare) {
+    const chess = new Chess(fen);
+    if(leftFromSquare && chess.move({ from: leftFromSquare, to: enPassant }))
+      return true;
+    if(rightFromSquare && chess.move({ from: rightFromSquare, to: enPassant }))
+      return true;
+  }
+
+  return false;
+}
+
 /**
  * Checks if the position specified by fen is in stalemate for the plyaer to move.
  * For Crazyhouse/bughouse this takes into account captured/held pieces
@@ -158,7 +195,10 @@ export function insufficientMaterial(fen: string, variantData?: VariantData, col
   return (color === 'w' && whiteWeight < 2) || (color === 'b' && blackWeight < 2) || (!color && whiteWeight < 2 && blackWeight < 2);
 }
 
-export function parseMove(fen: string, move: any, startFen: string, category: string, variantData?: Partial<VariantData>, premove=false) {
+export function parseMove(fen: string, move: any, category?: string, startFen?: string, variantData?: Partial<VariantData>, premove=false) { 
+  if(!category)
+    category = 'standard';
+  
   // Check to see if the dest square is reachable from source square  
   // Basic, fast initial check for performance reasons
   if(move && typeof move === 'object' && move.from && move.to && move.piece 
@@ -169,7 +209,7 @@ export function parseMove(fen: string, move: any, startFen: string, category: st
 
   // Parse variant move or premove
   if(!standardCategories.includes(category) || premove)
-    return parseVariantMove(fen, move, startFen, category, variantData, premove);
+    return parseVariantMove(fen, move, category, startFen, variantData, premove);
 
   // Parse standard move
   const chess = new Chess(fen);
@@ -182,10 +222,13 @@ export function parseMove(fen: string, move: any, startFen: string, category: st
   return { fen: outFen, move: outMove };
 }
 
-function parseVariantMove(fen: string, move: any, startFen: string, category: string, variantData?: Partial<VariantData>, premove=false) {
-  const supportedCategories = ['crazyhouse', 'bughouse', 'losers', 'wild/fr', 'wild/0', 'wild/1', 'wild/2', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
-  if(!supportedCategories.includes(category) && !premove)
+function parseVariantMove(fen: string, move: any, category?: string, startFen?: string, variantData?: Partial<VariantData>, premove=false) { 
+  const supportedCategories = ['explorer', 'crazyhouse', 'bughouse', 'losers', 'wild/fr', 'wild/0', 'wild/1', 'wild/2', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
+  if(!category || (!supportedCategories.includes(category) && !premove))
     return null;
+
+  if(!startFen)
+    startFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
   // clear en passant from FEN for premove since it confuses chess.js (and doesn't make sense for a premove)
   if(premove) {
@@ -632,12 +675,12 @@ export function adjustKingDests(dests: string[], fen: string, startFen: string, 
       });
     }
 
-    let parsedMove = parseMove(fen, 'O-O', startFen, category, null, premove);
+    let parsedMove = parseMove(fen, 'O-O', category, startFen, null, premove);
     if(parsedMove) {
       const to = category === 'wild/fr' ? rightRook : parsedMove.move.to;
       dests.push(to);
     }
-    parsedMove = parseMove(fen, 'O-O-O', startFen, category, null, premove);
+    parsedMove = parseMove(fen, 'O-O-O', category, startFen, null, premove);
     if(parsedMove) {
       const to = category === 'wild/fr' ? leftRook : parsedMove.move.to;
       dests.push(to);
@@ -1115,6 +1158,40 @@ export function moveToCoordinateString(move: any): string {
     moveStr = `${move.from}-${move.to}${move.promotion ? '=' + move.promotion : ''}`;
 
   return moveStr;
+}
+
+/**
+ * Convert rook-castling notation to standard, e.g. from e1h1 to e1g1
+ */
+export function rookCastlingToStandard(fen: string, move: any): any {
+  const outMove = { ...move };
+  
+  if(!move.from)
+    return outMove;
+  
+  const turnColor = splitFEN(fen).color;
+  const from = move.from;
+  const to = move.to;  
+
+  const pos = new Position(fen);
+  const piece = pos.get(from);
+  if(!piece || piece.type !== 'k')
+    return outMove;
+
+  if(turnColor === 'w' && from === 'e1') {
+    if(to === 'a1')
+      outMove.to = 'c1';
+    else if(to === 'h1')
+      outMove.to = 'g1';
+  }
+  else if(turnColor === 'b' && from === 'e8') {
+    if(to === 'a8')
+      outMove.to = 'c8';
+    else if(to === 'h8')
+      outMove.to = 'g8';
+  }
+
+  return outMove;
 }
 
 /**

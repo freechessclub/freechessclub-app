@@ -7,7 +7,7 @@ import { Role } from './game';
 import { Reason } from './parser';
 import { storage } from './storage';
 import { settings } from './settings';
-import { setCaretToEnd, initContentEditable, BitWriter, BitReader, zigzagEncode, zigzagDecode, logError } from './utils';
+import { setCaretToEnd, initContentEditable, BitWriter, BitReader, zigzagEncode, zigzagDecode, logError, StickyBottomScroller } from './utils';
 import { getPlyFromFEN, getMoveNoFromFEN, getTurnColorFromFEN, updateVariantMoveData, VariantData, toDests, parseMove, getNumLegalMoves, moveToLegalMoveIndex, legalMoveIndexToMove } from './chess-helper';
 import { Clock } from './clock';
 import { Game } from './game';
@@ -203,6 +203,7 @@ export class History {
   public pgn: string; // The PGN associated with this History as a string, used for lazy loading the game
   public static openings; // Opening names with corresponding moves
   public static fetchOpeningsPromise = null;
+  public static scroller = new StickyBottomScroller($('#movelist-container')[0]);
 
   public static annotations = [
     {nags: '$1', symbol: '!', description: 'Good move'},
@@ -239,7 +240,7 @@ export class History {
     this.reset(fen, wtime, btime);
     this.initMetatags();
   }
-
+ 
   public reset(fen: string, wtime: number, btime: number) {
     if(!fen)
       fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -527,6 +528,10 @@ export class History {
     this.currEntry = entry;
   }
 
+  public gotoPly(ply: number) {
+
+  }
+
   public display(entry?: HEntry, playSound = false) {
     if(entry)
       this.currEntry = entry;
@@ -580,17 +585,25 @@ export class History {
   }
 
   public find(fen: string): HEntry {
+    const ignorePly = (fen.split(' ').length === 4);
+    const isMatching = (f: string) => {
+      if(ignorePly)
+        return fen === f.split(' ').slice(0, -2).join(' ');
+      else
+        return fen === f;
+    };
+
     // Search forward and back through the current line we're in
     let c = this.currEntry;
     while(c) {
-      if(c.fen === fen)
+      if(isMatching(c.fen))
         return c;
       c = c.next;
     }
 
     c = this.currEntry.prev;
     while(c) {
-      if(c.fen === fen)
+      if(isMatching(c.fen))
         return c;
       c = c.prev;
     }
@@ -598,14 +611,14 @@ export class History {
     // Check whether the move is in a subvariation directly following the current move
     if(this.currEntry.next) {
       for(const s of this.currEntry.next.subvariations) {
-        if(s.fen === fen)
+        if(isMatching(s.fen))
           return s;
       }
     }
 
     // Check whether the move is a continuation following the currnet move
     for(const s of this.currEntry.subvariations) {
-      if(s.fen === fen)
+      if(isMatching(s.fen))
         return s;
     }
 
@@ -748,6 +761,8 @@ export class History {
 
     if(!this.currEntry.move)
       $('#movelist-container').scrollTop(0);
+
+    History.scroller.checkStuck();
   }
 
   public addMoveElements(entry: HEntry) {
@@ -1138,6 +1153,13 @@ export class History {
       storage.set('pieceglyphs', String(settings.pieceGlyphsToggle));
 
       $('#movelist-container .move').each((index, element) => {
+        if(settings.pieceGlyphsToggle)
+          this.glyphifyElement($(element));
+        else
+          this.unglyphifyElement($(element));
+      });
+
+      $('#explorer-moves .san').each((_, element) => {
         if(settings.pieceGlyphsToggle)
           this.glyphifyElement($(element));
         else
@@ -1679,7 +1701,7 @@ export class History {
         this.goto(this.first());
         return false;
       }
-      const parsed = parseMove(hEntry.fen, move, startFen, category, hEntry.variantData);
+      const parsed = parseMove(hEntry.fen, move, category, startFen, hEntry.variantData);
       let wtime = hEntry.wtime;
       let btime = hEntry.btime;
       if(!untimed) {

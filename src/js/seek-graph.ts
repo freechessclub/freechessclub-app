@@ -1,3 +1,7 @@
+// Copyright 2026 Free Chess Club.
+// Use of this source code is governed by a GPL-style
+// license that can be found in the LICENSE file.
+
 import type * as d3 from 'd3';
 import { createContextMenu, isMobile, isTouchscreen } from './utils';
 import { session } from './session';

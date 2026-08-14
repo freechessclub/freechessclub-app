@@ -187,8 +187,10 @@ export class Chat {
       $('#chat-toggle-btn').removeClass('toggle-btn-selected');
 
       const activeTab = $('#tabs button').filter('.active');
-      if(activeTab.length)
+      if(activeTab.length) {
         activeTab.trigger('hide.bs.tab');
+        activeTab.trigger('hidden.bs.tab');
+      }
 
       this.toggleMaximizeChat(false);
       const menuItem = $('#chat-toggle-menu [data-action="show-hide"]');
@@ -209,6 +211,7 @@ export class Chat {
 
     $('#collapse-chat').on('shown.bs.collapse', () => {
       const activeTab = $('#tabs button').filter('.active');
+      activeTab.trigger('show.bs.tab');
       activeTab.trigger('shown.bs.tab');
       $(window).trigger('resize');
       this.scrollToChat();
@@ -270,6 +273,14 @@ export class Chat {
     this.initEmojis();
   }
 
+  public showChatInstantly() {
+    if(!$('#collapse-chat').hasClass('show')) {
+      $('#collapse-chat').trigger('show.bs.collapse');
+      $('#collapse-chat').addClass('show');
+      $('#collapse-chat').trigger('shown.bs.collapse');
+    }
+  }
+
   public toggleMaximizeChat(maximize?: boolean) {
     const menuItem = $('#chat-toggle-menu [data-action="maximize"]');
 
@@ -284,8 +295,7 @@ export class Chat {
       if(maximize === false)
         return;
 
-      $('#collapse-chat').addClass('show');
-      $('#collapse-chat').trigger('show.bs.collapse');
+      this.showChatInstantly();
       $('#secondary-board-area').hide();
       menuItem.find('.menu-label').text('Unmaximize Chat');
     }
@@ -752,6 +762,7 @@ export class Chat {
       return;
 
     const tabElement = this.createTab(tabName);
+
     let who = '';
     if(data.user !== undefined) {
       const classes = ['clickable-user'];
@@ -822,10 +833,11 @@ export class Chat {
 
     const tabData = this.getTabDataFromElement(tabElement); 
     tabData.messages = tabData.messages.concat(`${timestamp}${who}${text}`);
-    tabData.virtualScroller.update(tabData.messages);
 
     if(this.user !== data.user || from.toLowerCase() === this.user.toLowerCase())
       this.updateViewedState(tabElement, false, data.type !== 'whisper');
+
+    tabData.virtualScroller.update(tabData.messages);
   }
 
   private ignoreUnviewed(from: string) {
@@ -874,12 +886,12 @@ export class Chat {
     });
   }
 
-  public scrollToChat() {
+  public scrollToChat(smooth = true) {
     if(isSmallWindow()) {
       if($('#secondary-board-area').is(':visible'))
-        safeScrollTo($('#chat-panel').offset().top);
+        safeScrollTo($('#chat-panel'), smooth);
       else
-        safeScrollTo($('#right-panel-header').offset().top);
+        safeScrollTo($('#right-panel-header'), smooth);
     }
   }
  
@@ -905,7 +917,7 @@ export class Chat {
 
       if(settings.chattabsToggle) {
         this.createTab(chan, true);
-        setTimeout(this.scrollToChat, 300);
+        this.scrollToChat();
       }
 
       // If user opens a channel tab, also subscribe to that channel (if not already)
@@ -943,10 +955,11 @@ export class Chat {
         if(Number.isInteger(+val) && +val <= 255 && !this.subscribedChannels.includes(val))
           session.send(`+ch ${val}`);
 
-        if(settings.chattabsToggle) {
+        if(settings.chattabsToggle) { 
           this.createTab(val, true);
-          setTimeout(this.scrollToChat, 300);
+          this.scrollToChat();
         }
+        
         elem.val('');
       } 
       else if(event.key === 'Tab') { // Tab auto-complete

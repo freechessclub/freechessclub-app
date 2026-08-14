@@ -110,6 +110,7 @@ export class Game extends GameData {
   movelistRequested = 0;               // Used to keep track of move list requests
   mexamineMovelist: string[] = null;   // Used to restore the current move after retrieving the move list when given mexamine privilages
   gameListFilter = ''                  // Stores the filter text for the game selector menu (when loading a PGN with multiple games)
+  explorerTabActive: boolean = false;  // Keeps track of whether the user is currently viewing the explorer tab for this game
 }
 
 export class GameList {
@@ -168,12 +169,12 @@ export class GameList {
     return this.gamelist.find(g => g.isPlayingOnline() || g.isExamining());
   }
 
-  public getFreeGame(): Game {
+  public getFreeGame(excludeFocused = false): Game {
     const game = this.getMainGame();
-    if(game.role === Role.NONE && !game.preserved && !game.history?.editMode && !game.setupBoard)
+    if((!excludeFocused || (game !== games.focused)) && game.role === Role.NONE && !game.preserved && !game.history?.editMode && !game.setupBoard)
       return game;
 
-    return this.gamelist.find(g => g.role === Role.NONE && !g.preserved && !g.history?.editMode && !g.setupBoard);
+    return this.gamelist.find(g => (!excludeFocused || (g !== games.focused)) && g.role === Role.NONE && !g.preserved && !g.history?.editMode && !g.setupBoard);
   }
 
   public getComputerGame(): Game {

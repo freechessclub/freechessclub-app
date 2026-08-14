@@ -328,7 +328,7 @@ export class Parser {
       // if plain text componenet, split into 2 messages
       const plainText = msg.slice(0, index).trim();
       if(plainText)
-        return [this._parse(plainText), this._parse(msg.slice(index))];
+        return [this._parse(plainText), this._parse(msg.slice(index))].flat();
 
       const offers = [];
       const lines = msg.split('\n');

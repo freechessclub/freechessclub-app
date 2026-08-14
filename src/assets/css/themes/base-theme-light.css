@@ -64,6 +64,7 @@
 
 .clock.my-turn {
   background-color: rgba(0, 0, 0, 0.125);
+  --box-shadow-color: rgba(0, 0, 0, 0.175);
 }
 .clock.low-time {
   color: red;
@@ -147,10 +148,17 @@
   --box-shadow-color: rgba(13, 110, 253, .25);
 }
 
-#game-toolbar {
+#game-toolbar, #game-opening-name {
   background-color: rgba(255, 255, 255, 0.2);
+}
+#game-toolbar {
   border-bottom-color: rgba(0, 0, 0, 0.1);
 }
+#game-opening-name {
+  border-top-color: rgba(0, 0, 0, 0.15);
+  color: color-mix(in srgb, var(--fg-color) 70%, white 30%);
+}
+
 #game-toolbar .btn {
   --bs-btn-active-color: rgba(159, 184, 228, 0.75);
 }
@@ -169,6 +177,7 @@
 }
 #move-table .selected {
   background-color: rgba(0, 0, 0, 0.1);
+  --box-shadow-color: rgba(0, 0, 0, 0.125);
 }
 #move-table .subvariation table {
   --bracket-color: #bf8090;
@@ -464,4 +473,26 @@
 }
 .color-label-dark {
   color: black;
+}
+
+#explorer {
+  --head-bg-color: color-mix(in srgb, var(--bg-color) 60%, white 40%);
+}
+.explorer-table {
+  --bs-table-color: color-mix(in srgb, var(--fg-color) 70%, white 30%);
+  --bs-table-striped-color: var(--bs-table-color);
+}
+.explorer-table > thead {
+  --bs-table-bg: var(--head-bg-color);
+  --border-color: rgba(0, 0, 0, 0.1);
+}
+#explorer-navbar {
+  background-color: var(--head-bg-color);
+}
+#explorer-navbar .btn {
+  color: color-mix(in srgb, var(--fg-color) 50%, white 50%);
+}
+.explorer-table .rating { color: #555a66; }
+.explorer-results-bar, .explorer-game-result {
+  border-color: rgba(0, 0, 0, 0.1);
 }

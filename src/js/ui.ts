@@ -222,12 +222,12 @@ export function initUi() {
   $('#settings-modal').on('show.bs.modal', () => {
     $('.settings-pane').hide();
     $('#settings-title-text').text('Settings');
-    $('#basic-settings').show();
+    $('#main-settings').show();
     $('#settings-general-tab').tab('show');
   });
 
   $('#settings-modal').on('shown.bs.modal', () => {
-    const basicSettingsHeight = $('#basic-settings').outerHeight() || 0;
+    const basicSettingsHeight = $('#main-settings').outerHeight() || 0;
     $('.settings-pane').css({
       height: 'auto',
       'min-height': `${basicSettingsHeight}px`,

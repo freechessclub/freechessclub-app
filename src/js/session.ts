@@ -137,12 +137,13 @@ export class Session {
     this.registered = false;
     this.connecting = true;
     $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
-    this.onRecv({command: 4, control: 'Connecting'});
+    this.onRecv({command: 5, control: 'Connecting'});
 
     this.websocket = new WebSocket('wss://www.freechess.org:5001');
     this.parser = new Parser(this, user, pass);
     this.websocket.onmessage = async (message: any) => {
       const data = this.parser.parse(await message.data.text());
+
       if (Array.isArray(data)) {
         data.map((m) => this.onRecv(m));
       } else {
@@ -152,11 +153,12 @@ export class Session {
 
     this.websocket.onclose = (e) => {
       const wasConnected = this.isConnected();
+      const uncleanDisconnect = wasConnected && !e.wasClean;
 
       if(this.isConnecting() || wasConnected) {
         this.reset();     
         this.onRecv({
-          command: 3,
+          command: uncleanDisconnect ? 4 : 3,
           control: 'Disconnected'
         }); // Send disconnected command to message handler
       }

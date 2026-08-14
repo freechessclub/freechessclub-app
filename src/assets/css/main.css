@@ -156,32 +156,6 @@ p.paragraph {
   display: inline-block;
   margin: 0 10px;
 }
-.feature3 {
-  padding: 60px 0;
-  border-bottom: 1px solid rgba(0,0,0,.1);
-  background-color: aliceblue;
-}
-@media (max-width: 750px) {
-  .feature3 .flex {
-    flex-wrap: wrap;
-  }
-  .feature3 .col-4:nth-of-type(1) {
-    width: 100%;
-    margin-bottom: 30px;
-  }
-  .feature3 .col-4:not(:nth-of-type(1)) {
-    width: 50%;
-  }
-}
-@media (max-width: 500px) {
-  .feature3 .col-4:nth-of-type(1) {
-    margin-bottom: 0;
-  }
-  .feature3 .col-4:not(:nth-of-type(1)) {
-    width: 100%;
-    margin-top: 30px;
-  }
-}
 
 .site-page {
   --site-ink: #17201b;
