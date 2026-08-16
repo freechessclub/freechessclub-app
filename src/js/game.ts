@@ -105,6 +105,10 @@ export class Game extends GameData {
   partnerGameId: number = null;        // bughouse partner's game id
   newVariationMode = NewVariationMode.ASK;
   preserved = false;                   // if true, prevents a game/board from being overwritten
+  endgameBot = false;                  // whether this board was opened by EndgameBot
+  endgameBotEnded = false;             // whether the current EndgameBot position has ended
+  puzzleBot = false;                   // whether this board was opened by PuzzleBot
+  puzzleBotEnded = false;              // whether the current PuzzleBot puzzle has ended
   setupBoard = false;                  // in setup-board mode or not
   commitingMovelist = false;           // Used when entering examine mode and using 'commit' to submit a move list
   movelistRequested = 0;               // Used to keep track of move list requests

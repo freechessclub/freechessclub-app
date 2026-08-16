@@ -711,7 +711,7 @@ export function insertAtCursor(element: JQuery<HTMLElement>, text: string) {
  * Set the margin of the last visible button to 0
  */
 export function showButton(button: any): boolean {
-  if(button.is(':visible'))
+  if(button[0].style.display !== 'none')
     return false;
 
   button.show();
@@ -724,7 +724,7 @@ export function showButton(button: any): boolean {
  * Set the margin of the last visible button to 0
  */
 export function hideButton(button: any): boolean {
-  if(!button.is(':visible'))
+  if(button[0].style.display === 'none')
     return false;
 
   button.hide();

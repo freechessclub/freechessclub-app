@@ -177,6 +177,10 @@ let sessionChannel: BroadcastChannel | null = null;
 let activeSessionTimer: number | null = null;
 let activeSessionOnLoad: { user: string; tabId: string; ts: number } | null = null;
 let followedTarget: string | null = null;
+let endgameBotRequestPending = false;
+let endgameBotRequestTimer: ReturnType<typeof setTimeout> | null = null;
+let puzzleBotRequestPending = false;
+let puzzleBotRequestTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Used to call session.send() from inline JS.
@@ -853,9 +857,6 @@ $(window).on('resize', () => {
   setPanelSizes(false);
 
   prevSizeCategory = Utils.getSizeCategory();
-
-  if(evalEngine)
-    evalEngine.redraw();
 });
 
 function setPanelSizes(redrawBoard = true) {
@@ -962,6 +963,8 @@ function setLeftColumnSizes(redrawBoard = true) {
       setTimeout(() => { games.getMainGame()?.board?.redrawAll(); }, 0);
   
     seekGraph.update();
+    if(evalEngine)
+      evalEngine.redraw();
     resizeExplorer();
     History.scroller.fixScroll();
   }
@@ -1294,6 +1297,8 @@ function messageHandler(data: any) {
     case MessageType.PrivateTell:
       if(handleInviteTell(data))
         return;
+      handlePuzzleBotMessage(data);
+      handleEndgameBotMessage(data);
       chat.newMessage(data.user, data);
       break;
     case MessageType.Messages:
@@ -1449,6 +1454,17 @@ function gameStart(game: Game) {
   if(game === games.focused && (!game.history || !game.history.hasSubvariation()))
     $('#exit-subvariation').hide();
 
+  if(game.isExamining() && puzzleBotRequestPending) {
+    game.puzzleBot = true;
+    game.puzzleBotEnded = false;
+    clearPuzzleBotRequest();
+  }
+  else if(game.isExamining() && endgameBotRequestPending) {
+    game.endgameBot = true;
+    game.endgameBotEnded = false;
+    clearEndgameBotRequest();
+  }
+
   // for bughouse set game.color of partner to opposite of us
   const mainGame = games.getPlayingExaminingGame();
   const partnerColor = (mainGame && mainGame.partnerGameId === game.id && mainGame.color === 'w' ? 'b' : 'w');
@@ -1596,7 +1612,7 @@ function gameStart(game: Game) {
   if(chat)
     chat.closeUnusedPrivateTabs();
 
-  openAssociatedChatTab(game);
+  openAssociatedChatTab(game, game.puzzleBot || game.endgameBot, false);
 
   if(game.isPlaying() || game.isObserving()) {
     // Adjust settings for game category (variant)
@@ -1696,6 +1712,11 @@ function gameEnd(data: any) {
   const game = games.findGame(data.game_id);
   if(!game)
     return;
+
+  if(game.puzzleBot)
+    setPuzzleBotEnded(game);
+  if(game.endgameBot)
+    setEndgameBotEnded(game);
 
   game.clock.stopClocks();
   // Set clock time to the time that the player resigns/aborts etc.
@@ -4052,6 +4073,8 @@ function updateHistory(game: Game, move?: any, fen?: string, serverIssued = true
   game.history.display(hEntry, move && !sameMove);
   if(!sameMove)
     updateEngine();
+  if(game === games.focused && game.role === Role.NONE)
+    showAnalyzeButton();
 }
 
 /** ***************
@@ -4196,7 +4219,22 @@ function initGameControls(game: Game) {
   if(!game.history || !game.history.hasSubvariation())
     $('#exit-subvariation').hide();
 
-  if(game.isPlaying()) {
+  Utils.hideWithPoppers($('#puzzlebot-game-buttons'));
+  Utils.hideWithPoppers($('#endgamebot-game-buttons'));
+
+  if(game.endgameBot && game.isExamining()) {
+    Utils.hideWithPoppers($('#playing-game-buttons'));
+    Utils.hideWithPoppers($('#viewing-game-buttons'));
+    $('#endgamebot-hint, #endgamebot-move, #endgamebot-force').prop('disabled', game.endgameBotEnded);
+    $('#endgamebot-game-buttons').show();
+  }
+  else if(game.puzzleBot && game.isExamining()) {
+    Utils.hideWithPoppers($('#playing-game-buttons'));
+    Utils.hideWithPoppers($('#viewing-game-buttons'));
+    $('#puzzlebot-hint, #puzzlebot-solve').prop('disabled', game.puzzleBotEnded);
+    $('#puzzlebot-game-buttons').show();
+  }
+  else if(game.isPlaying()) {
     Utils.hideWithPoppers($('#viewing-game-buttons'));
 
     // show Adjourn button for standard time controls or slower
@@ -4353,6 +4391,10 @@ function cleanupGame(game: Game) {
   }
 
   game.role = Role.NONE;
+  game.endgameBot = false;
+  game.endgameBotEnded = false;
+  game.puzzleBot = false;
+  game.puzzleBotEnded = false;
 
   if(game === games.focused) {
     hideHeaderFooterButton($('#stop-observing'));
@@ -4361,6 +4403,8 @@ function cleanupGame(game: Game) {
     $('#takeback').prop('disabled', false);
     $('#play-computer').prop('disabled', false);
     Utils.hideWithPoppers($('#playing-game-buttons'));
+    Utils.hideWithPoppers($('#endgamebot-game-buttons'));
+    Utils.hideWithPoppers($('#puzzlebot-game-buttons'));
     $('#viewing-game-buttons').show();
     hideLobbyStatus();
   }
@@ -4659,7 +4703,7 @@ function hideHeaderFooterButton(button: JQuery<HTMLElement>) {
   if(!Utils.hideButton(button))
     return;
   const panel = button.closest('.card-header, .card-footer');
-  if((panel.attr('id') === 'left-panel-header-2' || Utils.isSmallWindow()) && !panel.find('.btn:visible').length) 
+  if((panel.attr('id') === 'left-panel-header-2' || Utils.isSmallWindow()) && !hasVisibleButton(panel))
     hidePanel(panel);
 }
 
@@ -5839,9 +5883,152 @@ function getGame(min: number, sec: number) {
 };
 
 $('#puzzlebot').on('click', () => {
-  session.send('t puzzlebot getmate');
-  showTab($('#pills-game-tab'));
+  sendPuzzleBotCommand('getmate', true);
 });
+
+$('#puzzlebot-hint').on('click', () => {
+  sendPuzzleBotCommand('hint');
+});
+
+$('#puzzlebot-solve').on('click', () => {
+  setPuzzleBotEnded(games.focused);
+  sendPuzzleBotCommand('solve');
+});
+
+$('#puzzlebot-next').on('click', () => {
+  const game = games.focused;
+  if(game?.puzzleBot && game.isExamining())
+    session.send('unex');
+
+  // PuzzleBot's sequential next command is restricted to registered users.
+  // Guests still get a useful Next Puzzle button by loading another random mate.
+  sendPuzzleBotCommand(session.isRegistered() ? 'next' : 'getmate', true);
+});
+
+$('#puzzlebot-stop').on('click', () => {
+  clearPuzzleBotRequest();
+  sendPuzzleBotCommand('stop');
+  const game = games.focused;
+  if(game?.puzzleBot && game.isExamining())
+    session.send('unex');
+});
+
+function sendPuzzleBotCommand(command: string, loadsPuzzle = false) {
+  if(loadsPuzzle) {
+    clearEndgameBotRequest();
+    puzzleBotRequestPending = true;
+    if(puzzleBotRequestTimer)
+      clearTimeout(puzzleBotRequestTimer);
+    puzzleBotRequestTimer = setTimeout(clearPuzzleBotRequest, 10000);
+  }
+
+  session.send(`t puzzlebot ${command}`);
+  showTab($('#pills-game-tab'));
+}
+
+function clearPuzzleBotRequest() {
+  puzzleBotRequestPending = false;
+  if(puzzleBotRequestTimer)
+    clearTimeout(puzzleBotRequestTimer);
+  puzzleBotRequestTimer = null;
+}
+
+function setPuzzleBotEnded(game: Game) {
+  if(!game?.puzzleBot)
+    return;
+
+  game.puzzleBotEnded = true;
+  if(game === games.focused)
+    $('#puzzlebot-hint, #puzzlebot-solve').prop('disabled', true);
+}
+
+function handlePuzzleBotMessage(data: any) {
+  if(data.user?.toLowerCase() !== 'puzzlebot')
+    return;
+
+  if(!/You solved problem number/i.test(data.message || ''))
+    return;
+
+  for(const game of games) {
+    if(game.puzzleBot) {
+      setPuzzleBotEnded(game);
+      return;
+    }
+  }
+}
+
+$('#endgamebot').on('click', '[data-endgamebot-pieceset]', function() {
+  sendEndgameBotCommand(`play ${$(this).data('endgamebot-pieceset')}`, true);
+});
+
+$('#endgamebot-back').on('click', () => {
+  setEndgameBotEnded(games.focused, false);
+  sendEndgameBotCommand('back');
+});
+
+$('#endgamebot-hint').on('click', () => {
+  sendEndgameBotCommand('hint');
+});
+
+$('#endgamebot-move').on('click', () => {
+  sendEndgameBotCommand('move');
+});
+
+$('#endgamebot-force').on('click', () => {
+  sendEndgameBotCommand('force');
+});
+
+$('#endgamebot-stop').on('click', () => {
+  clearEndgameBotRequest();
+  sendEndgameBotCommand('stop');
+  const game = games.focused;
+  if(game?.endgameBot && game.isExamining())
+    session.send('unex');
+});
+
+function sendEndgameBotCommand(command: string, loadsEndgame = false) {
+  if(loadsEndgame) {
+    clearPuzzleBotRequest();
+    endgameBotRequestPending = true;
+    if(endgameBotRequestTimer)
+      clearTimeout(endgameBotRequestTimer);
+    endgameBotRequestTimer = setTimeout(clearEndgameBotRequest, 10000);
+  }
+
+  session.send(`t endgamebot ${command}`);
+  showTab($('#pills-game-tab'));
+}
+
+function clearEndgameBotRequest() {
+  endgameBotRequestPending = false;
+  if(endgameBotRequestTimer)
+    clearTimeout(endgameBotRequestTimer);
+  endgameBotRequestTimer = null;
+}
+
+function setEndgameBotEnded(game: Game, ended = true) {
+  if(!game?.endgameBot)
+    return;
+
+  game.endgameBotEnded = ended;
+  if(game === games.focused)
+    $('#endgamebot-hint, #endgamebot-move, #endgamebot-force').prop('disabled', ended);
+}
+
+function handleEndgameBotMessage(data: any) {
+  if(data.user?.toLowerCase() !== 'endgamebot')
+    return;
+
+  if(!/Thank you for playing endgamebot\./i.test(data.message || ''))
+    return;
+
+  for(const game of games) {
+    if(game.endgameBot) {
+      setEndgameBotEnded(game);
+      return;
+    }
+  }
+}
 
 /** LOBBY PANE FUNCTIONS **/
 
@@ -6836,7 +7023,7 @@ function canOpenAssociatedChat(game: Game) {
   return !!chat && game.id != null && (game.isPlayingOnline() || game.isObserving() || game.isExamining());
 }
 
-function openAssociatedChatTab(game: Game, showTab = false) {
+function openAssociatedChatTab(game: Game, activateTab = false, expandChat = activateTab) {
   if(!canOpenAssociatedChat(game))
     return null;
 
@@ -6846,22 +7033,22 @@ function openAssociatedChatTab(game: Game, showTab = false) {
 
   if(game.isPlayingOnline()) {
     if(bughousePartnerGameId != null)
-      tab = chat.createTab(`Game ${game.id} and ${bughousePartnerGameId}`, showTab); // Open chat room for all bughouse participants
+      tab = chat.createTab(`Game ${game.id} and ${bughousePartnerGameId}`, activateTab); // Open chat room for all bughouse participants
     else if(game.color === 'w')
-      tab = chat.createTab(game.bname, showTab);
+      tab = chat.createTab(game.bname, activateTab);
     else
-      tab = chat.createTab(game.wname, showTab);
+      tab = chat.createTab(game.wname, activateTab);
   }
   else if(mainGame && game.id === mainGame.partnerGameId) { // Open chat to bughouse partner
     if(game.color === 'w')
-      tab = chat.createTab(game.wname, showTab);
+      tab = chat.createTab(game.wname, activateTab);
     else
-      tab = chat.createTab(game.bname, showTab);
+      tab = chat.createTab(game.bname, activateTab);
   }
   else
-    tab = chat.createTab(`Game ${game.id}`, showTab);
+    tab = chat.createTab(`Game ${game.id}`, activateTab);
 
-  if(showTab) {
+  if(activateTab && expandChat) {
     $('#collapse-chat').collapse('show');
     setTimeout(() => chat.scrollToChat(), 300);
   }
@@ -8233,7 +8420,7 @@ function initStatusPanel() {
   else {
     if(games.focused.analyzing) {
       showAnalysis();
-      evalEngine?.evaluate();
+      evalEngine?.redraw();
     }
     else
       hideAnalysis();
@@ -8287,8 +8474,6 @@ function expandStatusPanel(animate = false) {
       if(!Utils.isSmallWindow())
         $('#left-panel').css('transition', '');
       setLeftColumnSizes();
-      if($('#engine-tab').is(':visible') && evalEngine)
-        evalEngine.evaluate();
     });
     $('#left-panel-bottom-content').css('height', '');
     if(!Utils.isSmallWindow()) {
@@ -8299,8 +8484,6 @@ function expandStatusPanel(animate = false) {
   else { // Instantly show panel
     $('#left-panel-bottom').removeClass('minimized');
     setLeftColumnSizes();
-    if($('#engine-tab').is(':visible') && evalEngine)
-      evalEngine.evaluate();
   }
 }
 
@@ -8448,6 +8631,9 @@ async function showOpeningName(game: Game) {
 /** ANALYSIS FUNCTIONS **/
 
 (window as any).analyze = () => {
+  if(!canAnalyzeGame(games.focused))
+    return;
+
   showAnalysis();
   expandStatusPanel();
   scrollToLeftPanelBottom();
@@ -8928,6 +9114,11 @@ function removeAutoShape(game: Game, brush: string) {
 /** STATUS PANEL SHOW/HIDE BUTTON **/
 
 $('#analyze-btn').on('click', () => {
+  if(!canAnalyzeGame(games.focused)) {
+    hideHeaderFooterButton($('#analyze-btn'));
+    return;
+  }
+
   showAnalysis();
   expandStatusPanel();
   hideHeaderFooterButton($('#analyze-btn'));
@@ -8935,10 +9126,18 @@ $('#analyze-btn').on('click', () => {
 });
 
 function showAnalyzeButton() {
-  if(!$('#engine-tab').is(':visible') && Engine.categorySupported(games.focused.category))
+  if(!$('#engine-tab').is(':visible') && canAnalyzeGame(games.focused))
     showHeaderFooterButton($('#analyze-btn'));
   else 
     hideHeaderFooterButton($('#analyze-btn'));
+}
+
+function canAnalyzeGame(game: Game) {
+  if(!game?.history || game.isPlaying() || !Engine.categorySupported(game.category))
+    return false;
+
+  const standardStart = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  return game.role !== Role.NONE || game.history.length() > 0 || game.history.first().fen !== standardStart;
 }
 
 /** ****************************

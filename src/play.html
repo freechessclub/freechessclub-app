@@ -303,16 +303,16 @@
                                     <button type="button" class="btn btn-outline-secondary btn-md" id="puzzlebot">Puzzle</button>
                                     <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Endgames</button>
                                     <ul class="dropdown-menu dropdown-menu-end" id="endgamebot">
-                                      <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kpk'); showGameTab();">kpk</a></li>
-                                      <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kbnk'); showGameTab();">kbnk</a></li>
-                                      <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kbbk'); showGameTab();">kbbk</a></li>
-                                      <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kqk'); showGameTab();">kqk</a></li>
-                                      <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play krpkr'); showGameTab();">krpkr</a></li>
-                                      <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play krk'); showGameTab();">krk</a></li>
-                                      <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kqkr'); showGameTab();">kqkr</a></li>
-                                      <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kpkp'); showGameTab();">kpkp</a></li>
-                                      <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play kqpkq'); showGameTab();">kqpkq</a></li>
-                                      <li><a class="dropdown-item" onclick="sessionSend('t endgamebot play knnkp'); showGameTab();">knnkp</a></li>
+                                      <li><a class="dropdown-item" data-endgamebot-pieceset="kpk">kpk</a></li>
+                                      <li><a class="dropdown-item" data-endgamebot-pieceset="kbnk">kbnk</a></li>
+                                      <li><a class="dropdown-item" data-endgamebot-pieceset="kbbk">kbbk</a></li>
+                                      <li><a class="dropdown-item" data-endgamebot-pieceset="kqk">kqk</a></li>
+                                      <li><a class="dropdown-item" data-endgamebot-pieceset="krpkr">krpkr</a></li>
+                                      <li><a class="dropdown-item" data-endgamebot-pieceset="krk">krk</a></li>
+                                      <li><a class="dropdown-item" data-endgamebot-pieceset="kqkr">kqkr</a></li>
+                                      <li><a class="dropdown-item" data-endgamebot-pieceset="kpkp">kpkp</a></li>
+                                      <li><a class="dropdown-item" data-endgamebot-pieceset="kqpkq">kqpkq</a></li>
+                                      <li><a class="dropdown-item" data-endgamebot-pieceset="knnkp">knnkp</a></li>
                                     </ul>
                                   </div>
                                 </div>
@@ -798,6 +798,37 @@
                   </button>
                   <button type="button" id="resign" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Resign">
                     <span class="fa-regular fa-flag" aria-hidden="false"></span>
+                  </button>
+                </div>
+                <div id="puzzlebot-game-buttons" class="button-toolbar flex-wrap w-100" style="display: none" aria-label="Puzzle controls">
+                  <button type="button" id="puzzlebot-hint" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Hint" aria-label="Hint">
+                    <span class="fa-regular fa-lightbulb" aria-hidden="true"></span>
+                  </button>
+                  <button type="button" id="puzzlebot-solve" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Show Solution" aria-label="Show Solution">
+                    <span class="fa-solid fa-list-check" aria-hidden="true"></span>
+                  </button>
+                  <button type="button" id="puzzlebot-next" class="btn btn-outline-secondary btn-md" title="Next Puzzle">
+                    Next Puzzle<span class="fa-solid fa-forward-step ms-2" aria-hidden="true"></span>
+                  </button>
+                  <button type="button" id="puzzlebot-stop" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Stop Puzzles" aria-label="Stop Puzzles">
+                    <span class="fa-solid fa-circle-xmark" aria-hidden="true"></span>
+                  </button>
+                </div>
+                <div id="endgamebot-game-buttons" class="button-toolbar flex-wrap w-100" style="display: none" aria-label="Endgame controls">
+                  <button type="button" id="endgamebot-back" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Take Back Move" aria-label="Take Back Move">
+                    <span class="fa-solid fa-rotate-left" aria-hidden="true"></span>
+                  </button>
+                  <button type="button" id="endgamebot-hint" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Hint" aria-label="Hint">
+                    <span class="fa-regular fa-lightbulb" aria-hidden="true"></span>
+                  </button>
+                  <button type="button" id="endgamebot-move" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Play Best Move" aria-label="Play Best Move">
+                    <span class="fa-solid fa-forward-step" aria-hidden="true"></span>
+                  </button>
+                  <button type="button" id="endgamebot-force" class="btn btn-outline-secondary btn-md" title="Toggle Force Mode">
+                    Force
+                  </button>
+                  <button type="button" id="endgamebot-stop" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Stop Endgame" aria-label="Stop Endgame">
+                    <span class="fa-solid fa-circle-xmark" aria-hidden="true"></span>
                   </button>
                 </div>
                 <div id="viewing-game-buttons" class="button-toolbar w-100">
