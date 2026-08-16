@@ -695,15 +695,17 @@ $(document).on('keydown', (e) => {
   }
 });
 
-$('#left-bottom-tabs')[0].addEventListener('keydown', (e) => {
-  if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-    if(e.key === 'ArrowLeft')
-      backward();
-    else if(e.key === 'ArrowRight')
-      forward();
-    e.stopImmediatePropagation();
-  }
-}, true); 
+$('#left-bottom-tabs, #pills-tab').each(function () {
+  this.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      if(e.key === 'ArrowLeft')
+        backward();
+      else if(e.key === 'ArrowRight')
+        forward();
+      e.stopImmediatePropagation();
+    }
+  }, true); 
+});
 
 /** Handle keyboard shortcuts */
 $(document).on("keydown", (e) => {
