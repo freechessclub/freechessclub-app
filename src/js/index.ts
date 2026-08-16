@@ -695,15 +695,17 @@ $(document).on('keydown', (e) => {
   }
 });
 
-$('#left-bottom-tabs')[0].addEventListener('keydown', (e) => {
-  if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-    if(e.key === 'ArrowLeft')
-      backward();
-    else if(e.key === 'ArrowRight')
-      forward();
-    e.stopImmediatePropagation();
-  }
-}, true); 
+$('#left-bottom-tabs, #pills-tab').each(function () {
+  this.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      if(e.key === 'ArrowLeft')
+        backward();
+      else if(e.key === 'ArrowRight')
+        forward();
+      e.stopImmediatePropagation();
+    }
+  }, true); 
+});
 
 /** Handle keyboard shortcuts */
 $(document).on("keydown", (e) => {
@@ -853,9 +855,6 @@ $(window).on('resize', () => {
   setPanelSizes(false);
 
   prevSizeCategory = Utils.getSizeCategory();
-
-  if(evalEngine)
-    evalEngine.redraw();
 });
 
 function setPanelSizes(redrawBoard = true) {
@@ -962,6 +961,8 @@ function setLeftColumnSizes(redrawBoard = true) {
       setTimeout(() => { games.getMainGame()?.board?.redrawAll(); }, 0);
   
     seekGraph.update();
+    if(evalEngine)
+      evalEngine.redraw();
     resizeExplorer();
     History.scroller.fixScroll();
   }
@@ -4659,7 +4660,7 @@ function hideHeaderFooterButton(button: JQuery<HTMLElement>) {
   if(!Utils.hideButton(button))
     return;
   const panel = button.closest('.card-header, .card-footer');
-  if((panel.attr('id') === 'left-panel-header-2' || Utils.isSmallWindow()) && !panel.find('.btn:visible').length) 
+  if((panel.attr('id') === 'left-panel-header-2' || Utils.isSmallWindow()) && !hasVisibleButton(panel)) 
     hidePanel(panel);
 }
 
