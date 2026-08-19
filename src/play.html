@@ -299,8 +299,16 @@
                                       <use href="#icon-info" />
                                     </svg>
                                   </div>
-                                  <div class="btn-group dropdown position-static" role="group" aria-label="Study">
-                                    <button type="button" class="btn btn-outline-secondary btn-md" id="puzzlebot">Puzzle</button>
+                                  <div class="btn-group dropdown position-static" role="group" aria-label="Puzzle type">
+                                    <button type="button" class="btn btn-outline-secondary btn-md" id="puzzlebot" data-puzzlebot-command="getmate">Mate Puzzle</button>
+                                    <button class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Select puzzle type"></button>
+                                    <ul class="dropdown-menu" id="puzzlebot-types">
+                                      <li><a class="dropdown-item" data-puzzlebot-command="getmate">Mate Puzzle</a></li>
+                                      <li><a class="dropdown-item" data-puzzlebot-command="gettactics">Tactics Puzzle</a></li>
+                                      <li><a class="dropdown-item" data-puzzlebot-command="getstudy">Chess Study</a></li>
+                                    </ul>
+                                  </div>
+                                  <div class="btn-group dropdown position-static" role="group" aria-label="Endgame type">
                                     <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Endgames</button>
                                     <ul class="dropdown-menu dropdown-menu-end" id="endgamebot">
                                       <li><a class="dropdown-item" data-endgamebot-pieceset="kpk">kpk</a></li>

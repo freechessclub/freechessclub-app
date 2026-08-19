@@ -180,7 +180,11 @@ let followedTarget: string | null = null;
 let endgameBotRequestPending = false;
 let endgameBotRequestTimer: ReturnType<typeof setTimeout> | null = null;
 let puzzleBotRequestPending = false;
+let puzzleBotRequestCommand = 'getmate';
 let puzzleBotRequestTimer: ReturnType<typeof setTimeout> | null = null;
+let botResponseTarget: string | null = null;
+let activeBotResponsePopover: string | null = null;
+let botResponsePopoverTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Used to call session.send() from inline JS.
@@ -1292,6 +1296,8 @@ function messageHandler(data: any) {
       }
       break;
     case MessageType.ChannelTell:
+      handlePuzzleBotMessage(data);
+      handleEndgameBotMessage(data);
       chat.newMessage(data.channel, data);
       break;
     case MessageType.PrivateTell:
@@ -1457,6 +1463,7 @@ function gameStart(game: Game) {
   if(game.isExamining() && puzzleBotRequestPending) {
     game.puzzleBot = true;
     game.puzzleBotEnded = false;
+    game.puzzleBotCommand = puzzleBotRequestCommand;
     clearPuzzleBotRequest();
   }
   else if(game.isExamining() && endgameBotRequestPending) {
@@ -2952,6 +2959,9 @@ function handleMiscMessage(data: any) {
 export function cleanup() {
   chat?.cleanup();
   tournaments?.cleanup();
+  clearPuzzleBotRequest();
+  clearEndgameBotRequest();
+  clearBotResponsePopover();
   awaiting.clearAll();
   setFollowedTarget(null);
   partnerGameId = null;
@@ -4231,7 +4241,7 @@ function initGameControls(game: Game) {
   else if(game.puzzleBot && game.isExamining()) {
     Utils.hideWithPoppers($('#playing-game-buttons'));
     Utils.hideWithPoppers($('#viewing-game-buttons'));
-    $('#puzzlebot-hint, #puzzlebot-solve').prop('disabled', game.puzzleBotEnded);
+    updatePuzzleBotControls(game);
     $('#puzzlebot-game-buttons').show();
   }
   else if(game.isPlaying()) {
@@ -4395,6 +4405,7 @@ function cleanupGame(game: Game) {
   game.endgameBotEnded = false;
   game.puzzleBot = false;
   game.puzzleBotEnded = false;
+  game.puzzleBotCommand = 'getmate';
 
   if(game === games.focused) {
     hideHeaderFooterButton($('#stop-observing'));
@@ -5882,15 +5893,23 @@ function getGame(min: number, sec: number) {
     $('#opponent-player-name').attr('placeholder', 'Anyone');
 };
 
-$('#puzzlebot').on('click', () => {
-  sendPuzzleBotCommand('getmate', true);
+$('#puzzlebot').on('click', function() {
+  sendPuzzleBotCommand($(this).data('puzzlebot-command') || 'getmate', true);
+});
+
+$('#puzzlebot-types').on('click', '[data-puzzlebot-command]', function() {
+  const command = $(this).data('puzzlebot-command');
+  $('#puzzlebot').text($(this).text()).data('puzzlebot-command', command);
+  sendPuzzleBotCommand(command, true);
 });
 
 $('#puzzlebot-hint').on('click', () => {
+  expectBotResponse('#puzzlebot-hint');
   sendPuzzleBotCommand('hint');
 });
 
 $('#puzzlebot-solve').on('click', () => {
+  expectBotResponse('#puzzlebot-solve');
   setPuzzleBotEnded(games.focused);
   sendPuzzleBotCommand('solve');
 });
@@ -5900,13 +5919,12 @@ $('#puzzlebot-next').on('click', () => {
   if(game?.puzzleBot && game.isExamining())
     session.send('unex');
 
-  // PuzzleBot's sequential next command is restricted to registered users.
-  // Guests still get a useful Next Puzzle button by loading another random mate.
-  sendPuzzleBotCommand(session.isRegistered() ? 'next' : 'getmate', true);
+  sendPuzzleBotCommand(game?.puzzleBotCommand || 'getmate', true);
 });
 
 $('#puzzlebot-stop').on('click', () => {
   clearPuzzleBotRequest();
+  clearBotResponsePopover();
   sendPuzzleBotCommand('stop');
   const game = games.focused;
   if(game?.puzzleBot && game.isExamining())
@@ -5914,16 +5932,21 @@ $('#puzzlebot-stop').on('click', () => {
 });
 
 function sendPuzzleBotCommand(command: string, loadsPuzzle = false) {
-  if(loadsPuzzle) {
-    clearEndgameBotRequest();
-    puzzleBotRequestPending = true;
-    if(puzzleBotRequestTimer)
-      clearTimeout(puzzleBotRequestTimer);
-    puzzleBotRequestTimer = setTimeout(clearPuzzleBotRequest, 10000);
-  }
+  if(loadsPuzzle)
+    beginPuzzleBotRequest(command);
 
   session.send(`t puzzlebot ${command}`);
   showTab($('#pills-game-tab'));
+}
+
+function beginPuzzleBotRequest(command: string) {
+  clearEndgameBotRequest();
+  clearBotResponsePopover();
+  puzzleBotRequestPending = true;
+  puzzleBotRequestCommand = command;
+  if(puzzleBotRequestTimer)
+    clearTimeout(puzzleBotRequestTimer);
+  puzzleBotRequestTimer = setTimeout(clearPuzzleBotRequest, 10000);
 }
 
 function clearPuzzleBotRequest() {
@@ -5933,18 +5956,27 @@ function clearPuzzleBotRequest() {
   puzzleBotRequestTimer = null;
 }
 
-function setPuzzleBotEnded(game: Game) {
+function setPuzzleBotEnded(game: Game, ended = true) {
   if(!game?.puzzleBot)
     return;
 
-  game.puzzleBotEnded = true;
+  game.puzzleBotEnded = ended;
   if(game === games.focused)
-    $('#puzzlebot-hint, #puzzlebot-solve').prop('disabled', true);
+    updatePuzzleBotControls(game);
+}
+
+function updatePuzzleBotControls(game: Game) {
+  $('#puzzlebot-hint, #puzzlebot-solve').prop('disabled', game.puzzleBotEnded);
+  $('#puzzlebot-next')
+    .toggleClass('btn-success', game.puzzleBotEnded)
+    .toggleClass('btn-outline-secondary', !game.puzzleBotEnded);
 }
 
 function handlePuzzleBotMessage(data: any) {
   if(data.user?.toLowerCase() !== 'puzzlebot')
     return;
+
+  showExpectedBotResponse(data.message);
 
   if(!/You solved problem number/i.test(data.message || ''))
     return;
@@ -5962,15 +5994,18 @@ $('#endgamebot').on('click', '[data-endgamebot-pieceset]', function() {
 });
 
 $('#endgamebot-back').on('click', () => {
+  clearBotResponsePopover();
   setEndgameBotEnded(games.focused, false);
   sendEndgameBotCommand('back');
 });
 
 $('#endgamebot-hint').on('click', () => {
+  expectBotResponse('#endgamebot-hint');
   sendEndgameBotCommand('hint');
 });
 
 $('#endgamebot-move').on('click', () => {
+  expectBotResponse('#endgamebot-move');
   sendEndgameBotCommand('move');
 });
 
@@ -5980,6 +6015,7 @@ $('#endgamebot-force').on('click', () => {
 
 $('#endgamebot-stop').on('click', () => {
   clearEndgameBotRequest();
+  clearBotResponsePopover();
   sendEndgameBotCommand('stop');
   const game = games.focused;
   if(game?.endgameBot && game.isExamining())
@@ -5987,16 +6023,20 @@ $('#endgamebot-stop').on('click', () => {
 });
 
 function sendEndgameBotCommand(command: string, loadsEndgame = false) {
-  if(loadsEndgame) {
-    clearPuzzleBotRequest();
-    endgameBotRequestPending = true;
-    if(endgameBotRequestTimer)
-      clearTimeout(endgameBotRequestTimer);
-    endgameBotRequestTimer = setTimeout(clearEndgameBotRequest, 10000);
-  }
+  if(loadsEndgame)
+    beginEndgameBotRequest();
 
   session.send(`t endgamebot ${command}`);
   showTab($('#pills-game-tab'));
+}
+
+function beginEndgameBotRequest() {
+  clearPuzzleBotRequest();
+  clearBotResponsePopover();
+  endgameBotRequestPending = true;
+  if(endgameBotRequestTimer)
+    clearTimeout(endgameBotRequestTimer);
+  endgameBotRequestTimer = setTimeout(clearEndgameBotRequest, 10000);
 }
 
 function clearEndgameBotRequest() {
@@ -6019,6 +6059,8 @@ function handleEndgameBotMessage(data: any) {
   if(data.user?.toLowerCase() !== 'endgamebot')
     return;
 
+  showExpectedBotResponse(data.message);
+
   if(!/Thank you for playing endgamebot\./i.test(data.message || ''))
     return;
 
@@ -6028,6 +6070,61 @@ function handleEndgameBotMessage(data: any) {
       return;
     }
   }
+}
+
+function expectBotResponse(target: string) {
+  clearBotResponsePopover();
+  botResponseTarget = target;
+}
+
+function showExpectedBotResponse(message: string) {
+  if(!botResponseTarget || !message)
+    return;
+
+  const target = botResponseTarget;
+  botResponseTarget = null;
+  const button = $(target);
+  button.tooltip('hide');
+  button.popover({
+    content: message,
+    container: 'body',
+    placement: 'top',
+    trigger: 'manual'
+  });
+  button.popover('show');
+  activeBotResponsePopover = target;
+  botResponsePopoverTimer = setTimeout(clearBotResponsePopover, 10000);
+}
+
+function clearBotResponsePopover() {
+  botResponseTarget = null;
+  if(botResponsePopoverTimer)
+    clearTimeout(botResponsePopoverTimer);
+  botResponsePopoverTimer = null;
+  if(activeBotResponsePopover)
+    $(activeBotResponsePopover).popover('dispose');
+  activeBotResponsePopover = null;
+}
+
+function trackTrainingBotCommand(command: string) {
+  const match = command.match(/^\s*(?:t|te|tel|tell)\s+(puzzlebot|endgamebot)\s+(.+)$/i);
+  if(!match)
+    return;
+
+  const bot = match[1].toLowerCase();
+  const botCommand = match[2].trim().toLowerCase();
+  if(bot === 'puzzlebot') {
+    const loadCommand = getPuzzleBotLoadCommand(botCommand);
+    if(loadCommand)
+      beginPuzzleBotRequest(loadCommand);
+  }
+  else if(/^play(?:\s|$)/i.test(botCommand))
+    beginEndgameBotRequest();
+}
+
+function getPuzzleBotLoadCommand(command: string) {
+  const match = command.match(/^(gm|getmate|gt|gettactics|gs|getstudy)(?:[1-4])?(?:\s+\d+)?$/i);
+  return match ? command.split(/\s+/, 1)[0] : null;
 }
 
 /** LOBBY PANE FUNCTIONS **/
@@ -9674,6 +9771,8 @@ $('#input-form').on('submit', (event) => {
   }
   else
     text = val;
+
+  trackTrainingBotCommand(text);
 
   // Check if input is a chat command, and if so do processing on the message before sending
   let chatCmd: string;
