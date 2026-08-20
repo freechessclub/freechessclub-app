@@ -368,6 +368,50 @@ export function createTooltip(element: JQuery<HTMLElement>) {
   });
 }
 
+// Listeners and functions for getting rid of orphan tooltips
+
+document.addEventListener('hide.bs.tab', event => {
+  const tab = event.target as Element;
+  const panel = document.querySelector(
+    tab.getAttribute('data-bs-target')
+  );
+  panel?.querySelectorAll('*').forEach(el => {
+    bootstrap.Tooltip.getInstance(el)?.hide();
+  });
+});
+
+document.addEventListener('hide.bs.modal', event => {
+  const modal = event.target as Element;
+
+  modal?.querySelectorAll('*').forEach(el => {
+    bootstrap.Tooltip.getInstance(el)?.hide();
+  });
+});
+
+// tooltip overlays are used for elements such as dropdowns and collapsables where we usually
+// want to hide the tooltip when the button is clicked
+$(document).on('click', '.tooltip-overlay', (event) => {
+  $(event.target).tooltip('hide');
+});
+
+/**
+ * Removes an element from the DOM with any tooltips and popovers associated with it
+ */
+export function removeWithPoppers(element: JQuery<HTMLElement>) {
+  element.find('[data-bs-toggle="tooltip"]').tooltip('dispose');
+  element.find('[data-bs-toggle="popover"]').popover('dispose');
+  element.remove();
+}
+
+/**
+ * Hides an element from the DOM with any tooltips and popovers associated with it
+ */
+export function hideWithPoppers(element: JQuery<HTMLElement>) {
+  element.find('[data-bs-toggle="tooltip"]').tooltip('hide');
+  element.find('[data-bs-toggle="popover"]').popover('hide');
+  element.hide();
+}
+
 /** Manual showing / hiding of tooltips on mobile **/
 
 /** Show / hide tooltips when the user clicks */
@@ -417,30 +461,6 @@ function getTooltipTrigger(target: Element): HTMLElement | null {
   }
 
   return null;
-}
-
-// tooltip overlays are used for elements such as dropdowns and collapsables where we usually
-// want to hide the tooltip when the button is clicked
-$(document).on('click', '.tooltip-overlay', (event) => {
-  $(event.target).tooltip('hide');
-});
-
-/**
- * Removes an element from the DOM with any tooltips and popovers associated with it
- */
-export function removeWithPoppers(element: JQuery<HTMLElement>) {
-  element.find('[data-bs-toggle="tooltip"]').tooltip('dispose');
-  element.find('[data-bs-toggle="popover"]').popover('dispose');
-  element.remove();
-}
-
-/**
- * Hides an element from the DOM with any tooltips and popovers associated with it
- */
-export function hideWithPoppers(element: JQuery<HTMLElement>) {
-  element.find('[data-bs-toggle="tooltip"]').tooltip('hide');
-  element.find('[data-bs-toggle="popover"]').popover('hide');
-  element.hide();
 }
 
 /** MISC HELPER FUNCTIONS **/

@@ -7,7 +7,6 @@ import 'assets/css/application.css';
 
 import { Importance } from '@capawesome-team/capacitor-android-foreground-service';
 import { Chessground } from 'chessground';
-import { Polyglot } from 'cm-polyglot/src/Polyglot.js';
 import type * as PgnParser from '@mliebelt/pgn-parser';
 import NoSleep from '@uriopass/nosleep.js'; // Prevent screen dimming
 import * as Utils from './utils';
@@ -130,7 +129,6 @@ let lobbyEntries = [];
 let lobbyCounter = 0;
 const noSleep = new NoSleep(); // Prevent screen dimming
 let screenWakeLockPending = false;
-let book; // Opening book used in 'Play Computer' mode
 let isRegistered = false;
 let lastComputerGame = null; // Attributes of the last game played against the Computer. Used for Rematch and alternating colors each game.
 let partnerGameId = null;
@@ -703,15 +701,17 @@ $(document).on('keydown', (e) => {
   }
 });
 
-$('#left-bottom-tabs')[0].addEventListener('keydown', (e) => {
-  if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-    if(e.key === 'ArrowLeft')
-      backward();
-    else if(e.key === 'ArrowRight')
-      forward();
-    e.stopImmediatePropagation();
-  }
-}, true); 
+$('#left-bottom-tabs, #pills-tab').each(function () {
+  this.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      if(e.key === 'ArrowLeft')
+        backward();
+      else if(e.key === 'ArrowRight')
+        forward();
+      e.stopImmediatePropagation();
+    }
+  }, true);
+});
 
 /** Handle keyboard shortcuts */
 $(document).on("keydown", (e) => {
@@ -5165,7 +5165,7 @@ async function getComputerMove(game: Game) {
       for(const bm of bookMoves) {
         probability += bm.weight / totalWeight; // polyglot moves are weighted based on number of wins and draws
         if(rValue <= probability) {
-          bookMove = `${bm.from}${bm.to}`;
+          bookMove = bm.uci;
           break;
         }
       }
@@ -5178,12 +5178,30 @@ async function getComputerMove(game: Game) {
     playEngine.move(game.history.last());
 }
 
-async function getBookMoves(fen: string): Promise<any[]> {
-  if(!book)
-    book = new Polyglot('assets/data/gm2600.bin');
+/** For loading the opening book */
+let bookPromise: Promise<{
+  polyglotBook: typeof import('polyglot-book-js');
+  bookData: ArrayBuffer;
+}> | undefined;
 
-  const entries = await book.getMovesFromFen(fen);
-  return entries;
+/** Load the opening book (used by Play Computer and move rating icons) */
+function getBook() {
+  if(!bookPromise) {
+    bookPromise = (async () => {
+      const polyglotBook = await import('polyglot-book-js');
+      const response = await fetch('assets/data/gm2600.bin');
+      const bookData = await response.arrayBuffer();
+      return { polyglotBook, bookData };
+    })();
+  }
+
+  return bookPromise;
+}
+
+/** Get the opening book moves for the specified fen */
+async function getBookMoves(fen: string): Promise<any[]> {
+  const { polyglotBook, bookData } = await getBook();
+  return polyglotBook.getBookMoves(fen, bookData);
 }
 
 (window as any).rematchComputer = () => {

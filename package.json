@@ -71,13 +71,13 @@
     "builder-util-runtime": "^9.2.10",
     "chess.js": "^0.12.1",
     "chessground": "^9.0.4",
-    "cm-polyglot": "^1.1.0",
     "d3": "^7.8.0",
     "electron-updater": "6.8.9",
     "emoji-mart": "^5.6.0",
     "jquery": "^4.0.0",
     "js-cookie": "^3.0.1",
     "onnxruntime-web": "^1.24.3",
+    "polyglot-book-js": "^1.0.0",
     "virtual-scroller": "^1.13.1"
   },
   "devDependencies": {
