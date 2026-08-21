@@ -23,6 +23,9 @@ import { Engine, EvalEngine, MaiaEngine } from './engine';
 import { Game, GameData, Role, NewVariationMode, games } from './game';
 import { History, HEntry } from './history';
 import { GetMessageType, MessageType, session, createSession } from './session';
+import { PuzzleBotState } from './puzzlebot';
+import { EndgameBotState } from './endgamebot';
+import { TrainingBotKind } from './trainingbot';
 import * as Sounds from './sounds';
 import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
@@ -175,6 +178,13 @@ let sessionChannel: BroadcastChannel | null = null;
 let activeSessionTimer: number | null = null;
 let activeSessionOnLoad: { user: string; tabId: string; ts: number } | null = null;
 let followedTarget: string | null = null;
+let queuedEndgameBotCommand: string | null = null;
+let trainingBotRequest: {
+  kind: TrainingBotKind;
+  command: string;
+  messages: string[];
+  timer: ReturnType<typeof setTimeout> | null;
+} | null = null;
 
 /**
  * Used to call session.send() from inline JS.
@@ -702,7 +712,7 @@ $('#left-bottom-tabs, #pills-tab').each(function () {
         forward();
       e.stopImmediatePropagation();
     }
-  }, true); 
+  }, true);
 });
 
 /** Handle keyboard shortcuts */
@@ -1288,11 +1298,15 @@ function messageHandler(data: any) {
       }
       break;
     case MessageType.ChannelTell:
+      if(handleTrainingBotMessage(data))
+        break;
       chat.newMessage(data.channel, data);
       break;
     case MessageType.PrivateTell:
       if(handleInviteTell(data))
         return;
+      if(handleTrainingBotMessage(data))
+        break;
       chat.newMessage(data.user, data);
       break;
     case MessageType.Messages:
@@ -1447,6 +1461,14 @@ function gameStart(game: Game) {
   game.board.cancelMove();
   if(game === games.focused && (!game.history || !game.history.hasSubvariation()))
     $('#exit-subvariation').hide();
+
+  if(game.isExamining() && trainingBotRequest) {
+    const request = trainingBotRequest;
+    game.trainingBot = request.kind === 'puzzle'
+      ? new PuzzleBotState(request.command, request.messages)
+      : new EndgameBotState(request.command, request.messages);
+    clearTrainingBotRequest();
+  }
 
   // for bughouse set game.color of partner to opposite of us
   const mainGame = games.getPlayingExaminingGame();
@@ -1695,6 +1717,9 @@ function gameEnd(data: any) {
   const game = games.findGame(data.game_id);
   if(!game)
     return;
+
+  if(game.trainingBot)
+    setTrainingBotEnded(game);
 
   game.clock.stopClocks();
   // Set clock time to the time that the player resigns/aborts etc.
@@ -2050,7 +2075,7 @@ function handleMiscMessage(data: any) {
         }
       }
       game.statusElement.find('.game-watchers').html(req);
-      game.statusElement.find('.game-watchers').toggle(!!req);
+      game.statusElement.find('.game-watchers').toggle(!!req && !game.trainingBot);
       return;
     }
     chat.newMessage('console', data);
@@ -2930,6 +2955,8 @@ function handleMiscMessage(data: any) {
 export function cleanup() {
   chat?.cleanup();
   tournaments?.cleanup();
+  clearTrainingBotRequest();
+  queuedEndgameBotCommand = null;
   awaiting.clearAll();
   setFollowedTarget(null);
   partnerGameId = null;
@@ -3476,6 +3503,12 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     sendMove(move);
 
   if(game.isExamining()) {
+    if(game.trainingBot) {
+      game.trainingBot.submitMove();
+      updateTrainingBotControls(game);
+      updateTrainingBotStatus(game);
+    }
+
     let nextMoveMatches = false;
     if(nextMove
         && ((!move.from && !nextMove.from && move.piece === nextMove.piece) || move.from === nextMove.from)
@@ -4051,6 +4084,8 @@ function updateHistory(game: Game, move?: any, fen?: string, serverIssued = true
   game.history.display(hEntry, move && !sameMove);
   if(!sameMove)
     updateEngine();
+  if(game === games.focused && game.role === Role.NONE)
+    showAnalyzeButton();
 }
 
 /** ***************
@@ -4195,7 +4230,28 @@ function initGameControls(game: Game) {
   if(!game.history || !game.history.hasSubvariation())
     $('#exit-subvariation').hide();
 
-  if(game.isPlaying()) {
+  Utils.hideWithPoppers($('#puzzlebot-game-buttons'));
+  Utils.hideWithPoppers($('#endgamebot-game-buttons'));
+  $('#left-panel-bottom').toggleClass('trainingbot-active', !!game.trainingBot && game.isExamining());
+  game.statusElement.find('.trainingbot-status').hide();
+  game.statusElement.find('.game-status-outer').show();
+  game.statusElement.find('.game-watchers').toggle(!!game.statusElement.find('.game-watchers').html());
+
+  if(game.trainingBot?.kind === 'endgame' && game.isExamining()) {
+    Utils.hideWithPoppers($('#playing-game-buttons'));
+    Utils.hideWithPoppers($('#viewing-game-buttons'));
+    updateTrainingBotControls(game);
+    updateTrainingBotStatus(game);
+    $('#endgamebot-game-buttons').show();
+  }
+  else if(game.trainingBot?.kind === 'puzzle' && game.isExamining()) {
+    Utils.hideWithPoppers($('#playing-game-buttons'));
+    Utils.hideWithPoppers($('#viewing-game-buttons'));
+    updateTrainingBotControls(game);
+    updateTrainingBotStatus(game);
+    $('#puzzlebot-game-buttons').show();
+  }
+  else if(game.isPlaying()) {
     Utils.hideWithPoppers($('#viewing-game-buttons'));
 
     // show Adjourn button for standard time controls or slower
@@ -4346,20 +4402,28 @@ function removeGame(game: Game) {
 }
 
 function cleanupGame(game: Game) {
+  const restartEndgameBot = game.trainingBot?.kind === 'endgame' ? queuedEndgameBotCommand : null;
   if(playEngine && game.role === Role.PLAYING_COMPUTER) {
     playEngine.terminate();
     playEngine = null;
   }
 
   game.role = Role.NONE;
+  game.trainingBot = null;
+  game.statusElement.find('.trainingbot-status').hide();
+  game.statusElement.find('.game-status-outer').show();
+  game.statusElement.find('.game-watchers').toggle(!!game.statusElement.find('.game-watchers').html());
 
   if(game === games.focused) {
+    $('#left-panel-bottom').removeClass('trainingbot-active');
     hideHeaderFooterButton($('#stop-observing'));
     hideHeaderFooterButton($('#stop-examining'));
     hidePanel('#left-panel-header-2');
     $('#takeback').prop('disabled', false);
     $('#play-computer').prop('disabled', false);
     Utils.hideWithPoppers($('#playing-game-buttons'));
+    Utils.hideWithPoppers($('#endgamebot-game-buttons'));
+    Utils.hideWithPoppers($('#puzzlebot-game-buttons'));
     $('#viewing-game-buttons').show();
     hideLobbyStatus();
   }
@@ -4400,6 +4464,11 @@ function cleanupGame(game: Game) {
   game.pendingMoves = [];
   game.restoreMove = null;
   updateScreenWakeLock();
+
+  if(restartEndgameBot) {
+    queuedEndgameBotCommand = null;
+    setTimeout(() => sendEndgameBotCommand(restartEndgameBot, true));
+  }
 }
 
 /** *********************
@@ -4658,7 +4727,7 @@ function hideHeaderFooterButton(button: JQuery<HTMLElement>) {
   if(!Utils.hideButton(button))
     return;
   const panel = button.closest('.card-header, .card-footer');
-  if((panel.attr('id') === 'left-panel-header-2' || Utils.isSmallWindow()) && !hasVisibleButton(panel)) 
+  if((panel.attr('id') === 'left-panel-header-2' || Utils.isSmallWindow()) && !hasVisibleButton(panel))
     hidePanel(panel);
 }
 
@@ -5855,10 +5924,244 @@ function getGame(min: number, sec: number) {
     $('#opponent-player-name').attr('placeholder', 'Anyone');
 };
 
-$('#puzzlebot').on('click', () => {
-  session.send('t puzzlebot getmate');
-  showTab($('#pills-game-tab'));
+$('#puzzlebot-types').on('click', '[data-puzzlebot-command]', function() {
+  const command = $(this).data('puzzlebot-command');
+  const game = games.focused;
+  if(game?.trainingBot?.kind === 'puzzle' && game.isExamining())
+    game.trainingBot.nextCommand = command;
+  else
+    sendPuzzleBotCommand(command, true);
 });
+
+$('#puzzlebot-hint').on('click', () => {
+  const game = games.focused;
+  if(game?.trainingBot?.kind === 'puzzle') {
+    game.trainingBot.requestFeedback();
+    updateTrainingBotControls(game);
+    updateTrainingBotStatus(game);
+  }
+  sendPuzzleBotCommand('hint');
+});
+
+$('#puzzlebot-solve').on('click', () => {
+  const game = games.focused;
+  if(game?.trainingBot instanceof PuzzleBotState) {
+    game.trainingBot.requestSolution();
+    updateTrainingBotControls(game);
+    updateTrainingBotStatus(game);
+  }
+  sendPuzzleBotCommand('solve');
+});
+
+$('#puzzlebot-next').on('click', () => {
+  const game = games.focused;
+  const command = game?.trainingBot?.kind === 'puzzle'
+    ? game.trainingBot.nextCommand
+    : 'getmate';
+  if(game?.trainingBot?.kind === 'puzzle' && game.isExamining())
+    session.send('unex');
+
+  sendPuzzleBotCommand(command, true);
+});
+
+$('#puzzlebot-stop').on('click', () => {
+  clearTrainingBotRequest('puzzle');
+  sendPuzzleBotCommand('stop');
+  const game = games.focused;
+  if(game?.trainingBot?.kind === 'puzzle' && game.isExamining())
+    session.send('unex');
+});
+
+function sendPuzzleBotCommand(command: string, loadsPuzzle = false) {
+  if(loadsPuzzle)
+    beginTrainingBotRequest('puzzle', command);
+
+  session.send(`t puzzlebot ${command}`);
+  showTab($('#pills-game-tab'));
+}
+
+$('#endgamebot').on('click', '[data-endgamebot-pieceset]', function() {
+  sendEndgameBotCommand(`play -f ${$(this).data('endgamebot-pieceset')}`, true);
+});
+
+$('#endgamebot-hint').on('click', () => {
+  requestTrainingBotFeedback('endgame');
+  sendEndgameBotCommand('hint');
+});
+
+$('#endgamebot-move').on('click', () => {
+  requestTrainingBotFeedback('endgame');
+  sendEndgameBotCommand('move');
+});
+
+$('#endgamebot-new').on('click', () => {
+  const game = games.focused;
+  if(game?.trainingBot?.kind !== 'endgame')
+    return;
+
+  queuedEndgameBotCommand = game.trainingBot.nextCommand;
+  clearTrainingBotRequest('endgame');
+  session.send('unex');
+});
+
+$('#endgamebot-stop').on('click', () => {
+  const game = games.focused;
+  clearTrainingBotRequest('endgame');
+  sendEndgameBotCommand('stop');
+  if(game?.trainingBot?.kind === 'endgame' && game.isExamining())
+    session.send('unex');
+});
+
+function sendEndgameBotCommand(command: string, loadsEndgame = false) {
+  if(loadsEndgame)
+    beginTrainingBotRequest('endgame', command);
+
+  session.send(`t endgamebot ${command}`);
+  showTab($('#pills-game-tab'));
+}
+
+function setTrainingBotEnded(game: Game) {
+  if(!game?.trainingBot)
+    return;
+
+  game.trainingBot.finish();
+  if(game === games.focused) {
+    updateTrainingBotControls(game);
+    updateTrainingBotStatus(game);
+  }
+}
+
+function requestTrainingBotFeedback(kind: TrainingBotKind) {
+  const game = games.focused;
+  if(game?.trainingBot?.kind !== kind)
+    return;
+
+  game.trainingBot.requestFeedback();
+  updateTrainingBotStatus(game);
+}
+
+function updateTrainingBotControls(game: Game) {
+  const state = game?.trainingBot;
+  if(!state)
+    return;
+
+  const ended = state.ended;
+  const wrongMove = state.wrongMove && !ended;
+  if(state.kind === 'puzzle') {
+    $('#puzzlebot-hint')
+      .prop('disabled', ended)
+      .toggleClass('btn-warning', wrongMove)
+      .toggleClass('btn-outline-secondary', !wrongMove);
+    $('#puzzlebot-solve').prop('disabled', ended);
+    $('#puzzlebot-next')
+      .toggleClass('btn-success', ended)
+      .toggleClass('btn-outline-secondary', !ended);
+    return;
+  }
+
+  $('#endgamebot-hint, #endgamebot-move')
+    .prop('disabled', ended);
+  $('#endgamebot-hint')
+    .toggleClass('btn-warning', wrongMove)
+    .toggleClass('btn-outline-secondary', !wrongMove);
+  $('#endgamebot-new')
+    .toggleClass('btn-success', ended)
+    .toggleClass('btn-outline-secondary', !ended);
+}
+
+function updateTrainingBotStatus(game: Game) {
+  const state = game?.trainingBot;
+  if(!state)
+    return;
+
+  const status = game.statusElement.find('.trainingbot-status');
+  status.find('.trainingbot-objective').text(state.objectiveText);
+  status.find('.trainingbot-feedback')
+    .text(state.feedbackText)
+    .toggle(!!state.feedbackText);
+  game.statusElement.find('.game-status-outer, .game-watchers').hide();
+  status.show();
+
+  if(game === games.focused)
+    expandStatusPanel();
+}
+
+function getTrainingBotGame(kind: TrainingBotKind) {
+  if(games.focused?.trainingBot?.kind === kind)
+    return games.focused;
+
+  for(const game of games) {
+    if(game.trainingBot?.kind === kind)
+      return game;
+  }
+  return null;
+}
+
+function handleTrainingBotMessage(data: any) {
+  const user = data.user?.toLowerCase();
+  const kind: TrainingBotKind = user === 'puzzlebot'
+    ? 'puzzle'
+    : user === 'endgamebot' ? 'endgame' : null;
+  if(!kind)
+    return false;
+
+  const message = data.message || '';
+  const game = getTrainingBotGame(kind);
+  const request = trainingBotRequest?.kind === kind ? trainingBotRequest : null;
+  const intercepted = !!game || !!request;
+
+  if(game) {
+    game.trainingBot.recordMessage(message);
+    if(game === games.focused) {
+      updateTrainingBotControls(game);
+      updateTrainingBotStatus(game);
+    }
+  }
+  else if(request && message.trim())
+    request.messages.push(message.trim());
+
+  return intercepted;
+}
+
+function beginTrainingBotRequest(kind: TrainingBotKind, command: string) {
+  clearTrainingBotRequest();
+  const request = { kind, command, messages: [], timer: null };
+  request.timer = setTimeout(() => {
+    if(trainingBotRequest === request)
+      clearTrainingBotRequest();
+  }, 10000);
+  trainingBotRequest = request;
+}
+
+function clearTrainingBotRequest(kind?: TrainingBotKind) {
+  if(!trainingBotRequest || (kind && trainingBotRequest.kind !== kind))
+    return;
+
+  if(trainingBotRequest.timer)
+    clearTimeout(trainingBotRequest.timer);
+  trainingBotRequest = null;
+}
+
+function trackTrainingBotCommand(command: string) {
+  const match = command.match(/^\s*(?:t|te|tel|tell)\s+(puzzlebot|endgamebot)\s+(.+)$/i);
+  if(!match)
+    return;
+
+  const bot = match[1].toLowerCase();
+  const botCommand = match[2].trim();
+  if(bot === 'puzzlebot') {
+    const loadCommand = getPuzzleBotLoadCommand(botCommand);
+    if(loadCommand)
+      beginTrainingBotRequest('puzzle', loadCommand);
+  }
+  else if(/^play(?:\s|$)/i.test(botCommand))
+    beginTrainingBotRequest('endgame', botCommand);
+}
+
+function getPuzzleBotLoadCommand(command: string) {
+  const match = command.match(/^(gm|getmate|gt|gettactics|gs|getstudy)(?:[1-4])?(?:\s+\d+)?$/i);
+  return match ? command.split(/\s+/, 1)[0] : null;
+}
 
 /** LOBBY PANE FUNCTIONS **/
 
@@ -6850,10 +7153,11 @@ function initGameTools(game: Game) {
 }
 
 function canOpenAssociatedChat(game: Game) {
-  return !!chat && game.id != null && (game.isPlayingOnline() || game.isObserving() || game.isExamining());
+  return !!chat && !game.trainingBot && game.id != null
+      && (game.isPlayingOnline() || game.isObserving() || game.isExamining());
 }
 
-function openAssociatedChatTab(game: Game, showTab = false) {
+function openAssociatedChatTab(game: Game, activateTab = false, expandChat = activateTab) {
   if(!canOpenAssociatedChat(game))
     return null;
 
@@ -6863,22 +7167,22 @@ function openAssociatedChatTab(game: Game, showTab = false) {
 
   if(game.isPlayingOnline()) {
     if(bughousePartnerGameId != null)
-      tab = chat.createTab(`Game ${game.id} and ${bughousePartnerGameId}`, showTab); // Open chat room for all bughouse participants
+      tab = chat.createTab(`Game ${game.id} and ${bughousePartnerGameId}`, activateTab); // Open chat room for all bughouse participants
     else if(game.color === 'w')
-      tab = chat.createTab(game.bname, showTab);
+      tab = chat.createTab(game.bname, activateTab);
     else
-      tab = chat.createTab(game.wname, showTab);
+      tab = chat.createTab(game.wname, activateTab);
   }
   else if(mainGame && game.id === mainGame.partnerGameId) { // Open chat to bughouse partner
     if(game.color === 'w')
-      tab = chat.createTab(game.wname, showTab);
+      tab = chat.createTab(game.wname, activateTab);
     else
-      tab = chat.createTab(game.bname, showTab);
+      tab = chat.createTab(game.bname, activateTab);
   }
   else
-    tab = chat.createTab(`Game ${game.id}`, showTab);
+    tab = chat.createTab(`Game ${game.id}`, activateTab);
 
-  if(showTab) {
+  if(activateTab && expandChat) {
     $('#collapse-chat').collapse('show');
     setTimeout(() => chat.scrollToChat(), 300);
   }
@@ -8250,7 +8554,7 @@ function initStatusPanel() {
   else {
     if(games.focused.analyzing) {
       showAnalysis();
-      evalEngine?.evaluate();
+      evalEngine?.redraw();
     }
     else
       hideAnalysis();
@@ -8304,8 +8608,6 @@ function expandStatusPanel(animate = false) {
       if(!Utils.isSmallWindow())
         $('#left-panel').css('transition', '');
       setLeftColumnSizes();
-      if($('#engine-tab').is(':visible') && evalEngine)
-        evalEngine.evaluate();
     });
     $('#left-panel-bottom-content').css('height', '');
     if(!Utils.isSmallWindow()) {
@@ -8316,8 +8618,6 @@ function expandStatusPanel(animate = false) {
   else { // Instantly show panel
     $('#left-panel-bottom').removeClass('minimized');
     setLeftColumnSizes();
-    if($('#engine-tab').is(':visible') && evalEngine)
-      evalEngine.evaluate();
   }
 }
 
@@ -8465,6 +8765,9 @@ async function showOpeningName(game: Game) {
 /** ANALYSIS FUNCTIONS **/
 
 (window as any).analyze = () => {
+  if(!canAnalyzeGame(games.focused))
+    return;
+
   showAnalysis();
   expandStatusPanel();
   scrollToLeftPanelBottom();
@@ -8945,6 +9248,11 @@ function removeAutoShape(game: Game, brush: string) {
 /** STATUS PANEL SHOW/HIDE BUTTON **/
 
 $('#analyze-btn').on('click', () => {
+  if(!canAnalyzeGame(games.focused)) {
+    hideHeaderFooterButton($('#analyze-btn'));
+    return;
+  }
+
   showAnalysis();
   expandStatusPanel();
   hideHeaderFooterButton($('#analyze-btn'));
@@ -8952,10 +9260,18 @@ $('#analyze-btn').on('click', () => {
 });
 
 function showAnalyzeButton() {
-  if(!$('#engine-tab').is(':visible') && Engine.categorySupported(games.focused.category))
+  if(!$('#engine-tab').is(':visible') && canAnalyzeGame(games.focused))
     showHeaderFooterButton($('#analyze-btn'));
   else 
     hideHeaderFooterButton($('#analyze-btn'));
+}
+
+function canAnalyzeGame(game: Game) {
+  if(!game?.history || game.isPlaying() || !Engine.categorySupported(game.category))
+    return false;
+
+  const standardStart = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  return game.role !== Role.NONE || game.history.length() > 0 || game.history.first().fen !== standardStart;
 }
 
 /** ****************************
@@ -9492,6 +9808,8 @@ $('#input-form').on('submit', (event) => {
   }
   else
     text = val;
+
+  trackTrainingBotCommand(text);
 
   // Check if input is a chat command, and if so do processing on the message before sending
   let chatCmd: string;
