@@ -53,6 +53,13 @@ html, body {
   align-items: center;
   gap: 0.625rem;
 }
+#endgamebot-game-buttons {
+  gap: 0.375rem;
+}
+#endgamebot-new {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
 
 #chat-tabContent .tab-pane {
   max-height: 100%;
@@ -216,7 +223,7 @@ html, body {
   #left-panel-bottom:not(.analyzing) {
     --content-height: 5rem;
   }
-  #left-panel-bottom.puzzlebot-active:not(.analyzing) {
+  #left-panel-bottom.trainingbot-active:not(.analyzing) {
     --content-height: 7rem;
   }
   #left-panel-bottom:not(.analyzing) #status-panel {
@@ -264,8 +271,8 @@ html, body {
 .game-status .game-id {
   font-weight: normal;
 }
-.puzzlebot-objective,
-.puzzlebot-feedback {
+.trainingbot-objective,
+.trainingbot-feedback {
   white-space: pre-line;
 }
 .game-watchers {

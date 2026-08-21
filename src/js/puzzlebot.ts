@@ -2,55 +2,28 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
+import { TrainingBotState } from './trainingbot';
+
 const WRONG_MOVE_MESSAGE = /There is a better move\./i;
 const SOLVED_MESSAGE = /You solved problem number/i;
 const STATS_MESSAGE = /You made \d+ wrong moves?|needed \d+ hints?/i;
 const COMMAND_PROMPT = /\btype\s+"tell puzzlebot\b/i;
 
-export class PuzzleBotState {
-  ended = false;
-  feedbackPending = false;
-  feedbackMessages: string[] = [];
-  loadedCommand: string;
-  moveAttempted = false;
-  nextCommand: string;
-  objectiveMessages: string[];
-  wrongMove = false;
+export class PuzzleBotState extends TrainingBotState {
+  readonly kind = 'puzzle' as const;
 
   constructor(command = 'getmate', objectiveMessages: string[] = []) {
-    this.loadedCommand = command;
-    this.nextCommand = command;
-    this.objectiveMessages = objectiveMessages.filter(message => !COMMAND_PROMPT.test(message));
-  }
-
-  get objectiveText() {
-    return this.objectiveMessages.join('\n') || this.commandLabel();
-  }
-
-  get feedbackText() {
-    return this.feedbackMessages.slice(-2).join('\n');
-  }
-
-  requestHint() {
-    this.feedbackPending = true;
-    this.feedbackMessages = [];
-    this.wrongMove = false;
+    super(command, objectiveMessages.filter(message => !COMMAND_PROMPT.test(message)));
   }
 
   requestSolution() {
-    this.feedbackPending = true;
-    this.feedbackMessages = [];
+    this.requestFeedback();
     this.finish();
   }
 
   submitMove() {
-    this.moveAttempted = true;
+    this.interactionStarted = true;
     this.feedbackMessages = this.feedbackMessages.filter(message => !WRONG_MOVE_MESSAGE.test(message));
-    this.wrongMove = false;
-  }
-
-  finish() {
-    this.ended = true;
     this.wrongMove = false;
   }
 
@@ -65,7 +38,7 @@ export class PuzzleBotState {
 
     const feedback = this.feedbackPending || WRONG_MOVE_MESSAGE.test(normalized)
         || solved || STATS_MESSAGE.test(normalized);
-    const messages = feedback || this.moveAttempted
+    const messages = feedback || this.interactionStarted
       ? this.feedbackMessages
       : this.objectiveMessages;
     if(messages[messages.length - 1] !== normalized)
@@ -79,10 +52,10 @@ export class PuzzleBotState {
       this.finish();
   }
 
-  private commandLabel() {
-    if(this.loadedCommand.startsWith('gettactics'))
+  protected fallbackObjective() {
+    if(this.loadCommand.startsWith('gettactics'))
       return 'Tactics Puzzle';
-    if(this.loadedCommand.startsWith('getstudy'))
+    if(this.loadCommand.startsWith('getstudy'))
       return 'Chess Study';
     return 'Mate Puzzle';
   }

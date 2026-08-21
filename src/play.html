@@ -738,9 +738,9 @@
                           <div class="game-info px-2">
                             <div class="game-status-outer center" style="text-align: center"><span class="game-status"></span></div>
                             <div class="game-watchers center flex-wrap border-top" style="display: none;"></div>
-                            <div class="puzzlebot-status text-center" style="display: none" aria-live="polite">
-                              <div class="puzzlebot-objective fw-bold"></div>
-                              <div class="puzzlebot-feedback small mt-1"></div>
+                            <div class="trainingbot-status text-center" style="display: none" aria-live="polite">
+                              <div class="trainingbot-objective fw-bold"></div>
+                              <div class="trainingbot-feedback small mt-1"></div>
                             </div>
                           </div>
                         </div>
@@ -824,17 +824,14 @@
                   </button>
                 </div>
                 <div id="endgamebot-game-buttons" class="button-toolbar flex-wrap w-100" style="display: none" aria-label="Endgame controls">
-                  <button type="button" id="endgamebot-back" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Take Back Move" aria-label="Take Back Move">
-                    <span class="fa-solid fa-rotate-left" aria-hidden="true"></span>
-                  </button>
                   <button type="button" id="endgamebot-hint" class="btn btn-outline-secondary btn-md" data-tooltip-hover-only data-bs-toggle="tooltip" data-bs-placement="top" title="Hint" aria-label="Hint">
                     <span class="fa-regular fa-lightbulb" aria-hidden="true"></span>
                   </button>
                   <button type="button" id="endgamebot-move" class="btn btn-outline-secondary btn-md" data-tooltip-hover-only data-bs-toggle="tooltip" data-bs-placement="top" title="Play Best Move" aria-label="Play Best Move">
-                    <span class="fa-solid fa-forward-step" aria-hidden="true"></span>
+                    <span class="fa-solid fa-list-check" aria-hidden="true"></span>
                   </button>
-                  <button type="button" id="endgamebot-force" class="btn btn-outline-secondary btn-md" title="Toggle Force Mode">
-                    Force
+                  <button type="button" id="endgamebot-new" class="btn btn-outline-secondary btn-md" data-tooltip-hover-only data-bs-toggle="tooltip" data-bs-placement="top" title="New Game" aria-label="New Game">
+                    New Game<span class="fa-solid fa-forward-step ms-2" aria-hidden="true"></span>
                   </button>
                   <button type="button" id="endgamebot-stop" class="btn btn-outline-secondary btn-md" data-bs-toggle="tooltip" data-bs-placement="top" title="Stop Endgame" aria-label="Stop Endgame">
                     <span class="fa-solid fa-circle-xmark" aria-hidden="true"></span>
