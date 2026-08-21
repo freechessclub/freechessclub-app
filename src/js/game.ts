@@ -109,6 +109,7 @@ export class Game extends GameData {
   endgameBotEnded = false;             // whether the current EndgameBot position has ended
   puzzleBot = false;                   // whether this board was opened by PuzzleBot
   puzzleBotEnded = false;              // whether the current PuzzleBot puzzle has ended
+  puzzleBotWrongMove = false;          // whether PuzzleBot rejected a move in the current puzzle
   puzzleBotCommand = 'getmate';        // command used to load this PuzzleBot puzzle type
   setupBoard = false;                  // in setup-board mode or not
   commitingMovelist = false;           // Used when entering examine mode and using 'commit' to submit a move list

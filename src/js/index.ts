@@ -1463,6 +1463,7 @@ function gameStart(game: Game) {
   if(game.isExamining() && puzzleBotRequestPending) {
     game.puzzleBot = true;
     game.puzzleBotEnded = false;
+    game.puzzleBotWrongMove = false;
     game.puzzleBotCommand = puzzleBotRequestCommand;
     clearPuzzleBotRequest();
   }
@@ -3508,6 +3509,11 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     sendMove(move);
 
   if(game.isExamining()) {
+    if(game.puzzleBot && game.puzzleBotWrongMove) {
+      game.puzzleBotWrongMove = false;
+      updatePuzzleBotControls(game);
+    }
+
     let nextMoveMatches = false;
     if(nextMove
         && ((!move.from && !nextMove.from && move.piece === nextMove.piece) || move.from === nextMove.from)
@@ -4405,6 +4411,7 @@ function cleanupGame(game: Game) {
   game.endgameBotEnded = false;
   game.puzzleBot = false;
   game.puzzleBotEnded = false;
+  game.puzzleBotWrongMove = false;
   game.puzzleBotCommand = 'getmate';
 
   if(game === games.focused) {
@@ -5911,14 +5918,14 @@ function getGame(min: number, sec: number) {
     $('#opponent-player-name').attr('placeholder', 'Anyone');
 };
 
-$('#puzzlebot').on('click', function() {
-  sendPuzzleBotCommand($(this).data('puzzlebot-command') || 'getmate', true);
-});
-
 $('#puzzlebot-types').on('click', '[data-puzzlebot-command]', function() {
   const command = $(this).data('puzzlebot-command');
-  $('#puzzlebot').text($(this).text()).data('puzzlebot-command', command);
-  sendPuzzleBotCommand(command, true);
+  puzzleBotRequestCommand = command;
+  const game = games.focused;
+  if(game?.puzzleBot && game.isExamining())
+    game.puzzleBotCommand = command;
+  else
+    sendPuzzleBotCommand(command, true);
 });
 
 $('#puzzlebot-hint').on('click', () => {
@@ -5979,12 +5986,19 @@ function setPuzzleBotEnded(game: Game, ended = true) {
     return;
 
   game.puzzleBotEnded = ended;
+  if(ended)
+    game.puzzleBotWrongMove = false;
   if(game === games.focused)
     updatePuzzleBotControls(game);
 }
 
 function updatePuzzleBotControls(game: Game) {
-  $('#puzzlebot-hint, #puzzlebot-solve').prop('disabled', game.puzzleBotEnded);
+  const wrongMove = game.puzzleBotWrongMove && !game.puzzleBotEnded;
+  $('#puzzlebot-hint')
+    .prop('disabled', game.puzzleBotEnded)
+    .toggleClass('btn-warning', wrongMove)
+    .toggleClass('btn-outline-secondary', !wrongMove);
+  $('#puzzlebot-solve').prop('disabled', game.puzzleBotEnded);
   $('#puzzlebot-next')
     .toggleClass('btn-success', game.puzzleBotEnded)
     .toggleClass('btn-outline-secondary', !game.puzzleBotEnded);
@@ -5995,6 +6009,17 @@ function handlePuzzleBotMessage(data: any) {
     return;
 
   showExpectedBotResponse(data.message);
+
+  if(/There is a better move\./i.test(data.message || '')) {
+    for(const game of games) {
+      if(game.puzzleBot) {
+        game.puzzleBotWrongMove = true;
+        if(game === games.focused)
+          updatePuzzleBotControls(game);
+        return;
+      }
+    }
+  }
 
   if(!/You solved problem number/i.test(data.message || ''))
     return;
@@ -6102,15 +6127,22 @@ function showExpectedBotResponse(message: string) {
   const target = botResponseTarget;
   botResponseTarget = null;
   const button = $(target);
-  button.tooltip('hide');
+  button.tooltip('dispose');
   button.popover({
     content: message,
     container: 'body',
     placement: 'top',
+    title: '',
     trigger: 'manual'
   });
   button.popover('show');
   activeBotResponsePopover = target;
+  $('body').on('click.hide-bot-response', (e) => {
+    if(!button.is(e.target)
+        && button.has(e.target).length === 0
+        && !$(e.target).closest('.popover').length)
+      clearBotResponsePopover();
+  });
   botResponsePopoverTimer = setTimeout(clearBotResponsePopover, 10000);
 }
 
@@ -6119,8 +6151,12 @@ function clearBotResponsePopover() {
   if(botResponsePopoverTimer)
     clearTimeout(botResponsePopoverTimer);
   botResponsePopoverTimer = null;
-  if(activeBotResponsePopover)
-    $(activeBotResponsePopover).popover('dispose');
+  $('body').off('click.hide-bot-response');
+  if(activeBotResponsePopover) {
+    const button = $(activeBotResponsePopover);
+    button.popover('dispose');
+    Utils.createTooltip(button);
+  }
   activeBotResponsePopover = null;
 }
 
