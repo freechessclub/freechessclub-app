@@ -23,6 +23,7 @@ import { Engine, EvalEngine, MaiaEngine } from './engine';
 import { Game, GameData, Role, NewVariationMode, games } from './game';
 import { History, HEntry } from './history';
 import { GetMessageType, MessageType, session, createSession } from './session';
+import { PuzzleBotState } from './puzzlebot';
 import * as Sounds from './sounds';
 import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
@@ -180,8 +181,9 @@ let endgameBotRequestTimer: ReturnType<typeof setTimeout> | null = null;
 let puzzleBotRequestPending = false;
 let puzzleBotRequestCommand = 'getmate';
 let puzzleBotRequestTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingPuzzleBotMessages: string[] = [];
 let botResponseTarget: string | null = null;
-let activeBotResponsePopover: string | null = null;
+let activeBotResponsePopover: JQuery<HTMLElement> | null = null;
 let botResponsePopoverTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
@@ -1296,14 +1298,16 @@ function messageHandler(data: any) {
       }
       break;
     case MessageType.ChannelTell:
-      handlePuzzleBotMessage(data);
+      if(handlePuzzleBotMessage(data))
+        break;
       handleEndgameBotMessage(data);
       chat.newMessage(data.channel, data);
       break;
     case MessageType.PrivateTell:
       if(handleInviteTell(data))
         return;
-      handlePuzzleBotMessage(data);
+      if(handlePuzzleBotMessage(data))
+        break;
       handleEndgameBotMessage(data);
       chat.newMessage(data.user, data);
       break;
@@ -1461,10 +1465,7 @@ function gameStart(game: Game) {
     $('#exit-subvariation').hide();
 
   if(game.isExamining() && puzzleBotRequestPending) {
-    game.puzzleBot = true;
-    game.puzzleBotEnded = false;
-    game.puzzleBotWrongMove = false;
-    game.puzzleBotCommand = puzzleBotRequestCommand;
+    game.puzzleBot = new PuzzleBotState(puzzleBotRequestCommand, pendingPuzzleBotMessages);
     clearPuzzleBotRequest();
   }
   else if(game.isExamining() && endgameBotRequestPending) {
@@ -1620,7 +1621,7 @@ function gameStart(game: Game) {
   if(chat)
     chat.closeUnusedPrivateTabs();
 
-  openAssociatedChatTab(game, game.puzzleBot || game.endgameBot, false);
+  openAssociatedChatTab(game, game.endgameBot, false);
 
   if(game.isPlaying() || game.isObserving()) {
     // Adjust settings for game category (variant)
@@ -2080,7 +2081,7 @@ function handleMiscMessage(data: any) {
         }
       }
       game.statusElement.find('.game-watchers').html(req);
-      game.statusElement.find('.game-watchers').toggle(!!req);
+      game.statusElement.find('.game-watchers').toggle(!!req && !game.puzzleBot);
       return;
     }
     chat.newMessage('console', data);
@@ -3509,9 +3510,10 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     sendMove(move);
 
   if(game.isExamining()) {
-    if(game.puzzleBot && game.puzzleBotWrongMove) {
-      game.puzzleBotWrongMove = false;
+    if(game.puzzleBot) {
+      game.puzzleBot.submitMove();
       updatePuzzleBotControls(game);
+      updatePuzzleBotStatus(game);
     }
 
     let nextMoveMatches = false;
@@ -4237,6 +4239,10 @@ function initGameControls(game: Game) {
 
   Utils.hideWithPoppers($('#puzzlebot-game-buttons'));
   Utils.hideWithPoppers($('#endgamebot-game-buttons'));
+  $('#left-panel-bottom').toggleClass('puzzlebot-active', game.puzzleBot && game.isExamining());
+  game.statusElement.find('.puzzlebot-status').hide();
+  game.statusElement.find('.game-status-outer').show();
+  game.statusElement.find('.game-watchers').toggle(!!game.statusElement.find('.game-watchers').html());
 
   if(game.endgameBot && game.isExamining()) {
     Utils.hideWithPoppers($('#playing-game-buttons'));
@@ -4248,6 +4254,7 @@ function initGameControls(game: Game) {
     Utils.hideWithPoppers($('#playing-game-buttons'));
     Utils.hideWithPoppers($('#viewing-game-buttons'));
     updatePuzzleBotControls(game);
+    updatePuzzleBotStatus(game);
     $('#puzzlebot-game-buttons').show();
   }
   else if(game.isPlaying()) {
@@ -4409,12 +4416,13 @@ function cleanupGame(game: Game) {
   game.role = Role.NONE;
   game.endgameBot = false;
   game.endgameBotEnded = false;
-  game.puzzleBot = false;
-  game.puzzleBotEnded = false;
-  game.puzzleBotWrongMove = false;
-  game.puzzleBotCommand = 'getmate';
+  game.puzzleBot = null;
+  game.statusElement.find('.puzzlebot-status').hide();
+  game.statusElement.find('.game-status-outer').show();
+  game.statusElement.find('.game-watchers').toggle(!!game.statusElement.find('.game-watchers').html());
 
   if(game === games.focused) {
+    $('#left-panel-bottom').removeClass('puzzlebot-active');
     hideHeaderFooterButton($('#stop-observing'));
     hideHeaderFooterButton($('#stop-examining'));
     hidePanel('#left-panel-header-2');
@@ -5923,19 +5931,28 @@ $('#puzzlebot-types').on('click', '[data-puzzlebot-command]', function() {
   puzzleBotRequestCommand = command;
   const game = games.focused;
   if(game?.puzzleBot && game.isExamining())
-    game.puzzleBotCommand = command;
+    game.puzzleBot.nextCommand = command;
   else
     sendPuzzleBotCommand(command, true);
 });
 
 $('#puzzlebot-hint').on('click', () => {
-  expectBotResponse('#puzzlebot-hint');
+  const game = games.focused;
+  if(game?.puzzleBot) {
+    game.puzzleBot.requestHint();
+    updatePuzzleBotControls(game);
+    updatePuzzleBotStatus(game);
+  }
   sendPuzzleBotCommand('hint');
 });
 
 $('#puzzlebot-solve').on('click', () => {
-  expectBotResponse('#puzzlebot-solve');
-  setPuzzleBotEnded(games.focused);
+  const game = games.focused;
+  if(game?.puzzleBot) {
+    game.puzzleBot.requestSolution();
+    updatePuzzleBotControls(game);
+    updatePuzzleBotStatus(game);
+  }
   sendPuzzleBotCommand('solve');
 });
 
@@ -5944,7 +5961,7 @@ $('#puzzlebot-next').on('click', () => {
   if(game?.puzzleBot && game.isExamining())
     session.send('unex');
 
-  sendPuzzleBotCommand(game?.puzzleBotCommand || 'getmate', true);
+  sendPuzzleBotCommand(game?.puzzleBot?.nextCommand || 'getmate', true);
 });
 
 $('#puzzlebot-stop').on('click', () => {
@@ -5967,6 +5984,7 @@ function sendPuzzleBotCommand(command: string, loadsPuzzle = false) {
 function beginPuzzleBotRequest(command: string) {
   clearEndgameBotRequest();
   clearBotResponsePopover();
+  pendingPuzzleBotMessages = [];
   puzzleBotRequestPending = true;
   puzzleBotRequestCommand = command;
   if(puzzleBotRequestTimer)
@@ -5976,60 +5994,87 @@ function beginPuzzleBotRequest(command: string) {
 
 function clearPuzzleBotRequest() {
   puzzleBotRequestPending = false;
+  pendingPuzzleBotMessages = [];
   if(puzzleBotRequestTimer)
     clearTimeout(puzzleBotRequestTimer);
   puzzleBotRequestTimer = null;
 }
 
-function setPuzzleBotEnded(game: Game, ended = true) {
+function setPuzzleBotEnded(game: Game) {
   if(!game?.puzzleBot)
     return;
 
-  game.puzzleBotEnded = ended;
-  if(ended)
-    game.puzzleBotWrongMove = false;
-  if(game === games.focused)
+  game.puzzleBot.finish();
+  if(game === games.focused) {
     updatePuzzleBotControls(game);
+    updatePuzzleBotStatus(game);
+  }
 }
 
 function updatePuzzleBotControls(game: Game) {
-  const wrongMove = game.puzzleBotWrongMove && !game.puzzleBotEnded;
+  const state = game.puzzleBot;
+  if(!state)
+    return;
+
+  const wrongMove = state.wrongMove && !state.ended;
   $('#puzzlebot-hint')
-    .prop('disabled', game.puzzleBotEnded)
+    .prop('disabled', state.ended)
     .toggleClass('btn-warning', wrongMove)
     .toggleClass('btn-outline-secondary', !wrongMove);
-  $('#puzzlebot-solve').prop('disabled', game.puzzleBotEnded);
+  $('#puzzlebot-solve').prop('disabled', state.ended);
   $('#puzzlebot-next')
-    .toggleClass('btn-success', game.puzzleBotEnded)
-    .toggleClass('btn-outline-secondary', !game.puzzleBotEnded);
+    .toggleClass('btn-success', state.ended)
+    .toggleClass('btn-outline-secondary', !state.ended);
+}
+
+function getPuzzleBotGame() {
+  if(games.focused?.puzzleBot)
+    return games.focused;
+
+  for(const game of games) {
+    if(game.puzzleBot)
+      return game;
+  }
+  return null;
+}
+
+function updatePuzzleBotStatus(game: Game) {
+  const state = game?.puzzleBot;
+  if(!state)
+    return;
+
+  const status = game.statusElement.find('.puzzlebot-status');
+  status.find('.puzzlebot-objective')
+    .text(state.objectiveText);
+  status.find('.puzzlebot-feedback')
+    .text(state.feedbackText)
+    .toggle(!!state.feedbackText);
+  game.statusElement.find('.game-status-outer, .game-watchers').hide();
+  status.show();
+
+  if(game === games.focused)
+    expandStatusPanel();
 }
 
 function handlePuzzleBotMessage(data: any) {
   if(data.user?.toLowerCase() !== 'puzzlebot')
-    return;
+    return false;
 
-  showExpectedBotResponse(data.message);
+  const message = data.message || '';
+  const game = getPuzzleBotGame();
+  const intercepted = !!game || puzzleBotRequestPending;
 
-  if(/There is a better move\./i.test(data.message || '')) {
-    for(const game of games) {
-      if(game.puzzleBot) {
-        game.puzzleBotWrongMove = true;
-        if(game === games.focused)
-          updatePuzzleBotControls(game);
-        return;
-      }
+  if(game) {
+    game.puzzleBot.recordMessage(message);
+    if(game === games.focused) {
+      updatePuzzleBotControls(game);
+      updatePuzzleBotStatus(game);
     }
   }
+  else if(puzzleBotRequestPending && message.trim())
+    pendingPuzzleBotMessages.push(message.trim());
 
-  if(!/You solved problem number/i.test(data.message || ''))
-    return;
-
-  for(const game of games) {
-    if(game.puzzleBot) {
-      setPuzzleBotEnded(game);
-      return;
-    }
-  }
+  return intercepted;
 }
 
 $('#endgamebot').on('click', '[data-endgamebot-pieceset]', function() {
@@ -6127,16 +6172,17 @@ function showExpectedBotResponse(message: string) {
   const target = botResponseTarget;
   botResponseTarget = null;
   const button = $(target);
-  button.tooltip('dispose');
-  button.popover({
+  const anchor = button.children('span').first();
+  button.tooltip('hide');
+  anchor.popover({
     content: message,
     container: 'body',
     placement: 'top',
     title: '',
     trigger: 'manual'
   });
-  button.popover('show');
-  activeBotResponsePopover = target;
+  anchor.popover('show');
+  activeBotResponsePopover = anchor;
   $('body').on('click.hide-bot-response', (e) => {
     if(!button.is(e.target)
         && button.has(e.target).length === 0
@@ -6152,11 +6198,7 @@ function clearBotResponsePopover() {
     clearTimeout(botResponsePopoverTimer);
   botResponsePopoverTimer = null;
   $('body').off('click.hide-bot-response');
-  if(activeBotResponsePopover) {
-    const button = $(activeBotResponsePopover);
-    button.popover('dispose');
-    Utils.createTooltip(button);
-  }
+  activeBotResponsePopover?.popover('dispose');
   activeBotResponsePopover = null;
 }
 
@@ -7171,7 +7213,8 @@ function initGameTools(game: Game) {
 }
 
 function canOpenAssociatedChat(game: Game) {
-  return !!chat && game.id != null && (game.isPlayingOnline() || game.isObserving() || game.isExamining());
+  return !!chat && !game.puzzleBot && game.id != null
+      && (game.isPlayingOnline() || game.isObserving() || game.isExamining());
 }
 
 function openAssociatedChatTab(game: Game, activateTab = false, expandChat = activateTab) {

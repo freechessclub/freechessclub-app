@@ -2,6 +2,8 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
+import { PuzzleBotState } from './puzzlebot';
+
 export const Role = {
   ISOLATED_POS: -3,         // isolated position, such as for "ref 3" or the "sposition" command
   OBS_EXAMINED: -2,         // I am observing game being examined
@@ -107,10 +109,7 @@ export class Game extends GameData {
   preserved = false;                   // if true, prevents a game/board from being overwritten
   endgameBot = false;                  // whether this board was opened by EndgameBot
   endgameBotEnded = false;             // whether the current EndgameBot position has ended
-  puzzleBot = false;                   // whether this board was opened by PuzzleBot
-  puzzleBotEnded = false;              // whether the current PuzzleBot puzzle has ended
-  puzzleBotWrongMove = false;          // whether PuzzleBot rejected a move in the current puzzle
-  puzzleBotCommand = 'getmate';        // command used to load this PuzzleBot puzzle type
+  puzzleBot: PuzzleBotState = null;    // state for a board opened by PuzzleBot
   setupBoard = false;                  // in setup-board mode or not
   commitingMovelist = false;           // Used when entering examine mode and using 'commit' to submit a move list
   movelistRequested = 0;               // Used to keep track of move list requests

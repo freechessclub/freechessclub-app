@@ -216,6 +216,9 @@ html, body {
   #left-panel-bottom:not(.analyzing) {
     --content-height: 5rem;
   }
+  #left-panel-bottom.puzzlebot-active:not(.analyzing) {
+    --content-height: 7rem;
+  }
   #left-panel-bottom:not(.analyzing) #status-panel {
     --padding-y: 0px;
   }
@@ -260,6 +263,10 @@ html, body {
 }
 .game-status .game-id {
   font-weight: normal;
+}
+.puzzlebot-objective,
+.puzzlebot-feedback {
+  white-space: pre-line;
 }
 .game-watchers {
   white-space: pre-wrap;
