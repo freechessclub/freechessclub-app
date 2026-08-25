@@ -2,6 +2,8 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
+import { TrainingBotState } from './trainingbot';
+
 export const Role = {
   ISOLATED_POS: -3,         // isolated position, such as for "ref 3" or the "sposition" command
   OBS_EXAMINED: -2,         // I am observing game being examined
@@ -105,6 +107,7 @@ export class Game extends GameData {
   partnerGameId: number = null;        // bughouse partner's game id
   newVariationMode = NewVariationMode.ASK;
   preserved = false;                   // if true, prevents a game/board from being overwritten
+  trainingBot: TrainingBotState = null; // state for a board opened by a training bot
   setupBoard = false;                  // in setup-board mode or not
   commitingMovelist = false;           // Used when entering examine mode and using 'commit' to submit a move list
   movelistRequested = 0;               // Used to keep track of move list requests
