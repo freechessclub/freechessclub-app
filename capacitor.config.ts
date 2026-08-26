@@ -4,6 +4,9 @@ const config: CapacitorConfig = {
   appId: 'club.freechess.FreeChessClub',
   appName: 'Free Chess Club',
   webDir: 'app',
+  android: {
+    resolveServiceWorkerRequests: false
+  },
   plugins: {
     Keyboard: {
       resize: 'body'
