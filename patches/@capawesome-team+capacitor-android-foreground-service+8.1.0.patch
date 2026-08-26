@@ -96,3 +96,19 @@ index 4a05220..0d1a88e 100644
      private void createDefaultNotificationChannel() {
          // Create the NotificationChannel, but only on API 26+ because
          // the NotificationChannel class is new and not in the support library
+diff --git a/node_modules/@capawesome-team/capacitor-android-foreground-service/android/src/main/java/io/capawesome/capacitorjs/plugins/foregroundservice/ForegroundServicePlugin.java b/node_modules/@capawesome-team/capacitor-android-foreground-service/android/src/main/java/io/capawesome/capacitorjs/plugins/foregroundservice/ForegroundServicePlugin.java
+index aa2c75f..20978cb 100644
+--- a/node_modules/@capawesome-team/capacitor-android-foreground-service/android/src/main/java/io/capawesome/capacitorjs/plugins/foregroundservice/ForegroundServicePlugin.java
++++ b/node_modules/@capawesome-team/capacitor-android-foreground-service/android/src/main/java/io/capawesome/capacitorjs/plugins/foregroundservice/ForegroundServicePlugin.java
+@@ -215,7 +215,10 @@ public class ForegroundServicePlugin extends Plugin {
+     public void createNotificationChannel(PluginCall call) {
+         try {
+             if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) {
+-                call.unavailable();
++                // Notification channels do not exist before Android 8. Treat
++                // channel creation as a successful no-op so callers can still
++                // start the foreground service on supported older devices.
++                call.resolve();
+                 return;
+             }
+             NotificationChannel notificationChannel = ForegroundServiceHelper.createNotificationChannelFromPluginCall(

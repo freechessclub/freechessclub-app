@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import Parser from './parser';
-import { isMobile } from './utils';
+import { isAndroidCapacitor, isMobile } from './utils';
 import { settings } from './settings';
 
 export const enum MessageType {
@@ -165,7 +165,8 @@ export class Session {
 
       // Reconnect automatically if the connection was dropped unexpectedly, i.e. by mobile power management
       if(wasConnected && !e.wasClean) {
-        if(!isMobile() || document.visibilityState === 'visible')
+        const backgroundReconnectEnabled = isAndroidCapacitor() && settings.foregroundServiceToggle;
+        if(!isMobile() || document.visibilityState === 'visible' || backgroundReconnectEnabled)
           this.connect(this.user, this.pass);
         else {
           $(document).one('visibilitychange', () => {
@@ -289,4 +290,3 @@ export function createSession(onRecv: (msg: any) => void, user?: string, pass?: 
 }
 
 export default Session;
-

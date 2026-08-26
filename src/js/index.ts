@@ -398,11 +398,17 @@ async function startForegroundService() {
     const mod = await import('@capawesome-team/capacitor-android-foreground-service');
     const Importance = mod.Importance;
 
-    const permissionStatus = await ForegroundService.checkPermissions();
-    if(permissionStatus.display !== 'granted') {
-      const requestStatus = await ForegroundService.requestPermissions();
-      if(requestStatus.display !== 'granted')
-        return;
+    // Android does not require notification permission to run a foreground
+    // service. If permission is denied, Android still exposes the service in
+    // Task Manager, so keep the connection alive even though the notification
+    // will not be shown in the notification drawer.
+    try {
+      const permissionStatus = await ForegroundService.checkPermissions();
+      if(permissionStatus.display !== 'granted')
+        await ForegroundService.requestPermissions();
+    }
+    catch(error) {
+      Utils.logError('Error requesting foreground service notification permission:', error);
     }
 
     if(!foregroundServiceChannelReady) {
@@ -1290,7 +1296,10 @@ function messageHandler(data: any) {
           session?.reconnect();
         });
         $('#sign-in-alert').removeClass('show');
-        updateForegroundServiceState();
+        // Keep the service running across an unexpected disconnect so Android
+        // permits the background reconnect. A clean disconnect stops it.
+        if(data.command === 3)
+          updateForegroundServiceState();
       }
       else if(data.command === 5) { // Connecting
         $('.game-dialog, .board-dialog').remove();
