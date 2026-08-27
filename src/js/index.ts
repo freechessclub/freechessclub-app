@@ -90,6 +90,12 @@ type InviteGameInfo = {
   updatedAt: number;
 };
 
+type NativeNotificationTarget = {
+  kind: 'chat' | 'game' | 'offers';
+  user?: string;
+  gameId?: number;
+};
+
 let appReady: boolean = false; // Has onDeviceReady finished 
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
@@ -144,6 +150,12 @@ let foregroundServiceActive = false;
 let foregroundServiceChannelReady = false;
 let foregroundServiceTransition: Promise<void> = Promise.resolve();
 let nativeAppIntegrationInitialized = false;
+let LocalNotifications = null;
+let nativeNotificationsInitialized = false;
+let nativeNotificationId = 10000 + Math.floor(Date.now() % 2000000000);
+const nativeTurnNotificationPositions = new Map<number, string>();
+let pendingNativeNotificationTarget: NativeNotificationTarget | null = null;
+let pendingNativeNotificationTargetTimer: number | null = null;
 let pendingInviteCreate: InviteCreateState | null = null;
 let activeInvite: InviteCreateState | null = null;
 let pendingInviteJoin: InviteJoinState | null = null;
@@ -470,6 +482,145 @@ function updateForegroundServiceState() {
     });
 }
 
+async function loadLocalNotifications() {
+  if(LocalNotifications)
+    return;
+
+  const mod = await import('@capacitor/local-notifications');
+  LocalNotifications = mod.LocalNotifications;
+}
+
+function nextNativeNotificationId() {
+  nativeNotificationId++;
+  if(nativeNotificationId > 2147483647)
+    nativeNotificationId = 10000;
+  return nativeNotificationId;
+}
+
+function nativeNotificationText(value: any) {
+  return String(value ?? '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 240);
+}
+
+async function requestNativeNotificationPermission() {
+  if(!Utils.isCapacitor())
+    return;
+
+  try {
+    await loadLocalNotifications();
+    const permission = await LocalNotifications.checkPermissions();
+    if(permission.display !== 'granted')
+      await LocalNotifications.requestPermissions();
+  }
+  catch(error) {
+    Utils.logError('Error requesting native notification permission:', error);
+  }
+}
+
+async function showNativeNotification(title: string, body: string, target: NativeNotificationTarget) {
+  if(!Utils.isCapacitor() || !document.hidden || !settings.notificationsToggle)
+    return;
+
+  try {
+    await loadLocalNotifications();
+    const permission = await LocalNotifications.checkPermissions();
+    if(permission.display !== 'granted')
+      return;
+
+    await LocalNotifications.schedule({
+      notifications: [{
+        id: nextNativeNotificationId(),
+        title: nativeNotificationText(title),
+        body: nativeNotificationText(body),
+        smallIcon: 'ic_fcc_notification',
+        group: 'fcc-events',
+        autoCancel: true,
+        foreground: false,
+        extra: target
+      }]
+    });
+  }
+  catch(error) {
+    Utils.logError('Error showing native notification:', error);
+  }
+}
+
+function openPendingNativeNotificationTarget() {
+  if(!appReady || !pendingNativeNotificationTarget)
+    return;
+
+  const target = pendingNativeNotificationTarget;
+  let opened = false;
+  if(target.kind === 'chat' && target.user) {
+    const tabId = `#tab-${target.user.toLowerCase().replace(/\s/g, '-')}`;
+    if($(tabId).length) {
+      $('#collapse-chat').collapse('show');
+      chat.showTab(target.user);
+      opened = true;
+    }
+  }
+  else if(target.kind === 'offers') {
+    const notifications = $('.notification:not([data-remove="true"])');
+    if(notifications.length) {
+      Dialogs.showNotifications(notifications);
+      opened = true;
+    }
+  }
+  else if(target.kind === 'game') {
+    const game = target.gameId != null ? games.findGame(target.gameId) : games.getMostImportantGame();
+    const selectedGame = game || games.getMostImportantGame();
+    if(selectedGame) {
+      setGameWithFocus(selectedGame);
+      maximizeGame(selectedGame);
+      showTab($('#pills-game-tab'));
+      opened = true;
+    }
+  }
+
+  if(!opened)
+    return;
+
+  pendingNativeNotificationTarget = null;
+  if(pendingNativeNotificationTargetTimer != null) {
+    clearTimeout(pendingNativeNotificationTargetTimer);
+    pendingNativeNotificationTargetTimer = null;
+  }
+}
+
+function queueNativeNotificationTarget(target: NativeNotificationTarget) {
+  if(!target?.kind)
+    return;
+
+  pendingNativeNotificationTarget = target;
+  if(pendingNativeNotificationTargetTimer != null)
+    clearTimeout(pendingNativeNotificationTargetTimer);
+  pendingNativeNotificationTargetTimer = window.setTimeout(() => {
+    pendingNativeNotificationTarget = null;
+    pendingNativeNotificationTargetTimer = null;
+  }, 30000);
+  setTimeout(openPendingNativeNotificationTarget, 0);
+}
+
+async function initNativeNotifications() {
+  if(!Utils.isCapacitor() || nativeNotificationsInitialized)
+    return;
+
+  nativeNotificationsInitialized = true;
+  try {
+    await loadLocalNotifications();
+    await LocalNotifications.addListener('localNotificationActionPerformed', action => {
+      queueNativeNotificationTarget(action.notification.extra as NativeNotificationTarget);
+    });
+  }
+  catch(error) {
+    nativeNotificationsInitialized = false;
+    Utils.logError('Error initializing native notifications:', error);
+  }
+}
+
 function closeTopAndroidOverlay(): boolean {
   const modal = $('.modal.show').last();
   if(modal.length) {
@@ -667,6 +818,7 @@ async function onDeviceReady() {
   document.addEventListener('visibilitychange', updateForegroundServiceState);
 
   appReady = true;
+  await initNativeNotifications();
 
   credential = new CredentialStorage();
   const hasInvite = hasInviteParams();
@@ -1410,10 +1562,16 @@ function messageHandler(data: any) {
       if(handleTrainingBotMessage(data))
         break;
       chat.newMessage(data.user, data);
+      showNativeNotification(`Message from ${data.user}`, data.message, {kind: 'chat', user: data.user});
+      openPendingNativeNotificationTarget();
       break;
     case MessageType.Messages:
-      if(data.type === 'online') // message received while online, put it immediately into a chat tab 
+      if(data.type === 'online') { // message received while online, put it immediately into a chat tab
         chat.newMessage(data.messages[0].user, data.messages[0]);
+        showNativeNotification(`Message from ${data.messages[0].user}`, data.messages[0].message,
+          {kind: 'chat', user: data.messages[0].user});
+        openPendingNativeNotificationTarget();
+      }
       else if(data.type === 'unread' && awaiting.resolve('unread-messages')) {
         data.messages.forEach(msg => chat.newMessage(msg.user, msg));
         if($('#collapse-chat').hasClass('show'))
@@ -1427,11 +1585,30 @@ function messageHandler(data: any) {
       break;
     case MessageType.GameMove:
       gameMove(data);
+      const movedGame = games.findGame(data.id);
+      if(document.hidden && movedGame?.isPlayingOnline() && movedGame.role === Role.MY_MOVE
+          && nativeTurnNotificationPositions.get(movedGame.id) !== movedGame.fen) {
+        nativeTurnNotificationPositions.set(movedGame.id, movedGame.fen);
+        const opponent = movedGame.color === 'w' ? movedGame.bname : movedGame.wname;
+        const body = data.move && data.move !== 'none'
+          ? `${opponent} moved. It's your turn.`
+          : `Your game against ${opponent} is ready.`;
+        showNativeNotification('Your turn', body, {kind: 'game', gameId: movedGame.id});
+      }
+      else if(movedGame?.role !== Role.MY_MOVE)
+        nativeTurnNotificationPositions.delete(data.id);
+      openPendingNativeNotificationTarget();
       break;
     case MessageType.GameStart:
       break;
     case MessageType.GameEnd:
+      const endedGame = games.findGame(data.game_id);
+      const wasPlayingOnline = endedGame?.isPlayingOnline();
       gameEnd(data);
+      nativeTurnNotificationPositions.delete(data.game_id);
+      if(wasPlayingOnline)
+        showNativeNotification('Game finished', data.message, {kind: 'game', gameId: data.game_id});
+      openPendingNativeNotificationTarget();
       break;
     case MessageType.GameHoldings:
       const game = games.findGame(data.game_id);
@@ -2002,6 +2179,10 @@ function handleOffers(offers: any[]) {
       else if(displayType === 'dialog')
         dialog = Dialogs.showDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: [`decline ${item.id}`, 'Decline'], btnSuccess: [`accept ${item.id}`, 'Accept'], useSessionSend: true}, 'game');
       dialog.attr('data-offer-id', item.id);
+      if(displayType === 'notification') {
+        showNativeNotification(headerTitle, `${bodyTitle} ${bodyText}`, {kind: 'offers'});
+        openPendingNativeNotificationTarget();
+      }
     }
   });
 
@@ -2494,12 +2675,16 @@ function handleMiscMessage(data: any) {
   if(match && match.length > 2) {
     const n = Dialogs.createNotification({type: 'Resume Game', title: `${match[1]}<br>${match[2]}`, btnSuccess: ['resume', 'Resume Game'], useSessionSend: true});
     n.attr('data-adjourned-list', 'true');
+    showNativeNotification('Resume game', `${match[1]} ${match[2]}`, {kind: 'offers'});
+    openPendingNativeNotificationTarget();
   }
   match = msg.match(/^Notification: ((\S+), who has an adjourned game with you, has arrived\.)/m);
   if(match && match.length > 2) {
     if(!$(`.notification[data-adjourned-arrived="${match[2]}"]`).length) {
       const n = Dialogs.createNotification({type: 'Resume Game', title: match[1], btnSuccess: [`resume ${match[2]}`, 'Resume Game'], useSessionSend: true});
       n.attr('data-adjourned-arrived', match[2]);
+      showNativeNotification('Resume game', match[1], {kind: 'offers'});
+      openPendingNativeNotificationTarget();
     }
     return;
   }
@@ -2555,12 +2740,16 @@ function handleMiscMessage(data: any) {
     const headerTitle = 'Partnership Declined';
     const bodyTitle = match[1];
     Dialogs.createNotification({type: headerTitle, title: bodyTitle, useSessionSend: true});
+    showNativeNotification(headerTitle, bodyTitle, {kind: 'offers'});
+    openPendingNativeNotificationTarget();
   }
   match = msg.match(/^(\w+ agrees to be your partner\.)/m);
   if(match && match.length > 1) {
     const headerTitle = 'Partnership Accepted';
     const bodyTitle = match[1];
     Dialogs.createNotification({type: headerTitle, title: bodyTitle, useSessionSend: true});
+    showNativeNotification(headerTitle, bodyTitle, {kind: 'offers'});
+    openPendingNativeNotificationTarget();
   }
 
   match = msg.match(/^(All players must be registered to adjourn a game.  Use "abort".)/m);
@@ -9717,6 +9906,8 @@ function updateDropdownSound() {
 $('#notifications-toggle').on('click', () => {
   settings.notificationsToggle = !settings.notificationsToggle;
   storage.set('notifications', String(settings.notificationsToggle));
+  if(settings.notificationsToggle)
+    requestNativeNotificationPermission();
 });
 
 $('#autopromote-toggle').on('click', () => {

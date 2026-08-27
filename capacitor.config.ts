@@ -1,3 +1,5 @@
+/// <reference types="@capacitor/local-notifications" />
+
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -10,6 +12,9 @@ const config: CapacitorConfig = {
   plugins: {
     Keyboard: {
       resize: 'body'
+    },
+    LocalNotifications: {
+      smallIcon: 'ic_fcc_notification'
     },
     SystemBars: {
       insetsHandling: 'css'
