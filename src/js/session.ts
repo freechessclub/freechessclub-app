@@ -57,6 +57,9 @@ export class Session {
   private sessionStatusPopoverTimer; // Hide session status popover after duration
   private bodyClickHandler; // Used to detect when user clicks outside of session status popover
   private postConnectCommands;
+  private networkConnected: boolean;
+  private reconnectWhenAvailable: boolean;
+  private visibilityChangeHandler: (() => void) | null;
 
   constructor(onRecv: (msg: any) => void, user?: string, pass?: string, autoConnect = true) {
     this.connected = false;
@@ -66,9 +69,18 @@ export class Session {
     this.onRecv = onRecv;
     this.registered = false;
     this.postConnectCommands = [];
+    this.networkConnected = networkConnected;
+    this.reconnectWhenAvailable = false;
+    this.visibilityChangeHandler = null;
 
-    if(autoConnect)
-      this.connect(user, pass);
+    if(autoConnect) {
+      if(this.networkConnected)
+        this.connect(user, pass);
+      else {
+        this.reconnectWhenAvailable = true;
+        this.reset();
+      }
+    }
     else
       this.reset();
 
@@ -86,6 +98,7 @@ export class Session {
 
   destroy() {
     $('body').off('click', this.bodyClickHandler);
+    this.removeVisibilityChangeHandler();
   }
 
   public isRegistered(): boolean {
@@ -123,6 +136,8 @@ export class Session {
 
     this.connected = true;
     this.connecting = false;
+    this.reconnectWhenAvailable = false;
+    this.removeVisibilityChangeHandler();
   }
 
   public isConnected(): boolean {
@@ -134,14 +149,27 @@ export class Session {
   }
 
   public connect(user?: string, pass?: string) {
+    if(this.isConnected() || this.isConnecting())
+      return;
+
+    if(!this.networkConnected) {
+      this.reconnectWhenAvailable = true;
+      this.reset();
+      return;
+    }
+
+    this.reconnectWhenAvailable = false;
     this.registered = false;
     this.connecting = true;
     $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
     this.onRecv({command: 5, control: 'Connecting'});
 
-    this.websocket = new WebSocket('wss://www.freechess.org:5001');
+    const websocket = new WebSocket('wss://www.freechess.org:5001');
+    this.websocket = websocket;
     this.parser = new Parser(this, user, pass);
-    this.websocket.onmessage = async (message: any) => {
+    websocket.onmessage = async (message: any) => {
+      if(this.websocket !== websocket)
+        return;
       const data = this.parser.parse(await message.data.text());
 
       if (Array.isArray(data)) {
@@ -151,7 +179,10 @@ export class Session {
       }
     };
 
-    this.websocket.onclose = (e) => {
+    websocket.onclose = (e) => {
+      if(this.websocket !== websocket)
+        return;
+
       const wasConnected = this.isConnected();
       const uncleanDisconnect = wasConnected && !e.wasClean;
 
@@ -164,24 +195,25 @@ export class Session {
       }
 
       // Reconnect automatically if the connection was dropped unexpectedly, i.e. by mobile power management
-      if(wasConnected && !e.wasClean) {
-        const backgroundReconnectEnabled = isAndroidCapacitor() && settings.foregroundServiceToggle;
-        if(!isMobile() || document.visibilityState === 'visible' || backgroundReconnectEnabled)
-          this.connect(this.user, this.pass);
-        else {
-          $(document).one('visibilitychange', () => {
-            this.connect(this.user, this.pass);
-          });
-        }
-      }
+      if(uncleanDisconnect)
+        this.reconnectWhenAvailable = true;
+
+      this.tryReconnect();
     };
 
-    this.websocket.onopen = () => {
+    websocket.onopen = () => {
+      if(this.websocket !== websocket)
+        return;
       this.send(this.timesealHello, false);
     };   
 
-    this.websocket.onerror = () => {
+    websocket.onerror = () => {
+      if(this.websocket !== websocket)
+        return;
+      const wasConnected = this.isConnected();
       this.reset();
+      if(wasConnected)
+        this.reconnectWhenAvailable = true;
       this.onRecv({
         command: 3,
         control: 'Failed to connect'
@@ -190,6 +222,8 @@ export class Session {
   }
 
   public disconnect() {
+    this.reconnectWhenAvailable = false;
+    this.removeVisibilityChangeHandler();
     this.reset();
     if(this.websocket)
       this.websocket.close();
@@ -224,11 +258,74 @@ export class Session {
   }
 
   public reconnect() {
-    if(!this.isConnecting()) {
-      const user = /^Guest[A-Z]{4}$/.test(this.getUser()) ? undefined : this.getUser(); 
-      this.connect(user, this.getPassword());
-      $('#sign-in-alert').addClass('show');
+    if(this.isConnected() || this.isConnecting())
+      return;
+
+    this.reconnectWhenAvailable = true;
+    this.tryReconnect();
+    $('#sign-in-alert').addClass('show');
+  }
+
+  public setNetworkConnected(connected: boolean) {
+    const wasConnected = this.networkConnected;
+    this.networkConnected = connected;
+
+    if(!connected) {
+      if(this.isConnected() || this.isConnecting())
+        this.reconnectWhenAvailable = true;
+      if(this.websocket && this.websocket.readyState < WebSocket.CLOSING)
+        this.websocket.close();
+      return;
     }
+
+    if(!wasConnected)
+      this.tryReconnect();
+  }
+
+  /** Reconcile native app state with the underlying WebSocket after resume. */
+  public ensureConnection(reconnectIfInactive = false) {
+    const socketActive = this.websocket
+      && (this.websocket.readyState === WebSocket.CONNECTING || this.websocket.readyState === WebSocket.OPEN);
+    if((this.isConnected() || this.isConnecting()) && socketActive)
+      return;
+
+    if(this.isConnected() || this.isConnecting()) {
+      this.reset();
+      this.reconnectWhenAvailable = true;
+    }
+    else if(reconnectIfInactive)
+      this.reconnectWhenAvailable = true;
+
+    this.tryReconnect();
+  }
+
+  private tryReconnect() {
+    if(!this.reconnectWhenAvailable || !this.networkConnected || this.isConnected() || this.isConnecting())
+      return;
+
+    const backgroundReconnectEnabled = isAndroidCapacitor() && settings.foregroundServiceToggle;
+    if(isMobile() && document.visibilityState !== 'visible' && !backgroundReconnectEnabled) {
+      if(!this.visibilityChangeHandler) {
+        this.visibilityChangeHandler = () => {
+          if(document.visibilityState !== 'visible')
+            return;
+          this.removeVisibilityChangeHandler();
+          this.tryReconnect();
+        };
+        document.addEventListener('visibilitychange', this.visibilityChangeHandler);
+      }
+      return;
+    }
+
+    const user = /^Guest[A-Z]{4}$/.test(this.getUser()) ? undefined : this.getUser();
+    this.connect(user, this.getPassword());
+  }
+
+  private removeVisibilityChangeHandler() {
+    if(!this.visibilityChangeHandler)
+      return;
+    document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
+    this.visibilityChangeHandler = null;
   }
 
   /** Call this function after logging in to send queued commands */
@@ -285,6 +382,13 @@ export class Session {
 }
 
 export let session: Session;
+let networkConnected = true;
+
+export function setNetworkConnected(connected: boolean) {
+  networkConnected = connected;
+  session?.setNetworkConnected(connected);
+}
+
 export function createSession(onRecv: (msg: any) => void, user?: string, pass?: string, autoConnect = true) {
   session = new Session(onRecv, user, pass, autoConnect);
 }

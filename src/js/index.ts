@@ -22,7 +22,7 @@ import { Clock } from './clock';
 import { Engine, EvalEngine, MaiaEngine } from './engine';
 import { Game, GameData, Role, NewVariationMode, games } from './game';
 import { History, HEntry } from './history';
-import { GetMessageType, MessageType, session, createSession } from './session';
+import { GetMessageType, MessageType, session, createSession, setNetworkConnected } from './session';
 import { PuzzleBotState } from './puzzlebot';
 import { EndgameBotState } from './endgamebot';
 import { TrainingBotKind } from './trainingbot';
@@ -143,6 +143,7 @@ let ForegroundService = null;
 let foregroundServiceActive = false;
 let foregroundServiceChannelReady = false;
 let foregroundServiceTransition: Promise<void> = Promise.resolve();
+let nativeAppIntegrationInitialized = false;
 let pendingInviteCreate: InviteCreateState | null = null;
 let activeInvite: InviteCreateState | null = null;
 let pendingInviteJoin: InviteJoinState | null = null;
@@ -469,6 +470,97 @@ function updateForegroundServiceState() {
     });
 }
 
+function closeTopAndroidOverlay(): boolean {
+  const modal = $('.modal.show').last();
+  if(modal.length) {
+    modal.modal('hide');
+    return true;
+  }
+
+  const dialog = $('.toast.dialog.show').last();
+  if(dialog.length) {
+    dialog.toast('hide');
+    return true;
+  }
+
+  const contextMenu = $('.context-menu:visible').last();
+  if(contextMenu.length) {
+    contextMenu.remove();
+    return true;
+  }
+
+  const dropdownToggle = $('.dropdown-toggle.show').last();
+  if(dropdownToggle.length) {
+    dropdownToggle.dropdown('hide');
+    return true;
+  }
+
+  if($('#notifications [data-show="true"]').length) {
+    Dialogs.hideAllNotifications();
+    return true;
+  }
+
+  return false;
+}
+
+async function initNativeAppIntegration() {
+  if(!Utils.isCapacitor() || nativeAppIntegrationInitialized)
+    return;
+
+  nativeAppIntegrationInitialized = true;
+  try {
+    const [{ App }, { Network }] = await Promise.all([
+      import('@capacitor/app'),
+      import('@capacitor/network')
+    ]);
+
+    const updateNetworkStatus = (connected: boolean) => {
+      setNetworkConnected(connected);
+    };
+
+    const networkStatus = await Network.getStatus();
+    updateNetworkStatus(networkStatus.connected);
+    await Network.addListener('networkStatusChange', status => {
+      updateNetworkStatus(status.connected);
+    });
+
+    let reconnectSessionOnResume = false;
+    await App.addListener('pause', () => {
+      reconnectSessionOnResume = !!session && (session.isConnected() || session.isConnecting());
+    });
+
+    await App.addListener('resume', async () => {
+      const shouldReconnect = reconnectSessionOnResume;
+      reconnectSessionOnResume = false;
+      try {
+        const status = await Network.getStatus();
+        updateNetworkStatus(status.connected);
+      }
+      catch(error) {
+        Utils.logError('Error checking network state after resume:', error);
+      }
+      session?.ensureConnection(shouldReconnect);
+      updateForegroundServiceState();
+      updateScreenWakeLock();
+    });
+
+    if(Utils.isAndroidCapacitor()) {
+      await App.addListener('backButton', ({ canGoBack }) => {
+        if(closeTopAndroidOverlay())
+          return;
+        if(canGoBack)
+          window.history.back();
+        else
+          App.minimizeApp();
+      });
+    }
+  }
+  catch(error) {
+    nativeAppIntegrationInitialized = false;
+    Utils.logError('Error initializing native app integration:', error);
+  }
+}
+
 function hasPlayingGame() {
   return Array.from(games).some(game => game.isPlaying());
 }
@@ -524,6 +616,7 @@ async function onDeviceReady() {
   initSettings();
 
   initSessionSharing();
+  await initNativeAppIntegration();
 
   seekGraph = new SeekGraph();
   createChat();
