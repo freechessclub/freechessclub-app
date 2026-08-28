@@ -59,6 +59,7 @@ export class Session {
   private postConnectCommands;
   private networkConnected: boolean;
   private reconnectWhenAvailable: boolean;
+  private networkTransitionDisconnect: boolean;
   private visibilityChangeHandler: (() => void) | null;
 
   constructor(onRecv: (msg: any) => void, user?: string, pass?: string, autoConnect = true) {
@@ -71,6 +72,7 @@ export class Session {
     this.postConnectCommands = [];
     this.networkConnected = networkConnected;
     this.reconnectWhenAvailable = false;
+    this.networkTransitionDisconnect = false;
     this.visibilityChangeHandler = null;
 
     if(autoConnect) {
@@ -159,6 +161,7 @@ export class Session {
     }
 
     this.reconnectWhenAvailable = false;
+    this.networkTransitionDisconnect = false;
     this.registered = false;
     this.connecting = true;
     $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
@@ -184,18 +187,19 @@ export class Session {
         return;
 
       const wasConnected = this.isConnected();
-      const uncleanDisconnect = wasConnected && !e.wasClean;
+      const recoverableDisconnect = wasConnected && (this.networkTransitionDisconnect || !e.wasClean);
+      this.networkTransitionDisconnect = false;
 
       if(this.isConnecting() || wasConnected) {
         this.reset();     
         this.onRecv({
-          command: uncleanDisconnect ? 4 : 3,
+          command: recoverableDisconnect ? 4 : 3,
           control: 'Disconnected'
         }); // Send disconnected command to message handler
       }
 
       // Reconnect automatically if the connection was dropped unexpectedly, i.e. by mobile power management
-      if(uncleanDisconnect)
+      if(recoverableDisconnect)
         this.reconnectWhenAvailable = true;
 
       this.tryReconnect();
@@ -211,11 +215,12 @@ export class Session {
       if(this.websocket !== websocket)
         return;
       const wasConnected = this.isConnected();
+      const recoverableDisconnect = wasConnected && this.networkTransitionDisconnect;
       this.reset();
       if(wasConnected)
         this.reconnectWhenAvailable = true;
       this.onRecv({
-        command: 3,
+        command: recoverableDisconnect ? 4 : 3,
         control: 'Failed to connect'
       }); 
     };
@@ -223,6 +228,7 @@ export class Session {
 
   public disconnect() {
     this.reconnectWhenAvailable = false;
+    this.networkTransitionDisconnect = false;
     this.removeVisibilityChangeHandler();
     this.reset();
     if(this.websocket)
@@ -271,7 +277,11 @@ export class Session {
     this.networkConnected = connected;
 
     if(!connected) {
-      if(this.isConnected() || this.isConnecting())
+      if(this.isConnected()) {
+        this.networkTransitionDisconnect = true;
+        this.reconnectWhenAvailable = true;
+      }
+      else if(this.isConnecting())
         this.reconnectWhenAvailable = true;
       if(this.websocket && this.websocket.readyState < WebSocket.CLOSING)
         this.websocket.close();

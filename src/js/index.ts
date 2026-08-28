@@ -614,6 +614,8 @@ async function initNativeNotifications() {
     await LocalNotifications.addListener('localNotificationActionPerformed', action => {
       queueNativeNotificationTarget(action.notification.extra as NativeNotificationTarget);
     });
+    if(settings.notificationsToggle)
+      await requestNativeNotificationPermission();
   }
   catch(error) {
     nativeNotificationsInitialized = false;
