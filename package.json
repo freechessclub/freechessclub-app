@@ -55,12 +55,15 @@
   "dependencies": {
     "@aparajita/capacitor-secure-storage": "^8.0.0",
     "@bity/oauth2-auth-code-pkce": "^2.13.0",
-    "@capacitor/android": "^8.1.0",
-    "@capacitor/core": "^8.1.0",
-    "@capacitor/ios": "^8.1.0",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
     "@capacitor/keyboard": "^8.0.5",
+    "@capacitor/local-notifications": "8.2.1",
+    "@capacitor/network": "^8.0.1",
     "@capacitor/preferences": "^8.0.1",
-    "@capawesome-team/capacitor-android-foreground-service": "^8.0.1",
+    "@capawesome-team/capacitor-android-foreground-service": "^8.1.0",
     "@formatjs/intl-segmenter": "^12.2.2",
     "@jaames/iro": "^5.5.2",
     "@mliebelt/pgn-parser": "^1.4.15",
@@ -81,7 +84,7 @@
     "virtual-scroller": "^1.13.1"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.1.0",
+    "@capacitor/cli": "^8.5.0",
     "@eslint/eslintrc": "^3.3.5",
     "@mliebelt/pgn-types": "^1.0.4",
     "@types/bootstrap": "5.2.11",
