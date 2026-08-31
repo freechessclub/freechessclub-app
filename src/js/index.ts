@@ -4788,6 +4788,14 @@ $('#backward').on('click', () => {
 
 function backward() {
   const game = games.focused;
+  if(game?.trainingBot instanceof EndgameBotState && game.isExamining()) {
+    game.trainingBot.takeBack();
+    updateTrainingBotControls(game);
+    updateTrainingBotStatus(game);
+    sendEndgameBotCommand('back');
+    return;
+  }
+
   const move = game.history.prev();
 
   if(move)
@@ -6274,7 +6282,7 @@ function sendPuzzleBotCommand(command: string, loadsPuzzle = false) {
 }
 
 $('#endgamebot').on('click', '[data-endgamebot-pieceset]', function() {
-  sendEndgameBotCommand(`play -f ${$(this).data('endgamebot-pieceset')}`, true);
+  sendEndgameBotCommand(`play ${$(this).data('endgamebot-pieceset')}`, true);
 });
 
 $('#endgamebot-hint').on('click', () => {
