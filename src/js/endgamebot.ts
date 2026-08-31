@@ -19,10 +19,15 @@ function normalizeMessage(message: string) {
 export class EndgameBotState extends TrainingBotState {
   readonly kind = 'endgame' as const;
 
-  constructor(playCommand = 'play -f kpk', objectiveMessages: string[] = []) {
+  constructor(playCommand = 'play kpk', objectiveMessages: string[] = []) {
     super(playCommand, objectiveMessages
       .map(normalizeMessage)
       .filter(message => message && !COMMAND_PROMPT.test(message)));
+  }
+
+  takeBack() {
+    this.ended = false;
+    this.requestFeedback();
   }
 
   finish() {
@@ -46,7 +51,9 @@ export class EndgameBotState extends TrainingBotState {
     const messages = this.feedbackPending || completed || this.interactionStarted
       ? this.feedbackMessages
       : this.objectiveMessages;
-    if(messages[messages.length - 1] !== normalized)
+    const repeatsObjective = messages === this.feedbackMessages
+      && this.objectiveMessages[this.objectiveMessages.length - 1] === normalized;
+    if(!repeatsObjective && messages[messages.length - 1] !== normalized)
       messages.push(normalized);
 
     if(this.feedbackPending)
