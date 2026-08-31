@@ -4529,8 +4529,13 @@ function initGameControls(game: Game) {
   game.statusElement.find('.trainingbot-status').hide();
   game.statusElement.find('.game-status-outer').show();
   game.statusElement.find('.game-watchers').toggle(!!game.statusElement.find('.game-watchers').html());
+  const endgameBotTraining = isEndgameBotTraining(game);
+  $('#fast-backward, #forward, #fast-forward').prop('disabled', endgameBotTraining);
+  game.moveTableElement.add(game.moveListElement)
+    .toggleClass('pe-none', endgameBotTraining)
+    .attr('aria-disabled', endgameBotTraining ? 'true' : null);
 
-  if(game.trainingBot?.kind === 'endgame' && game.isExamining()) {
+  if(endgameBotTraining) {
     Utils.hideWithPoppers($('#playing-game-buttons'));
     Utils.hideWithPoppers($('#viewing-game-buttons'));
     updateTrainingBotControls(game);
@@ -4768,6 +4773,10 @@ function cleanupGame(game: Game) {
  * NAVIGATION FUNCTIONS *
  ************************/
 
+function isEndgameBotTraining(game: Game): game is Game & { trainingBot: EndgameBotState } {
+  return game?.trainingBot instanceof EndgameBotState && game.isExamining();
+}
+
 $('#fast-backward').off('click');
 $('#fast-backward').on('click', () => {
   fastBackward();
@@ -4775,6 +4784,9 @@ $('#fast-backward').on('click', () => {
 
 function fastBackward() {
   const game = games.focused;
+  if(isEndgameBotTraining(game))
+    return;
+
   gotoMove(game.history.first());
   if(!SupportedCategories.includes(game.category) && game.isExamining())
     session.send('back 999');
@@ -4788,7 +4800,7 @@ $('#backward').on('click', () => {
 
 function backward() {
   const game = games.focused;
-  if(game?.trainingBot instanceof EndgameBotState && game.isExamining()) {
+  if(isEndgameBotTraining(game)) {
     game.trainingBot.takeBack();
     updateTrainingBotControls(game);
     updateTrainingBotStatus(game);
@@ -4813,6 +4825,9 @@ $('#forward').on('click', () => {
 
 function forward() {
   const game = games.focused;
+  if(isEndgameBotTraining(game))
+    return;
+
   const move = game.history.next();
 
   if(move)
@@ -4830,6 +4845,9 @@ $('#fast-forward').on('click', () => {
 
 function fastForward() {
   const game = games.focused;
+  if(isEndgameBotTraining(game))
+    return;
+
   gotoMove(game.history.last());
   if(!SupportedCategories.includes(game.category) && game.isExamining())
     session.send('forward 999');
@@ -4851,6 +4869,9 @@ function exitSubvariation() {
 
 export function gotoMove(to: HEntry, playSound = false) {
   const game = games.focused;
+
+  if(isEndgameBotTraining(game))
+    return;
 
   if(!to && to !== game.history.current())
     return;
