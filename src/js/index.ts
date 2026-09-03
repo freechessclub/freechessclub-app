@@ -2371,6 +2371,10 @@ function handleMiscMessage(data: any) {
     return;
   }
 
+  match = msg.match(/^mamer has set your tourney variable to ON\./m);
+  if(match) 
+    clearMatchRequests();
+
   match = msg.match(/^Channel (\d+).*?: (.*)/m);
   if(match && awaiting.resolve('inchannel')) {
     const chNum = match[1];
