@@ -535,6 +535,9 @@ export class Explorer {
       ]
     );
 
+    if(indexBlob === undefined || dataBlob === undefined) 
+      throw new Error('Explorer block data is missing');
+
     return {
       blockNum,
       index: new Uint8Array(await indexBlob.arrayBuffer()),

@@ -16,7 +16,7 @@ import { tournaments, createTournaments } from './tournaments';
 import { users, createUsers } from './users';
 import { chat, createChat } from './chat';
 import { profile, createProfile } from './profile';
-import type { Explorer, LichessExplorer, ExplorerMove, ExplorerGame } from './explorer';
+import type { Explorer, LichessExplorer, ExplorerPosition, ExplorerMove, ExplorerGame } from './explorer';
 import { LichessClient, LichessAuthError, LichessAuthTimeoutError } from './clients';
 import { Clock } from './clock';
 import { Engine, EvalEngine, MaiaEngine } from './engine';
@@ -198,6 +198,10 @@ let trainingBotRequest: {
   messages: string[];
   timer: ReturnType<typeof setTimeout> | null;
 } | null = null;
+
+// Persistent indexedDB storage
+if(!Utils.isFirefox())
+  navigator.storage.persist().catch(() => {});
 
 /**
  * Used to call session.send() from inline JS.
@@ -6978,8 +6982,11 @@ async function initExplorerPane() {
   const { Explorer, LichessExplorer } = await import('./explorer');
 
   if(storage.get('explorer-downloaded') === 'true') { // User has at some point agreed to download the Explorer
-    if(!explorer) 
+    if(!explorer) {
+      $('#explorer').hide();
+      explorerLastFen = undefined;
       explorer = new Explorer();
+    }
     if(!lichessClient)
       lichessClient = new LichessClient();
     if(!lichessExplorer)
@@ -7045,7 +7052,15 @@ async function showExplorerPosition(game: Game) {
     return;
   explorerLastFen = fen;
 
-  const position = await explorer.findPosition(fen); // Get the position from local Explorer data
+  let position: ExplorerPosition | undefined;
+  try {
+    position = await explorer.findPosition(fen); // Get the position from local Explorer data
+  }
+  catch(e) {
+    explorer = undefined;
+    initExplorerPane();
+    return;
+  }
 
   // Make sure position didn't change while we were fetching the data
   if(game !== games.focused || fen !== game.history.current().fen || game.isPlaying())
