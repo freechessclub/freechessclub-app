@@ -2282,7 +2282,7 @@ function showSentOffers(offers: any) {
     const showInviteBtn = showInvite
       ? `<button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline" id="show-invite-link">Invite link</button>`
       : '';
-    requestsHtml += `<span style="white-space: nowrap">${lastWord}${showInviteBtn}<span class="fa-solid fa-circle-xmark btn btn-default `
+    requestsHtml += `<span style="white-space: nowrap">${lastWord}${showInviteBtn}<span class="p-0 ms-2 fa-solid fa-circle-xmark btn btn-default `
       + `btn-sm" onclick="sessionSend('${removeCmd}')" aria-hidden="false"></span></span></div>`;
   });
 
@@ -2591,6 +2591,19 @@ function handleMiscMessage(data: any) {
     return;
   }
 
+  match = msg.match(/^Your seek has been posted with index \d+\./m);
+  if(match) {
+    // retrieve <sn> notification
+    session.send('iset showownseek 1');
+    if(!$('#pills-play').hasClass('active') || !$('#pills-lobby').hasClass('active')) {
+      session.send('iset seekinfo 1');
+      session.send('iset seekinfo 0');
+    }
+    session.send('iset showownseek 0');
+    chat.newMessage('console', data);
+    return;
+  }
+
   // Retrieve status/error messages from commands sent to the server via the left menus
   match = msg.match(/^There is no player matching the name \w+\./m);
   if(!match)
@@ -2772,19 +2785,6 @@ function handleMiscMessage(data: any) {
   if(match && match.length > 1 && awaiting.has('lobby')) {
     $('#lobby-pane-status').text(match[1]);
     showLobbyStatus();
-  }
-
-  match = msg.match(/^Your seek has been posted with index \d+\./m);
-  if(match) {
-    // retrieve <sn> notification
-    session.send('iset showownseek 1');
-    if(!$('#pills-play').hasClass('active') || !$('#pills-lobby').hasClass('active')) {
-      session.send('iset seekinfo 1');
-      session.send('iset seekinfo 0');
-    }
-    session.send('iset showownseek 0');
-    chat.newMessage('console', data);
-    return;
   }
 
   match = msg.match(/(?:^|\n)\s*Movelist for game (\d+):\s+(\S+) \((\d+|UNR)\) vs\. (\S+) \((\d+|UNR)\)[^\n]+\s+(\w+) (\S+) match, initial time: (\d+) minutes, increment: (\d+) seconds\./);
