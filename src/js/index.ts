@@ -1944,6 +1944,9 @@ function gameStart(game: Game) {
   }
   else {
     if(game.isExamining()) {
+      game.wrating = '';
+      game.brating = '';
+
       if(awaiting.resolve('setup-board')) {
         setupBoard(game, true);
       }
@@ -2383,7 +2386,7 @@ function handleMiscMessage(data: any) {
     return;
   }
 
-  match = msg.match(/(?:^|\n)\s*\d+\s+(\(Exam\.\s+)?[0-9\+\-]+\s\w+\s+[0-9\+\-]+\s\w+\s*(\)\s+)?\[[\w\s]+\]\s+[\d:]+\s*\-\s*[\d:]+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games? displayed/);
+  match = msg.match(/(?:^|\n)\s*\d+\s+(\(Exam\.\s+)?[0-9\+\-PE]+\s\w+\s+[0-9\+\-PE]+\s\w+\s*(\)\s+)?\[[\w\s]+\]\s+[\d:]+\s*\-\s*[\d:]+\s\(\s*\d+\-\s*\d+\)\s+[BW]:\s+\d+\s*\d+ games? displayed/);
   if(match != null && match.length > 0 && awaiting.resolve('games')) {
     showGames(msg);
     return;
@@ -2921,7 +2924,7 @@ function handleMiscMessage(data: any) {
     }
   }
 
-  match = msg.match(/^(Creating|Game\s(\d+)): (\S+) \(([\d\+\-\s]+)\) (\S+) \(([\d\-\+\s]+)\) \S+ (\S+).+/m);
+  match = msg.match(/^(Creating|Game\s(\d+)): (\S+) \(([\d\+\-PE\s]+)\) (\S+) \(([\d\-\+PE\s]+)\) \S+ (\S+).+/m);
   if(match != null && match.length > 7) {
     let game: Game;
     if(!settings.multiboardToggle)
