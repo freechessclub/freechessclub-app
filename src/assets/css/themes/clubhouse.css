@@ -1,0 +1,305 @@
+/* An optional structural theme. Removing this stylesheet restores the original UI. */
+:root {
+  --board: clubhouse;
+  --bg-color: #101916;
+  --fg-color: #edf2e8;
+  --club-surface: #192522;
+  --club-raised: #24332d;
+  --club-border: #3d5145;
+  --club-muted: #a8bbb0;
+  --club-accent: #c8f36a;
+  --bs-body-bg: var(--bg-color);
+  --bs-body-color: var(--fg-color);
+  --bs-body-bg-rgb: 16, 25, 22;
+  --bs-body-color-rgb: 237, 242, 232;
+  --bs-body-font-family: "Avenir Next", Avenir, "Century Gothic", ui-sans-serif, system-ui, sans-serif;
+  --bs-border-color: var(--club-border);
+  --bs-border-color-translucent: #3d514580;
+  --bs-secondary-color: var(--club-muted);
+  --bs-secondary-color-rgb: 168, 187, 176;
+  --bs-link-color: var(--club-accent);
+  --bs-link-hover-color: #e2ffad;
+  --form-control-bg: #111d18;
+  --flash-color: #614438;
+}
+
+body {
+  font-family: var(--bs-body-font-family);
+  background: radial-gradient(ellipse at top, #2a4030 0, transparent 65%), var(--bg-color);
+}
+
+#app {
+  background-image: repeating-linear-gradient(135deg, transparent 0 7px, #ffffff02 7px 8px);
+}
+
+a { color: var(--club-accent); }
+a:hover { color: #e2ffad; }
+
+.card {
+  --bs-card-border-color: var(--club-border);
+  --bs-card-border-radius: 1.25rem;
+  --bs-card-inner-border-radius: 1.2rem;
+  --bs-card-cap-bg: var(--club-raised);
+  --bs-card-cap-color: var(--fg-color);
+}
+
+#left-card, #right-card, .game-card {
+  /* Override the existing Bootstrap bg-transparent utility. */
+  background: var(--club-surface) !important;
+  border-radius: 1.25rem;
+  box-shadow: 0 14px 35px #00000030;
+}
+
+#left-card, #right-card { border-color: transparent; }
+.top-panel, .bottom-panel { color: var(--fg-color); }
+#left-panel-header, #right-panel-header, #left-panel-footer {
+  background: transparent;
+  border-color: transparent;
+}
+
+.btn {
+  --bs-btn-border-radius: 0.7rem;
+  --bs-btn-font-weight: 600;
+  --bs-btn-focus-shadow-rgb: 200, 243, 106;
+}
+
+.btn-outline-secondary, .btn-default {
+  --bs-btn-color: var(--fg-color);
+  --bs-btn-border-color: var(--club-border);
+  --bs-btn-hover-color: var(--club-accent);
+  --bs-btn-hover-bg: #304333;
+  --bs-btn-hover-border-color: #779555;
+  --bs-btn-active-bg: var(--club-accent);
+  --bs-btn-active-color: #152015;
+  --bs-btn-active-border-color: var(--club-accent);
+  --bs-btn-disabled-color: #8c9d93;
+  --bs-btn-disabled-border-color: var(--club-border);
+}
+
+.btn-primary, #play-computer, #custom-control-go {
+  --bs-btn-bg: var(--club-accent);
+  --bs-btn-color: #152015;
+  --bs-btn-border-color: var(--club-accent);
+  --bs-btn-hover-bg: #dbff91;
+  --bs-btn-hover-color: #152015;
+  --bs-btn-hover-border-color: #dbff91;
+  --bs-btn-active-bg: #afdb51;
+  --bs-btn-active-color: #152015;
+  --bs-btn-active-border-color: #afdb51;
+}
+
+.button-toolbar .btn { border-radius: 50rem; }
+.btn-transparent { --bs-btn-hover-color: var(--club-accent); }
+.toggle-btn-selected.btn-outline-secondary { --bs-btn-bg: #304333; }
+
+.nav { --bs-nav-link-color: var(--club-muted); --bs-nav-link-hover-color: var(--club-accent); }
+.nav-link { font-weight: 600; }
+.nav-pills {
+  --bs-nav-pills-link-active-color: #152015;
+  --bs-nav-pills-link-active-bg: var(--club-accent);
+  --bs-nav-pills-border-radius: 50rem;
+}
+#pills-tab {
+  padding: 0.3rem;
+  margin: 0 0.5rem 0.5rem;
+  border-radius: 50rem;
+  background: #0f1915;
+  gap: 0.15rem;
+}
+#pills-tab .nav-link { font-size: 0.875rem; }
+.nav-tabs {
+  --bs-nav-tabs-border-color: var(--club-border);
+  --bs-nav-tabs-link-active-color: var(--club-accent);
+  --bs-nav-tabs-link-active-bg: transparent;
+  --bs-nav-tabs-link-active-border-color: transparent;
+  --bs-nav-tabs-link-hover-border-color: transparent;
+}
+.nav-tabs .nav-link {
+  border-radius: 0;
+  font-size: 0.875rem;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
+.nav-tabs .nav-link.active { box-shadow: inset 0 -2px var(--club-accent); }
+
+/* Individual tactile tiles replace the joined time-control button strips. */
+#pills-pairing { padding: 0.25rem 0.75rem 0.75rem; }
+#pills-pairing .btn-group[aria-label="Lightning"],
+#pills-pairing .btn-group[aria-label="Blitz"],
+#pills-pairing .btn-group[aria-label="Standard"] { gap: 0.5rem; }
+#pills-pairing .btn-group[aria-label="Blitz"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+#pills-pairing .btn-group[aria-label="Lightning"] > .btn,
+#pills-pairing .btn-group[aria-label="Blitz"] > .btn,
+#pills-pairing .btn-group[aria-label="Standard"] > .btn {
+  border-radius: 0.75rem;
+  margin-left: 0;
+  min-height: 2.75rem;
+  background: var(--club-raised);
+  border-bottom-width: 3px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+#pills-pairing .btn-group[aria-label="Lightning"] > .btn:hover,
+#pills-pairing .btn-group[aria-label="Blitz"] > .btn:hover,
+#pills-pairing .btn-group[aria-label="Standard"] > .btn:hover { background: #304333; }
+.form-heading, .tournament-group-title {
+  color: var(--club-accent);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+#pills-pairing .form-heading {
+  margin-top: 0.7rem;
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+
+.game-card {
+  --border-highlight-color: var(--club-accent);
+  --border-expand-color: var(--club-accent);
+  --game-tie-color: #55482c;
+  --game-win-color: #355331;
+  --game-lose-color: #613d3b;
+}
+.game-card.game-focused { border-color: var(--club-accent); }
+.game-card .title-bar { --bs-card-cap-bg: var(--club-raised); }
+.game-card > .top-panel { border-radius: 1.2rem 1.2rem 0 0; }
+.game-card > .bottom-panel { border-radius: 0 0 1.2rem 1.2rem; }
+.game-card .player-status .name { font-weight: 650; font-size: 1.25rem; }
+.game-card .rating { color: var(--club-muted); font-variant-numeric: tabular-nums; }
+.clock {
+  background: #0d1511;
+  border-radius: 0.6rem;
+  color: var(--fg-color);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  padding-inline: 0.65rem;
+}
+.clock-time { font-size: 1.85rem; line-height: 1.35; }
+.clock.my-turn {
+  color: #152015;
+  background: var(--club-accent);
+  box-shadow: 0 0 0 2px #c8f36a25;
+}
+.clock.low-time { color: #ffaaa0; background: #4d2421; }
+.game-card-sm .player-status .name { font-size: inherit; }
+.game-card-sm .clock-time { font-size: 1rem; }
+
+.form-control, .form-control:active, .form-control:focus, #fake-input-text:focus-within {
+  color: var(--fg-color);
+  background-color: var(--form-control-bg);
+  border-color: var(--club-border);
+  border-radius: 0.65rem;
+  --box-shadow-color: #c8f36a40;
+}
+.input-group > .form-control { border-radius: 0; }
+.input-group > .form-control:first-child { border-radius: 0.65rem 0 0 0.65rem; }
+.input-group > .form-control:last-child { border-radius: 0 0.65rem 0.65rem 0; }
+.form-control::placeholder { color: #91a499; }
+.form-control:disabled { background: #2d3932; }
+.input-group-text { color: var(--club-muted); background: var(--club-raised); border-color: var(--club-border); }
+.form-check-input:checked { background-color: #80a13d; border-color: var(--club-accent); }
+.form-range::-webkit-slider-thumb { background: var(--club-accent); }
+.form-range::-moz-range-thumb { background: var(--club-accent); }
+.form-control:focus, #fake-input-text:focus-within { border-color: var(--club-accent); box-shadow: 0 0 0 3px #c8f36a25; }
+.btn:focus-visible, .nav-link:focus-visible, .dropdown-item:focus-visible, .form-check-input:focus-visible {
+  outline: 2px solid var(--club-accent);
+  outline-offset: 2px;
+}
+
+.modal {
+  --bs-modal-bg: var(--club-surface);
+  --bs-modal-border-color: var(--club-border);
+  --bs-modal-border-radius: 1.5rem;
+  --bs-modal-inner-border-radius: 1.4rem;
+  --bs-modal-header-border-color: var(--club-border);
+  --bs-modal-footer-border-color: var(--club-border);
+}
+.modal-content { box-shadow: 0 24px 80px #0008; }
+.modal-title { font-weight: 750; letter-spacing: -0.025em; }
+.modal-header { padding: 1.25rem; }
+.dropdown-menu {
+  --bs-dropdown-bg: var(--club-raised);
+  --bs-dropdown-border-color: var(--club-border);
+  --bs-dropdown-border-radius: 0.9rem;
+  --bs-dropdown-link-hover-bg: #354d3a;
+  --bs-dropdown-link-hover-color: var(--club-accent);
+  --bs-dropdown-link-active-bg: var(--club-accent);
+  --bs-dropdown-link-active-color: #152015;
+  --bs-dropdown-padding-y: 0.5rem;
+  box-shadow: 0 12px 36px #0006;
+}
+.dropdown-item { padding-top: 0.4rem; padding-bottom: 0.4rem; }
+.popover { --bs-popover-bg: var(--club-raised); --bs-popover-border-color: var(--club-border); }
+.toast { --bs-toast-bg: var(--club-raised); --bs-toast-header-bg: var(--club-surface); --bs-toast-header-color: var(--fg-color); }
+
+.chat-text { color: #d0dcd3; }
+.chat-text strong, .chat-info .btn-outline-secondary { color: var(--club-accent); }
+.chat-text strong.mine { color: #91cde2; }
+.chat-text span.timestamp, .chat-text strong.chat-notification { color: var(--club-muted); }
+#chat-panel { background: #111c17; }
+#fake-input-text { border-radius: 0.85rem; border-color: var(--club-border); background: var(--form-control-bg); }
+#input-text { background: transparent; box-shadow: none; }
+#emoji-button { --bs-btn-color: var(--club-accent); }
+#left-panel-bottom, #left-panel-bottom-content { background: var(--club-surface); }
+#game-toolbar, #game-opening-name { background: #111c17; }
+#game-opening-name, .game-status, .game-watchers { color: var(--club-muted); }
+#move-table .selected, .movelist .selected { background: #c8f36a26; color: var(--club-accent); --box-shadow-color: transparent; border-radius: 0.3rem; }
+#move-table .selectable:hover .move, .movelist .move:hover, .movelist .move.hovered { color: var(--club-accent); }
+.table-standard thead { --bs-table-bg: var(--club-raised); --box-shadow-color: var(--club-border); }
+.table-standard { --bs-table-striped-bg: #ffffff04; --bs-table-hover-bg: #c8f36a0c; }
+.not-signed-in-notice { background: var(--club-raised); border: 1px dashed var(--club-border); border-radius: 0.75rem; }
+.card.tournament-card { --bs-card-bg: var(--club-raised); --bs-card-border-color: var(--club-border); }
+.card.tournament-card-active { --bs-card-bg: #344b2c; }
+
+@media (min-width: 768px) {
+  #left-card, #right-card { margin: 0.6rem; }
+  .game-card { margin-block: 0.6rem; }
+}
+
+@media (max-width: 767px) {
+  #left-card, #right-card { border-radius: 0; box-shadow: none; }
+  .game-card { border-radius: 0.85rem; }
+  .game-card > .top-panel { border-radius: 0.8rem 0.8rem 0 0; }
+  .game-card > .bottom-panel { border-radius: 0 0 0.8rem 0.8rem; }
+  .game-card .player-status .name { font-size: 1rem; }
+  .game-card:not(.game-card-sm) .clock-time { font-size: 1.5rem; }
+  .clock { padding-inline: 0.5rem; }
+  .modal-header { padding: 1rem; }
+}
+
+/* Decorative layers are clipped to their card and never capture chess input. */
+.clubhouse-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 5;
+}
+.clubhouse-confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 14px;
+  border-radius: 1px;
+  box-shadow: 0 0 5px #ffffff35;
+}
+.clubhouse-confetti-piece:nth-child(3n) { width: 10px; height: 10px; border-radius: 50%; }
+.clubhouse-confetti-piece:nth-child(5n) { width: 5px; height: 20px; }
+:root[data-clubhouse-effects] #pills-pairing .btn-group:is([aria-label="Lightning"], [aria-label="Blitz"], [aria-label="Standard"]) > .btn {
+  transition: transform 140ms ease-out, background-color 140ms ease-out, box-shadow 140ms ease-out;
+}
+:root[data-clubhouse-effects] #pills-pairing .btn-group:is([aria-label="Lightning"], [aria-label="Blitz"], [aria-label="Standard"]) > .btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px #0004;
+}
+@media (hover: hover) {
+  :root[data-clubhouse-effects] #pills-pairing .btn-group:is([aria-label="Lightning"], [aria-label="Blitz"], [aria-label="Standard"]) > .btn:hover:not(:disabled):not(:active) {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 10px #0003;
+  }
+}

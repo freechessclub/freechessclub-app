@@ -7,6 +7,7 @@ import { SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { storage } from './storage';
 import { isMac, isCapacitor, isTouchscreen, getBrightness, removeWithPoppers, loadSvg, svgToImg, svgToUrl, normalizeColor, parseRgb, rgbToHsl, hslToRgb, createColorPicker } from './utils';
 import { showDialog } from './dialogs';
+import { configureClubhouseEffects } from './clubhouse-effects';
 
 $('#version').text(`Version: ${packageInfo.version}`);
 
@@ -82,6 +83,9 @@ let boards: Board[] = [
   { name: 'slate', replaceColors: [
     { name: 'light squares', color: '#8C8681' }, 
     { name: 'dark squares', color: '#57534E' }] },  
+  { name: 'clubhouse', replaceColors: [
+    { name: 'light squares', color: '#e2e7d5' },
+    { name: 'dark squares', color: '#648273' }] },
 ];
 
 /**
@@ -183,6 +187,7 @@ export function initUi() {
     const theme = $(event.currentTarget).attr('id').split('theme-')[1];
     await setTheme(theme);
     setThemeDefaultBoard();
+    $(window).trigger('resize');
   });
 
   /** When a board is clicked in the Appearance Settings */
@@ -481,7 +486,9 @@ async function setBaseTheme(baseTheme: string) {
 }
 
 async function setTheme(theme: string) {
-  const baseTheme = (theme === 'gray' ? 'base-theme-dark' : 'base-theme-light');
+  // Stop active effects before the old theme's stylesheet is removed.
+  configureClubhouseEffects('');
+  const baseTheme = (theme === 'gray' || theme === 'clubhouse' ? 'base-theme-dark' : 'base-theme-light');
   await setBaseTheme(baseTheme);
 
   storage.set('theme', theme);
@@ -494,6 +501,9 @@ async function setTheme(theme: string) {
 
     let mod = null;
     switch(theme) {
+      case 'clubhouse':
+        mod = await import(/* webpackChunkName: "themes/clubhouse" */ 'assets/css/themes/clubhouse.css');
+        break;
       case 'brown':
         mod = await import(/* webpackChunkName: "themes/brown" */ 'assets/css/themes/brown.css');
         break;
@@ -527,6 +537,7 @@ async function setTheme(theme: string) {
     elem.setAttribute('id', 'theme');
   }
 
+  configureClubhouseEffects(theme);
 }
 
 /**
