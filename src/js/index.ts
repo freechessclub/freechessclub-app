@@ -35,13 +35,14 @@ import {
   forgetAndroidTurnNotification,
   initAndroidAppIntegration,
   initAndroidNotifications,
+  removeAndroidOfferNotification,
   requestAndroidNotificationPermission,
   shouldShowAndroidTurnNotification,
   showAndroidNotification,
   updateAndroidForegroundServiceNotification,
   updateAndroidForegroundServiceState
 } from './android';
-import type { AndroidNotificationTarget } from './android';
+import type { AndroidNotificationAction, AndroidNotificationTarget } from './android';
 import './ui';
 import packageInfo from '../../package.json';
 
@@ -151,6 +152,7 @@ let gameListVirtualScroller = null;
 const mainBoard: any = createBoard($('#main-board-area').children().first().find('.board'));
 let pendingNativeNotificationTarget: AndroidNotificationTarget | null = null;
 let pendingNativeNotificationTargetTimer: number | null = null;
+let pendingAndroidOfferAction: {command: 'accept' | 'decline'; offerId: number} | null = null;
 let pendingInviteCreate: InviteCreateState | null = null;
 let activeInvite: InviteCreateState | null = null;
 let pendingInviteJoin: InviteJoinState | null = null;
@@ -421,6 +423,31 @@ function queueNativeNotificationTarget(target: AndroidNotificationTarget) {
   setTimeout(openPendingNativeNotificationTarget, 0);
 }
 
+function sendPendingAndroidOfferAction() {
+  if(!session || !pendingAndroidOfferAction)
+    return;
+
+  const action = pendingAndroidOfferAction;
+  pendingAndroidOfferAction = null;
+  session.send(`${action.command} ${action.offerId}`);
+}
+
+function handleAndroidNotificationAction(action: AndroidNotificationAction) {
+  if((action.actionId === 'accept' || action.actionId === 'decline')
+      && Number.isSafeInteger(action.target.offerId) && action.target.offerId > 0) {
+    removeAndroidOfferNotification(action.target.offerId);
+    pendingAndroidOfferAction = {
+      command: action.actionId,
+      offerId: action.target.offerId
+    };
+    sendPendingAndroidOfferAction();
+    return;
+  }
+
+  if(action.actionId === 'tap')
+    queueNativeNotificationTarget(action.target);
+}
+
 function syncAndroidForegroundService() {
   updateAndroidForegroundServiceState(
     settings.foregroundServiceToggle,
@@ -575,7 +602,7 @@ async function onDeviceReady() {
 
   Utils.initDropdownSubmenus();
   appReady = true;
-  await initAndroidNotifications(settings.notificationsToggle, queueNativeNotificationTarget);
+  await initAndroidNotifications(settings.notificationsToggle, handleAndroidNotificationAction);
 
   credential = new CredentialStorage();
   const hasInvite = hasInviteParams();
@@ -595,6 +622,7 @@ async function onDeviceReady() {
     $('#login-pass').val('');
     createSession(messageHandler, undefined, undefined, autoConnect);
   }
+  sendPendingAndroidOfferAction();
 
   if(hasSharedGame)
     initSharedGameFromUrl();
@@ -1892,9 +1920,11 @@ function handleOffers(offers: any[]) {
     let bodyTitle = '';
     let bodyText = '';
     let displayType = '';
+    let showNativeNotification = false;
     switch(item.subtype) {
       case 'match':
         displayType = 'notification';
+        showNativeNotification = true;
         const time = !isNaN(item.initialTime) ? ` ${item.initialTime} ${item.increment}` : '';
         bodyText = `${item.ratedUnrated} ${item.category}${time}`;
         if(item.adjourned) {
@@ -1908,6 +1938,11 @@ function handleOffers(offers: any[]) {
           const headerTextElement = $(element).find('.header-text');
           const bodyTextElement = $(element).find('.body-text');
           if(headerTextElement.text() === 'Match Request' && bodyTextElement.text().startsWith(`${item.opponent}(`)) {
+            const previousOfferId = Number($(element).attr('data-offer-id'));
+            const offerReplaced = Number.isSafeInteger(previousOfferId) && previousOfferId !== +item.id;
+            if(offerReplaced)
+              removeAndroidOfferNotification(previousOfferId);
+            showNativeNotification = offerReplaced;
             $(element).attr('data-offer-id', item.id);
             bodyTextElement.text(`${bodyTitle} ${bodyText}`);
             const btnSuccess = $(element).find('.button-success');
@@ -1920,6 +1955,7 @@ function handleOffers(offers: any[]) {
         break;
       case 'partner':
         displayType = 'notification';
+        showNativeNotification = true;
         headerTitle = 'Partnership Request';
         bodyTitle = item.toFrom;
         bodyText = 'offers to be your bughouse partner.';
@@ -1957,15 +1993,15 @@ function handleOffers(offers: any[]) {
       else if(displayType === 'dialog')
         dialog = Dialogs.showDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: [`decline ${item.id}`, 'Decline'], btnSuccess: [`accept ${item.id}`, 'Accept'], useSessionSend: true}, 'game');
       dialog.attr('data-offer-id', item.id);
-      if(displayType === 'notification') {
-        showAndroidNotification(
-          headerTitle,
-          `${bodyTitle} ${bodyText}`,
-          {kind: 'offers'},
-          settings.notificationsToggle
-        );
-        openPendingNativeNotificationTarget();
-      }
+    }
+    if(showNativeNotification) {
+      showAndroidNotification(
+        headerTitle,
+        `${bodyTitle} ${bodyText}`,
+        {kind: 'offers', offerId: item.subtype === 'match' ? +item.id : undefined},
+        settings.notificationsToggle
+      );
+      openPendingNativeNotificationTarget();
     }
   });
 
@@ -1974,6 +2010,7 @@ function handleOffers(offers: any[]) {
   const removals = offers.filter((item) => item.type === 'pr' || item.type === 'sr');
   removals.forEach((item) => {
     item.ids.forEach((id) => {
+      removeAndroidOfferNotification(+id);
       if(activeInvite && activeInvite.seekId && +id === activeInvite.seekId) {
         activeInvite = null;
         activeInviteLink = null;

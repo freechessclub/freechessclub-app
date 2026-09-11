@@ -9,6 +9,12 @@ export type AndroidNotificationTarget = {
   kind: 'chat' | 'game' | 'offers';
   user?: string;
   gameId?: number;
+  offerId?: number;
+};
+
+export type AndroidNotificationAction = {
+  actionId: string;
+  target: AndroidNotificationTarget;
 };
 
 type AndroidAppIntegrationCallbacks = {
@@ -28,6 +34,7 @@ type NotificationThread = {
 
 const EVENT_NOTIFICATION_GROUP = 'fcc-events';
 const EVENT_NOTIFICATION_SUMMARY_ID = 2;
+const GAME_REQUEST_ACTION_TYPE = 'fcc-game-request';
 const MAX_NOTIFICATION_LINES = 5;
 
 let ForegroundService = null;
@@ -61,6 +68,8 @@ function notificationThreadKey(target: AndroidNotificationTarget) {
     return `chat:${target.user?.trim().toLowerCase() ?? ''}`;
   if(target.kind === 'game')
     return `game:${target.gameId ?? ''}`;
+  if(target.offerId != null)
+    return `offer:${target.offerId}`;
   return 'offers';
 }
 
@@ -239,6 +248,7 @@ export async function showAndroidNotification(
       smallIcon: 'ic_fcc_notification',
       group: EVENT_NOTIFICATION_GROUP,
       autoCancel: true,
+      actionTypeId: target.offerId != null ? GAME_REQUEST_ACTION_TYPE : undefined,
       extra: target
     };
     const summary = buildNotificationSummary();
@@ -248,6 +258,34 @@ export async function showAndroidNotification(
   }
   catch(error) {
     Utils.logError('Error showing Android notification:', error);
+  }
+}
+
+export async function removeAndroidOfferNotification(offerId: number) {
+  if(!Utils.isAndroidCapacitor() || !Number.isInteger(offerId))
+    return;
+
+  const key = notificationThreadKey({kind: 'offers', offerId});
+  const thread = notificationThreads.get(key);
+  if(!thread)
+    return;
+
+  notificationThreads.delete(key);
+  try {
+    await loadLocalNotifications();
+    const delivered = await LocalNotifications.getDeliveredNotifications();
+    const notifications = delivered.notifications.filter(notification =>
+      notification.id === thread.id || notification.id === EVENT_NOTIFICATION_SUMMARY_ID
+    );
+    if(notifications.length)
+      await LocalNotifications.removeDeliveredNotifications({notifications});
+
+    const summary = buildNotificationSummary();
+    if(summary)
+      await LocalNotifications.schedule({notifications: [summary]});
+  }
+  catch(error) {
+    Utils.logError('Error removing Android offer notification:', error);
   }
 }
 
@@ -272,7 +310,7 @@ export async function clearDeliveredAndroidNotifications() {
 
 export async function initAndroidNotifications(
   enabled: boolean,
-  onNotificationAction: (target: AndroidNotificationTarget) => void
+  onNotificationAction: (action: AndroidNotificationAction) => void
 ) {
   if(!Utils.isAndroidCapacitor() || androidNotificationsInitialized)
     return;
@@ -280,10 +318,19 @@ export async function initAndroidNotifications(
   androidNotificationsInitialized = true;
   try {
     await loadLocalNotifications();
+    await LocalNotifications.registerActionTypes({
+      types: [{
+        id: GAME_REQUEST_ACTION_TYPE,
+        actions: [
+          {id: 'accept', title: 'Accept'},
+          {id: 'decline', title: 'Decline'}
+        ]
+      }]
+    });
     await LocalNotifications.addListener('localNotificationActionPerformed', action => {
       const target = action.notification.extra as AndroidNotificationTarget;
       if(target?.kind)
-        onNotificationAction(target);
+        onNotificationAction({actionId: action.actionId, target});
     });
     await clearDeliveredAndroidNotifications();
     if(enabled)
