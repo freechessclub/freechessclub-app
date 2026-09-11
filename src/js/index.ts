@@ -552,6 +552,24 @@ async function showNativeNotification(title: string, body: string, target: Nativ
   }
 }
 
+async function clearDeliveredNativeNotifications() {
+  if(!Utils.isCapacitor())
+    return;
+
+  try {
+    await loadLocalNotifications();
+    const delivered = await LocalNotifications.getDeliveredNotifications();
+    const notifications = Utils.isAndroidCapacitor()
+      ? delivered.notifications.filter(notification => notification.group === 'fcc-events')
+      : delivered.notifications;
+    if(notifications.length)
+      await LocalNotifications.removeDeliveredNotifications({notifications});
+  }
+  catch(error) {
+    Utils.logError('Error clearing delivered native notifications:', error);
+  }
+}
+
 function openPendingNativeNotificationTarget() {
   if(!appReady || !pendingNativeNotificationTarget)
     return;
@@ -618,6 +636,7 @@ async function initNativeNotifications() {
     await LocalNotifications.addListener('localNotificationActionPerformed', action => {
       queueNativeNotificationTarget(action.notification.extra as NativeNotificationTarget);
     });
+    await clearDeliveredNativeNotifications();
     if(settings.notificationsToggle)
       await requestNativeNotificationPermission();
   }
@@ -697,6 +716,7 @@ async function initNativeAppIntegration() {
         Utils.logError('Error checking network state after resume:', error);
       }
       session?.ensureConnection(shouldReconnect);
+      await clearDeliveredNativeNotifications();
       updateForegroundServiceState();
       updateScreenWakeLock();
     });
