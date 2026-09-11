@@ -5,7 +5,6 @@
 // style sheets that need webpack file hashing and HMR 
 import 'assets/css/application.css'; 
 
-import { Importance } from '@capawesome-team/capacitor-android-foreground-service';
 import { Chessground } from 'chessground';
 import type * as PgnParser from '@mliebelt/pgn-parser';
 import NoSleep from '@uriopass/nosleep.js'; // Prevent screen dimming
@@ -32,6 +31,17 @@ import { settings } from './settings';
 import { Reason } from './parser';
 import { getShortcuts, initUi } from './ui';
 import { SeekGraph } from './seek-graph';
+import {
+  forgetAndroidTurnNotification,
+  initAndroidAppIntegration,
+  initAndroidNotifications,
+  requestAndroidNotificationPermission,
+  shouldShowAndroidTurnNotification,
+  showAndroidNotification,
+  updateAndroidForegroundServiceNotification,
+  updateAndroidForegroundServiceState
+} from './android';
+import type { AndroidNotificationTarget } from './android';
 import './ui';
 import packageInfo from '../../package.json';
 
@@ -90,12 +100,6 @@ type InviteGameInfo = {
   updatedAt: number;
 };
 
-type NativeNotificationTarget = {
-  kind: 'chat' | 'game' | 'offers';
-  user?: string;
-  gameId?: number;
-};
-
 let appReady: boolean = false; // Has onDeviceReady finished 
 let engine: Engine | null;
 let evalEngine: EvalEngine | null;
@@ -145,16 +149,7 @@ let lastPointerCoords = {x: 0, y: 0}; // Stores the pointer coordinates from the
 let credential: CredentialStorage = null; // The persistently stored username/password
 let gameListVirtualScroller = null;
 const mainBoard: any = createBoard($('#main-board-area').children().first().find('.board'));
-let ForegroundService = null;
-let foregroundServiceActive = false;
-let foregroundServiceChannelReady = false;
-let foregroundServiceTransition: Promise<void> = Promise.resolve();
-let nativeAppIntegrationInitialized = false;
-let LocalNotifications = null;
-let nativeNotificationsInitialized = false;
-let nativeNotificationId = 10000 + Math.floor(Date.now() % 2000000000);
-const nativeTurnNotificationPositions = new Map<number, string>();
-let pendingNativeNotificationTarget: NativeNotificationTarget | null = null;
+let pendingNativeNotificationTarget: AndroidNotificationTarget | null = null;
 let pendingNativeNotificationTargetTimer: number | null = null;
 let pendingInviteCreate: InviteCreateState | null = null;
 let activeInvite: InviteCreateState | null = null;
@@ -246,15 +241,6 @@ function setFollowedTarget(target: string | null) {
   if(!followedTarget)
     followedTarget = null;
   updateFollowedUserStatus();
-}
-
-function getForegroundServiceTitle() {
-  const user = session?.getUser?.();
-  return user ? `Connected as ${user}` : 'Free Chess Club';
-}
-
-function getForegroundServiceBody() {
-  return 'Keeping your game connection active.';
 }
 
 function readActiveSession(): { user: string; tabId: string; ts: number } | null {
@@ -379,197 +365,6 @@ function showActiveSessionPrompt(activeSession: { user: string; tabId: string; t
   });
 }
 
-async function updateForegroundServiceNotification() {
-  if(!Utils.isAndroidCapacitor() || !foregroundServiceActive)
-    return;
-
-  try {
-    await ForegroundService.updateForegroundService({
-      id: 1,
-      title: getForegroundServiceTitle(),
-      body: getForegroundServiceBody(),
-      smallIcon: 'ic_fcc_notification',
-      notificationChannelId: 'fcc-foreground',
-      silent: true
-    });
-  }
-  catch(error) {
-    Utils.logError('Error updating foreground service:', error);
-  }
-}
-
-async function loadForegroundService() {
-  if(ForegroundService)
-    return;
-
-  const mod = await import('@capawesome-team/capacitor-android-foreground-service');
-  ForegroundService = mod.ForegroundService;
-}
-
-async function startForegroundService() {
-  if(!Utils.isAndroidCapacitor() || foregroundServiceActive)
-    return;
-
-  try {
-    await loadForegroundService();
-    const mod = await import('@capawesome-team/capacitor-android-foreground-service');
-    const Importance = mod.Importance;
-
-    // Android does not require notification permission to run a foreground
-    // service. If permission is denied, Android still exposes the service in
-    // Task Manager, so keep the connection alive even though the notification
-    // will not be shown in the notification drawer.
-    try {
-      const permissionStatus = await ForegroundService.checkPermissions();
-      if(permissionStatus.display !== 'granted')
-        await ForegroundService.requestPermissions();
-    }
-    catch(error) {
-      Utils.logError('Error requesting foreground service notification permission:', error);
-    }
-
-    if(!foregroundServiceChannelReady) {
-      await ForegroundService.createNotificationChannel({
-        id: 'fcc-foreground',
-        name: 'Foreground Service',
-        description: 'Keeps the chess connection active',
-        importance: Importance.Low
-      });
-      foregroundServiceChannelReady = true;
-    }
-
-    await ForegroundService.startForegroundService({
-      id: 1,
-      title: getForegroundServiceTitle(),
-      body: getForegroundServiceBody(),
-      smallIcon: 'ic_fcc_notification',
-      notificationChannelId: 'fcc-foreground',
-      silent: true
-    });
-    foregroundServiceActive = true;
-  }
-  catch(error) {
-    Utils.logError('Error starting foreground service:', error);
-  }
-}
-
-async function stopForegroundService() {
-  if(!Utils.isAndroidCapacitor())
-    return;
-
-  try {
-    await loadForegroundService();
-    await ForegroundService.stopForegroundService();
-  }
-  catch(error) {
-    Utils.logError('Error stopping foreground service:', error);
-  }
-  finally {
-    foregroundServiceActive = false;
-  }
-}
-
-function updateForegroundServiceState() {
-  if(!Utils.isAndroidCapacitor())
-    return;
-
-  const shouldRun = settings.foregroundServiceToggle && !!session?.isConnected();
-  foregroundServiceTransition = foregroundServiceTransition
-    .catch(error => Utils.logError('Error changing foreground service state:', error))
-    .then(async () => {
-      if(shouldRun) {
-        await startForegroundService();
-        await updateForegroundServiceNotification();
-      }
-      else
-        await stopForegroundService();
-    });
-}
-
-async function loadLocalNotifications() {
-  if(LocalNotifications)
-    return;
-
-  const mod = await import('@capacitor/local-notifications');
-  LocalNotifications = mod.LocalNotifications;
-}
-
-function nextNativeNotificationId() {
-  nativeNotificationId++;
-  if(nativeNotificationId > 2147483647)
-    nativeNotificationId = 10000;
-  return nativeNotificationId;
-}
-
-function nativeNotificationText(value: any) {
-  return String(value ?? '')
-    .replace(/<[^>]*>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 240);
-}
-
-async function requestNativeNotificationPermission() {
-  if(!Utils.isCapacitor())
-    return;
-
-  try {
-    await loadLocalNotifications();
-    const permission = await LocalNotifications.checkPermissions();
-    if(permission.display !== 'granted')
-      await LocalNotifications.requestPermissions();
-  }
-  catch(error) {
-    Utils.logError('Error requesting native notification permission:', error);
-  }
-}
-
-async function showNativeNotification(title: string, body: string, target: NativeNotificationTarget) {
-  if(!Utils.isCapacitor() || !document.hidden || !settings.notificationsToggle)
-    return;
-
-  try {
-    await loadLocalNotifications();
-    const permission = await LocalNotifications.checkPermissions();
-    if(permission.display !== 'granted')
-      return;
-
-    await LocalNotifications.schedule({
-      notifications: [{
-        id: nextNativeNotificationId(),
-        title: nativeNotificationText(title),
-        body: nativeNotificationText(body),
-        smallIcon: 'ic_fcc_notification',
-        group: 'fcc-events',
-        autoCancel: true,
-        foreground: false,
-        extra: target
-      }]
-    });
-  }
-  catch(error) {
-    Utils.logError('Error showing native notification:', error);
-  }
-}
-
-async function clearDeliveredNativeNotifications() {
-  if(!Utils.isCapacitor())
-    return;
-
-  try {
-    await loadLocalNotifications();
-    const delivered = await LocalNotifications.getDeliveredNotifications();
-    const notifications = Utils.isAndroidCapacitor()
-      ? delivered.notifications.filter(notification => notification.group === 'fcc-events')
-      : delivered.notifications;
-    if(notifications.length)
-      await LocalNotifications.removeDeliveredNotifications({notifications});
-  }
-  catch(error) {
-    Utils.logError('Error clearing delivered native notifications:', error);
-  }
-}
-
 function openPendingNativeNotificationTarget() {
   if(!appReady || !pendingNativeNotificationTarget)
     return;
@@ -612,7 +407,7 @@ function openPendingNativeNotificationTarget() {
   }
 }
 
-function queueNativeNotificationTarget(target: NativeNotificationTarget) {
+function queueNativeNotificationTarget(target: AndroidNotificationTarget) {
   if(!target?.kind)
     return;
 
@@ -626,24 +421,12 @@ function queueNativeNotificationTarget(target: NativeNotificationTarget) {
   setTimeout(openPendingNativeNotificationTarget, 0);
 }
 
-async function initNativeNotifications() {
-  if(!Utils.isCapacitor() || nativeNotificationsInitialized)
-    return;
-
-  nativeNotificationsInitialized = true;
-  try {
-    await loadLocalNotifications();
-    await LocalNotifications.addListener('localNotificationActionPerformed', action => {
-      queueNativeNotificationTarget(action.notification.extra as NativeNotificationTarget);
-    });
-    await clearDeliveredNativeNotifications();
-    if(settings.notificationsToggle)
-      await requestNativeNotificationPermission();
-  }
-  catch(error) {
-    nativeNotificationsInitialized = false;
-    Utils.logError('Error initializing native notifications:', error);
-  }
+function syncAndroidForegroundService() {
+  updateAndroidForegroundServiceState(
+    settings.foregroundServiceToggle,
+    !!session?.isConnected(),
+    session?.getUser?.()
+  );
 }
 
 function closeTopAndroidOverlay(): boolean {
@@ -677,65 +460,6 @@ function closeTopAndroidOverlay(): boolean {
   }
 
   return false;
-}
-
-async function initNativeAppIntegration() {
-  if(!Utils.isCapacitor() || nativeAppIntegrationInitialized)
-    return;
-
-  nativeAppIntegrationInitialized = true;
-  try {
-    const [{ App }, { Network }] = await Promise.all([
-      import('@capacitor/app'),
-      import('@capacitor/network')
-    ]);
-
-    const updateNetworkStatus = (connected: boolean) => {
-      setNetworkConnected(connected);
-    };
-
-    const networkStatus = await Network.getStatus();
-    updateNetworkStatus(networkStatus.connected);
-    await Network.addListener('networkStatusChange', status => {
-      updateNetworkStatus(status.connected);
-    });
-
-    let reconnectSessionOnResume = false;
-    await App.addListener('pause', () => {
-      reconnectSessionOnResume = !!session && (session.isConnected() || session.isConnecting());
-    });
-
-    await App.addListener('resume', async () => {
-      const shouldReconnect = reconnectSessionOnResume;
-      reconnectSessionOnResume = false;
-      try {
-        const status = await Network.getStatus();
-        updateNetworkStatus(status.connected);
-      }
-      catch(error) {
-        Utils.logError('Error checking network state after resume:', error);
-      }
-      session?.ensureConnection(shouldReconnect);
-      await clearDeliveredNativeNotifications();
-      updateForegroundServiceState();
-      updateScreenWakeLock();
-    });
-
-    if(Utils.isAndroidCapacitor()) {
-      await App.addListener('backButton', ({ canGoBack }) => {
-        if(closeTopAndroidOverlay())
-          return;
-        if(canGoBack)
-          window.history.back();
-        else
-          App.minimizeApp();
-      });
-    }
-  }
-  catch(error) {
-    nativeAppIntegrationInitialized = false;
-    Utils.logError('Error initializing native app integration:', error);
-  }
 }
 
 function hasPlayingGame() {
@@ -793,7 +517,16 @@ async function onDeviceReady() {
   initSettings();
 
   initSessionSharing();
-  await initNativeAppIntegration();
+  await initAndroidAppIntegration({
+    isSessionActive: () => !!session && (session.isConnected() || session.isConnecting()),
+    onNetworkStatusChange: setNetworkConnected,
+    onResume: shouldReconnect => {
+      session?.ensureConnection(shouldReconnect);
+      syncAndroidForegroundService();
+      updateScreenWakeLock();
+    },
+    closeTopOverlay: closeTopAndroidOverlay
+  });
 
   seekGraph = new SeekGraph();
   createChat();
@@ -841,10 +574,8 @@ async function onDeviceReady() {
   }, 0);
 
   Utils.initDropdownSubmenus();
-  document.addEventListener('visibilitychange', updateForegroundServiceState);
-
   appReady = true;
-  await initNativeNotifications();
+  await initAndroidNotifications(settings.notificationsToggle, queueNativeNotificationTarget);
 
   credential = new CredentialStorage();
   const hasInvite = hasInviteParams();
@@ -871,7 +602,7 @@ async function onDeviceReady() {
     initInviteFromUrl();
 
   document.addEventListener('visibilitychange', () => {
-    updateForegroundServiceState();
+    syncAndroidForegroundService();
     updateScreenWakeLock();
   });
 }
@@ -1527,12 +1258,12 @@ function messageHandler(data: any) {
         users.connected();
         profile.connected();        
 
-        updateForegroundServiceNotification();
+        updateAndroidForegroundServiceNotification(session?.getUser?.());
 
         settings.visited = true;
         storage.set('visited', String(settings.visited)); 
 
-        updateForegroundServiceState();
+        syncAndroidForegroundService();
 
         completeInviteJoin();
         startActiveSessionAnnounce();
@@ -1570,7 +1301,7 @@ function messageHandler(data: any) {
         // Keep the service running across an unexpected disconnect so Android
         // permits the background reconnect. A clean disconnect stops it.
         if(data.command === 3)
-          updateForegroundServiceState();
+          syncAndroidForegroundService();
       }
       else if(data.command === 5) { // Connecting
         $('.game-dialog, .board-dialog').remove();
@@ -1588,14 +1319,23 @@ function messageHandler(data: any) {
       if(handleTrainingBotMessage(data))
         break;
       chat.newMessage(data.user, data);
-      showNativeNotification(`Message from ${data.user}`, data.message, {kind: 'chat', user: data.user});
+      showAndroidNotification(
+        `Message from ${data.user}`,
+        data.message,
+        {kind: 'chat', user: data.user},
+        settings.notificationsToggle
+      );
       openPendingNativeNotificationTarget();
       break;
     case MessageType.Messages:
       if(data.type === 'online') { // message received while online, put it immediately into a chat tab
         chat.newMessage(data.messages[0].user, data.messages[0]);
-        showNativeNotification(`Message from ${data.messages[0].user}`, data.messages[0].message,
-          {kind: 'chat', user: data.messages[0].user});
+        showAndroidNotification(
+          `Message from ${data.messages[0].user}`,
+          data.messages[0].message,
+          {kind: 'chat', user: data.messages[0].user},
+          settings.notificationsToggle
+        );
         openPendingNativeNotificationTarget();
       }
       else if(data.type === 'unread' && awaiting.resolve('unread-messages')) {
@@ -1613,16 +1353,20 @@ function messageHandler(data: any) {
       gameMove(data);
       const movedGame = games.findGame(data.id);
       if(document.hidden && movedGame?.isPlayingOnline() && movedGame.role === Role.MY_MOVE
-          && nativeTurnNotificationPositions.get(movedGame.id) !== movedGame.fen) {
-        nativeTurnNotificationPositions.set(movedGame.id, movedGame.fen);
+          && shouldShowAndroidTurnNotification(movedGame.id, movedGame.fen)) {
         const opponent = movedGame.color === 'w' ? movedGame.bname : movedGame.wname;
         const body = data.move && data.move !== 'none'
           ? `${opponent} moved. It's your turn.`
           : `Your game against ${opponent} is ready.`;
-        showNativeNotification('Your turn', body, {kind: 'game', gameId: movedGame.id});
+        showAndroidNotification(
+          'Your turn',
+          body,
+          {kind: 'game', gameId: movedGame.id},
+          settings.notificationsToggle
+        );
       }
       else if(movedGame?.role !== Role.MY_MOVE)
-        nativeTurnNotificationPositions.delete(data.id);
+        forgetAndroidTurnNotification(data.id);
       openPendingNativeNotificationTarget();
       break;
     case MessageType.GameStart:
@@ -1631,9 +1375,14 @@ function messageHandler(data: any) {
       const endedGame = games.findGame(data.game_id);
       const wasPlayingOnline = endedGame?.isPlayingOnline();
       gameEnd(data);
-      nativeTurnNotificationPositions.delete(data.game_id);
+      forgetAndroidTurnNotification(data.game_id);
       if(wasPlayingOnline)
-        showNativeNotification('Game finished', data.message, {kind: 'game', gameId: data.game_id});
+        showAndroidNotification(
+          'Game finished',
+          data.message,
+          {kind: 'game', gameId: data.game_id},
+          settings.notificationsToggle
+        );
       openPendingNativeNotificationTarget();
       break;
     case MessageType.GameHoldings:
@@ -2209,7 +1958,12 @@ function handleOffers(offers: any[]) {
         dialog = Dialogs.showDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: [`decline ${item.id}`, 'Decline'], btnSuccess: [`accept ${item.id}`, 'Accept'], useSessionSend: true}, 'game');
       dialog.attr('data-offer-id', item.id);
       if(displayType === 'notification') {
-        showNativeNotification(headerTitle, `${bodyTitle} ${bodyText}`, {kind: 'offers'});
+        showAndroidNotification(
+          headerTitle,
+          `${bodyTitle} ${bodyText}`,
+          {kind: 'offers'},
+          settings.notificationsToggle
+        );
         openPendingNativeNotificationTarget();
       }
     }
@@ -2721,7 +2475,12 @@ function handleMiscMessage(data: any) {
   if(match && match.length > 2) {
     const n = Dialogs.createNotification({type: 'Resume Game', title: `${match[1]}<br>${match[2]}`, btnSuccess: ['resume', 'Resume Game'], useSessionSend: true});
     n.attr('data-adjourned-list', 'true');
-    showNativeNotification('Resume game', `${match[1]} ${match[2]}`, {kind: 'offers'});
+    showAndroidNotification(
+      'Resume game',
+      `${match[1]} ${match[2]}`,
+      {kind: 'offers'},
+      settings.notificationsToggle
+    );
     openPendingNativeNotificationTarget();
   }
   match = msg.match(/^Notification: ((\S+), who has an adjourned game with you, has arrived\.)/m);
@@ -2729,7 +2488,12 @@ function handleMiscMessage(data: any) {
     if(!$(`.notification[data-adjourned-arrived="${match[2]}"]`).length) {
       const n = Dialogs.createNotification({type: 'Resume Game', title: match[1], btnSuccess: [`resume ${match[2]}`, 'Resume Game'], useSessionSend: true});
       n.attr('data-adjourned-arrived', match[2]);
-      showNativeNotification('Resume game', match[1], {kind: 'offers'});
+      showAndroidNotification(
+        'Resume game',
+        match[1],
+        {kind: 'offers'},
+        settings.notificationsToggle
+      );
       openPendingNativeNotificationTarget();
     }
     return;
@@ -2786,7 +2550,7 @@ function handleMiscMessage(data: any) {
     const headerTitle = 'Partnership Declined';
     const bodyTitle = match[1];
     Dialogs.createNotification({type: headerTitle, title: bodyTitle, useSessionSend: true});
-    showNativeNotification(headerTitle, bodyTitle, {kind: 'offers'});
+    showAndroidNotification(headerTitle, bodyTitle, {kind: 'offers'}, settings.notificationsToggle);
     openPendingNativeNotificationTarget();
   }
   match = msg.match(/^(\w+ agrees to be your partner\.)/m);
@@ -2794,7 +2558,7 @@ function handleMiscMessage(data: any) {
     const headerTitle = 'Partnership Accepted';
     const bodyTitle = match[1];
     Dialogs.createNotification({type: headerTitle, title: bodyTitle, useSessionSend: true});
-    showNativeNotification(headerTitle, bodyTitle, {kind: 'offers'});
+    showAndroidNotification(headerTitle, bodyTitle, {kind: 'offers'}, settings.notificationsToggle);
     openPendingNativeNotificationTarget();
   }
 
@@ -9980,7 +9744,7 @@ $('#notifications-toggle').on('click', () => {
   settings.notificationsToggle = !settings.notificationsToggle;
   storage.set('notifications', String(settings.notificationsToggle));
   if(settings.notificationsToggle)
-    requestNativeNotificationPermission();
+    requestAndroidNotificationPermission();
 });
 
 $('#autopromote-toggle').on('click', () => {
@@ -10003,7 +9767,7 @@ $('#wakelock-toggle').on('click', () => {
 $('#foreground-service-toggle').on('click', () => {
   settings.foregroundServiceToggle = !settings.foregroundServiceToggle;
   storage.set('foregroundservice', String(settings.foregroundServiceToggle));
-  updateForegroundServiceState();
+  syncAndroidForegroundService();
 });
 
 $('#multiboard-toggle').on('click', () => {

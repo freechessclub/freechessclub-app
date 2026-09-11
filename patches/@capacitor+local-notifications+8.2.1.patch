@@ -1,0 +1,12 @@
+diff --git a/node_modules/@capacitor/local-notifications/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.java b/node_modules/@capacitor/local-notifications/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.java
+index 60cbe63..4484026 100644
+--- a/node_modules/@capacitor/local-notifications/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.java
++++ b/node_modules/@capacitor/local-notifications/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.java
+@@ -207,6 +207,7 @@ public class LocalNotificationManager {
+             mBuilder.setGroup(group);
+             if (localNotification.isGroupSummary()) {
+                 mBuilder.setSubText(localNotification.getSummaryText());
++                mBuilder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN);
+             }
+         }
+ 
