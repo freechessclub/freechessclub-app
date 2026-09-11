@@ -247,8 +247,8 @@ export class SeekGraph {
         d.px = Math.max(Math.min(xScale(time), this.width - radius), radius);
         
         // Calculate y-coordinate in pixels of data point ensuring it fits fully within the graph boundaries
-        let rating = parseInt(d.rating.match(/\d+/)?.[0] ?? '0', 10);
-        if(rating === 0) { // Put guest seeks in the guest region
+        let rating = parseInt(d.rating.match(/\d+/)?.[0], 10);
+        if(Number.isNaN(rating)) { // Put guest seeks in the guest region
           rating = (this.yTicks[1] - this.yTicks[0]) / 2;
           d.py = yScale(rating);
         }

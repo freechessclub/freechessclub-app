@@ -377,15 +377,16 @@ export class Parser {
         }
         match = line.match(/^<(s|sn)> (\d+) w=(\S+) ti=(\d+) rt=(\S+)\s+t=(\d+) i=(\d+) r=(\S+) tp=(\S+) c=(\S+) rr=(\S+) a=(\S+) f=(\S+)/);
         if(match) {
+          const ratedUnrated = match[8];
           offers.push({
             type: match[1],
             id: match[2],
             toFrom: match[3],
             title: titleToString[+match[4]],
-            rating: (match[5] === '0P' ? '' : match[5]),
+            rating: ratedUnrated === 'u' && match[5] === '0P' ? '' : match[5],
             initialTime: +match[6],
             increment: +match[7],
-            ratedUnrated: match[8],
+            ratedUnrated,
             category: match[9],
             color: match[10],
             ratingRange: match[11],
