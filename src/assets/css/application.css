@@ -1046,6 +1046,7 @@ html, body {
   right: var(--safe-area-right);
   max-height: calc(100dvh - var(--safe-area-height)); 
   overflow-y: auto;
+  overflow-x: hidden;
 }
 .notification-panel {
   transition: none;
