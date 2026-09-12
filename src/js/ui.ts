@@ -7,7 +7,8 @@ import { SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { storage } from './storage';
 import { isMac, isCapacitor, isTouchscreen, getBrightness, removeWithPoppers, loadSvg, svgToImg, svgToUrl, normalizeColor, parseRgb, rgbToHsl, hslToRgb, createColorPicker } from './utils';
 import { showDialog } from './dialogs';
-import { configureClubhouseEffects } from './clubhouse-effects';
+import { setThemeEffects } from './theme-effects';
+import { themeEffectsRegistry } from './theme-effects-registry';
 
 $('#version').text(`Version: ${packageInfo.version}`);
 
@@ -487,7 +488,7 @@ async function setBaseTheme(baseTheme: string) {
 
 async function setTheme(theme: string) {
   // Stop active effects before the old theme's stylesheet is removed.
-  configureClubhouseEffects('');
+  setThemeEffects();
   const baseTheme = (theme === 'gray' || theme === 'clubhouse' ? 'base-theme-dark' : 'base-theme-light');
   await setBaseTheme(baseTheme);
 
@@ -537,7 +538,7 @@ async function setTheme(theme: string) {
     elem.setAttribute('id', 'theme');
   }
 
-  configureClubhouseEffects(theme);
+  setThemeEffects(themeEffectsRegistry[theme]);
 }
 
 /**

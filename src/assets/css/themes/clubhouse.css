@@ -272,33 +272,15 @@ a:hover { color: #e2ffad; }
   .modal-header { padding: 1rem; }
 }
 
-/* Decorative layers are clipped to their card and never capture chess input. */
-.clubhouse-confetti {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 5;
-}
-.clubhouse-confetti-piece {
-  position: absolute;
-  width: 8px;
-  height: 14px;
-  border-radius: 1px;
-  box-shadow: 0 0 5px #ffffff35;
-}
-.clubhouse-confetti-piece:nth-child(3n) { width: 10px; height: 10px; border-radius: 50%; }
-.clubhouse-confetti-piece:nth-child(5n) { width: 5px; height: 20px; }
-:root[data-clubhouse-effects] #pills-pairing .btn-group:is([aria-label="Lightning"], [aria-label="Blitz"], [aria-label="Standard"]) > .btn {
+#pills-pairing .btn-group:is([aria-label="Lightning"], [aria-label="Blitz"], [aria-label="Standard"]) > .btn {
   transition: transform 140ms ease-out, background-color 140ms ease-out, box-shadow 140ms ease-out;
 }
-:root[data-clubhouse-effects] #pills-pairing .btn-group:is([aria-label="Lightning"], [aria-label="Blitz"], [aria-label="Standard"]) > .btn:active:not(:disabled) {
+#pills-pairing .btn-group:is([aria-label="Lightning"], [aria-label="Blitz"], [aria-label="Standard"]) > .btn:active:not(:disabled) {
   transform: translateY(1px);
   box-shadow: inset 0 2px 4px #0004;
 }
 @media (hover: hover) {
-  :root[data-clubhouse-effects] #pills-pairing .btn-group:is([aria-label="Lightning"], [aria-label="Blitz"], [aria-label="Standard"]) > .btn:hover:not(:disabled):not(:active) {
+  #pills-pairing .btn-group:is([aria-label="Lightning"], [aria-label="Blitz"], [aria-label="Standard"]) > .btn:hover:not(:disabled):not(:active) {
     transform: translateY(-2px);
     box-shadow: 0 5px 10px #0003;
   }

@@ -1859,3 +1859,22 @@ input[type="number"]:focus {
   color: whitesmoke;
   background-color: #222;
 }
+
+/* Decorative layers are clipped to their card and never capture chess input. */
+.theme-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 5;
+}
+.theme-confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 14px;
+  border-radius: 1px;
+  box-shadow: 0 0 5px #ffffff35;
+}
+.theme-confetti-piece:nth-child(3n) { width: 10px; height: 10px; border-radius: 50%; }
+.theme-confetti-piece:nth-child(5n) { width: 5px; height: 20px; }

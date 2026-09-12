@@ -30,7 +30,7 @@ import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
 import { Reason } from './parser';
 import { getShortcuts, initUi } from './ui';
-import { celebrateClubhouseWin, glowClubhouseClock } from './clubhouse-effects';
+import { runThemeEffect } from './theme-effects';
 import { SeekGraph } from './seek-graph';
 import {
   forgetAndroidTurnNotification,
@@ -1789,7 +1789,7 @@ function gameEnd(data: any) {
     const winner = whiteStatus.find('.name').text() === data.winner ?
       'w' : 'b';
     if(game.isPlaying() && winner === game.color)
-      celebrateClubhouseWin(game.element[0]);
+      runThemeEffect('playerWin', game.element[0]);
     whiteStatus.parent().css('--bs-card-cap-bg', winner === 'w' ? 'var(--game-win-color)' : 'var(--game-lose-color)');
     blackStatus.parent().css('--bs-card-cap-bg', winner === 'b' ? 'var(--game-win-color)' : 'var(--game-lose-color)');    
   
@@ -3240,7 +3240,7 @@ function setClocks(game: Game) {
     whiteClock.addClass('my-turn');
   }
   if(playerTurnStarted)
-    glowClubhouseClock(activeClock[0]);
+    runThemeEffect('playerTurn', activeClock[0]);
 }
 
 // Start clock after a move, switch from white to black's clock etc
