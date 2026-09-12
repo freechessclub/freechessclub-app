@@ -30,6 +30,7 @@ import { storage, CredentialStorage, awaiting } from './storage';
 import { settings } from './settings';
 import { Reason } from './parser';
 import { getShortcuts, initUi } from './ui';
+import { runThemeEffect } from './theme-effects';
 import { SeekGraph } from './seek-graph';
 import {
   forgetAndroidTurnNotification,
@@ -1815,6 +1816,8 @@ function gameEnd(data: any) {
   if(data.reason <= 5) {
     const winner = whiteStatus.find('.name').text() === data.winner ?
       'w' : 'b';
+    if(game.isPlaying() && winner === game.color)
+      runThemeEffect('playerWin', game.element[0]);
     whiteStatus.parent().css('--bs-card-cap-bg', winner === 'w' ? 'var(--game-win-color)' : 'var(--game-lose-color)');
     blackStatus.parent().css('--bs-card-cap-bg', winner === 'b' ? 'var(--game-win-color)' : 'var(--game-lose-color)');    
   
@@ -3263,6 +3266,8 @@ function setClocks(game: Game) {
   const blackClock = game.element.find('.black-status .clock');
 
   const turnColor = hEntry.turnColor;
+  const activeClock = turnColor === 'w' ? whiteClock : blackClock;
+  const playerTurnStarted = game.isPlaying() && turnColor === game.color && !activeClock.hasClass('my-turn');
   if(turnColor === 'b') {
     whiteClock.removeClass('my-turn');
     blackClock.addClass('my-turn');
@@ -3271,6 +3276,8 @@ function setClocks(game: Game) {
     blackClock.removeClass('my-turn');
     whiteClock.addClass('my-turn');
   }
+  if(playerTurnStarted)
+    runThemeEffect('playerTurn', activeClock[0]);
 }
 
 // Start clock after a move, switch from white to black's clock etc
