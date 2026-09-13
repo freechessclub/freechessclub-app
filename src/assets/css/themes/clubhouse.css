@@ -8,6 +8,8 @@
   --club-border: #3d5145;
   --club-muted: #a8bbb0;
   --club-accent: #c8f36a;
+  --club-selected-bg: #304333;
+  --club-selected-border: #779555;
   --bs-body-bg: var(--bg-color);
   --bs-body-color: var(--fg-color);
   --bs-body-bg-rgb: 16, 25, 22;
@@ -67,36 +69,43 @@ a:hover { color: #e2ffad; }
   --bs-btn-color: var(--fg-color);
   --bs-btn-border-color: var(--club-border);
   --bs-btn-hover-color: var(--club-accent);
-  --bs-btn-hover-bg: #304333;
-  --bs-btn-hover-border-color: #779555;
-  --bs-btn-active-bg: var(--club-accent);
-  --bs-btn-active-color: #152015;
-  --bs-btn-active-border-color: var(--club-accent);
+  --bs-btn-hover-bg: var(--club-selected-bg);
+  --bs-btn-hover-border-color: var(--club-selected-border);
+  --bs-btn-active-bg: var(--club-selected-bg);
+  --bs-btn-active-color: var(--club-accent);
+  --bs-btn-active-border-color: var(--club-selected-border);
   --bs-btn-disabled-color: #8c9d93;
   --bs-btn-disabled-border-color: var(--club-border);
 }
 
 .btn-primary, #play-computer, #custom-control-go {
-  --bs-btn-bg: var(--club-accent);
-  --bs-btn-color: #152015;
-  --bs-btn-border-color: var(--club-accent);
-  --bs-btn-hover-bg: #dbff91;
-  --bs-btn-hover-color: #152015;
-  --bs-btn-hover-border-color: #dbff91;
-  --bs-btn-active-bg: #afdb51;
-  --bs-btn-active-color: #152015;
-  --bs-btn-active-border-color: #afdb51;
+  --bs-btn-bg: var(--club-raised);
+  --bs-btn-color: var(--fg-color);
+  --bs-btn-border-color: var(--club-border);
+  --bs-btn-hover-bg: var(--club-selected-bg);
+  --bs-btn-hover-color: var(--club-accent);
+  --bs-btn-hover-border-color: var(--club-selected-border);
+  --bs-btn-active-bg: var(--club-selected-bg);
+  --bs-btn-active-color: var(--club-accent);
+  --bs-btn-active-border-color: var(--club-selected-border);
+  --bs-btn-disabled-bg: var(--club-raised);
+  --bs-btn-disabled-color: var(--club-muted);
+  --bs-btn-disabled-border-color: var(--club-border);
 }
 
 .button-toolbar .btn { border-radius: 50rem; }
 .btn-transparent { --bs-btn-hover-color: var(--club-accent); }
-.toggle-btn-selected.btn-outline-secondary { --bs-btn-bg: #304333; }
+.toggle-btn-selected.btn-outline-secondary {
+  --bs-btn-bg: var(--club-selected-bg);
+  --bs-btn-color: var(--club-accent);
+  --bs-btn-border-color: var(--club-selected-border);
+}
 
 .nav { --bs-nav-link-color: var(--club-muted); --bs-nav-link-hover-color: var(--club-accent); }
 .nav-link { font-weight: 600; }
 .nav-pills {
-  --bs-nav-pills-link-active-color: #152015;
-  --bs-nav-pills-link-active-bg: var(--club-accent);
+  --bs-nav-pills-link-active-color: var(--club-accent);
+  --bs-nav-pills-link-active-bg: var(--club-selected-bg);
   --bs-nav-pills-border-radius: 50rem;
 }
 #pills-tab {
@@ -144,7 +153,7 @@ a:hover { color: #e2ffad; }
 }
 #pills-pairing .btn-group[aria-label="Lightning"] > .btn:hover,
 #pills-pairing .btn-group[aria-label="Blitz"] > .btn:hover,
-#pills-pairing .btn-group[aria-label="Standard"] > .btn:hover { background: #304333; }
+#pills-pairing .btn-group[aria-label="Standard"] > .btn:hover { background: var(--club-selected-bg); }
 .form-heading, .tournament-group-title {
   color: var(--club-accent);
   font-size: 0.875rem;
@@ -171,7 +180,7 @@ a:hover { color: #e2ffad; }
 .game-card .player-status .name { font-weight: 650; font-size: 1.25rem; }
 .game-card .rating { color: var(--club-muted); font-variant-numeric: tabular-nums; }
 .clock {
-  background: #0d1511;
+  background: transparent;
   border-radius: 0.6rem;
   color: var(--fg-color);
   font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -185,7 +194,8 @@ a:hover { color: #e2ffad; }
   background: var(--club-accent);
   box-shadow: 0 0 0 2px #c8f36a25;
 }
-.clock.low-time { color: #ffaaa0; background: #4d2421; }
+.clock.low-time { color: #ffaaa0; }
+.clock.my-turn.low-time { background: #4d2421; }
 .game-card-sm .player-status .name { font-size: inherit; }
 .game-card-sm .clock-time { font-size: 1rem; }
 
@@ -202,7 +212,7 @@ a:hover { color: #e2ffad; }
 .form-control::placeholder { color: #91a499; }
 .form-control:disabled { background: #2d3932; }
 .input-group-text { color: var(--club-muted); background: var(--club-raised); border-color: var(--club-border); }
-.form-check-input:checked { background-color: #80a13d; border-color: var(--club-accent); }
+.form-check-input:checked { background-color: var(--club-selected-bg); border-color: var(--club-selected-border); }
 .form-range::-webkit-slider-thumb { background: var(--club-accent); }
 .form-range::-moz-range-thumb { background: var(--club-accent); }
 .form-control:focus, #fake-input-text:focus-within { border-color: var(--club-accent); box-shadow: 0 0 0 3px #c8f36a25; }
@@ -228,8 +238,8 @@ a:hover { color: #e2ffad; }
   --bs-dropdown-border-radius: 0.9rem;
   --bs-dropdown-link-hover-bg: #354d3a;
   --bs-dropdown-link-hover-color: var(--club-accent);
-  --bs-dropdown-link-active-bg: var(--club-accent);
-  --bs-dropdown-link-active-color: #152015;
+  --bs-dropdown-link-active-bg: var(--club-selected-bg);
+  --bs-dropdown-link-active-color: var(--club-accent);
   --bs-dropdown-padding-y: 0.5rem;
   box-shadow: 0 12px 36px #0006;
 }
