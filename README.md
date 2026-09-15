@@ -96,6 +96,8 @@ The desktop app is packaged with Electron and Electron Builder. The Electron-spe
 - `src/js/app.ts` as the Electron main process bundle.
 - `src/js/preload.js` as the Electron preload bundle.
 
+The macOS desktop app requires macOS 13 (Ventura) or later, matching [Electron 44's minimum supported version](https://www.electronjs.org/blog/electron-44-0#removed-macos-12-support).
+
 For a quick packaged local build:
 
 ```bash
