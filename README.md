@@ -66,6 +66,7 @@ The local server enables hot reloading for the web client and serves the develop
 | `npm run dev` | Creates a development webpack build in `dev/`. |
 | `npm run bundle` | Creates a production web build in `www/` and injects the Workbox service worker manifest. |
 | `npm run lint` | Runs ESLint against the TypeScript source under `src/`. |
+| `npm run typecheck` | Checks application types with TypeScript 7 without emitting files. |
 | `npm run app` | Compiles and launches the Electron app entry point directly for a quick local desktop run. |
 | `npm run pack` | Builds Electron assets and creates an unpacked desktop app with `electron-builder --dir`. |
 | `npm run dist` | Builds Electron assets and creates distributable desktop packages for the current platform. |
@@ -147,11 +148,14 @@ That command runs the production web build, syncs Capacitor Android, and creates
 Before opening a pull request, run:
 
 ```bash
+npm run typecheck
 npm run lint
 npm run bundle
 ```
 
-There is currently no `npm test` script. Until automated tests are added, `npm run lint`, `npm run bundle`, and a focused manual check in the browser are the basic validation path.
+TypeScript runs side by side using [Microsoft's compatibility setup](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6-0): `@typescript/native` supplies TypeScript 7, while `typescript` aliases `@typescript/typescript6` for the compiler API required by `ts-loader` and ESLint. Webpack compilation still uses TypeScript 6. Use `npm run typecheck` to invoke TypeScript 7 directly, since npm can link the shared `tsc` command to either installed compiler. The type-check command skips declaration-file checking because `emoji-mart` ships declarations with unresolved internal imports; application source is still checked.
+
+There is currently no `npm test` script. Until automated tests are added, `npm run typecheck`, `npm run lint`, `npm run bundle`, and a focused manual check in the browser are the basic validation path.
 
 Useful manual checks include:
 

@@ -13,9 +13,8 @@
         "allowSyntheticDefaultImports": true,
         "module": "es2022",
         "target": "es2022",
-        "moduleResolution": "node",
-        "types": ["jquery", "bootstrap", "websocket"],
-        "ignoreDeprecations": "6.0"
+        "moduleResolution": "bundler",
+        "types": ["jquery", "bootstrap", "websocket"]
     },
     "include": [
         "src/**/*"
