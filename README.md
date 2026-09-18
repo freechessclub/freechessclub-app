@@ -146,6 +146,17 @@ npm run android:ci
 
 That command runs the production web build, syncs Capacitor Android, and creates the Android release bundle with Gradle.
 
+Release CI also builds an APK and runs `node scripts/check-android-release.js` to verify that resource shrinking retained the notification icon. Both notification plugins resolve `ic_fcc_notification` by name from JavaScript; keep its rule in `android/app/src/main/res/raw/fcc_notifications_keep.xml`.
+
+For native notification/service smoke tests on an emulator or device, set `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`, then run from `android/`:
+
+```bash
+./gradlew :app:connectedReleaseAndroidTest -PandroidTestBuildType=release \
+  -Pandroid.testInstrumentationRunnerArguments.class=club.freechess.FreeChessClub.NotificationServiceTest
+```
+
+Use a local test signing key for an Android 17 emulator. These tests check the installed release resource, foreground notification, and service startup while moving the activity into the background. Instrumented release builds retain the tracing and Kotlin APIs used by the test runner; normal releases omit those test-only rules. The tests do not prove WebSocket continuity during prolonged screen-off or Doze; verify that separately on a physical device before release. A debug APK does not exercise resource shrinking.
+
 ## Code quality checks
 
 Before opening a pull request, run:

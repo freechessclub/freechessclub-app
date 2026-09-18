@@ -38,9 +38,15 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            testProguardFiles 'test-proguard-rules.pro'
+            if (project.findProperty('androidTestBuildType') == 'release') {
+                proguardFiles 'release-test-proguard-rules.pro'
+            }
             signingConfig signingConfigs.release
         }
     }
+    // Exercise the actual shrunk release APK with -PandroidTestBuildType=release.
+    testBuildType project.findProperty('androidTestBuildType') ?: 'debug'
 }
 
 repositories {
