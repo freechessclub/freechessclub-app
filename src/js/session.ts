@@ -5,6 +5,7 @@
 import Parser from './parser';
 import { isAndroidCapacitor, isMobile } from './utils';
 import { settings } from './settings';
+import { createFicsSocket, FicsSocket } from './fics-socket';
 
 export const enum MessageType {
   Control = 0,
@@ -48,7 +49,7 @@ export class Session {
   private connecting: boolean;
   private user: string;
   private pass: string;
-  private websocket: WebSocket;
+  private websocket: FicsSocket;
   private onRecv: (msg: any) => void;
   private timesealHello = 'TIMESEAL2|freeseal|icsgo|';
   private tsKey = 'Timestamp (FICS) v1.0 - programmed by Henrik Gram.';
@@ -177,7 +178,7 @@ export class Session {
     $('#session-status').html('<span class="text-warning"><span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>&nbsp;Connecting...</span>');
     this.onRecv({command: 5, control: 'Connecting'});
 
-    const websocket = new WebSocket('wss://www.freechess.org:5001');
+    const websocket = createFicsSocket();
     let connectionError = false;
     this.websocket = websocket;
     this.parser = new Parser(this, user, pass);

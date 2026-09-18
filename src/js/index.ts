@@ -33,13 +33,9 @@ import { getShortcuts, initUi } from './ui';
 import { runThemeEffect } from './theme-effects';
 import { SeekGraph } from './seek-graph';
 import {
-  forgetAndroidTurnNotification,
   initAndroidAppIntegration,
   initAndroidNotifications,
-  removeAndroidOfferNotification,
-  requestAndroidNotificationPermission,
-  shouldShowAndroidTurnNotification,
-  showAndroidNotification,
+  configureAndroidNotifications,
   updateAndroidForegroundServiceNotification,
   updateAndroidForegroundServiceState
 } from './android';
@@ -153,7 +149,6 @@ let gameListVirtualScroller = null;
 const mainBoard: any = createBoard($('#main-board-area').children().first().find('.board'));
 let pendingNativeNotificationTarget: AndroidNotificationTarget | null = null;
 let pendingNativeNotificationTargetTimer: number | null = null;
-let pendingAndroidOfferAction: {command: 'accept' | 'decline'; offerId: number} | null = null;
 let pendingInviteCreate: InviteCreateState | null = null;
 let activeInvite: InviteCreateState | null = null;
 let pendingInviteJoin: InviteJoinState | null = null;
@@ -424,27 +419,7 @@ function queueNativeNotificationTarget(target: AndroidNotificationTarget) {
   setTimeout(openPendingNativeNotificationTarget, 0);
 }
 
-function sendPendingAndroidOfferAction() {
-  if(!session || !pendingAndroidOfferAction)
-    return;
-
-  const action = pendingAndroidOfferAction;
-  pendingAndroidOfferAction = null;
-  session.send(`${action.command} ${action.offerId}`);
-}
-
 function handleAndroidNotificationAction(action: AndroidNotificationAction) {
-  if((action.actionId === 'accept' || action.actionId === 'decline')
-      && Number.isSafeInteger(action.target.offerId) && action.target.offerId > 0) {
-    removeAndroidOfferNotification(action.target.offerId);
-    pendingAndroidOfferAction = {
-      command: action.actionId,
-      offerId: action.target.offerId
-    };
-    sendPendingAndroidOfferAction();
-    return;
-  }
-
   if(action.actionId === 'tap')
     queueNativeNotificationTarget(action.target);
 }
@@ -550,6 +525,14 @@ async function onDeviceReady() {
     onNetworkStatusChange: setNetworkConnected,
     onResume: shouldReconnect => {
       session?.ensureConnection(shouldReconnect);
+      // Native transport may have buffered moves while WebView was frozen.
+      // Fetch current clocks after that backlog, rather than displaying old times.
+      if(session?.isConnected()) {
+        for(const game of games) {
+          if(game.id != null && game.role !== Role.NONE && game.role !== Role.PLAYING_COMPUTER)
+            session.send(`refresh ${game.id}`);
+        }
+      }
       syncAndroidForegroundService();
       updateScreenWakeLock();
     },
@@ -623,7 +606,6 @@ async function onDeviceReady() {
     $('#login-pass').val('');
     createSession(messageHandler, undefined, undefined, autoConnect);
   }
-  sendPendingAndroidOfferAction();
 
   if(hasSharedGame)
     initSharedGameFromUrl();
@@ -1348,23 +1330,11 @@ function messageHandler(data: any) {
       if(handleTrainingBotMessage(data))
         break;
       chat.newMessage(data.user, data);
-      showAndroidNotification(
-        `Message from ${data.user}`,
-        data.message,
-        {kind: 'chat', user: data.user},
-        settings.notificationsToggle
-      );
       openPendingNativeNotificationTarget();
       break;
     case MessageType.Messages:
       if(data.type === 'online') { // message received while online, put it immediately into a chat tab
         chat.newMessage(data.messages[0].user, data.messages[0]);
-        showAndroidNotification(
-          `Message from ${data.messages[0].user}`,
-          data.messages[0].message,
-          {kind: 'chat', user: data.messages[0].user},
-          settings.notificationsToggle
-        );
         openPendingNativeNotificationTarget();
       }
       else if(data.type === 'unread' && awaiting.resolve('unread-messages')) {
@@ -1380,38 +1350,12 @@ function messageHandler(data: any) {
       break;
     case MessageType.GameMove:
       gameMove(data);
-      const movedGame = games.findGame(data.id);
-      if(document.hidden && movedGame?.isPlayingOnline() && movedGame.role === Role.MY_MOVE
-          && shouldShowAndroidTurnNotification(movedGame.id, movedGame.fen)) {
-        const opponent = movedGame.color === 'w' ? movedGame.bname : movedGame.wname;
-        const body = data.move && data.move !== 'none'
-          ? `${opponent} moved. It's your turn.`
-          : `Your game against ${opponent} is ready.`;
-        showAndroidNotification(
-          'Your turn',
-          body,
-          {kind: 'game', gameId: movedGame.id},
-          settings.notificationsToggle
-        );
-      }
-      else if(movedGame?.role !== Role.MY_MOVE)
-        forgetAndroidTurnNotification(data.id);
       openPendingNativeNotificationTarget();
       break;
     case MessageType.GameStart:
       break;
     case MessageType.GameEnd:
-      const endedGame = games.findGame(data.game_id);
-      const wasPlayingOnline = endedGame?.isPlayingOnline();
       gameEnd(data);
-      forgetAndroidTurnNotification(data.game_id);
-      if(wasPlayingOnline)
-        showAndroidNotification(
-          'Game finished',
-          data.message,
-          {kind: 'game', gameId: data.game_id},
-          settings.notificationsToggle
-        );
       openPendingNativeNotificationTarget();
       break;
     case MessageType.GameHoldings:
@@ -1923,11 +1867,9 @@ function handleOffers(offers: any[]) {
     let bodyTitle = '';
     let bodyText = '';
     let displayType = '';
-    let showNativeNotification = false;
     switch(item.subtype) {
       case 'match':
         displayType = 'notification';
-        showNativeNotification = true;
         const time = !isNaN(item.initialTime) ? ` ${item.initialTime} ${item.increment}` : '';
         bodyText = `${item.ratedUnrated} ${item.category}${time}`;
         if(item.adjourned) {
@@ -1941,11 +1883,6 @@ function handleOffers(offers: any[]) {
           const headerTextElement = $(element).find('.header-text');
           const bodyTextElement = $(element).find('.body-text');
           if(headerTextElement.text() === 'Match Request' && bodyTextElement.text().startsWith(`${item.opponent}(`)) {
-            const previousOfferId = Number($(element).attr('data-offer-id'));
-            const offerReplaced = Number.isSafeInteger(previousOfferId) && previousOfferId !== +item.id;
-            if(offerReplaced)
-              removeAndroidOfferNotification(previousOfferId);
-            showNativeNotification = offerReplaced;
             $(element).attr('data-offer-id', item.id);
             bodyTextElement.text(`${bodyTitle} ${bodyText}`);
             const btnSuccess = $(element).find('.button-success');
@@ -1958,7 +1895,6 @@ function handleOffers(offers: any[]) {
         break;
       case 'partner':
         displayType = 'notification';
-        showNativeNotification = true;
         headerTitle = 'Partnership Request';
         bodyTitle = item.toFrom;
         bodyText = 'offers to be your bughouse partner.';
@@ -1997,15 +1933,7 @@ function handleOffers(offers: any[]) {
         dialog = Dialogs.showDialog({type: headerTitle, title: bodyTitle, msg: bodyText, btnFailure: [`decline ${item.id}`, 'Decline'], btnSuccess: [`accept ${item.id}`, 'Accept'], useSessionSend: true}, 'game');
       dialog.attr('data-offer-id', item.id);
     }
-    if(showNativeNotification) {
-      showAndroidNotification(
-        headerTitle,
-        `${bodyTitle} ${bodyText}`,
-        {kind: 'offers', offerId: item.subtype === 'match' ? +item.id : undefined},
-        settings.notificationsToggle
-      );
-      openPendingNativeNotificationTarget();
-    }
+    openPendingNativeNotificationTarget();
   });
 
   // Remove match requests and seeks. Note our own seeks are removed in the MessageType.Unknown section
@@ -2013,7 +1941,6 @@ function handleOffers(offers: any[]) {
   const removals = offers.filter((item) => item.type === 'pr' || item.type === 'sr');
   removals.forEach((item) => {
     item.ids.forEach((id) => {
-      removeAndroidOfferNotification(+id);
       if(activeInvite && activeInvite.seekId && +id === activeInvite.seekId) {
         activeInvite = null;
         activeInviteLink = null;
@@ -2515,12 +2442,6 @@ function handleMiscMessage(data: any) {
   if(match && match.length > 2) {
     const n = Dialogs.createNotification({type: 'Resume Game', title: `${match[1]}<br>${match[2]}`, btnSuccess: ['resume', 'Resume Game'], useSessionSend: true});
     n.attr('data-adjourned-list', 'true');
-    showAndroidNotification(
-      'Resume game',
-      `${match[1]} ${match[2]}`,
-      {kind: 'offers'},
-      settings.notificationsToggle
-    );
     openPendingNativeNotificationTarget();
   }
   match = msg.match(/^Notification: ((\S+), who has an adjourned game with you, has arrived\.)/m);
@@ -2528,12 +2449,6 @@ function handleMiscMessage(data: any) {
     if(!$(`.notification[data-adjourned-arrived="${match[2]}"]`).length) {
       const n = Dialogs.createNotification({type: 'Resume Game', title: match[1], btnSuccess: [`resume ${match[2]}`, 'Resume Game'], useSessionSend: true});
       n.attr('data-adjourned-arrived', match[2]);
-      showAndroidNotification(
-        'Resume game',
-        match[1],
-        {kind: 'offers'},
-        settings.notificationsToggle
-      );
       openPendingNativeNotificationTarget();
     }
     return;
@@ -2590,7 +2505,6 @@ function handleMiscMessage(data: any) {
     const headerTitle = 'Partnership Declined';
     const bodyTitle = match[1];
     Dialogs.createNotification({type: headerTitle, title: bodyTitle, useSessionSend: true});
-    showAndroidNotification(headerTitle, bodyTitle, {kind: 'offers'}, settings.notificationsToggle);
     openPendingNativeNotificationTarget();
   }
   match = msg.match(/^(\w+ agrees to be your partner\.)/m);
@@ -2598,7 +2512,6 @@ function handleMiscMessage(data: any) {
     const headerTitle = 'Partnership Accepted';
     const bodyTitle = match[1];
     Dialogs.createNotification({type: headerTitle, title: bodyTitle, useSessionSend: true});
-    showAndroidNotification(headerTitle, bodyTitle, {kind: 'offers'}, settings.notificationsToggle);
     openPendingNativeNotificationTarget();
   }
 
@@ -9787,8 +9700,7 @@ function updateDropdownSound() {
 $('#notifications-toggle').on('click', () => {
   settings.notificationsToggle = !settings.notificationsToggle;
   storage.set('notifications', String(settings.notificationsToggle));
-  if(settings.notificationsToggle)
-    requestAndroidNotificationPermission();
+  configureAndroidNotifications(settings.notificationsToggle);
 });
 
 $('#autopromote-toggle').on('click', () => {

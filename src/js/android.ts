@@ -2,7 +2,8 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-import type { LocalNotificationSchema } from '@capacitor/local-notifications';
+import { registerPlugin } from '@capacitor/core';
+import type { PluginListenerHandle } from '@capacitor/core';
 import * as Utils from './utils';
 
 export type AndroidNotificationTarget = {
@@ -24,18 +25,12 @@ type AndroidAppIntegrationCallbacks = {
   closeTopOverlay: () => boolean;
 };
 
-type NotificationThread = {
-  id: number;
-  title: string;
-  lines: string[];
-  count: number;
-  target: AndroidNotificationTarget;
-};
+interface NativeNotificationPlugin {
+  configureNotifications(options: {enabled: boolean}): Promise<void>;
+  addListener(event: 'notificationAction', listener: (action: AndroidNotificationAction) => void): Promise<PluginListenerHandle>;
+}
 
-const EVENT_NOTIFICATION_GROUP = 'fcc-events';
-const EVENT_NOTIFICATION_SUMMARY_ID = 2;
-const GAME_REQUEST_ACTION_TYPE = 'fcc-game-request';
-const MAX_NOTIFICATION_LINES = 5;
+const NativeNotifications = registerPlugin<NativeNotificationPlugin>('FicsSocket');
 
 let ForegroundService = null;
 let foregroundServiceActive = false;
@@ -44,109 +39,6 @@ let foregroundServiceTransition: Promise<void> = Promise.resolve();
 let LocalNotifications = null;
 let androidNotificationsInitialized = false;
 let androidAppIntegrationInitialized = false;
-let nativeNotificationId = 10000 + Math.floor(Date.now() % 2000000000);
-const notificationThreads = new Map<string, NotificationThread>();
-const turnNotificationPositions = new Map<number, string>();
-
-function nextNotificationId() {
-  nativeNotificationId++;
-  if(nativeNotificationId > 2147483647)
-    nativeNotificationId = 10000;
-  return nativeNotificationId;
-}
-
-function notificationText(value: any) {
-  return String(value ?? '')
-    .replace(/<[^>]*>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 240);
-}
-
-function notificationThreadKey(target: AndroidNotificationTarget) {
-  if(target.kind === 'chat')
-    return `chat:${target.user?.trim().toLowerCase() ?? ''}`;
-  if(target.kind === 'game')
-    return `game:${target.gameId ?? ''}`;
-  if(target.offerId != null)
-    return `offer:${target.offerId}`;
-  return 'offers';
-}
-
-function updateNotificationThread(
-  title: string,
-  body: string,
-  target: AndroidNotificationTarget
-): NotificationThread {
-  const key = notificationThreadKey(target);
-  const existing = notificationThreads.get(key);
-  const thread = existing ?? {
-    id: nextNotificationId(),
-    title,
-    lines: [],
-    count: 0,
-    target
-  };
-  thread.title = title;
-  thread.target = target;
-  thread.count++;
-  thread.lines.push(body);
-  thread.lines = thread.lines.slice(-MAX_NOTIFICATION_LINES);
-
-  // Reinsert updated threads so the group summary is ordered by recency.
-  notificationThreads.delete(key);
-  notificationThreads.set(key, thread);
-  return thread;
-}
-
-function notificationThreadTitle(thread: NotificationThread) {
-  if(thread.target.kind === 'chat' && thread.target.user && thread.count > 1)
-    return `Messages from ${thread.target.user}`;
-  return thread.title;
-}
-
-function buildThreadNotification(thread: NotificationThread): LocalNotificationSchema {
-  return {
-    id: thread.id,
-    title: notificationThreadTitle(thread),
-    body: thread.lines[thread.lines.length - 1],
-    summaryText: thread.count > 1 ? `${thread.count} new updates` : undefined,
-    inboxList: thread.count > 1 ? thread.lines : undefined,
-    smallIcon: 'ic_fcc_notification',
-    group: EVENT_NOTIFICATION_GROUP,
-    // Plugin 8.3+ otherwise opens exact-alarm settings even for immediate alerts.
-    isExactNotification: false,
-    autoCancel: true,
-    actionTypeId: thread.target.offerId != null ? GAME_REQUEST_ACTION_TYPE : undefined,
-    extra: thread.target
-  };
-}
-
-function buildNotificationSummary(): LocalNotificationSchema | null {
-  if(notificationThreads.size < 2)
-    return null;
-
-  const threads = Array.from(notificationThreads.values());
-  const total = threads.reduce((count, thread) => count + thread.count, 0);
-  const lines = threads.slice(-MAX_NOTIFICATION_LINES).map(thread => {
-    const latest = thread.lines[thread.lines.length - 1];
-    return `${notificationThreadTitle(thread)}: ${latest}`;
-  });
-
-  return {
-    id: EVENT_NOTIFICATION_SUMMARY_ID,
-    title: 'Free Chess Club',
-    body: `${total} new updates`,
-    summaryText: `${threads.length} conversations and games`,
-    inboxList: lines,
-    smallIcon: 'ic_fcc_notification',
-    group: EVENT_NOTIFICATION_GROUP,
-    groupSummary: true,
-    isExactNotification: false,
-    autoCancel: true
-  };
-}
-
 async function loadForegroundService() {
   if(ForegroundService)
     return;
@@ -239,84 +131,16 @@ export async function requestAndroidNotificationPermission() {
   }
 }
 
-export async function showAndroidNotification(
-  title: string,
-  body: string,
-  target: AndroidNotificationTarget,
-  enabled: boolean
-) {
-  if(!Utils.isAndroidCapacitor() || !document.hidden || !enabled)
-    return;
-
-  try {
-    await loadLocalNotifications();
-    const permission = await LocalNotifications.checkPermissions();
-    if(permission.display !== 'granted')
-      return;
-
-    const cleanTitle = notificationText(title);
-    const cleanBody = notificationText(body);
-    const thread = updateNotificationThread(cleanTitle, cleanBody, target);
-    const notification = buildThreadNotification(thread);
-    const summary = buildNotificationSummary();
-    await LocalNotifications.schedule({
-      notifications: summary ? [notification, summary] : [notification]
-    });
-  }
-  catch(error) {
-    Utils.logError('Error showing Android notification:', error);
-  }
-}
-
-export async function removeAndroidOfferNotification(offerId: number) {
-  if(!Utils.isAndroidCapacitor() || !Number.isInteger(offerId))
-    return;
-
-  const key = notificationThreadKey({kind: 'offers', offerId});
-  const thread = notificationThreads.get(key);
-  if(!thread)
-    return;
-
-  notificationThreads.delete(key);
-  try {
-    await loadLocalNotifications();
-    const delivered = await LocalNotifications.getDeliveredNotifications();
-    const summary = buildNotificationSummary();
-    const notifications = delivered.notifications.filter(notification =>
-      notification.id === thread.id || (!summary && notification.id === EVENT_NOTIFICATION_SUMMARY_ID)
-    );
-    if(notifications.length)
-      await LocalNotifications.removeDeliveredNotifications({notifications});
-
-    if(summary)
-      await LocalNotifications.schedule({notifications: [summary]});
-    else if(notificationThreads.size === 1 && notifications.some(notification => notification.id === EVENT_NOTIFICATION_SUMMARY_ID)) {
-      // Removing the last summary also removes its remaining child on Android.
-      const remaining = notificationThreads.values().next().value;
-      await LocalNotifications.schedule({notifications: [buildThreadNotification(remaining)]});
-    }
-  }
-  catch(error) {
-    Utils.logError('Error removing Android offer notification:', error);
-  }
-}
-
-export async function clearDeliveredAndroidNotifications() {
+export async function configureAndroidNotifications(enabled: boolean) {
   if(!Utils.isAndroidCapacitor())
     return;
-
   try {
-    await loadLocalNotifications();
-    const delivered = await LocalNotifications.getDeliveredNotifications();
-    const notifications = delivered.notifications.filter(notification => notification.group === EVENT_NOTIFICATION_GROUP);
-    if(notifications.length)
-      await LocalNotifications.removeDeliveredNotifications({notifications});
+    await NativeNotifications.configureNotifications({enabled});
+    if(enabled)
+      await requestAndroidNotificationPermission();
   }
   catch(error) {
-    Utils.logError('Error clearing delivered Android notifications:', error);
-  }
-  finally {
-    notificationThreads.clear();
+    Utils.logError('Error configuring Android notifications:', error);
   }
 }
 
@@ -329,24 +153,8 @@ export async function initAndroidNotifications(
 
   androidNotificationsInitialized = true;
   try {
-    await loadLocalNotifications();
-    await LocalNotifications.registerActionTypes({
-      types: [{
-        id: GAME_REQUEST_ACTION_TYPE,
-        actions: [
-          {id: 'accept', title: 'Accept'},
-          {id: 'decline', title: 'Decline'}
-        ]
-      }]
-    });
-    await LocalNotifications.addListener('localNotificationActionPerformed', action => {
-      const target = action.notification.extra as AndroidNotificationTarget;
-      if(target?.kind)
-        onNotificationAction({actionId: action.actionId, target});
-    });
-    await clearDeliveredAndroidNotifications();
-    if(enabled)
-      await requestAndroidNotificationPermission();
+    await NativeNotifications.addListener('notificationAction', onNotificationAction);
+    await configureAndroidNotifications(enabled);
   }
   catch(error) {
     androidNotificationsInitialized = false;
@@ -386,7 +194,6 @@ export async function initAndroidAppIntegration(callbacks: AndroidAppIntegration
       catch(error) {
         Utils.logError('Error checking network state after resume:', error);
       }
-      await clearDeliveredAndroidNotifications();
       await callbacks.onResume(shouldReconnect);
     });
 
@@ -439,15 +246,4 @@ export function updateAndroidForegroundServiceState(enabled: boolean, connected:
       else
         await stopForegroundService();
     });
-}
-
-export function shouldShowAndroidTurnNotification(gameId: number, position: string) {
-  if(turnNotificationPositions.get(gameId) === position)
-    return false;
-  turnNotificationPositions.set(gameId, position);
-  return true;
-}
-
-export function forgetAndroidTurnNotification(gameId: number) {
-  turnNotificationPositions.delete(gameId);
 }

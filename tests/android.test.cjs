@@ -24,74 +24,40 @@ function loadModule(name, imports, globals = {}) {
   return exports;
 }
 
-function notificationFixture() {
-  const delivered = new Map();
-  const errors = [];
-  const document = { hidden: true };
-  let permitted = true;
+test('Android notification settings and native tap events are bridged without JS posting', async () => {
+  const calls = [];
+  let listener;
+  let callback;
   const api = loadModule('android.ts', {
-    './utils': { isAndroidCapacitor: () => true, logError: (...args) => errors.push(args) },
+    './utils': { isAndroidCapacitor: () => true, logError: (...args) => { throw new Error(args.join(' ')); } },
+    '@capacitor/core': { registerPlugin: name => {
+      assert.equal(name, 'FicsSocket');
+      return {
+        configureNotifications: async options => calls.push(options.enabled),
+        addListener: async (event, handler) => { assert.equal(event, 'notificationAction'); listener = handler; }
+      };
+    } },
     '@capacitor/local-notifications': { LocalNotifications: {
-      checkPermissions: async () => ({ display: permitted ? 'granted' : 'denied' }),
-      schedule: async ({ notifications }) => {
-        // Plugin 8.3.1 opens exact-alarm settings even for immediate notifications.
-        // Android blocks this activity while backgrounded, leaving schedule pending.
-        for (const notification of notifications) {
-          if (notification.isExactNotification !== false)
-            throw new Error('Exact-alarm permission activity would be blocked');
-          delivered.set(notification.id, notification);
-        }
-      },
-      getDeliveredNotifications: async () => ({ notifications: [...delivered.values()] }),
-      removeDeliveredNotifications: async ({ notifications }) => notifications.forEach(n => {
-        if (n.groupSummary) {
-          for (const item of delivered.values())
-            if (item.group === n.group) delivered.delete(item.id);
-        }
-        delivered.delete(n.id);
-      })
+      checkPermissions: async () => ({ display: 'granted' })
     } }
-  }, { document });
-  return { api, delivered, errors, document, denyPermission: () => { permitted = false; } };
-}
-
-test('background events and rebuilt group summaries work without exact-alarm access', async () => {
-  const { api, delivered, errors } = notificationFixture();
-  await api.showAndroidNotification('Alice', 'Hello', { kind: 'chat', user: 'Alice' }, true);
-  await api.showAndroidNotification('Bob', 'Hello', { kind: 'chat', user: 'Bob' }, true);
-  await api.showAndroidNotification('Game request', 'Play?', { kind: 'offers', offerId: 7 }, true);
-  assert.equal(delivered.size, 4);
-  const offer = [...delivered.values()].find(n => n.extra?.offerId === 7);
-  assert.equal(offer.actionTypeId, 'fcc-game-request');
-  assert.equal(delivered.get(2).groupSummary, true);
-  await api.removeAndroidOfferNotification(7);
-  assert.equal(delivered.size, 3);
-  assert.ok(!delivered.has(offer.id));
-  assert.equal(delivered.get(2).body, '2 new updates');
-  assert.equal(errors.length, 0);
+  });
+  await api.initAndroidNotifications(true, action => { callback = action; });
+  await api.initAndroidNotifications(true, () => assert.fail('Initialized twice'));
+  const action = {actionId: 'tap', target: {kind: 'chat', user: 'Alice'}};
+  listener(action);
+  assert.equal(callback, action);
+  await api.configureAndroidNotifications(false);
+  assert.deepEqual(calls, [true, false]);
+  assert.equal(api.showAndroidNotification, undefined);
 });
 
-test('foreground, disabled, and permission-denied notifications remain suppressed', async () => {
-  const f = notificationFixture();
-  f.document.hidden = false;
-  await f.api.showAndroidNotification('Test', 'Test', { kind: 'offers' }, true);
-  f.document.hidden = true;
-  await f.api.showAndroidNotification('Test', 'Test', { kind: 'offers' }, false);
-  f.denyPermission();
-  await f.api.showAndroidNotification('Test', 'Test', { kind: 'offers' }, true);
-  assert.equal(f.delivered.size, 0);
-  assert.equal(f.errors.length, 0);
-});
-
-test('removing an offer preserves the remaining alert when its summary disappears', async () => {
-  const { api, delivered, errors } = notificationFixture();
-  await api.showAndroidNotification('Alice', 'Hello', { kind: 'chat', user: 'Alice' }, true);
-  await api.showAndroidNotification('Game request', 'Play?', { kind: 'offers', offerId: 7 }, true);
-  assert.equal(delivered.size, 3);
-  await api.removeAndroidOfferNotification(7);
-  assert.equal(delivered.size, 1);
-  assert.equal([...delivered.values()][0].extra.user, 'Alice');
-  assert.equal(errors.length, 0);
+test('web notification configuration never calls native APIs', async () => {
+  const api = loadModule('android.ts', {
+    './utils': { isAndroidCapacitor: () => false },
+    '@capacitor/core': { registerPlugin: () => new Proxy({}, {get: () => assert.fail('Native API on web')}) }
+  });
+  await api.initAndroidNotifications(true, () => {});
+  await api.configureAndroidNotifications(false);
 });
 
 function sessionFixture({ loggedIn = true, foregroundService = true } = {}) {
@@ -115,6 +81,7 @@ function sessionFixture({ loggedIn = true, foregroundService = true } = {}) {
     removeEventListener: name => listeners.delete(name)
   };
   const { Session } = loadModule('session.ts', {
+    './fics-socket': { createFicsSocket: () => new FakeWebSocket() },
     './parser': { __esModule: true, default: class {} },
     './utils': { isAndroidCapacitor: () => true, isMobile: () => true },
     './settings': { settings: { visited: true, foregroundServiceToggle: foregroundService } }
@@ -208,4 +175,114 @@ test('background reconnect stays deferred when the foreground service is disable
   f.document.visibilityState = 'visible';
   f.listeners.get('visibilitychange')();
   assert.equal(f.sockets.length, 2);
+});
+
+function nativeSocketFixture({ android = true } = {}) {
+  const listeners = new Set();
+  const queues = new Map();
+  const sent = [];
+  const disposed = [];
+  let id;
+  let closed = 0;
+  const native = {
+    async addListener(name, callback) {
+      listeners.add(callback);
+      return { remove: async () => listeners.delete(callback) };
+    },
+    async connect(options) { id = options.id; queues.set(id, []); },
+    async send(options) { sent.push(options); },
+    async close() { closed++; },
+    async dispose(options) { disposed.push(options.id); },
+    async drain(options) {
+      const queue = queues.get(options.id) || [];
+      return { events: queue.splice(0, 2), more: queue.length > 0 };
+    }
+  };
+  class BrowserSocket { constructor(url) { this.url = url; } }
+  const { createFicsSocket } = loadModule('fics-socket.ts', {
+    '@capacitor/core': {
+      Capacitor: { isNativePlatform: () => android, getPlatform: () => android ? 'android' : 'web' },
+      registerPlugin: () => native
+    }
+  }, { WebSocket: BrowserSocket, Blob, Uint8Array, DOMException, btoa, atob });
+  return {
+    createFicsSocket, native, sent, disposed, listeners,
+    get closed() { return closed; },
+    async settle() { for(let i = 0; i < 6; i++) await new Promise(resolve => setImmediate(resolve)); },
+    emit(events) {
+      queues.get(id).push(...events);
+      for(const callback of listeners) callback({ id });
+    }
+  };
+}
+
+test('web transport remains the browser WebSocket', () => {
+  const f = nativeSocketFixture({ android: false });
+  assert.equal(f.createFicsSocket().url, 'wss://www.freechess.org:5001');
+});
+
+test('native transport preserves binary commands and ordered buffered messages', async () => {
+  const f = nativeSocketFixture();
+  const socket = f.createFicsSocket();
+  const received = [];
+  socket.onopen = () => socket.send(Uint8Array.of(0, 128, 255, 10).buffer);
+  socket.onmessage = async ({ data }) => {
+    const text = await data.text();
+    if(text === 'first') await new Promise(resolve => setImmediate(resolve));
+    received.push(text);
+  };
+  await f.settle();
+  f.emit([{ type: 'open' }, ...['first', 'second', 'third'].map(text => ({ type: 'message', data: btoa(text) }))]);
+  await f.settle();
+  assert.equal(socket.readyState, 1);
+  assert.equal(f.sent.length, 1);
+  assert.deepEqual([...Buffer.from(f.sent[0].data, 'base64')], [0, 128, 255, 10]);
+  assert.deepEqual(received, ['first', 'second', 'third']);
+  assert.equal(f.closed, 0);
+});
+
+test('closing during native connection setup never opens the JS session', async () => {
+  const f = nativeSocketFixture();
+  const socket = f.createFicsSocket();
+  let opened = false;
+  socket.onopen = () => { opened = true; };
+  socket.close();
+  await f.settle();
+  f.emit([{ type: 'open' }, { type: 'close', code: 1000, reason: '', wasClean: true }]);
+  await f.settle();
+  assert.equal(opened, false);
+  assert.equal(f.closed, 1);
+  assert.equal(socket.readyState, 3);
+  assert.equal(f.listeners.size, 0);
+  assert.equal(f.disposed.length, 1);
+});
+
+test('native failure reports error then close and releases listeners and socket', async () => {
+  const f = nativeSocketFixture();
+  const socket = f.createFicsSocket();
+  const events = [];
+  socket.onerror = () => events.push('error');
+  socket.onclose = event => events.push(`close:${event.code}:${event.wasClean}`);
+  await f.settle();
+  f.emit([{ type: 'open' }, { type: 'error' }, { type: 'close', code: 1006, reason: '', wasClean: false }]);
+  await f.settle();
+  assert.deepEqual(events, ['error', 'close:1006:false']);
+  assert.equal(f.listeners.size, 0);
+  assert.equal(f.disposed.length, 1);
+});
+
+test('bridge send rejection closes once instead of leaving an apparently open socket', async () => {
+  const f = nativeSocketFixture();
+  f.native.send = async () => { throw new Error('bridge unavailable'); };
+  const socket = f.createFicsSocket();
+  let closed = 0;
+  socket.onclose = () => closed++;
+  await f.settle();
+  f.emit([{ type: 'open' }]);
+  await f.settle();
+  socket.send(Uint8Array.of(1).buffer);
+  await f.settle();
+  assert.equal(socket.readyState, 3);
+  assert.equal(closed, 1);
+  assert.equal(f.disposed.length, 1);
 });
