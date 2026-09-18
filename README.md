@@ -67,6 +67,7 @@ The local server enables hot reloading for the web client and serves the develop
 | `npm run bundle` | Creates a production web build in `www/` and injects the Workbox service worker manifest. |
 | `npm run lint` | Runs ESLint against the TypeScript source under `src/`. |
 | `npm run typecheck` | Checks application types with TypeScript 7 without emitting files. |
+| `npm run test:android` | Runs notification and connection-recovery regression tests with mocked native plugins and sockets. |
 | `npm run app` | Compiles and launches the Electron app entry point directly for a quick local desktop run. |
 | `npm run pack` | Builds Electron assets and creates an unpacked desktop app with `electron-builder --dir`. |
 | `npm run dist` | Builds Electron assets and creates distributable desktop packages for the current platform. |
@@ -151,13 +152,14 @@ Before opening a pull request, run:
 
 ```bash
 npm run typecheck
+npm run test:android
 npm run lint
 npm run bundle
 ```
 
 TypeScript runs side by side using [Microsoft's compatibility setup](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6-0): `@typescript/native` supplies TypeScript 7, while `typescript` aliases `@typescript/typescript6` for the compiler API required by `ts-loader` and ESLint. Webpack compilation still uses TypeScript 6. Use `npm run typecheck` to invoke TypeScript 7 directly, since npm can link the shared `tsc` command to either installed compiler. The type-check command skips declaration-file checking because `emoji-mart` ships declarations with unresolved internal imports; application source is still checked.
 
-There is currently no `npm test` script. Until automated tests are added, `npm run typecheck`, `npm run lint`, `npm run bundle`, and a focused manual check in the browser are the basic validation path.
+There is currently no general `npm test` script. The focused Android regression tests cover notifications without exact-alarm permission, reconnect backoff, network changes, and intentional disconnects. Also run `npm run typecheck`, `npm run lint`, `npm run bundle`, and a focused manual check in the browser.
 
 Useful manual checks include:
 
@@ -174,6 +176,8 @@ Useful manual checks include:
 - Electron uses separate main and preload entries in `src/js/app.ts` and `src/js/preload.js`.
 - The service worker source lives in `src/js/service-worker.js`; production builds emit `www/service-worker.js` and inject a Workbox precache manifest.
 - Capacitor mobile builds use `capacitor.config.ts`, with `app/` as the web directory.
+- Android event notifications are immediate and explicitly disable exact alarms; the app does not request the Alarms & reminders permission.
+- The Android background-connection setting runs a foreground service with a CPU wake lock. The service releases the lock on stop, failure, or timeout, with a six-hour safety limit. This uses additional battery and does not bypass Android Doze or manufacturer network restrictions. Test screen-off behavior on physical devices as well as the emulator.
 - Board and UI styling lives mostly under `src/assets/css/`, with chessboard assets and themes under `src/assets/css/images/`, `src/assets/css/pieces/`, and `src/assets/css/themes/`.
 
 ## Contributing

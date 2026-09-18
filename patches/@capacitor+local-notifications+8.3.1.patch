@@ -1,7 +1,20 @@
 diff --git a/node_modules/@capacitor/local-notifications/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.kt b/node_modules/@capacitor/local-notifications/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.kt
 --- a/node_modules/@capacitor/local-notifications/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.kt
 +++ b/node_modules/@capacitor/local-notifications/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.kt
-@@ -192,6 +192,7 @@
+@@ -137,7 +137,11 @@
+                 call?.let { LocalNotificationsError.MISSING_IDENTIFIER.reject(it) }
+                 return null
+             }
+-            dismissVisibleNotification(id)
++            // Cancelling a group summary also removes its children on Android.
++            // notify() replaces it in place without discarding the event alerts.
++            if (!localNotification.groupSummary) {
++                dismissVisibleNotification(id)
++            }
+             cancelTimerForNotification(id)
+             buildNotification(notificationManager, localNotification, call)
+             ids.put(id)
+@@ -192,6 +196,7 @@
              mBuilder.setGroup(group)
              if (localNotification.groupSummary) {
                  mBuilder.setSubText(localNotification.summaryText)

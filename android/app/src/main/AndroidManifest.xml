@@ -43,7 +43,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Local notifications are posted immediately; no boot restore or wake lock are used. -->
+    <!-- Keep the CPU available only while the user-enabled connection service runs. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Event notifications are immediate; boot restore and exact alarms are not used. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" tools:node="remove" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
 </manifest>

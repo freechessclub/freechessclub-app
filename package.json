@@ -8,6 +8,7 @@
     "app": "webpack --config electron.webpack.js && electron dist/js/app.js",
     "lint": "eslint -c eslint.config.js \"src/**/*.ts\"",
     "typecheck": "node node_modules/@typescript/native/bin/tsc --noEmit --skipLibCheck",
+    "test:android": "node --test tests/android.test.cjs",
     "bundle": "webpack --mode production",
     "dev": "webpack --mode development",
     "pack": "webpack --config electron.webpack.js && electron-builder --dir",

@@ -452,7 +452,7 @@ function handleAndroidNotificationAction(action: AndroidNotificationAction) {
 function syncAndroidForegroundService() {
   updateAndroidForegroundServiceState(
     settings.foregroundServiceToggle,
-    !!session?.isConnected(),
+    !!session && (session.isConnected() || session.isReconnecting()),
     session?.getUser?.()
   );
 }
@@ -546,7 +546,7 @@ async function onDeviceReady() {
 
   initSessionSharing();
   await initAndroidAppIntegration({
-    isSessionActive: () => !!session && (session.isConnected() || session.isConnecting()),
+    isSessionActive: () => !!session && (session.isConnected() || session.isConnecting() || session.isReconnecting()),
     onNetworkStatusChange: setNetworkConnected,
     onResume: shouldReconnect => {
       session?.ensureConnection(shouldReconnect);

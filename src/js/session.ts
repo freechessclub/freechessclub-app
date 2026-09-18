@@ -61,6 +61,8 @@ export class Session {
   private reconnectWhenAvailable: boolean;
   private networkTransitionDisconnect: boolean;
   private visibilityChangeHandler: (() => void) | null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectDelay = 1000;
 
   constructor(onRecv: (msg: any) => void, user?: string, pass?: string, autoConnect = true) {
     this.connected = false;
@@ -99,6 +101,8 @@ export class Session {
   }
 
   destroy() {
+    this.reconnectWhenAvailable = false;
+    this.clearReconnectTimer();
     $('body').off('click', this.bodyClickHandler);
     this.removeVisibilityChangeHandler();
   }
@@ -139,6 +143,8 @@ export class Session {
     this.connected = true;
     this.connecting = false;
     this.reconnectWhenAvailable = false;
+    this.reconnectDelay = 1000;
+    this.clearReconnectTimer();
     this.removeVisibilityChangeHandler();
   }
 
@@ -148,6 +154,10 @@ export class Session {
 
   public isConnecting(): boolean {
     return this.connecting;
+  }
+
+  public isReconnecting(): boolean {
+    return this.reconnectWhenAvailable;
   }
 
   public connect(user?: string, pass?: string) {
@@ -160,7 +170,7 @@ export class Session {
       return;
     }
 
-    this.reconnectWhenAvailable = false;
+    this.clearReconnectTimer();
     this.networkTransitionDisconnect = false;
     this.registered = false;
     this.connecting = true;
@@ -168,6 +178,7 @@ export class Session {
     this.onRecv({command: 5, control: 'Connecting'});
 
     const websocket = new WebSocket('wss://www.freechess.org:5001');
+    let connectionError = false;
     this.websocket = websocket;
     this.parser = new Parser(this, user, pass);
     websocket.onmessage = async (message: any) => {
@@ -187,22 +198,22 @@ export class Session {
         return;
 
       const wasConnected = this.isConnected();
-      const recoverableDisconnect = wasConnected && (this.networkTransitionDisconnect || !e.wasClean);
+      const recoverableDisconnect = this.reconnectWhenAvailable
+        || (wasConnected && (this.networkTransitionDisconnect || connectionError || !e.wasClean));
       this.networkTransitionDisconnect = false;
+      this.reconnectWhenAvailable = recoverableDisconnect;
 
       if(this.isConnecting() || wasConnected) {
         this.reset();     
         this.onRecv({
           command: recoverableDisconnect ? 4 : 3,
-          control: 'Disconnected'
+          control: connectionError && !wasConnected ? 'Failed to connect' : 'Disconnected'
         }); // Send disconnected command to message handler
       }
 
-      // Reconnect automatically if the connection was dropped unexpectedly, i.e. by mobile power management
+      // Preserve recovery across failed attempts, without retrying in a tight loop.
       if(recoverableDisconnect)
-        this.reconnectWhenAvailable = true;
-
-      this.tryReconnect();
+        this.scheduleReconnect();
     };
 
     websocket.onopen = () => {
@@ -214,20 +225,15 @@ export class Session {
     websocket.onerror = () => {
       if(this.websocket !== websocket)
         return;
-      const wasConnected = this.isConnected();
-      const recoverableDisconnect = wasConnected && this.networkTransitionDisconnect;
-      this.reset();
-      if(wasConnected)
-        this.reconnectWhenAvailable = true;
-      this.onRecv({
-        command: recoverableDisconnect ? 4 : 3,
-        control: 'Failed to connect'
-      }); 
+      // WebSocket dispatches close after error. Resetting here loses the active
+      // session state and incorrectly stops the Android foreground service.
+      connectionError = true;
     };
   }
 
   public disconnect() {
     this.reconnectWhenAvailable = false;
+    this.clearReconnectTimer();
     this.networkTransitionDisconnect = false;
     this.removeVisibilityChangeHandler();
     this.reset();
@@ -277,6 +283,7 @@ export class Session {
     this.networkConnected = connected;
 
     if(!connected) {
+      this.clearReconnectTimer();
       if(this.isConnected()) {
         this.networkTransitionDisconnect = true;
         this.reconnectWhenAvailable = true;
@@ -310,7 +317,7 @@ export class Session {
   }
 
   private tryReconnect() {
-    if(!this.reconnectWhenAvailable || !this.networkConnected || this.isConnected() || this.isConnecting())
+    if(!this.reconnectWhenAvailable || !this.networkConnected || this.isConnected() || this.isConnecting() || this.reconnectTimer)
       return;
 
     const backgroundReconnectEnabled = isAndroidCapacitor() && settings.foregroundServiceToggle;
@@ -329,6 +336,22 @@ export class Session {
 
     const user = /^Guest[A-Z]{4}$/.test(this.getUser()) ? undefined : this.getUser();
     this.connect(user, this.getPassword());
+  }
+
+  private scheduleReconnect() {
+    if(!this.networkConnected || this.reconnectTimer)
+      return;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.tryReconnect();
+    }, this.reconnectDelay);
+    this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
+  }
+
+  private clearReconnectTimer() {
+    if(this.reconnectTimer)
+      clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
   }
 
   private removeVisibilityChangeHandler() {

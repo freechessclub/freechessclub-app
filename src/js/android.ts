@@ -105,6 +105,23 @@ function notificationThreadTitle(thread: NotificationThread) {
   return thread.title;
 }
 
+function buildThreadNotification(thread: NotificationThread): LocalNotificationSchema {
+  return {
+    id: thread.id,
+    title: notificationThreadTitle(thread),
+    body: thread.lines[thread.lines.length - 1],
+    summaryText: thread.count > 1 ? `${thread.count} new updates` : undefined,
+    inboxList: thread.count > 1 ? thread.lines : undefined,
+    smallIcon: 'ic_fcc_notification',
+    group: EVENT_NOTIFICATION_GROUP,
+    // Plugin 8.3+ otherwise opens exact-alarm settings even for immediate alerts.
+    isExactNotification: false,
+    autoCancel: true,
+    actionTypeId: thread.target.offerId != null ? GAME_REQUEST_ACTION_TYPE : undefined,
+    extra: thread.target
+  };
+}
+
 function buildNotificationSummary(): LocalNotificationSchema | null {
   if(notificationThreads.size < 2)
     return null;
@@ -125,6 +142,7 @@ function buildNotificationSummary(): LocalNotificationSchema | null {
     smallIcon: 'ic_fcc_notification',
     group: EVENT_NOTIFICATION_GROUP,
     groupSummary: true,
+    isExactNotification: false,
     autoCancel: true
   };
 }
@@ -239,18 +257,7 @@ export async function showAndroidNotification(
     const cleanTitle = notificationText(title);
     const cleanBody = notificationText(body);
     const thread = updateNotificationThread(cleanTitle, cleanBody, target);
-    const notification: LocalNotificationSchema = {
-      id: thread.id,
-      title: notificationThreadTitle(thread),
-      body: cleanBody,
-      summaryText: thread.count > 1 ? `${thread.count} new updates` : undefined,
-      inboxList: thread.count > 1 ? thread.lines : undefined,
-      smallIcon: 'ic_fcc_notification',
-      group: EVENT_NOTIFICATION_GROUP,
-      autoCancel: true,
-      actionTypeId: target.offerId != null ? GAME_REQUEST_ACTION_TYPE : undefined,
-      extra: target
-    };
+    const notification = buildThreadNotification(thread);
     const summary = buildNotificationSummary();
     await LocalNotifications.schedule({
       notifications: summary ? [notification, summary] : [notification]
@@ -274,15 +281,20 @@ export async function removeAndroidOfferNotification(offerId: number) {
   try {
     await loadLocalNotifications();
     const delivered = await LocalNotifications.getDeliveredNotifications();
+    const summary = buildNotificationSummary();
     const notifications = delivered.notifications.filter(notification =>
-      notification.id === thread.id || notification.id === EVENT_NOTIFICATION_SUMMARY_ID
+      notification.id === thread.id || (!summary && notification.id === EVENT_NOTIFICATION_SUMMARY_ID)
     );
     if(notifications.length)
       await LocalNotifications.removeDeliveredNotifications({notifications});
 
-    const summary = buildNotificationSummary();
     if(summary)
       await LocalNotifications.schedule({notifications: [summary]});
+    else if(notificationThreads.size === 1 && notifications.some(notification => notification.id === EVENT_NOTIFICATION_SUMMARY_ID)) {
+      // Removing the last summary also removes its remaining child on Android.
+      const remaining = notificationThreads.values().next().value;
+      await LocalNotifications.schedule({notifications: [buildThreadNotification(remaining)]});
+    }
   }
   catch(error) {
     Utils.logError('Error removing Android offer notification:', error);
