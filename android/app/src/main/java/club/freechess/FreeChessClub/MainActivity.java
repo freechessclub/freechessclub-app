@@ -16,6 +16,7 @@ public class MainActivity extends BridgeActivity {
   public void onCreate(Bundle savedInstanceState) {
     setTheme(R.style.AppTheme_NoActionBar);
     EdgeToEdge.enable(this);
+    registerPlugin(FicsSocketPlugin.class);
     super.onCreate(savedInstanceState);
 
   if(Build.VERSION.SDK_INT >= 24 ){
