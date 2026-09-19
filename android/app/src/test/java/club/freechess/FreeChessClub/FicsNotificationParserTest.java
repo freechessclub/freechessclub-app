@@ -33,6 +33,16 @@ public class FicsNotificationParserTest {
         assertEquals(1, f.events.size());
         assertEquals("new", f.events.get(0).body);
     }
+    @Test public void inviteHandshakesDoNotBecomeChatAlerts() {
+        Fixture f = new Fixture();
+        f.feed("Alice tells you: invite abc123 42\nfics% ");
+        f.feed("\nAlice tells you: invite-game abc123 43\nfics% ");
+        assertTrue(f.events.isEmpty());
+        f.feed("\nAlice tells you: invite me to a game\nfics% ");
+        assertEquals(1, f.events.size());
+        assertEquals("invite me to a game", f.events.get(0).body);
+    }
+
     @Test public void offersAreDeduplicatedReplacedAndWithdrawn() {
         Fixture f = new Fixture();
         String offer = "<pf> 7 w=Alice t=match p=Alice (1500) Guest (----) unrated blitz 5 0\n";

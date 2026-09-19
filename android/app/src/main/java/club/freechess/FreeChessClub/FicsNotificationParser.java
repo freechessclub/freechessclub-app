@@ -58,7 +58,7 @@ final class FicsNotificationParser {
     private void flushTell() {
         if (pendingUser == null) return;
         // These messages exchange machine-readable links between app instances.
-        if (!pendingBody.matches("(?i)^invite-game\\s+[a-z0-9]+\\s+\\d+.*"))
+        if (!pendingBody.matches("(?i)^invite(?:-game)?\\s+[a-z0-9]+\\s+\\d+.*"))
             sink.show(new Event("chat:" + pendingUser.toLowerCase(java.util.Locale.ROOT),
                 "Message from " + pendingUser, pendingBody, "chat", pendingUser, null, null));
         pendingUser = null; pendingBody = null;
