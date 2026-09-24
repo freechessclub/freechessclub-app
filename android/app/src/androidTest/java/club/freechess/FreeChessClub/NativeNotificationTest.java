@@ -78,6 +78,16 @@ public class NativeNotificationTest {
             instrumentation.runOnMainSync(() -> activity.moveTaskToBack(true));
             // The emulator's WebView freezes hidden pages after about one minute.
             SystemClock.sleep(80000);
+            // Make the interval due, then let the real native scheduler fire with
+            // JavaScript frozen. No server connection or two-hour wait is needed.
+            FicsKeepAlive keepAlive = (FicsKeepAlive) field(connection, "keepAlive");
+            synchronized (connection) { keepAlive.start(SystemClock.elapsedRealtime() - FicsKeepAlive.INTERVAL_MS); }
+            long pingDeadline = SystemClock.elapsedRealtime() + 65000;
+            while (socket.sent.isEmpty() && SystemClock.elapsedRealtime() < pingDeadline) SystemClock.sleep(100);
+            assertEquals("Native scheduler did not send FICS keepalive", 1, socket.sent.size());
+            assertEquals("ping", decode(socket.sent.get(0).toByteArray()));
+            synchronized (connection) { keepAlive.stop(); }
+            socket.sent.clear();
             connection.onMessage(socket, "\nAlice tells you: Native background test\nfics% ");
             connection.onMessage(socket, "\n<pf> 71 w=Alice t=match p=Alice (1500) Guest (----) unrated blitz 5 0\n");
             Notification chat = awaitNotification(manager, "Message from Alice");
@@ -116,7 +126,7 @@ public class NativeNotificationTest {
             notifications.begin("replacement-session");
             oldSession.send(); SystemClock.sleep(300);
             assertEquals("Old session action sent a command", 1, socket.sent.size());
-            android.util.Log.i("FCC_NATIVE_NOTIFICATION_TEST", "PASS: frozen WebView, chat, knight icon, offer withdrawal, native accept, stale actions, foreground and disabled suppression");
+            android.util.Log.i("FCC_NATIVE_NOTIFICATION_TEST", "PASS: frozen WebView, scheduled native FICS ping, chat, knight icon, offer withdrawal, native accept, stale actions, foreground and disabled suppression");
         } finally {
             synchronized (plugin) { connections.remove("notification-test"); }
             notifications.clear(); notifications.configure(true);

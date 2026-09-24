@@ -70,6 +70,7 @@ function sessionFixture({ loggedIn = true, foregroundService = true } = {}) {
     static OPEN = 1;
     static CLOSING = 2;
     constructor() { this.readyState = 0; sockets.push(this); }
+    authenticated() { this.authenticatedCalls = (this.authenticatedCalls || 0) + 1; }
     send() {}
     close() { this.finishClose(true); }
     finishClose(wasClean = false) { this.readyState = 3; this.onclose({ wasClean }); }
@@ -285,4 +286,103 @@ test('bridge send rejection closes once instead of leaving an apparently open so
   assert.equal(socket.readyState, 3);
   assert.equal(closed, 1);
   assert.equal(f.disposed.length, 1);
+});
+
+
+test('session arms native keepalive after successful login only', () => {
+  const f = sessionFixture({loggedIn: false});
+  assert.equal(f.sockets[0].authenticatedCalls, undefined);
+  f.sockets[0].readyState = 1;
+  f.session.setUser('tester');
+  assert.equal(f.sockets[0].authenticatedCalls, 1);
+});
+
+test('native keepalive activation is tied to the open connection', async () => {
+  const f = nativeSocketFixture();
+  const activations = [];
+  f.native.authenticated = async options => activations.push(options.id);
+  const socket = f.createFicsSocket();
+  socket.authenticated();
+  await f.settle();
+  assert.equal(activations.length, 0);
+  f.emit([{type: 'open'}]);
+  await f.settle();
+  socket.authenticated();
+  await f.settle();
+  assert.equal(activations.length, 1);
+  socket.close();
+  socket.authenticated();
+  await f.settle();
+  assert.equal(activations.length, 1);
+});
+
+test('disconnect details preserve buffer exhaustion for the app console', () => {
+  const f = sessionFixture();
+  f.sockets[0].onclose({code: 1009, reason: 'Background message buffer full', wasClean: false});
+  assert.equal(f.messages.at(-1).disconnectDetails, 'Connection closed (code 1009, interrupted): Background message buffer full');
+});
+
+test('native reconnect delivers a session boundary, history and new login without another JS handshake', async () => {
+  const f = nativeSocketFixture();
+  const socket = f.createFicsSocket();
+  const events = [];
+  socket.onopen = () => events.push('open');
+  socket.onreconnecting = reason => events.push(reason);
+  socket.onreconnected = (user, registered) => events.push(`${user}:${registered}`);
+  socket.onmessage = async event => events.push(`${event.historical ? 'history' : 'live'}:${await event.data.text()}`);
+  await f.settle();
+  f.emit([{type: 'open', generation: 1}]);
+  await f.settle();
+  f.emit([
+    {type: 'reconnecting', generation: 2, reason: 'network lost'},
+    {type: 'message', generation: 2, historical: true, data: btoa('old chat')},
+    {type: 'reconnected', generation: 2, user: 'GuestBBBB', registered: false},
+    {type: 'message', generation: 1, data: btoa('late old socket')},
+    {type: 'message', generation: 2, data: btoa('new chat')}
+  ]);
+  await f.settle();
+  assert.deepEqual(events, ['open', 'network lost', 'history:old chat', 'GuestBBBB:false', 'live:new chat']);
+  socket.send(Uint8Array.of(1).buffer, 'date');
+  await f.settle();
+  assert.equal(f.sent.at(-1).generation, 2);
+  assert.equal(f.disposed.length, 0);
+});
+
+test('native reconnect cancels stale queued commands and ignores delayed JS network loss', () => {
+  const f = sessionFixture();
+  const socket = f.sockets[0];
+  socket.managesReconnect = true;
+  let closed = 0;
+  socket.close = () => closed++;
+  socket.onreconnecting('network lost');
+  f.session.send('accept 7');
+  assert.equal(f.messages.at(-1).message, 'Connection is recovering. Please retry the command after reconnecting.');
+  assert.equal(f.timers.size, 0);
+  f.session.setNetworkConnected(false);
+  assert.equal(closed, 0);
+  socket.onreconnected('GuestBBBB', false);
+  assert.equal(f.messages.at(-1).nativeRestored, true);
+  assert.equal(f.messages.at(-1).control, 'GuestBBBB');
+  assert.equal(f.session.isRegistered(), false);
+});
+
+test('terminal native login rejection does not launch JavaScript retries', () => {
+  const f = sessionFixture();
+  const socket = f.sockets[0];
+  socket.managesReconnect = true;
+  socket.onreconnecting('network lost');
+  socket.onclose({code: 1008, reason: 'FICS rejected the saved login', wasClean: true});
+  assert.equal(f.timers.size, 0);
+  assert.equal(f.session.isReconnecting(), false);
+  assert.equal(f.messages.at(-1).command, 3);
+});
+
+
+test('repeated native retries clean up the previous game only once per outage', () => {
+  const f = sessionFixture();
+  const socket = f.sockets[0];
+  socket.managesReconnect = true;
+  socket.onreconnecting('network lost');
+  socket.onreconnecting('retry failed');
+  assert.equal(f.messages.filter(message => message.command === 4).length, 1);
 });

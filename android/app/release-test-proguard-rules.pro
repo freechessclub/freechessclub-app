@@ -14,3 +14,10 @@
 -keep interface okhttp3.WebSocket { *; }
 -keep class okhttp3.WebSocketListener { *; }
 -keep class okio.ByteString { *; }
+
+-keep class club.freechess.FreeChessClub.FicsKeepAlive { *; }
+-keep class com.getcapacitor.PluginCall { *; }
+-keep class com.getcapacitor.JSObject { *; }
+-keep class com.getcapacitor.JSArray { *; }
+-keep class club.freechess.FreeChessClub.FicsTimeseal { *; }
+-keep interface okhttp3.WebSocket$Factory { *; }

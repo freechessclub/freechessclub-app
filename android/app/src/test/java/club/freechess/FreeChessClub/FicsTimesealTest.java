@@ -16,6 +16,13 @@ public class FicsTimesealTest {
     }
 
     @Test
+    public void savedPasswordEncodingMatchesJavaScriptForNonAsciiCharacters() {
+        // Golden bytes from the actual Session.encode method with a fixed clock.
+        assertEquals("zG2/dqLMtaSps3mW2LrCeHGnYH9hcXxwgAo=",
+            Base64.getEncoder().encodeToString(FicsTimeseal.command("pässΩ", 1789764192180L)));
+    }
+
+    @Test
     public void probesAreAnsweredOnceAcrossEveryPossibleFrameSplit() throws Exception {
         byte[] input = "before[G]\0middle[G]\0after".getBytes(StandardCharsets.UTF_8);
         for (int split = 0; split <= input.length; split++) {

@@ -1217,19 +1217,31 @@ function messageHandler(data: any) {
   if(data == null)
     return;
 
+  // A native reconnect preserves old chat as history, never as executable events.
+  if(data.historical) {
+    if(data.user && data.message) {
+      if(!/^invite(?:-game)?\s+[a-z0-9]+\s+\d+/i.test(data.message))
+        chat.newMessage(data.channel ?? data.user, data);
+    }
+    else if(data.messages)
+      data.messages.forEach(message => chat.newMessage(message.user, message));
+    else if(data.message)
+      chat.newMessage('console', {message: data.message});
+    return;
+  }
+
   const type = GetMessageType(data);
   switch (type) {
     case MessageType.Control:
       if(data.command === 1 && !session.isConnected()) { // Connected
-        session.setUser(data.control);
-        session.send('set seek 0');
-        session.send('set echo 1');
-        session.send('set style 12');
-        session.send(`set interface Free Chess Club (${packageInfo.version})`);
-        session.send('iset defprompt 1'); // Force default prompt. Used for splitting up messages
-        session.send('iset nowrap 1'); // Stop chat messages wrapping which was causing spaces to get removed erroneously
-        session.send('iset pendinfo 1'); // Receive detailed match request info (both that we send and receive)
-        session.send('iset ms 1'); // Style12 receives clock times with millisecond precision
+        const connectionCommands = [
+          'set seek 0', 'set echo 1', 'set style 12',
+          `set interface Free Chess Club (${packageInfo.version})`,
+          'iset defprompt 1', 'iset nowrap 1', 'iset pendinfo 1', 'iset ms 1'
+        ];
+        session.setUser(data.control, connectionCommands);
+        if(!data.nativeRestored)
+          connectionCommands.forEach(command => session.send(command));
         session.send('=ch');
         awaiting.set('channel-list');
         session.send('=computer'); // get Computers list, to augment names in Observe panel
@@ -1258,10 +1270,13 @@ function messageHandler(data: any) {
             initPairingPane();
         }
 
-        keepAliveTimer = setInterval(() => {
-          awaiting.set('ping');
-          session.send('ping');  
-        }, 59 * 60 * 1000);
+        // Android sends FICS keepalives natively while the WebView is frozen.
+        if(!Utils.isAndroidCapacitor()) {
+          keepAliveTimer = setInterval(() => {
+            awaiting.set('ping');
+            session.send('ping');
+          }, 59 * 60 * 1000);
+        }
 
         session.sendPostConnectCommands();
         $('#sign-in-alert').removeClass('show');
@@ -1294,6 +1309,8 @@ function messageHandler(data: any) {
         $('#session-status').popover('show');
       }
       else if(data.command === 3 || data.command === 4) { // Disconnected
+        if(data.disconnectDetails)
+          chat.newMessage('console', {message: data.disconnectDetails});
         const gamePlaying = games.getPlayingExaminingGame();
         resumeGame = (data.command === 4 && gamePlaying?.isPlayingOnline() && session.isRegistered())
           ? gamePlaying.wname !== session.getUser() ? gamePlaying.wname : gamePlaying.bname

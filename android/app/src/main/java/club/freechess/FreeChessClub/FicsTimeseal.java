@@ -1,7 +1,6 @@
 package club.freechess.FreeChessClub;
 
 import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
 
 /** Timeseal framing for native probes and notification action commands. */
 final class FicsTimeseal {
@@ -36,7 +35,9 @@ final class FicsTimeseal {
 
     static byte[] command(String text, long now) {
         String payload = text + "\u0018" + (now % 10000000L) + "\u0019";
-        byte[] raw = payload.getBytes(StandardCharsets.US_ASCII);
+        // Match Session.encode's low-byte UTF-16 encoding, including existing passwords.
+        byte[] raw = new byte[payload.length()];
+        for (int i = 0; i < payload.length(); i++) raw[i] = (byte) payload.charAt(i);
         int length = ((raw.length + 11) / 12) * 12;
         byte[] encoded = new byte[length + 2];
         java.util.Arrays.fill(encoded, 0, length, (byte) '1');
