@@ -20,4 +20,3 @@
 -keep class com.getcapacitor.JSObject { *; }
 -keep class com.getcapacitor.JSArray { *; }
 -keep class club.freechess.FreeChessClub.FicsTimeseal { *; }
--keep interface okhttp3.WebSocket$Factory { *; }

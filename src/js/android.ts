@@ -26,7 +26,6 @@ type AndroidAppIntegrationCallbacks = {
 };
 
 interface NativeNotificationPlugin {
-  configureRecovery(options: {enabled: boolean}): Promise<void>;
   configureNotifications(options: {enabled: boolean}): Promise<void>;
   addListener(event: 'notificationAction', listener: (action: AndroidNotificationAction) => void): Promise<PluginListenerHandle>;
 }
@@ -236,8 +235,6 @@ export function updateAndroidForegroundServiceState(enabled: boolean, connected:
   if(!Utils.isAndroidCapacitor())
     return;
 
-  void NativeNotifications.configureRecovery({enabled})
-    .catch(error => Utils.logError('Error configuring Android connection recovery:', error));
   const shouldRun = enabled && connected;
   foregroundServiceTransition = foregroundServiceTransition
     .catch(error => Utils.logError('Error changing foreground service state:', error))

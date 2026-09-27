@@ -1217,19 +1217,6 @@ function messageHandler(data: any) {
   if(data == null)
     return;
 
-  // A native reconnect preserves old chat as history, never as executable events.
-  if(data.historical) {
-    if(data.user && data.message) {
-      if(!/^invite(?:-game)?\s+[a-z0-9]+\s+\d+/i.test(data.message))
-        chat.newMessage(data.channel ?? data.user, data);
-    }
-    else if(data.messages)
-      data.messages.forEach(message => chat.newMessage(message.user, message));
-    else if(data.message)
-      chat.newMessage('console', {message: data.message});
-    return;
-  }
-
   const type = GetMessageType(data);
   switch (type) {
     case MessageType.Control:
@@ -1239,9 +1226,8 @@ function messageHandler(data: any) {
           `set interface Free Chess Club (${packageInfo.version})`,
           'iset defprompt 1', 'iset nowrap 1', 'iset pendinfo 1', 'iset ms 1'
         ];
-        session.setUser(data.control, connectionCommands);
-        if(!data.nativeRestored)
-          connectionCommands.forEach(command => session.send(command));
+        session.setUser(data.control);
+        connectionCommands.forEach(command => session.send(command));
         session.send('=ch');
         awaiting.set('channel-list');
         session.send('=computer'); // get Computers list, to augment names in Observe panel

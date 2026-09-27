@@ -60,7 +60,7 @@ test('web notification configuration never calls native APIs', async () => {
   await api.configureAndroidNotifications(false);
 });
 
-function sessionFixture({ loggedIn = true, foregroundService = true } = {}) {
+function sessionFixture({ loggedIn = true, foregroundService = true, android = false } = {}) {
   const sockets = [];
   const messages = [];
   const timers = new Map();
@@ -77,14 +77,14 @@ function sessionFixture({ loggedIn = true, foregroundService = true } = {}) {
   }
   const jquery = new Proxy({}, { get: () => () => jquery });
   const document = {
-    visibilityState: 'hidden',
+    visibilityState: 'visible',
     addEventListener: (name, callback) => listeners.set(name, callback),
     removeEventListener: name => listeners.delete(name)
   };
   const { Session } = loadModule('session.ts', {
     './fics-socket': { createFicsSocket: () => new FakeWebSocket() },
     './parser': { __esModule: true, default: class {} },
-    './utils': { isAndroidCapacitor: () => true, isMobile: () => true },
+    './utils': { isAndroidCapacitor: () => android, isMobile: () => true },
     './settings': { settings: { visited: true, foregroundServiceToggle: foregroundService } }
   }, {
     $: () => jquery, document, WebSocket: FakeWebSocket,
@@ -170,6 +170,7 @@ test('network recovery waits for connectivity and reconnects when it returns', (
 
 test('background reconnect stays deferred when the foreground service is disabled', () => {
   const f = sessionFixture({ foregroundService: false });
+  f.document.visibilityState = 'hidden';
   f.sockets[0].finishClose();
   f.tick();
   assert.equal(f.sockets.length, 1);
@@ -319,70 +320,35 @@ test('native keepalive activation is tied to the open connection', async () => {
 test('disconnect details preserve buffer exhaustion for the app console', () => {
   const f = sessionFixture();
   f.sockets[0].onclose({code: 1009, reason: 'Background message buffer full', wasClean: false});
-  assert.equal(f.messages.at(-1).disconnectDetails, 'Connection closed (code 1009, interrupted): Background message buffer full');
+  assert.equal(f.messages.at(-1).disconnectDetails, 'Connection closed (code 1009): Background message buffer full');
 });
 
-test('native reconnect delivers a session boundary, history and new login without another JS handshake', async () => {
-  const f = nativeSocketFixture();
-  const socket = f.createFicsSocket();
-  const events = [];
-  socket.onopen = () => events.push('open');
-  socket.onreconnecting = reason => events.push(reason);
-  socket.onreconnected = (user, registered) => events.push(`${user}:${registered}`);
-  socket.onmessage = async event => events.push(`${event.historical ? 'history' : 'live'}:${await event.data.text()}`);
-  await f.settle();
-  f.emit([{type: 'open', generation: 1}]);
-  await f.settle();
-  f.emit([
-    {type: 'reconnecting', generation: 2, reason: 'network lost'},
-    {type: 'message', generation: 2, historical: true, data: btoa('old chat')},
-    {type: 'reconnected', generation: 2, user: 'GuestBBBB', registered: false},
-    {type: 'message', generation: 1, data: btoa('late old socket')},
-    {type: 'message', generation: 2, data: btoa('new chat')}
-  ]);
-  await f.settle();
-  assert.deepEqual(events, ['open', 'network lost', 'history:old chat', 'GuestBBBB:false', 'live:new chat']);
-  socket.send(Uint8Array.of(1).buffer, 'date');
-  await f.settle();
-  assert.equal(f.sent.at(-1).generation, 2);
-  assert.equal(f.disposed.length, 0);
+
+test('Android stays offline after a kick or failure until explicit sign in', () => {
+  for (const clean of [true, false]) {
+    const f = sessionFixture({android: true});
+    f.sockets[0].finishClose(clean);
+    assert.equal(f.messages.at(-1).command, 3);
+    assert.equal(f.session.isReconnecting(), false);
+    f.session.setNetworkConnected(false);
+    f.session.setNetworkConnected(true);
+    f.session.ensureConnection(true);
+    f.session.send('refresh 7'); // Includes delayed resume/timer work.
+    assert.equal(f.sockets.length, 1);
+    assert.equal(f.timers.size, 0);
+    assert.equal(f.session.isConnected(), false);
+    f.session.reconnect(); // The explicit Sign in action still works.
+    assert.equal(f.sockets.length, 2);
+    assert.equal(f.messages.at(-1).command, 5);
+  }
 });
 
-test('native reconnect cancels stale queued commands and ignores delayed JS network loss', () => {
-  const f = sessionFixture();
-  const socket = f.sockets[0];
-  socket.managesReconnect = true;
-  let closed = 0;
-  socket.close = () => closed++;
-  socket.onreconnecting('network lost');
-  f.session.send('accept 7');
-  assert.equal(f.messages.at(-1).message, 'Connection is recovering. Please retry the command after reconnecting.');
-  assert.equal(f.timers.size, 0);
+test('Android routing changes leave an active native socket alone', () => {
+  const f = sessionFixture({android: true});
   f.session.setNetworkConnected(false);
-  assert.equal(closed, 0);
-  socket.onreconnected('GuestBBBB', false);
-  assert.equal(f.messages.at(-1).nativeRestored, true);
-  assert.equal(f.messages.at(-1).control, 'GuestBBBB');
-  assert.equal(f.session.isRegistered(), false);
-});
-
-test('terminal native login rejection does not launch JavaScript retries', () => {
-  const f = sessionFixture();
-  const socket = f.sockets[0];
-  socket.managesReconnect = true;
-  socket.onreconnecting('network lost');
-  socket.onclose({code: 1008, reason: 'FICS rejected the saved login', wasClean: true});
+  f.session.setNetworkConnected(true);
+  f.session.ensureConnection(true);
+  assert.equal(f.session.isConnected(), true);
+  assert.equal(f.sockets.length, 1);
   assert.equal(f.timers.size, 0);
-  assert.equal(f.session.isReconnecting(), false);
-  assert.equal(f.messages.at(-1).command, 3);
-});
-
-
-test('repeated native retries clean up the previous game only once per outage', () => {
-  const f = sessionFixture();
-  const socket = f.sockets[0];
-  socket.managesReconnect = true;
-  socket.onreconnecting('network lost');
-  socket.onreconnecting('retry failed');
-  assert.equal(f.messages.filter(message => message.command === 4).length, 1);
 });

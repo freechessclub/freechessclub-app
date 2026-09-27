@@ -52,18 +52,6 @@ final class FicsNotifications {
         enabled = context.getSharedPreferences(GROUP, Context.MODE_PRIVATE).getBoolean("enabled", false);
         clear();
     }
-    synchronized void connectionState(String title, String body) {
-        if (android.os.Build.VERSION.SDK_INT < 24) return;
-        for (android.service.notification.StatusBarNotification item : manager.getActiveNotifications()) {
-            if (item.getId() == 1 && (item.getNotification().flags & android.app.Notification.FLAG_FOREGROUND_SERVICE) != 0) {
-                try {
-                    manager.notify(1, android.app.Notification.Builder.recoverBuilder(context, item.getNotification())
-                        .setContentTitle(title).setContentText(body).setOnlyAlertOnce(true).build());
-                } catch (SecurityException ignored) { }
-            }
-        }
-    }
-
     synchronized void configure(boolean value) {
         enabled = value;
         context.getSharedPreferences(GROUP, Context.MODE_PRIVATE).edit().putBoolean("enabled", value).apply();

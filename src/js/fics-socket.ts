@@ -2,35 +2,20 @@ import { Capacitor, PluginListenerHandle, registerPlugin } from '@capacitor/core
 
 // Only the transport changes on Android. Session and Parser use this same
 // interface on the web, Electron, and Android.
-export interface NativeSessionOptions {
-  user: string;
-  password: string;
-  registered: boolean;
-  commands: string[];
-  backgroundRecovery: boolean;
-}
-
 export interface FicsSocket {
   readonly readyState: number;
   onopen: (event?: any) => void;
-  onmessage: (event: { data: Blob; historical?: boolean }) => void | Promise<void>;
+  onmessage: (event: { data: Blob }) => void | Promise<void>;
   onerror: (event?: any) => void;
   onclose: (event: { code: number; reason: string; wasClean: boolean }) => void;
-  readonly managesReconnect?: boolean;
-  onreconnecting?: (reason: string) => void;
-  onreconnected?: (user: string, registered: boolean) => void;
-  authenticated?(options: NativeSessionOptions): void;
-  send(data: ArrayBuffer, command?: string): void;
+  authenticated?(): void;
+  send(data: ArrayBuffer): void;
   close(): void;
 }
 
 interface SocketEvent {
-  type: 'open' | 'message' | 'error' | 'close' | 'reconnecting' | 'reconnected';
-  generation?: number;
-  user?: string;
-  registered?: boolean;
+  type: 'open' | 'message' | 'error' | 'close';
   data?: string;
-  historical?: boolean;
   code?: number;
   reason?: string;
   wasClean?: boolean;
@@ -39,8 +24,8 @@ interface SocketEvent {
 interface NativeSocketPlugin {
   addListener(name: 'available', listener: (event: { id: string }) => void): Promise<PluginListenerHandle>;
   connect(options: { id: string }): Promise<void>;
-  authenticated(options: NativeSessionOptions & { id: string; generation: number }): Promise<void>;
-  send(options: { id: string; generation: number; data: string; command?: string }): Promise<void>;
+  authenticated(options: { id: string }): Promise<void>;
+  send(options: { id: string; data: string }): Promise<void>;
   close(options: { id: string }): Promise<void>;
   dispose(options: { id: string }): Promise<void>;
   drain(options: { id: string }): Promise<{ events: SocketEvent[]; more: boolean }>;
@@ -51,10 +36,6 @@ let nextId = 0;
 
 class AndroidFicsSocket implements FicsSocket {
   readyState = 0;
-  readonly managesReconnect = true;
-  private generation = 1;
-  onreconnecting: FicsSocket['onreconnecting'];
-  onreconnected: FicsSocket['onreconnected'];
   onopen: FicsSocket['onopen'];
   onmessage: FicsSocket['onmessage'];
   onerror: FicsSocket['onerror'];
@@ -78,22 +59,20 @@ class AndroidFicsSocket implements FicsSocket {
     await this.drain();
   }
 
-  authenticated(options: NativeSessionOptions) {
+  authenticated() {
     if(this.readyState !== 1) return;
-    const generation = this.generation;
-    this.operations = this.operations.then(() => nativeSocket.authenticated({ ...options, id: this.id, generation }))
+    this.operations = this.operations.then(() => nativeSocket.authenticated({ id: this.id }))
       .catch(() => this.fail());
   }
 
-  send(data: ArrayBuffer, command?: string) {
+  send(data: ArrayBuffer) {
     if(this.readyState === 0) throw new DOMException('Socket is connecting', 'InvalidStateError');
     if(this.readyState !== 1) return;
     const bytes = new Uint8Array(data);
     let binary = '';
     for(const byte of bytes) binary += String.fromCharCode(byte);
     const encoded = btoa(binary);
-    const generation = this.generation;
-    this.operations = this.operations.then(() => nativeSocket.send({ id: this.id, generation, data: encoded, command }))
+    this.operations = this.operations.then(() => nativeSocket.send({ id: this.id, data: encoded }))
       .catch(() => this.fail());
   }
 
@@ -115,19 +94,7 @@ class AndroidFicsSocket implements FicsSocket {
         this.needsDrain ||= batch.more;
         for(const event of batch.events) {
           if(this.readyState === 3) break;
-          if(event.generation != null && event.generation < this.generation) continue;
-          if(event.generation != null) this.generation = event.generation;
           switch(event.type) {
-            case 'reconnecting':
-              if(this.readyState === 2) break;
-              this.readyState = 0;
-              this.onreconnecting?.(event.reason);
-              break;
-            case 'reconnected':
-              if(this.readyState === 2) break;
-              this.readyState = 1;
-              this.onreconnected?.(event.user, event.registered);
-              break;
             case 'open':
               if(this.readyState === 0) {
                 this.readyState = 1;
@@ -137,7 +104,7 @@ class AndroidFicsSocket implements FicsSocket {
             case 'message': {
               const bytes = Uint8Array.from(atob(event.data), c => c.charCodeAt(0));
               // Await Blob decoding/parser work to preserve buffered message order.
-              await this.onmessage?.({ data: new Blob([bytes]), historical: event.historical });
+              await this.onmessage?.({ data: new Blob([bytes]) });
               break;
             }
             case 'error':

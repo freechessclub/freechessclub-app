@@ -104,9 +104,9 @@ export class Session {
   destroy() {
     this.reconnectWhenAvailable = false;
     this.clearReconnectTimer();
+    this.websocket?.close();
     $('body').off('click', this.bodyClickHandler);
     this.removeVisibilityChangeHandler();
-    this.websocket?.close();
   }
 
   public isRegistered(): boolean {
@@ -129,7 +129,7 @@ export class Session {
     return this.parser;
   }
 
-  public setUser(user: string, commands: string[] = []): void {
+  public setUser(user: string): void {
     $('#session-status').html(`<span style="overflow: hidden; text-overflow: ellipsis"><span class="fa-solid fa-circle" aria-hidden="false"></span>&nbsp;<span class="h6">${user}</span></span>`);
     if(!this.user && !settings.visited) { // Only display popover if this is a new user or guest
       $('#session-status').popover({
@@ -143,13 +143,7 @@ export class Session {
     this.user = user;
 
     this.connected = true;
-    this.websocket?.authenticated?.({
-      user: this.registered ? user : 'guest',
-      password: this.registered ? this.pass : '',
-      registered: this.registered,
-      commands,
-      backgroundRecovery: settings.foregroundServiceToggle
-    });
+    this.websocket?.authenticated?.();
     this.connecting = false;
     this.reconnectWhenAvailable = false;
     this.reconnectDelay = 1000;
@@ -190,16 +184,10 @@ export class Session {
     let connectionError = false;
     this.websocket = websocket;
     this.parser = new Parser(this, user, pass);
-    const historicalParser = new Parser(this, user, pass, true, true);
     websocket.onmessage = async (message: any) => {
       if(this.websocket !== websocket)
         return;
-      const data = (message.historical ? historicalParser : this.parser).parse(await message.data.text());
-      if(message.historical) {
-        for(const item of (Array.isArray(data) ? data : [data]))
-          if(item) this.onRecv({...item, historical: true});
-        return;
-      }
+      const data = this.parser.parse(await message.data.text());
 
       if (Array.isArray(data)) {
         data.map((m) => this.onRecv(m));
@@ -208,30 +196,12 @@ export class Session {
       }
     };
 
-    websocket.onreconnecting = reason => {
-      if(this.websocket !== websocket) return;
-      const alreadyRecovering = this.connecting && this.reconnectWhenAvailable;
-      this.reset();
-      this.connecting = true;
-      this.reconnectWhenAvailable = true;
-      if(!alreadyRecovering)
-        this.onRecv({command: 4, control: 'Reconnecting', disconnectDetails: reason});
-      $('#session-status').text('Reconnecting…');
-    };
-    websocket.onreconnected = (name, registered) => {
-      if(this.websocket !== websocket) return;
-      this.registered = registered;
-      this.parser = new Parser(this, name, this.pass, true);
-      this.postConnectCommands = [];
-      this.onRecv({command: 1, control: name, nativeRestored: true});
-    };
-
     websocket.onclose = (e) => {
       if(this.websocket !== websocket)
         return;
 
       const wasConnected = this.isConnected();
-      const recoverableDisconnect = !websocket.managesReconnect && (this.reconnectWhenAvailable
+      const recoverableDisconnect = !isAndroidCapacitor() && (this.reconnectWhenAvailable
         || (wasConnected && (this.networkTransitionDisconnect || connectionError || !e.wasClean)));
       this.networkTransitionDisconnect = false;
       this.reconnectWhenAvailable = recoverableDisconnect;
@@ -241,7 +211,7 @@ export class Session {
         this.onRecv({
           command: recoverableDisconnect ? 4 : 3,
           control: connectionError && !wasConnected ? 'Failed to connect' : 'Disconnected',
-          disconnectDetails: `Connection closed (code ${e.code ?? 'unknown'}${e.wasClean ? ', clean' : ', interrupted'}): ${e.reason || 'No close reason received'}`
+          disconnectDetails: `Connection closed (code ${e.code ?? 'unknown'}): ${e.reason || 'No close reason received'}`
         }); // Send disconnected command to message handler
       }
 
@@ -294,8 +264,8 @@ export class Session {
   public send(command: string, autoConnect = true) {
     // If user has tried to send a command while offline or connecting (for example by clicking a button
     // in the pairing pane) then auto-connect to the server and send the command once connected
-    if(this.websocket?.managesReconnect && this.reconnectWhenAvailable && !this.isConnected()) {
-      this.onRecv({message: 'Connection is recovering. Please retry the command after reconnecting.'});
+    if(isAndroidCapacitor() && !this.isConnected() && autoConnect) {
+      this.onRecv({message: 'Not connected. Use Sign in to connect again.'});
       return;
     }
     if(!this.isConnected() && autoConnect) {
@@ -304,7 +274,7 @@ export class Session {
       return;
     }
  
-    this.websocket.send(this.encode(command).buffer, command);
+    this.websocket.send(this.encode(command).buffer);
   }
 
   public reconnect() {
@@ -319,10 +289,7 @@ export class Session {
   public setNetworkConnected(connected: boolean) {
     const wasConnected = this.networkConnected;
     this.networkConnected = connected;
-    // Native transport owns network-loss recovery. A delayed JS network event
-    // must not close a socket that Android has already reconnected.
-    if(this.websocket?.managesReconnect && this.websocket.readyState < WebSocket.CLOSING)
-      return;
+    if(isAndroidCapacitor()) return; // Connectivity changes must never sign Android back in.
 
     if(!connected) {
       this.clearReconnectTimer();
@@ -343,6 +310,8 @@ export class Session {
 
   /** Reconcile native app state with the underlying WebSocket after resume. */
   public ensureConnection(reconnectIfInactive = false) {
+    if(isAndroidCapacitor()) return; // Resume drains native events; only explicit Sign in reconnects.
+
     const socketActive = this.websocket
       && (this.websocket.readyState === WebSocket.CONNECTING || this.websocket.readyState === WebSocket.OPEN);
     if((this.isConnected() || this.isConnecting()) && socketActive)

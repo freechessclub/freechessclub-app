@@ -23,8 +23,8 @@ export class Parser {
   private user: string;
   private pass: string;
 
-  constructor(session: Session, user?: string, pass?: string, loggedin = false, private readOnly = false) {
-    this.loggedin = loggedin;
+  constructor(session: Session, user?: string, pass?: string) {
+    this.loggedin = false;
     this.session = session;
     this.user = (user === undefined) ? 'guest' : user;
     this.pass = pass ?? '';
@@ -216,8 +216,7 @@ export class Parser {
     }
 
     msg = msg.replace(/\[G\]\0/g, () => {
-      if(!this.readOnly)
-        this.session.send(String.fromCharCode(...[0x02, 0x39]), false);
+      this.session.send(String.fromCharCode(...[0x02, 0x39]), false);
       return '';
     });
     msg = msg.replace(/\u0007/g, '');
