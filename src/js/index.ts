@@ -7856,21 +7856,23 @@ async function setCurrentHistory(game: Game, historyIndex: number) {
 function updateGameFromMetatags(game: Game) {
   if(game.role === Role.NONE || game.isExamining()) { // Don't allow user to change the game's attributes while the game is in progress
     const metatags = game.history.metatags;
-    const whiteName = metatags.White.slice(0, 17).trim().replace(/[^\w]+/g, '_'); // Convert multi-word names into a single word format that FICS can handle
-    const blackName = metatags.Black.slice(0, 17).trim().replace(/[^\w]+/g, '_');
+    const whiteLabel = metatags.White ?? 'Unknown';
+    const blackLabel = metatags.Black ?? 'Unknown';
+    const whiteName = whiteLabel.slice(0, 17).trim().replace(/[^\w]+/g, '_'); // Convert multi-word names into a single word format that FICS can handle
+    const blackName = blackLabel.slice(0, 17).trim().replace(/[^\w]+/g, '_');
     const whiteStatus = game.element.find('.white-status');
     const blackStatus = game.element.find('.black-status');
     if(whiteName !== game.wname) {
       game.wname = whiteName;
       if(game.isExamining())
         session.send(`wname ${whiteName}`);
-      whiteStatus.find('.name').text(metatags.White);
+      whiteStatus.find('.name').text(whiteLabel);
     }
     if(blackName !== game.bname) {
       game.bname = blackName;
       if(game.isExamining())
         session.send(`bname ${blackName}`);
-      blackStatus.find('.name').text(metatags.Black);
+      blackStatus.find('.name').text(blackLabel);
     }
 
     const whiteElo = metatags.WhiteElo;
