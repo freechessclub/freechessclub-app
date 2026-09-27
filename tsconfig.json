@@ -14,7 +14,7 @@
         "module": "es2022",
         "target": "es2022",
         "moduleResolution": "bundler",
-        "types": ["jquery", "bootstrap", "websocket"]
+        "types": ["jquery", "bootstrap"]
     },
     "include": [
         "src/**/*"

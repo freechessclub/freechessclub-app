@@ -1,49 +1,43 @@
-/** This script fetches the opening files from https://github.com/lichess-org/chess-openings
- * and appends a FEN onto the end of each line then outputs it as a single file openings.tsv
- */
+/** Fetch Lichess opening tables and append the final FEN to each opening. */
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const { Chess } = require('chess.js');
 
-const fs = require('fs');
-const chess_js = require('chess.js');
-const request = require('sync-request');
-
-var chess = new chess_js.Chess();
-
-const filePath = 'https://raw.githubusercontent.com/lichess-org/chess-openings/master/';
+const baseUrl = 'https://raw.githubusercontent.com/lichess-org/chess-openings/master/';
 const inputFiles = ['a.tsv', 'b.tsv', 'c.tsv', 'd.tsv', 'e.tsv'];
-const outputFilePath = 'assets/data/openings.tsv'; // Replace with your output file path
+const outputFilePath = path.join(__dirname, 'src/assets/data/openings.tsv');
 
-var modifiedData = [];
-for(const file of inputFiles) {   
-    try {  
-        var response = request('GET', filePath + file);
-    }
-    catch (error) {
-        console.error('Error:', error.message);
-        process.exit();
-    }
+async function main() {
+  const chess = new Chess();
+  const openings = [];
 
-    if (response.statusCode === 200) {
-        var data = response.getBody('utf-8');
-    } else {
-        console.error(`HTTP error! Status: ${response.statusCode}`);
-        process.exit();
-    }
-
-    const lines = data.split('\n');
-    const modifiedLines = lines.map((line) => {
-        var cols = line.split('\t');
-        if(cols.length === 3 && cols[2].startsWith('1.')) {
-            chess.load_pgn(cols[2]);
-            return line + '\t' + chess.fen();
-        }
+  for (const file of inputFiles) {
+    const response = await fetch(new URL(file, baseUrl), {
+      signal: AbortSignal.timeout(30_000),
     });
-    modifiedData.push(modifiedLines.filter((element) => element).join('\n'));
+    if (!response.ok)
+      throw new Error(`${file}: HTTP ${response.status}`);
+
+    const data = await response.text();
+    let count = 0;
+    for (const line of data.split(/\r?\n/)) {
+      const columns = line.split('\t');
+      if (columns.length !== 3 || !columns[2].startsWith('1.'))
+        continue;
+      if (!chess.load_pgn(columns[2]))
+        throw new Error(`${file}: invalid PGN for ${columns[0]} (${columns[1]})`);
+      openings.push(`${line}\t${chess.fen()}`);
+      count++;
+    }
+    if (count === 0)
+      throw new Error(`${file}: no openings found`);
+  }
+
+  // Leave the existing dataset intact if downloading or parsing any table fails.
+  await fs.writeFile(outputFilePath, openings.join('\n'), 'utf8');
 }
 
-fs.writeFile(outputFilePath, modifiedData.join('\n'), 'utf8', (err) => {
-    if (err) {
-        console.error('Error writing the output file:', err);
-        return;
-    }
+main().catch((error) => {
+  console.error('Failed to build openings:', error.message);
+  process.exitCode = 1;
 });
-
