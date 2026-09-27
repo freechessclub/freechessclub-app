@@ -4,6 +4,7 @@ const path = require('path');
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const externalAssets = require('./scripts/external-assets.cjs');
 
 module.exports = (env, argv) => {
   const isProd = argv.mode === 'production';
@@ -22,7 +23,6 @@ module.exports = (env, argv) => {
     },
     externals: {
       $: 'jquery',
-	    d3: 'd3',
       '@popperjs/core': 'Popper',
       bootstrap: 'Bootstrap',
       'onnxruntime-web': 'null',
@@ -48,11 +48,13 @@ module.exports = (env, argv) => {
       ]
     },
     plugins: [
+      new webpack.DefinePlugin({ __ONNX_DIST_URL__: JSON.stringify(externalAssets.onnxDistUrl) }),
       new webpack.optimize.AggressiveMergingPlugin(),
       new HtmlWebpackPlugin({
         template: path.resolve(__dirname, inputDir, 'play.html'),
         filename: "play.html",
         inject: "body",
+        templateParameters: { externalAssets },
         minify: isProd,
       }), 
       new CopyWebpackPlugin({
@@ -126,6 +128,7 @@ module.exports = (env, argv) => {
       path: path.resolve(__dirname, outputDir),
     },
     plugins: [
+      new webpack.DefinePlugin({ __EXTERNAL_PRECACHE__: JSON.stringify(externalAssets.precache) }),
       {
         apply: (compiler) => {
           compiler.hooks.done.tap('RunAfterBuildPlugin', () => {

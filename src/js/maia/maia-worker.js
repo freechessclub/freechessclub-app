@@ -99,9 +99,9 @@ self.onmessage = async (e) => {
   try {
     switch (msg.type) {
       case 'init': {
-        ort = await import(/* webpackIgnore: true */ "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/ort.min.mjs");
+        ort = await import(/* webpackIgnore: true */ `${msg.onnxDistUrl}ort.min.mjs`);
         ORT = ort;
-        ORT.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/';
+        ORT.env.wasm.wasmPaths = msg.onnxDistUrl;
 
         modelUrl = msg.modelUrl
         modelVersion = msg.modelVersion

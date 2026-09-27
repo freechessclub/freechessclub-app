@@ -53,8 +53,7 @@ class Maia {
   }
 
   private async initialize(modelUrl: string, modelVersion: string) {
-    // @ts-ignore
-    ort = await import(/* webpackIgnore: true */ "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.2/dist/ort.min.mjs");
+    ort = await import(/* webpackIgnore: true */ `${__ONNX_DIST_URL__}ort.min.mjs`);
 
     if (typeof window === 'undefined' || typeof Worker === 'undefined') {
       return
@@ -122,7 +121,7 @@ class Maia {
       this.downloadPromise = null
     }
 
-    this.worker.postMessage({ type: 'init', modelUrl, modelVersion });
+    this.worker.postMessage({ type: 'init', modelUrl, modelVersion, onnxDistUrl: __ONNX_DIST_URL__ });
   }
 
   public async downloadModel() {

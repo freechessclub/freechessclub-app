@@ -2,6 +2,7 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
+import { area as d3Area, axisLeft, curveMonotoneX, line as d3Line, pointer, range, scaleLinear, scan, select } from 'd3';
 import { HEntry } from './history';
 import { getTurnColorFromFEN, getMoveNoFromFEN, parseMove } from './chess-helper';
 import { gotoMove } from './index';
@@ -519,39 +520,39 @@ export class EvalEngine extends Engine {
     const n = this.numGraphMoves = dataset.length;
 
     // Define x and y scales
-    const xScale = d3.scaleLinear()
+    const xScale = scaleLinear()
       .domain([0, n-1]) // input
       .range([0, width]); // output
 
-    const yScale = d3.scaleLinear()
+    const yScale = scaleLinear()
       .domain([-5.5, 5.5]) // input
       .range([height, 0]); // output
 
     if(this._redraw) {
       // Fill area generator
-      const area = d3.area()
+      const area = d3Area()
         .x((d, i) => xScale(i))
         .y0(yScale(0))
         .y1((d) => yScale(d.y))
-        .curve(d3.curveMonotoneX);
+        .curve(curveMonotoneX);
 
       // Line generator
-      const line = d3.line()
+      const line = d3Line()
         .x((d, i) => xScale(i))
         .y((d) => yScale(d.y))
-        .curve(d3.curveMonotoneX);
+        .curve(curveMonotoneX);
 
       // Add SVG to panel
-      const svg = d3.select(container[0]).append('svg')
+      const svg = select(container[0]).append('svg')
         .attr('width', '100%')
         .attr('height', '100%')
         .style('cursor', 'pointer')
         .on('mousemove', (event) => {
-          const mousePosition = d3.pointer(event);
+          const mousePosition = pointer(event);
           const xPos = mousePosition[0] - margin.left;
           const getDistanceFromPos = (d) => Math.abs(d - xScale.invert(xPos));
-          const closestIndex = d3.scan(
-            d3.range(n),
+          const closestIndex = scan(
+            range(n),
             (a, b) => getDistanceFromPos(a) - getDistanceFromPos(b)
           );
 
@@ -587,11 +588,11 @@ export class EvalEngine extends Engine {
           $('#hover-circle').tooltip('dispose');
         })
         .on('click', (event) => {
-          const mousePosition = d3.pointer(event);
+          const mousePosition = pointer(event);
           const xPos = mousePosition[0] - margin.left;
           const getDistanceFromPos = (d) => Math.abs(d - xScale.invert(xPos));
-          const closestIndex = d3.scan(
-            d3.range(n),
+          const closestIndex = scan(
+            range(n),
             (a, b) => getDistanceFromPos(a) - getDistanceFromPos(b)
           );
 
@@ -612,7 +613,7 @@ export class EvalEngine extends Engine {
       // Render y-axis
       const yAxis = svg.append('g')
         .attr('class', 'eval-axis y-axis noselect')
-        .call(d3.axisLeft(yScale).tickSize(-width, 0, 0)); // Create an axis component with d3.axisLeft
+        .call(axisLeft(yScale).tickSize(-width, 0, 0)); // Create an axis component with axisLeft
       yAxis.select('.domain').remove();
 
       // define clipping regions for our 2 colors, above 0 and below 0

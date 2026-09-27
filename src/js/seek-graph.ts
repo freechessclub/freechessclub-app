@@ -2,11 +2,11 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
+import { pointer, scaleLinear, select, symbol as d3Symbol, symbolCircle, symbolDiamond, symbolSquare, symbolStar, symbolTriangle, symbolWye } from 'd3';
 import type * as d3 from 'd3';
 import { createContextMenu, isMobile, isTouchscreen } from './utils';
 import { session } from './session';
 import { awaiting } from './storage';
-declare const d3: typeof import("d3");
 
 // Seek data used by graph points
 type DataItem = {
@@ -58,7 +58,7 @@ export class SeekGraph {
     const container = this.container = document.getElementById('lobby-graph-container');
     container.innerHTML = '';
 
-    const svg = this.svg = d3.select(container).append('svg');
+    const svg = this.svg = select(container).append('svg');
     const margin = this.margin;
 
     const g = this.g = svg.append('g')
@@ -122,7 +122,7 @@ export class SeekGraph {
     // On desktop diplay a tooltip when points are hovered
     if(!isMobile()) {
       svg.on('mousemove', (event) => {
-        const [mx, my] = d3.pointer(event, g.node());
+        const [mx, my] = pointer(event, g.node());
         this.mouseX = mx;
         this.mouseY = my;
         this.updateTooltip(mx, my);
@@ -131,7 +131,7 @@ export class SeekGraph {
 
     // Point clicked
     svg.on('click', (event) => {
-      const [mx, my] = d3.pointer(event, g.node());
+      const [mx, my] = pointer(event, g.node());
       this.selectPoints(mx, my, event.clientX, event.clientY);
     });
 
@@ -165,7 +165,7 @@ export class SeekGraph {
 
     // x-axis scales, i.e. What percentagte of total graph width each time category takes up
     const xRanges = [0, 0.2, 0.6, 1].map(p => p * width);
-    const xScale = this.xScale = d3.scaleLinear()
+    const xScale = this.xScale = scaleLinear()
       .domain(this.xTicks)
       .range(xRanges);
 
@@ -175,7 +175,7 @@ export class SeekGraph {
     const numRatingDomains = this.yTicks.length - 2;
     let variableYRanges = this.yTicks.slice(2).map((_, index) => (numRatingDomains - index - 1) * (1/numRatingDomains) * (height - guestRangeSize));    
     
-    const yScale = this.yScale = d3.scaleLinear()
+    const yScale = this.yScale = scaleLinear()
       .domain(this.yTicks)
       .range([...fixedYRanges, ...variableYRanges]);
 
@@ -229,7 +229,7 @@ export class SeekGraph {
     const xScale = this.xScale;
     const yScale = this.yScale;
     const radius = Math.sqrt(this.pointSize / Math.PI); // Approximate point radius used for hit testing
-    const symbol = d3.symbol().size(this.pointSize); // Point symbol
+    const symbol = d3Symbol().size(this.pointSize); // Point symbol
     const ratingBottom = yScale(this.yTicks[1]) - radius; // The minimum rating a point can have
 
     g.select('.points')
@@ -259,18 +259,18 @@ export class SeekGraph {
       })
       .attr('d', d => {
         d.radius = radius;
-        let shape = d3.symbolCircle;
+        let shape = symbolCircle;
         const category = d.category;
         if(category === 'losers')
-          shape = d3.symbolStar;
+          shape = symbolStar;
         else if(category === 'suicide')
-          shape = d3.symbolTriangle;
+          shape = symbolTriangle;
         else if(category === 'crazyhouse')
-          shape = d3.symbolDiamond;
+          shape = symbolDiamond;
         else if(category === 'atomic')
-          shape = d3.symbolWye;
+          shape = symbolWye;
         else if(category.startsWith('wild'))
-          shape = d3.symbolSquare;       
+          shape = symbolSquare;
         return symbol.type(shape)();
       });
   }
@@ -312,7 +312,7 @@ export class SeekGraph {
       .nodes();
 
     const hits = nodes.filter(node => {
-      const d = d3.select(node).datum();
+      const d = select(node).datum();
 
       const hitExpansion = isTouchscreen() ? 12 : 2; // Touchable area outside the point
       const radius = d.radius + hitExpansion; // Use a circle around the shape for hit testing

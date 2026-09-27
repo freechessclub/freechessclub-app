@@ -88,6 +88,10 @@ npm run bundle
 
 This writes hashed JavaScript and CSS assets to `www/`, copies static files from `src/`, builds `play.html`, and injects the precache manifest into `www/service-worker.js`.
 
+CDN assets are defined in `scripts/external-assets.cjs`. For npm-backed assets, the build derives URLs and integrity hashes from the installed packages, so use `npm ci` to match the lockfile. The same definitions populate the HTML and service-worker cache. ONNX is pinned to the existing runtime version; Maia passes the generated distribution URL to its worker so its JavaScript and WASM stay aligned. D3 is bundled through explicit imports instead of a CDN global.
+
+After building, run `node --test tests/build-assets.test.cjs` to check the emitted HTML, service-worker cache, and ONNX worker configuration.
+
 The webpack production build intentionally excludes some source-only files and theme inputs from the copied output. If you add a new static asset, make sure it lives under `src/` and is either referenced by webpack or copied by the `CopyWebpackPlugin` configuration in `webpack.config.js`.
 
 ## Desktop builds

@@ -74,7 +74,6 @@
     "@uriopass/nosleep.js": "^0.12.2",
     "autolink-js": "github:freechessclub/autolink-js",
     "bootstrap": "5.3.8",
-    "builder-util-runtime": "^9.2.10",
     "chess.js": "^0.12.1",
     "chessground": "^9.0.4",
     "d3": "^7.8.0",
@@ -82,7 +81,7 @@
     "emoji-mart": "^5.6.0",
     "jquery": "^4.0.0",
     "js-cookie": "^3.0.1",
-    "onnxruntime-web": "^1.24.3",
+    "onnxruntime-web": "1.23.2",
     "polyglot-book-js": "^1.0.0",
     "virtual-scroller": "^1.13.1"
   },
@@ -94,7 +93,6 @@
     "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.61.1",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "baseline-browser-mapping": "^2.10.33",
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.4",
     "electron": "^44.3.0",
@@ -114,7 +112,6 @@
     "webpack-cli": "^7.0.3",
     "webpack-dev-server": "^6.0.0",
     "workbox-build": "^7.4.1",
-    "workbox-core": "^7.4.1",
     "workbox-precaching": "^7.4.1",
     "workbox-routing": "^7.4.1",
     "workbox-strategies": "^7.4.1"
