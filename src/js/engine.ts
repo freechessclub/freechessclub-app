@@ -11,6 +11,14 @@ import { hasMultiThreading } from './utils';
 
 const SupportedCategories = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard', 'crazyhouse', 'wild/fr', 'wild/3', 'wild/4', 'wild/5', 'wild/8', 'wild/8a'];
 
+interface PVInfo {
+  pvNum: number;
+  scoreStr: string;
+  pvArr: string[];
+  nodes: number;
+  fen: string;
+}
+
 export class Engine {
   protected worker: any;
   protected workerPromise: any = null; // For waiting until engine worker is created and initialised
@@ -30,6 +38,8 @@ export class Engine {
   protected pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string, pvNodes: number) => void;
   protected errorCallback: (game: Game, err: string | Error) => void;
   protected moveParams: string;
+  protected throttleTimer: ReturnType<typeof setTimeout> | null = null;
+  protected pendingPVs = new Map<number, PVInfo>();
   
   constructor(game: Game, bestMoveCallback: (game: Game, move: string, score: string, nodes: number) => void, pvCallback: (game: Game, pvNum: number, pvEval: string, pvMoves: string, pvNodes: number) => void, errorCallback: (game: Game, err: string | Error) => void, engineName: string, options?: object, moveParams?: string) {
     this.moveParams = moveParams;
@@ -70,6 +80,59 @@ export class Engine {
         else if(response.data.startsWith('info')) {
           if(this.stopping)
             return;
+
+          const processPV = ({pvNum, scoreStr, pvArr, nodes, fen}: PVInfo) => {
+            if(fen !== this.currFen)
+              return;
+
+            let pv = '';
+            let currFen = fen;
+            for(const move of pvArr) {
+              const moveParam = move[1] === '@'
+                ? move
+                : {
+                  from: move.slice(0, 2),
+                  to: move.slice(2, 4),
+                  promotion: (move.length === 5 ? move.charAt(4) : undefined)
+                };
+
+              const parsedMove = parseMove(currFen, moveParam, game.category, game.history.first().fen);
+              if(!parsedMove) {
+                // Non-standard or unsupported moves were passed to Engine.
+                this.terminate();
+                return;
+              }
+              
+              const turnColor = getTurnColorFromFEN(currFen);
+              const moveNumber = getMoveNoFromFEN(currFen);
+              let moveNumStr = '';
+              if(turnColor === 'w')
+                moveNumStr = `${moveNumber}.`;
+              else if(fen === currFen && turnColor === 'b')
+                moveNumStr = `${moveNumber}...`;
+              pv += `${moveNumStr}${parsedMove.move.san} `;
+              currFen = parsedMove.fen;
+            }
+
+            if(this.pvCallback)
+              this.pvCallback(this.game, pvNum, scoreStr, pv, this.currNodes);
+          }
+
+          const throttlePV = (info: PVInfo) => {
+            this.pendingPVs.set(info.pvNum, info);
+
+            if(!this.throttleTimer) {
+              this.pendingPVs.forEach(pvInfo => processPV(pvInfo));
+              this.pendingPVs.clear();
+
+              this.throttleTimer = setTimeout(() => {
+                this.throttleTimer = null;
+                if(this.pendingPVs.size && !this.stopping)
+                  this.pendingPVs.forEach(pvInfo => processPV(pvInfo));
+                this.pendingPVs.clear();
+              }, 100);
+            }
+          }
 
           let depth0 = false;
           const fen = this.currFen;
@@ -127,42 +190,23 @@ export class Engine {
           }
 
           if(pvArr.length) {
-            let pv = '';
-            let currFen = fen;
-            for(const move of pvArr) {
-              const moveParam = move[1] === '@'
-                ? move
-                : {
-                  from: move.slice(0, 2),
-                  to: move.slice(2, 4),
-                  promotion: (move.length === 5 ? move.charAt(4) : undefined)
-                };
-
-              const parsedMove = parseMove(currFen, moveParam, game.category, game.history.first().fen);
-              if(!parsedMove) {
-                // Non-standard or unsupported moves were passed to Engine.
-                this.terminate();
-                return;
-              }
-              
-              const turnColor = getTurnColorFromFEN(currFen);
-              const moveNumber = getMoveNoFromFEN(currFen);
-              let moveNumStr = '';
-              if(turnColor === 'w')
-                moveNumStr = `${moveNumber}.`;
-              else if(fen === currFen && turnColor === 'b')
-                moveNumStr = `${moveNumber}...`;
-              pv += `${moveNumStr}${parsedMove.move.san} `;
-              currFen = parsedMove.fen;
-            }
-
-            if(this.pvCallback)
-              this.pvCallback(this.game, pvNum, scoreStr, pv, this.currNodes);
+            throttlePV({
+              pvNum, 
+              scoreStr, 
+              pvArr,
+              nodes: this.currNodes,
+              fen,
+            });
           }
           // mate in 0
           else if(scoreStr === '#0' || scoreStr === '-#0') {
-            if(this.pvCallback)
-              this.pvCallback(this.game, 1, scoreStr, '', this.currNodes);
+            throttlePV({
+              pvNum: 1, 
+              scoreStr, 
+              pvArr: [],
+              nodes: this.currNodes,
+              fen,
+            });
           }
           this.currEval = scoreStr;
 
@@ -775,6 +819,9 @@ export class EvalEngine extends Engine {
    * See scoreMove for more info.
    */
   public static rateMove(evaluation: string, reference: string, turnColor: string) {
+    if(this.compareEvals(evaluation, reference, turnColor) >= 0)
+      return 'best';
+    
     const score = this.scoreMove(evaluation, reference, turnColor);
 
     if(score < -3)
@@ -785,6 +832,33 @@ export class EvalEngine extends Engine {
       return 'inaccuracy';
     else 
       return 'ok';
+  }
+
+  /**
+   * Compare engine evals and return a positive value if eval1 is better than eval2,
+   * negative if it's worse, or 0 if they're the same.
+   * @param eval1 an eval string, e.g. 2.52 (white is 2.52 ahead), -#0 (black has mate in 0) etc.
+   * @param eval2 
+   * @param turnColor 'w' or 'b'. The perspective to assess 'better' from
+   * @returns comparison value
+   */
+  public static compareEvals(eval1: string, eval2: string, turnColor: string) {
+    const sign = turnColor === 'w' ? 1 : -1;
+
+    const parseEval = (value: string): number => {
+      value = value.replace(/^=/, '');
+
+      const mate = value.match(/^(-?)#(\d+)$/);
+      if(mate) {
+        const distance = +mate[2];
+        const mateScore = 1000000;
+        return mate[1] ? -mateScore + distance : mateScore - distance;
+      }
+
+      return +value;
+    };
+
+    return sign * (parseEval(eval1) - parseEval(eval2));
   }
 }
 

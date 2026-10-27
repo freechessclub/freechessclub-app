@@ -138,6 +138,7 @@ let newTabShown = false;
 let newGameVariant = '';
 let lobbyEntries = [];
 let lobbyCounter = 0;
+let analyzeDisabled = Utils.isSmallWindow(); // Used to hide the Analyze button on initial page load on mobile
 const noSleep = new NoSleep(); // Prevent screen dimming
 let screenWakeLockPending = false;
 let isRegistered = false;
@@ -564,7 +565,7 @@ async function onDeviceReady() {
   }
   else {
     Utils.createTooltips();
-    showAnalyzeButton();
+    hideShowAnalyzeButton();
     $('#pills-play-tab').tab('show');
     $('#collapse-menus').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
@@ -973,10 +974,18 @@ function setLeftColumnSizes(redrawBoard = true) {
 
     if(Utils.isSmallWindow())
       $('#left-panel').css('height', ''); // Reset back to CSS defined height
-    else {
-      const remHeight = Utils.getRemainingHeight($('#left-panel'), $('#inner-left-panels'));
+    else {     
+      const maximizedGame = games.getMainGame();
+      const maximizedGameCard = maximizedGame.element;
+      const useFullHeight = Utils.isLargeWindow() && $(window).height() - maximizedGameCard.outerHeight() > 56; 
+      const remHeight = useFullHeight 
+        ? Utils.getRemainingHeight($('#left-panel'))
+        : Utils.getRemainingHeight($('#left-panel'), $('#inner-left-panels'));
       const leftPanelBorder = $('#left-panel').outerHeight(true) - $('#left-panel').height();
-      const leftPanelHeight = boardHeight - remHeight - leftPanelBorder;
+      const leftPanelHeight = useFullHeight
+        ? $(window).height() - remHeight - leftPanelBorder
+        : boardHeight - remHeight - leftPanelBorder;
+
       $('#left-panel').height(Math.max(leftPanelHeight, 0));
       // If we've made the left panel height as small as possible, reduce size of status panel instead
       // Note leftPanelHeight is negative in that case
@@ -1108,9 +1117,18 @@ function setRightColumnSizes() {
       $('#chat-panel').height($(window).height() - Utils.getRemainingHeight($('#chat-panel'), $('body'), `#collapse-chat ${hasSiblings ? ', #inner-right-panels' : ''}`) - border);
     }
     else {
-      const remHeight = Utils.getRemainingHeight($('#chat-panel'), $('#inner-right-panels'));
+      const maximizedGame = games.getMainGame();
+      const maximizedGameCard = maximizedGame.element;
+      const usefullHeight = Utils.isLargeWindow() && $(window).height() - maximizedGameCard.outerHeight() > 56; 
+      const remHeight = usefullHeight
+        ? Utils.getRemainingHeight($('#chat-panel'))
+        : Utils.getRemainingHeight($('#chat-panel'), $('#inner-right-panels'));    
+      
       const chatPanelBorder = $('#chat-panel').outerHeight(true) - $('#chat-panel').height();
-      $('#chat-panel').height(boardHeight + $('#left-panel-footer').outerHeight() - remHeight - chatPanelBorder);
+      if(usefullHeight)
+        $('#chat-panel').height($(window).outerHeight() - remHeight - chatPanelBorder);
+      else 
+        $('#chat-panel').height(boardHeight + $('#left-panel-footer').outerHeight() - remHeight - chatPanelBorder);
     }
   
     setTimeout(() => {
@@ -1487,6 +1505,7 @@ function gameMove(data: any) {
 }
 
 function gameStart(game: Game) {
+  analyzeDisabled = false;
   hidePromotionPanel(game);
   game.board.cancelMove();
   if(game === games.focused && (!game.history || !game.history.hasSubvariation()))
@@ -1944,23 +1963,29 @@ function handleOffers(offers: any[]) {
   const removals = offers.filter((item) => item.type === 'pr' || item.type === 'sr');
   removals.forEach((item) => {
     item.ids.forEach((id) => {
-      if(activeInvite && activeInvite.seekId && +id === activeInvite.seekId) {
-        activeInvite = null;
-        activeInviteLink = null;
-        if(inviteExpiryTimer) {
-          clearTimeout(inviteExpiryTimer);
-          inviteExpiryTimer = null;
+      if(item.type === 'sr') {
+        if(activeInvite && activeInvite.seekId && +id === activeInvite.seekId) {
+          activeInvite = null;
+          activeInviteLink = null;
+          if(inviteExpiryTimer) {
+            clearTimeout(inviteExpiryTimer);
+            inviteExpiryTimer = null;
+          }
+          $('#show-invite-link').remove();
+          if(activeInviteDialog) {
+            activeInviteDialog.toast('hide');
+            activeInviteDialog = null;
+          }
         }
-        $('#show-invite-link').remove();
-        if(activeInviteDialog) {
-          activeInviteDialog.toast('hide');
-          activeInviteDialog = null;
-        }
+
+        lobbyEntries = lobbyEntries.filter(l => l.id !== id);
+        $(`.sent-offer[data-offer-id="${id}"][data-offer-type="sn"]`).remove(); // Remove our own seek from the Play pane
       }
-      Dialogs.removeNotification($(`.notification[data-offer-id="${id}"]`)); // If match request was not ours, remove the Notification
-      $(`.game-dialog[data-offer-id="${id}"]`).toast('hide'); // if in-game request, hide the dialog
-      $(`.sent-offer[data-offer-id="${id}"]`).remove(); // If offer, match request or seek was sent by us, remove it from the Play pane
-      lobbyEntries = lobbyEntries.filter(l => l.id !== id);
+      else {
+        Dialogs.removeNotification($(`.notification[data-offer-id="${id}"]`)); // If match request was not ours, remove the Notification
+        $(`.game-dialog[data-offer-id="${id}"]`).toast('hide'); // if in-game request, hide the dialog
+        $(`.sent-offer[data-offer-id="${id}"][data-offer-type="pt"]`).remove(); // Remove offer from the Play pane
+      }
     });
     
     if(item.type === 'sr' && !item.ids.length) // remove all seeks
@@ -2216,6 +2241,9 @@ function handleMiscMessage(data: any) {
   if(match) {
     const game = games.findGame(+match[1]);
     if(game && game.isPlaying()) {
+      game.laggedOut = true;
+      if(game === games.focused) 
+        $('#adjourn').show();
       const bodyText = `${match[2]} has lagged for 30 seconds.<br>You may courtesy adjourn the game.<br><br>If you believe your opponent has intentionally disconnected, you can request adjudication of an adjourned game. Type 'help adjudication' in the console for more info.`;
       const dialog = Dialogs.showDialog({type: 'Opponent Lagging', msg: bodyText, btnFailure: ['', 'Wait'], btnSuccess: ['adjourn', 'Adjourn'], useSessionSend: true}, 'game');
       dialog.attr('data-game-id', game.id);
@@ -3249,7 +3277,7 @@ function createBoard(element: any): any {
     premovable: {
       events: {
         set: preMovePiece,
-        unset: cancelPremove,
+        unset: unsetPremove,
       }
     },
     predroppable: {
@@ -3276,11 +3304,6 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
 
   const squareClasses = new Map();
 
-  if((setBoard || game.setupBoard) && game.element.find('.promotion-panel').is(':visible')) {
-    game.board.cancelPremove();
-    hidePromotionPanel(game);
-  }
-
   if(setBoard && !game.setupBoard) {   
     // Display premoves (when multiple premoves setting enabled)
     if(game.premoves.length && game.history.current() === game.history.last()) {
@@ -3295,13 +3318,7 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
       }
     }   
 
-    if(!animate)
-      game.board.set({ animation: { enabled: false }});
-  
-    game.board.set({ fen });
-  
-    if(!animate)
-      game.board.set({ animation: { enabled: true }});
+    setChessgroundBoard(game, fen, animate);
 
     updateExplorer(game);
   }
@@ -3385,6 +3402,35 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
     else
       $('#exit-subvariation').addClass('disabled');
   }
+}
+
+function setChessgroundBoard(game: Game, fen: string, animate = true) {
+  if(!animate)
+    game.board.set({ animation: { enabled: false }});
+
+  const boardFen = game.board.getFen();
+  if(animate && ChessHelper.isPromotionFromFENDiff(boardFen, fen)) {
+    const move = ChessHelper.getMoveFromFENDiff(boardFen, fen);
+    game.board.move(move.from, move.to);
+    setTimeout(() => {
+      game.board.set({ animation: { enabled: false }});
+      game.board.set({ fen });  
+      game.board.set({ animation: { enabled: true }});        
+    }, game.board.state.animation.duration / 2);
+  }
+  else if(animate && ChessHelper.isPromotionFromFENDiff(fen, boardFen)) {
+    const color = (ChessHelper.getTurnColorFromFEN(fen) === 'w' ? 'white' : 'black');
+    const toSquare = ChessHelper.getMoveFromFENDiff(fen, boardFen).to;
+    game.board.setPieces(new Map([
+      [toSquare, { role: 'pawn', color }]
+    ]));
+    game.board.set({ fen });
+  }
+  else
+    game.board.set({ fen });
+
+  if(!animate)
+    game.board.set({ animation: { enabled: true }});
 }
 
 function boardChanged() {
@@ -3503,6 +3549,9 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   if(pieceRole === 'p' && !isSourcePieceName && target.charAt(1) === (pieceColor === 'w' ? '8' : '1')) 
     promote = true;
 
+  if(!promotePiece)
+    promotePiece = game.premovePromotionPiece;
+
   const inMove = {
     from: (!isSourcePieceName ? source : ''),
     to: target,
@@ -3591,8 +3640,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   showExplorerOrGameTab();
 }
 
-function movePieceAfter(game: Game, move: any, fen: string, serverIssued: boolean) {
-  let analyzing = false;
+function movePieceAfter(game: Game, move: any, fen: string, serverIssued: boolean) { 
   if(game.isPlaying() && game.history.current() !== game.history.last()) 
     game.history.display(game.history.last()); // go to current position if user is looking at earlier move in the move list
   
@@ -3608,6 +3656,7 @@ function preDropPiece(role: string, key: string) {
   if(settings.multiplePremovesToggle) {
     const game = games.focused;   
     addPremove(game, {to: key, piece: ChessHelper.longToShortPieceName(role)});
+    game.board.cancelPredrop();
   }
 }
 
@@ -3628,28 +3677,21 @@ function preMovePiece(source: any, target: any, metadata: any) {
   const pieceRole = sourcePiece ? ChessHelper.longToShortPieceName(sourcePiece.role) : undefined;
   const pieceColor = sourcePiece ? sourcePiece.color : undefined;
   const promote = (pieceRole === 'p' && target.charAt(1) === (pieceColor === 'white' ? '8' : '1'));
+  let promotionPiece = 'q';
 
   if(promote && !settings.autoPromoteToggle) {  
     game.movePieceSource = source;
     game.movePieceTarget = target;
     game.movePieceMetadata = metadata;
+    promotionPiece = 'p';
     showPromotionPanel(game);
-
-    if(settings.multiplePremovesToggle) {   
-      // Temporarily make premove on the board while waiting for user to select piece from promotion panel
-      game.board.set({ animation: { enabled: false }});
-      game.board.setPieces([
-        [source, null],
-        [target, sourcePiece]
-      ]);
-      game.board.set({ animation: { enabled: true } });
-    }
   }
-  else if(settings.multiplePremovesToggle) {     
+  if(settings.multiplePremovesToggle) {     
+    game.board.cancelPremove();
     const move = {
       from: source,
       to: target,
-      promotion: promote && settings.autoPromoteToggle ? 'q' : null
+      promotion: promote ? promotionPiece : null
     }
     addPremove(game, move);
   }
@@ -3667,6 +3709,7 @@ function addPremove(game: Game, move: any) {
     if(!game.premoves.length) 
       createPremovesObserver(game); // Tracks chessground square DOM elements to add premove numbers to the squares
 
+    game.prevPremovesFen = game.premovesFen;
     game.premovesFen = moveFen.fen; // Update final premove FEN position
     game.premoves.push(move);
   }
@@ -3678,7 +3721,7 @@ function addPremove(game: Game, move: any) {
  * @fen the starting position that premoves are checked from
  */
 function checkPremoves(game: Game, fen: string) {
-  if(currentGameMove(game).turnColor !== game.color) // Only check premoves after the opponent moves
+  if(currentGameMove(game).turnColor === game.color) // Only check premoves after the opponent moves
     return;
 
   for(let i = 0; i < game.premoves.length; i++) {
@@ -3688,6 +3731,7 @@ function checkPremoves(game: Game, fen: string) {
       game.premoves.splice(i);
       if(!game.premoves.length)
         cancelMultiplePremoves(game);
+      hidePromotionPanel(game);
       break;
     }
     fen = moveFen.fen;
@@ -3705,13 +3749,19 @@ function playPremove(game: Game) {
     if(currentGameMove(game).turnColor === game.color) {
       const premove = game.premoves.shift();
       if(premove) {
-        if(!game.premoves.length) 
-          cancelMultiplePremoves(game);
+        if(!game.premoves.length) {
+          const unfinishedPromotion = game.element.find('.promotion-panel').length;
+          if(unfinishedPromotion) {
+            premove.piece = 'p';
+            premove.promotion = null;
+          }
+          cancelMultiplePremoves(game, unfinishedPromotion);
+        }
         else
           $('.premove-target').each(function() { 
             assignPremoveOrder(game, this) // Update premove order numbers on squares
           });
-          
+
         movePiece(premove.from || ChessHelper.shortToLongPieceName(premove.piece), premove.to, null, premove.piece, premove.promotion);
       }
     }
@@ -3753,29 +3803,31 @@ function assignPremoveOrder(game: Game, elem: any) {
   }
 }
 
-/**
- * Hides the promotion panel when the premove is cancelled
- */
-function cancelPremove() {
-  const game = games.focused;
-  const promotionPanel = game.element.find('.promotion-panel');
-  if(promotionPanel.length) {
-    hidePromotionPanel(game);
-    updateBoard(game, false, true, false);
-  } 
+function cancelPromotion(game: Game) {
+  game.premoves.pop();
+  game.premovesFen = game.prevPremovesFen;
+  hidePromotionPanel(game);
+  updateBoard(game, false, true, false);    
+}
+
+function unsetPremove() {
+  setTimeout(() => { games.focused.premovePromotionPiece = ''; }, 0);
 }
 
 /**
  * Cancels all premoves when multiple premoves mode is enabled 
  * Triggered by right mouse click or long press on touch screen
  */
-function cancelMultiplePremoves(game: Game) {
+function cancelMultiplePremoves(game: Game, keepPromotionPanel = false) {
   game.premoves = [];
   game.premovesObserver?.disconnect();
   game.premovesObserver = null;
   game.board.cancelPremove();
   game.board.cancelPredrop();
-  game.board.cancelMove();
+  if(!keepPromotionPanel) {
+    hidePromotionPanel(game);
+    updateBoard(game, false, true, false); 
+  }
 }
 
 /**
@@ -3865,7 +3917,6 @@ function showPromotionPanel(game: Game) {
   const target = game.movePieceTarget;
   const metadata = game.movePieceMetadata;
   const showKing = !SupportedCategories.includes(game.category) && game.category !== 'atomic';
-  const premove = game.isPlaying() && game.color !== game.turn;
 
   const orientation = game.board.state.orientation;
   const color = (target.charAt(1) === '8' ? 'white' : 'black');
@@ -3873,7 +3924,8 @@ function showPromotionPanel(game: Game) {
 
   hidePromotionPanel(game);
   const promotionPanel = $('<div class="cg-wrap promotion-panel"></div>');
-  promotionPanel.appendTo(game.element.find('.board-container'));
+  const boardContainer = game.element.find('.board-container');
+  promotionPanel.appendTo(boardContainer);
   promotionPanel.css({
     left: `calc(12.5% * ${orientation === 'white' ? fileNum : 7 - fileNum})`,
     height: showKing ? '62.5%' : '50%',
@@ -3899,13 +3951,27 @@ function showPromotionPanel(game: Game) {
     `);
   }
 
+  boardContainer.on('click.cancelPromotion', event => {
+    cancelPromotion(game);
+  });
+
   $('.promotion-piece').on('click', (event) => {
     hidePromotionPanel();
     const promotePiece = $(event.target).attr('data-piece');
+    const premove = game.isPlaying() && game.color !== game.turn;
     if(!premove)
       movePiece(source, target, metadata, 'p', promotePiece);
-    else if(settings.multiplePremovesToggle) 
-      addPremove(game, {from: source, to: target, promotion: promotePiece});
+    else if(settings.multiplePremovesToggle) {
+      game.premoves[game.premoves.length - 1].promotion = promotePiece;
+      const pos = new ChessHelper.Position(game.premovesFen);
+      pos.set(target, { type: promotePiece as ChessHelper.Piece['type'], color: color === 'white' ? 'w' : 'b'});
+      const parts = game.premovesFen.split(' ');
+      parts[0] = pos.toFEN();
+      game.premovesFen = parts.join(' ');
+      updateBoard(game, false, true, false);
+    }
+    else
+      game.premovePromotionPiece = promotePiece;
   });
 }
 
@@ -3914,6 +3980,7 @@ function hidePromotionPanel(game?: Game) {
     game = games.focused;
 
   game.element.find('.promotion-panel').remove();
+  game.element.find('.board-container').off('click.cancelPromotion');
 }
 
 /**
@@ -4132,8 +4199,9 @@ function updateHistory(game: Game, move?: any, fen?: string, serverIssued = true
   game.history.display(hEntry, move && !sameMove);
   if(!sameMove)
     updateEngine();
-  if(game === games.focused && game.role === Role.NONE)
-    showAnalyzeButton();
+
+  analyzeDisabled = false;
+  hideShowAnalyzeButton();
 }
 
 /** ***************
@@ -4308,7 +4376,7 @@ function initGameControls(game: Game) {
     Utils.hideWithPoppers($('#viewing-game-buttons'));
 
     // show Adjourn button for standard time controls or slower
-    if(game.isPlayingOnline() && (game.time + game.inc * 2/3 >= 15 || (!game.time && !game.inc)))
+    if(game.isPlayingOnline() && (game.time + game.inc * 2/3 >= 15 || (!game.time && !game.inc) || game.laggedOut))
       $('#adjourn').show();
     else
       $('#adjourn').hide();
@@ -4505,6 +4573,7 @@ function cleanupGame(game: Game) {
   game.movelistRequested = 0;
   game.mexamineMovelist = null;
   game.gameStatusRequested = false;
+  game.laggedOut = false;
   game.board.cancelMove();
   updateBoard(game);
   initStatusPanel();
@@ -6801,6 +6870,9 @@ async function showExplorerPosition(game: Game) {
 
   if(fen === explorerLastFen) // Already showing current position
     return;
+
+  $('#explorer')[0].scrollTop = 0;
+
   explorerLastFen = fen;
 
   let position: ExplorerPosition | undefined;
@@ -8385,6 +8457,7 @@ $('#game-tools-setup-board').on('click', () => {
  * setup mode via the Game Tools menu.
  */
 function setupBoard(game: Game, serverIssued = false) {
+  analyzeDisabled = false;
   game.setupBoard = true;
   game.element.find('.status').hide(); // Hide the regular player status panels
   stopEngine();
@@ -8396,6 +8469,8 @@ function setupBoard(game: Game, serverIssued = false) {
   game.element.find('.setup-board-bottom').css('display', 'flex');
   showPanel('#left-panel-setup-board'); // Show the left panel for leaving/cancelling setup mode
   initGameTools(game);
+  game.board.cancelPremove();
+  hidePromotionPanel(game);
   updateBoard(game, false, false);
 }
 
@@ -8648,8 +8723,6 @@ function initStatusPanel() {
     }
     else
       hideAnalysis();
-
-    showAnalyzeButton();
   }
 
   hideShowStatusPanel();
@@ -8855,13 +8928,17 @@ async function showOpeningName(game: Game) {
 /** ANALYSIS FUNCTIONS **/
 
 (window as any).analyze = () => {
-  if(!canAnalyzeGame(games.focused))
+  if(!canAnalyzeGame(games.focused)) {
+    hideHeaderFooterButton($('#analyze-btn'));
     return;
+  }
 
   showAnalysis();
   expandStatusPanel();
   scrollToLeftPanelBottom();
 };
+
+$('#analyze-btn').on('click', (window as any).analyze);
 
 function showAnalysis() {
   const game = games.focused;
@@ -8877,9 +8954,15 @@ function showAnalysis() {
   games.focused.analyzing = true;
   $('#left-panel-bottom').addClass('analyzing');
 
-  if(currentStatusTab && currentStatusTab.attr('id') !== 'eval-graph-tab')
+  const defaultTab = game.history?.length() || game.movelistRequested ? 'eval-graph-tab' : 'engine-tab';
+  if(currentStatusTab)
     currentStatusTab.tab('show');
+  else
+    $(`#${defaultTab}`).tab('show');
+
+  hideShowAnalyzeButton();
 }
+
 
 function hideAnalysis() {
   removeAutoShape(games.focused, prevBestMoveBrush);
@@ -8888,8 +8971,8 @@ function hideAnalysis() {
   removeMoveRatingIcon(games.focused);
   closeLeftBottomTab($('#engine-tab'));
   closeLeftBottomTab($('#eval-graph-tab'));
-  showAnalyzeButton();
   games.focused.analyzing = false;
+  hideShowAnalyzeButton();
   $('#left-panel-bottom').removeClass('analyzing');
   hideShowStatusPanel();
   games.focused.currentStatusTab = null;
@@ -8902,7 +8985,7 @@ function initAnalysis(game: Game) {
 
     if(game.category) {
       if(Engine.categorySupported(game.category)) 
-        showAnalyzeButton();
+        hideShowAnalyzeButton();
       else
         hideAnalysis();
     }
@@ -9032,26 +9115,32 @@ $('#remove-pv').on('click', () => {
 function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: string, pvNodes: number) {
   $('#engine-pvs li').eq(pvNum - 1).html(`<b>(${pvEval})</b> ${pvMoves}<b/>`);
 
-  if(pvNum === 1 && pvMoves) {
+  if(pvNum === 1) {
     const currHEntry = game.history.current();
-    const words = pvMoves.split(/\s+/);
-    const san = words[0].split(/\.+/)[1];
+    const words = pvMoves?.split(/\s+/);
+    const san = words?.[0].split(/\.+/)[1];
     const fen = game.setupBoard ? getSetupBoardFEN(game) : currHEntry.fen; 
-    const parsed = parseGameMove(game, fen, san);
-    if(settings.bestMoveArrowToggle && settings.engineBoardVisualsToggle) {
-      removeAutoShape(game, bestMoveBrush);      
-      let autoShapes = game.board.state.drawable.autoShapes;
-      autoShapes.push({ 
-        orig: parsed.move.from || parsed.move.to, // For crazyhouse, just draw a circle on dest square
-        dest: parsed.move.to,
-        brush: bestMoveBrush
-      });
-      game.board.setAutoShapes(autoShapes);
+    const parsed = san ? parseGameMove(game, fen, san) : undefined;
+
+    if(pvMoves) {
+      if(settings.bestMoveArrowToggle && settings.engineBoardVisualsToggle) {
+        removeAutoShape(game, bestMoveBrush);      
+        let autoShapes = game.board.state.drawable.autoShapes;
+        autoShapes.push({ 
+          orig: parsed.move.from || parsed.move.to, // For crazyhouse, just draw a circle on dest square
+          dest: parsed.move.to,
+          brush: bestMoveBrush
+        });
+        game.board.setAutoShapes(autoShapes);
+      }
     }
 
     if(!game.setupBoard && (!currHEntry.evalNodes || pvNodes >= currHEntry.evalNodes)) {
       currHEntry.eval = pvEval;
-      currHEntry.evalBestMove = san[1] === '@' ? san : `${parsed.move.from}${parsed.move.to}${parsed.move.promotion || ''}`;
+      if(san)
+        currHEntry.evalBestMove = san[1] === '@' ? san : `${parsed.move.from}${parsed.move.to}${parsed.move.promotion || ''}`;
+      else 
+        currHEntry.evalBestMove = undefined;
       currHEntry.evalNodes = pvNodes;
       debounceUpdateMoveRatingIcon(game);
     }
@@ -9262,9 +9351,9 @@ async function updateMoveRatingIcon(game: Game) {
       rating = 'book';
     else {
       const mv = curr.move.san[1] === '@' ? curr.move.san : `${curr.move.from}${curr.move.to}${curr.move.promotion || ''}`;
-      rating = (mv === prev.evalBestMove)
+      rating = (mv === prev.evalBestMove || EvalEngine.compareEvals(curr.eval, prev.eval, prev.turnColor) >= 0)
         ? 'best'
-        : EvalEngine.rateMove(curr.eval, prev.eval, ChessHelper.swapColor(curr.turnColor));
+        : EvalEngine.rateMove(curr.eval, prev.eval, prev.turnColor);
     }
 
     // If the current move changed while we were looking up the opening book then bail out.
@@ -9337,31 +9426,18 @@ function removeAutoShape(game: Game, brush: string) {
 
 /** STATUS PANEL SHOW/HIDE BUTTON **/
 
-$('#analyze-btn').on('click', () => {
-  if(!canAnalyzeGame(games.focused)) {
-    hideHeaderFooterButton($('#analyze-btn'));
-    return;
-  }
-
-  showAnalysis();
-  expandStatusPanel();
-  hideHeaderFooterButton($('#analyze-btn'));
-  scrollToLeftPanelBottom();
-});
-
-function showAnalyzeButton() {
-  if(!$('#engine-tab').is(':visible') && canAnalyzeGame(games.focused))
+function hideShowAnalyzeButton() {
+  if(!games.focused.analyzing && canAnalyzeGame(games.focused))
     showHeaderFooterButton($('#analyze-btn'));
   else 
     hideHeaderFooterButton($('#analyze-btn'));
 }
 
 function canAnalyzeGame(game: Game) {
-  if(!game?.history || game.isPlaying() || !Engine.categorySupported(game.category))
+  if(!game?.history || analyzeDisabled || game.isPlaying() || !Engine.categorySupported(game.category))
     return false;
 
-  const standardStart = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-  return game.role !== Role.NONE || game.history.length() > 0 || game.history.first().fen !== standardStart;
+  return true;
 }
 
 /** ****************************

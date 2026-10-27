@@ -12,6 +12,8 @@ import { themeEffectsRegistry } from './theme-effects-registry';
 
 $('#version').text(`Version: ${packageInfo.version}`);
 
+const DEFAULT_THEME = 'clubhouse';
+
 type Shortcut = {
   code?: string;
   key?: string;
@@ -431,13 +433,10 @@ async function initStyles() {
   // theme styles
   let theme = storage.get('theme');
   if(!theme)
-    theme = 'default';
+    theme = DEFAULT_THEME;
 
   let themeName: string;
-  if(theme)
-    themeName = $('#themes-menu li').filter((index, element) => $(element).attr('id').endsWith(`-${theme}`)).text();
-  else
-    themeName = $('#themes-menu li').first().text();
+  themeName = $('#themes-menu li').filter((index, element) => $(element).attr('id').endsWith(`-${theme}`)).text();
   $('#themes-button').text(themeName);
 
   await setTheme(theme);
@@ -456,6 +455,8 @@ async function initStyles() {
   // piece styles
   const pieces = storage.get('piece');
   selectPieces(pieces);
+
+  $(window).trigger('resize');
 }
 
 async function setBaseTheme(baseTheme: string) {
@@ -487,6 +488,10 @@ async function setBaseTheme(baseTheme: string) {
 }
 
 async function setTheme(theme: string) {
+  const themeNames = ['clubhouse', 'blue', 'brown', 'gray', 'green', 'ic', 'newspaper', 'purple', 'red', 'yellow'];
+  if(!themeNames.includes(theme))
+    theme = DEFAULT_THEME;
+
   // Stop active effects before the old theme's stylesheet is removed.
   setThemeEffects();
   const baseTheme = (theme === 'gray' || theme === 'clubhouse' ? 'base-theme-dark' : 'base-theme-light');
@@ -502,8 +507,8 @@ async function setTheme(theme: string) {
 
     let mod = null;
     switch(theme) {
-      case 'clubhouse':
-        mod = await import(/* webpackChunkName: "themes/clubhouse" */ 'assets/css/themes/clubhouse.css');
+      case 'blue':
+        mod = await import(/* webpackChunkName: "themes/blue" */ 'assets/css/themes/blue.css');
         break;
       case 'brown':
         mod = await import(/* webpackChunkName: "themes/brown" */ 'assets/css/themes/brown.css');
@@ -529,8 +534,9 @@ async function setTheme(theme: string) {
       case 'yellow':
         mod = await import(/* webpackChunkName: "themes/yellow" */ 'assets/css/themes/yellow.css');
         break;
-      default:
-        mod = await import(/* webpackChunkName: "themes/default" */ 'assets/css/themes/default.css');
+      case 'clubhouse':
+        mod = await import(/* webpackChunkName: "themes/clubhouse" */ 'assets/css/themes/clubhouse.css');
+        break;
     }
 
     const elem = await styleInjectionPromise;

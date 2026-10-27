@@ -54,7 +54,7 @@ a:hover { color: #e2ffad; }
 
 #left-card, #right-card { border-color: transparent; }
 .top-panel, .bottom-panel { color: var(--fg-color); }
-#left-panel-header, #right-panel-header, #left-panel-footer {
+#left-card .card-header, #left-panel-footer, #right-card .card-header {
   background: transparent;
   border-color: transparent;
 }
@@ -65,7 +65,7 @@ a:hover { color: #e2ffad; }
   --bs-btn-focus-shadow-rgb: 200, 243, 106;
 }
 
-.btn-outline-secondary, .btn-default {
+.btn-outline-secondary:not(.btn-transparent) {
   --bs-btn-color: var(--fg-color);
   --bs-btn-border-color: var(--club-border);
   --bs-btn-hover-color: var(--club-accent);
@@ -108,9 +108,11 @@ a:hover { color: #e2ffad; }
   --bs-nav-pills-link-active-bg: var(--club-selected-bg);
   --bs-nav-pills-border-radius: 50rem;
 }
+#pills-card {
+  padding: 0 0.5rem 0.5rem;
+}
 #pills-tab {
   padding: 0.3rem;
-  margin: 0 0.5rem 0.5rem;
   border-radius: 50rem;
   background: #0f1915;
   gap: 0.15rem;
@@ -182,7 +184,7 @@ a:hover { color: #e2ffad; }
 .clock {
   background: transparent;
   border-radius: 0.6rem;
-  color: var(--fg-color);
+  color: var(--fg-color-muted);
   font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -191,7 +193,7 @@ a:hover { color: #e2ffad; }
 .clock-time { font-size: 1.85rem; line-height: 1.35; }
 .clock.my-turn {
   color: #152015;
-  background: var(--club-accent);
+  background: hsl(79, 84%, 40%);
   box-shadow: 0 0 0 2px #c8f36a25;
 }
 .clock.low-time { color: #ffaaa0; }
@@ -246,6 +248,7 @@ a:hover { color: #e2ffad; }
 .dropdown-item { padding-top: 0.4rem; padding-bottom: 0.4rem; }
 .popover { --bs-popover-bg: var(--club-raised); --bs-popover-border-color: var(--club-border); }
 .toast { --bs-toast-bg: var(--club-raised); --bs-toast-header-bg: var(--club-surface); --bs-toast-header-color: var(--fg-color); }
+.toast.notification-panel { --notification-bg: var(--club-raised); }
 
 .chat-text { color: #d0dcd3; }
 .chat-text strong, .chat-info .btn-outline-secondary { color: var(--club-accent); }
@@ -267,8 +270,8 @@ a:hover { color: #e2ffad; }
 .card.tournament-card-active { --bs-card-bg: #344b2c; }
 
 @media (min-width: 768px) {
-  #left-card, #right-card { margin: 0.6rem; }
-  .game-card { margin-block: 0.6rem; }
+  #left-card, #right-card { margin: 0.5rem; }
+  .game-card { margin-block: 0.5rem; }
 }
 
 @media (max-width: 767px) {
