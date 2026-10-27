@@ -8,7 +8,7 @@ import { Reason } from './parser';
 import { storage } from './storage';
 import { settings } from './settings';
 import { setCaretToEnd, initContentEditable, BitWriter, BitReader, zigzagEncode, zigzagDecode, logError, StickyBottomScroller } from './utils';
-import { getPlyFromFEN, getMoveNoFromFEN, getTurnColorFromFEN, updateVariantMoveData, VariantData, toDests, parseMove, getNumLegalMoves, moveToLegalMoveIndex, legalMoveIndexToMove } from './chess-helper';
+import { getPlyFromFEN, getMoveNoFromFEN, getTurnColorFromFEN, updateVariantMoveData, VariantData, toDests, parseMove, getNumLegalMoves, moveToLegalMoveIndex, legalMoveIndexToMove, splitFEN, legalEnPassant } from './chess-helper';
 import { Clock } from './clock';
 import { Game } from './game';
 
@@ -1742,7 +1742,10 @@ export class History {
               const name = cols[1];
               const moves = cols[2];
               const fen = cols[3];
-              const fenNoPlyCounts = fen.split(' ').slice(0, -2).join(' ');
+              const fenWords = splitFEN(fen);
+              if(!legalEnPassant(fen))
+                fenWords.enPassant = '-';
+              const fenNoPlyCounts = `${fenWords.board} ${fenWords.castlingRights} ${fenWords.color} ${fenWords.enPassant}`;               
               History.openings.set(fenNoPlyCounts, {eco, name, moves});
             }
           }
@@ -1757,7 +1760,10 @@ export class History {
     }
     await History.fetchOpeningsPromise;
   
-    const shortFen = hEntry.fen.split(' ').slice(0, -2).join(' '); // Remove ply counts
+    const fenWords = splitFEN(hEntry.fen);
+    if(!legalEnPassant(hEntry.fen))
+      fenWords.enPassant = '-';
+    const shortFen = `${fenWords.board} ${fenWords.castlingRights} ${fenWords.color} ${fenWords.enPassant}`;      
     const opening = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard'].includes(this.game.category)
       ? History.openings.get(shortFen) : null;
     hEntry.opening = opening;
