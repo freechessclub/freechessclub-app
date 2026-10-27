@@ -317,23 +317,23 @@ html, body {
     min-width: 390px;
   }
 
-  body.chat-hidden #right-col {
+  body.full-width-header #right-col {
     position: absolute !important;
     top: 0;
     left: 0;
     right: 0;
     height: auto;
   }
-  body.chat-hidden #main-row {
+  body.full-width-header #main-row {
     padding-top: var(--right-col-height, 3.5rem);
   }
-  body.chat-hidden #left-col {
+  body.full-width-header #left-col {
     width: 50%;
     flex-shrink: 0;
     padding-left: 2rem;
     padding-right: 1rem;
   }
-  body.chat-hidden #mid-col {
+  body.full-width-header #mid-col {
     width: 50%;
     flex-shrink: 0;
     padding-left: 1rem;
@@ -828,6 +828,9 @@ html, body {
   border: 1px solid transparent;
 }
 
+#pills-card {
+  padding: 0;
+}
 #pills-tab .nav-link {
   white-space: nowrap;
   padding-inline: 0;
@@ -930,9 +933,10 @@ html, body {
 /* Turn hover state off for buttons on devices with no mouse (mobile) because it looks stupid */
 /* We achieve this by setting the hover color to match the normal button color */
 @media (hover: none) {
-  .btn-outline-secondary:hover {
+  :root .btn-outline-secondary:hover {
     --bs-btn-hover-color: var(--bs-btn-color);
     --bs-btn-hover-bg: var(--bs-btn-bg);
+    --bs-btn-hover-border-color: var(--bs-btn-border-color);
   }
 }
 
@@ -1443,6 +1447,14 @@ input[type="number"]:focus {
 
 #users-modal {
   --bs-modal-width: 600px;
+}
+
+#users-modal .modal-dialog {
+  min-height: 200px;
+  height: calc(100% - var(--bs-modal-margin) * 2);
+}
+#users-modal .modal-content {
+  height: min(800px, 100%);
 }
 
 .users-table {

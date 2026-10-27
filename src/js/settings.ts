@@ -60,7 +60,7 @@ export const settings = {
   // toggle for showing an engine's move rating icon on the board 
   moveRatingIconToggle: true,
   // toggle for showing the previous best move arrow (the best alternative to the move played)
-  prevBestMoveArrowToggle: false,
+  prevBestMoveArrowToggle: true,
   // toggle for showing any engine visuals on the board including best move arrows and move rating icon
   engineBoardVisualsToggle: true,
 

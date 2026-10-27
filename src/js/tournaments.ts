@@ -12,13 +12,13 @@ import { session } from './session';
  * Adds panels for tournaments, king of the hill and team league
  */
 export class Tournaments {
-  // Currently there is only one scheduled tournament on FICS, so we might as well
-  // just hard code it in.
-  private scheduledTournaments = [{
+  // Currently there is no scheduled tournament on FICS :(
+  private scheduledTournaments = [];
+  /*private scheduledTournaments = [{
     title: 'The Nightly 5 0 at 22:00', // title should exactly match title on FICS
     type: '5 0 r SS\\5',
     recurring: 'daily',
-  }];
+  }];*/
 
   private tdMessage = '';                       // Stores long responses from td (tournament bot) so we can join them together before parsing them
   private tdVariables: any = {};                // Stores user's td variables 
@@ -128,9 +128,13 @@ export class Tournaments {
     session.send('td variables'); // Retrieve the user's td variables, so we can store and restore their KOTHInfo, TourneyInfo and TourneyUpdates settings
 
     // Add the scheduled tournaments (e.g. the Nightly 5 0)
-    this.scheduledTournaments.forEach(tourney => {
-      this.addTournament(tourney);
-    });
+    if(this.scheduledTournaments.length) {
+      this.scheduledTournaments.forEach(tourney => {
+        this.addTournament(tourney);
+      });
+    }
+    else
+      this.addTournamentCard(null, 'tournament');
 
     // Add an ad for Team League, which lets the user press a button in order to 
     // 'tell teamleague set interested 1'
@@ -1923,7 +1927,8 @@ export class Tournaments {
     }
 
     // For tournaments inserts them ordered based on their date
-    this.insertChronological(card, group.find('.tournament-group-cards'));
+    if(card)
+      this.insertChronological(card, group.find('.tournament-group-cards'));
   }
 
   /**

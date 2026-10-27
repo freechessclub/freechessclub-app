@@ -792,15 +792,16 @@ export function scrollToBottom(smooth = true) {
  * Stop scrollbar appearing when an element (like a captured piece) is dragged below the bottom of the window,
  * unless the scrollbar is already visible
  */
-export function lockOverflow() {
-  if($('body')[0].scrollHeight <= $('body')[0].clientHeight) {
-    $('body').css('overflow-y', 'hidden');
-    $('html').css('overflow-y', 'hidden');
+export function lockOverflow(elem?: JQuery<HTMLElement>) {
+  if(!elem)
+    elem = $('#app');
+
+  if(elem[0].scrollHeight <= elem[0].clientHeight) {
+    elem.css('overflow-y', 'hidden');
     $(document).one('mouseup touchend touchcancel', () => {
-      $('body').css('overflow-y', '');
-      $('html').css('overflow-y', '');
+      elem.css('overflow-y', '');
     });
-  }
+  }    
 }
 
 /**

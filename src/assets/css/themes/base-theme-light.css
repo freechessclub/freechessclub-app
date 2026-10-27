@@ -183,15 +183,20 @@
   --bracket-color: #bf8090;
   border-color: var(--bracket-color);
 }
+
+#move-table {
+  --subvariation-base: var(--bs-table-bg);
+}
 #move-table > tbody > .subvariation {
-  --bs-table-bg: rgba(0, 0, 0, 0.05);
+  --bs-table-bg: color-mix(in srgb, var(--subvariation-base), black 5%);
 }
 #move-table .subvariation .selectable:hover {
-  background-color: rgba(255, 255, 255, 0.25);
+  background-color: color-mix(in srgb, var(--subvariation-base), white 25%);
 }
 #move-table .subvariation .selected {
-  background-color: rgba(0, 0, 0, 0.15);
+  background-color: color-mix(in srgb, var(--subvariation-base), black 15%);
 }
+
 #move-table .subvariation .move {
   color: #191970;
 }
@@ -310,7 +315,7 @@
   --box-shadow-color: rgba(0, 0, 0, 0.2);
 }
 
-.notification-panel {
+.toast.notification-panel {
   --bs-toast-bg: white;
   --bs-toast-header-bg: var(--bs-toast-bg);
   --bs-toast-border-color: #DDDDDD;
