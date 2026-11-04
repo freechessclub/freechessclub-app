@@ -75,6 +75,7 @@ export class Game extends GameData {
   premovesFen: string = ''; // The position after the final premove (multiple premoves)
   prevPremovesFen: string = ''; // The position before the final premove (multiple premoves)
   premovesObserver: any; // MutationObserver for adding numbers to premove squares (multiple premoves)
+  keepPromotionPanel: boolean = false; // Flag to stop the promotion panel from hiding when premoves are cancelled
   premoveSet: string[] = null; // Status flag that keeps track of whether a Chessground premove is currently set
   pieceSelected: string = null; // Status flag that keeps track of whether a piece is currently selected 
   squareSelected: string = null; // The last square selected (used to cancel multiple premoves)

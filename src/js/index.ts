@@ -3809,7 +3809,8 @@ function playPremove(game: Game) {
             premove.piece = 'p';
             premove.promotion = null;
           }
-          //cancelMultiplePremoves(game);
+          game.keepPromotionPanel = true;
+          cancelMultiplePremoves(game);
         }
         else
           $('.premove-target').each(function() { 
@@ -3866,7 +3867,9 @@ function cancelPremove() {
   if(promotionPanel.length) {
     game.premoves.pop();
     game.premovesFen = game.prevPremovesFen;
-    hidePromotionPanel(game);
+    if(!game.keepPromotionPanel)
+      hidePromotionPanel(game);
+    game.keepPromotionPanel = false;
     updateBoard(game, false, true, false);
   } 
 }
@@ -8510,6 +8513,8 @@ function setupBoard(game: Game, serverIssued = false) {
   game.element.find('.setup-board-bottom').css('display', 'flex');
   showPanel('#left-panel-setup-board'); // Show the left panel for leaving/cancelling setup mode
   initGameTools(game);
+  game.board.cancelPremove();
+  hidePromotionPanel(game);
   updateBoard(game, false, false);
 }
 
