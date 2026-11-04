@@ -3605,6 +3605,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   const move = parsedMove ? parsedMove.move : inMove;
 
   if(!parsedMove && SupportedCategories.includes(game.category)) {
+    game.keepPromotionPanel = false;
     cancelMultiplePremoves(game);
     updateBoard(game, false, true, false);
     return;
@@ -3801,8 +3802,8 @@ function playPremove(game: Game) {
           const unfinishedPromotion = game.element.find('.promotion-panel').length;
           if(unfinishedPromotion) {
             game.keepPromotionPanel = true;
-            cancelMultiplePremoves(game);
-            return;
+            premove.piece = 'p';
+            premove.promotion = null;
           }
           cancelMultiplePremoves(game);
         }
