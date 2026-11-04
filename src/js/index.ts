@@ -3339,7 +3339,6 @@ function createBoard(element: any): any {
     premovable: {
       events: {
         set: preMovePiece,
-        unset: cancelPremove,
       }
     },
     predroppable: {
@@ -3605,7 +3604,6 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   const move = parsedMove ? parsedMove.move : inMove;
 
   if(!parsedMove && SupportedCategories.includes(game.category)) {
-    game.keepPromotionPanel = false;
     cancelMultiplePremoves(game);
     updateBoard(game, false, true, false);
     return;
@@ -3699,6 +3697,7 @@ function preDropPiece(role: string, key: string) {
   if(settings.multiplePremovesToggle) {
     const game = games.focused;   
     addPremove(game, {to: key, piece: ChessHelper.longToShortPieceName(role)});
+    game.board.cancelPredrop();
   }
 }
 
@@ -3719,28 +3718,21 @@ function preMovePiece(source: any, target: any, metadata: any) {
   const pieceRole = sourcePiece ? ChessHelper.longToShortPieceName(sourcePiece.role) : undefined;
   const pieceColor = sourcePiece ? sourcePiece.color : undefined;
   const promote = (pieceRole === 'p' && target.charAt(1) === (pieceColor === 'white' ? '8' : '1'));
+  let promotionPiece = 'q';
 
   if(promote && !settings.autoPromoteToggle) {  
     game.movePieceSource = source;
     game.movePieceTarget = target;
     game.movePieceMetadata = metadata;
+    promotionPiece = 'p';
     showPromotionPanel(game);
-
-    /*if(settings.multiplePremovesToggle) {   
-      // Temporarily make premove on the board while waiting for user to select piece from promotion panel
-      game.board.set({ animation: { enabled: false }});
-      game.board.setPieces([
-        [source, null],
-        [target, sourcePiece]
-      ]);
-      game.board.set({ animation: { enabled: true } });
-    }*/
   }
   if(settings.multiplePremovesToggle) {     
+    game.board.cancelPremove();
     const move = {
       from: source,
       to: target,
-      promotion: promote ? 'q' : null
+      promotion: promote ? promotionPiece : null
     }
     addPremove(game, move);
   }
@@ -3801,11 +3793,10 @@ function playPremove(game: Game) {
         if(!game.premoves.length) {
           const unfinishedPromotion = game.element.find('.promotion-panel').length;
           if(unfinishedPromotion) {
-            game.keepPromotionPanel = true;
             premove.piece = 'p';
             premove.promotion = null;
           }
-          cancelMultiplePremoves(game);
+          cancelMultiplePremoves(game, unfinishedPromotion);
         }
         else
           $('.premove-target').each(function() { 
@@ -3853,34 +3844,28 @@ function assignPremoveOrder(game: Game, elem: any) {
   }
 }
 
-/**
- * Hides the promotion panel when the premove is cancelled
- */
-function cancelPremove() {
-  const game = games.focused;
-  const promotionPanel = game.element.find('.promotion-panel');
-  if(promotionPanel.length) {
-    game.premoves.pop();
-    game.premovesFen = game.prevPremovesFen;
-    if(!game.keepPromotionPanel) {
-      hidePromotionPanel(game);
-      updateBoard(game, false, true, false);    
-    }
-    game.keepPromotionPanel = false;
-  } 
+function cancelPromotion(game: Game) {
+  game.premoves.pop();
+  game.premovesFen = game.prevPremovesFen;
+  hidePromotionPanel(game);
+  updateBoard(game, false, true, false);    
 }
 
 /**
  * Cancels all premoves when multiple premoves mode is enabled 
  * Triggered by right mouse click or long press on touch screen
  */
-function cancelMultiplePremoves(game: Game) {
+function cancelMultiplePremoves(game: Game, keepPromotionPanel = false) {
   game.premoves = [];
   game.premovesObserver?.disconnect();
   game.premovesObserver = null;
   game.board.cancelPremove();
   game.board.cancelPredrop();
   game.board.cancelMove();
+  if(!keepPromotionPanel) {
+    hidePromotionPanel(game);
+    updateBoard(game, false, true, false); 
+  }
 }
 
 /**
@@ -3977,7 +3962,8 @@ function showPromotionPanel(game: Game) {
 
   hidePromotionPanel(game);
   const promotionPanel = $('<div class="cg-wrap promotion-panel"></div>');
-  promotionPanel.appendTo(game.element.find('.board-container'));
+  const boardContainer = game.element.find('.board-container');
+  promotionPanel.appendTo(boardContainer);
   promotionPanel.css({
     left: `calc(12.5% * ${orientation === 'white' ? fileNum : 7 - fileNum})`,
     height: showKing ? '62.5%' : '50%',
@@ -4003,6 +3989,10 @@ function showPromotionPanel(game: Game) {
     `);
   }
 
+  boardContainer.on('click.cancelPromotion', event => {
+    cancelPromotion(game);
+  });
+
   $('.promotion-piece').on('click', (event) => {
     hidePromotionPanel();
     const promotePiece = $(event.target).attr('data-piece');
@@ -4026,6 +4016,7 @@ function hidePromotionPanel(game?: Game) {
     game = games.focused;
 
   game.element.find('.promotion-panel').remove();
+  game.element.find('.board-container').off('click.cancelPromotion');
 }
 
 /**
