@@ -3861,7 +3861,7 @@ function cancelMultiplePremoves(game: Game, keepPromotionPanel = false) {
   game.premovesObserver = null;
   game.board.cancelPremove();
   game.board.cancelPredrop();
-  game.board.cancelMove();
+  //game.board.cancelMove();
   if(!keepPromotionPanel) {
     hidePromotionPanel(game);
     updateBoard(game, false, true, false); 
