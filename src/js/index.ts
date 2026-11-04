@@ -3757,6 +3757,7 @@ function addPremove(game: Game, move: any) {
     if(!game.premoves.length) 
       createPremovesObserver(game); // Tracks chessground square DOM elements to add premove numbers to the squares
 
+    game.prevPremovesFen = game.premovesFen;
     game.premovesFen = moveFen.fen; // Update final premove FEN position
     game.premoves.push(move);
   }
@@ -3796,13 +3797,17 @@ function playPremove(game: Game) {
     if(currentGameMove(game).turnColor === game.color) {
       const premove = game.premoves.shift();
       if(premove) {
-        if(!game.premoves.length) 
+        if(!game.premoves.length) {
+          const unfinishedPromotion = game.element.find('.promotion-panel').length;
+          if(unfinishedPromotion)
+            premove.promotion = null;
           cancelMultiplePremoves(game);
+        }
         else
           $('.premove-target').each(function() { 
             assignPremoveOrder(game, this) // Update premove order numbers on squares
           });
-          
+           
         movePiece(premove.from || ChessHelper.shortToLongPieceName(premove.piece), premove.to, null, premove.piece, premove.promotion);
       }
     }
@@ -3851,6 +3856,8 @@ function cancelPremove() {
   const game = games.focused;
   const promotionPanel = game.element.find('.promotion-panel');
   if(promotionPanel.length) {
+    game.premoves.pop();
+    game.premovesFen = game.prevPremovesFen;
     hidePromotionPanel(game);
     updateBoard(game, false, true, false);
   } 
@@ -3996,7 +4003,6 @@ function showPromotionPanel(game: Game) {
     if(!premove)
       movePiece(source, target, metadata, 'p', promotePiece);
     else if(settings.multiplePremovesToggle) {
-      //addPremove(game, {from: source, to: target, promotion: promotePiece});
       game.premoves[game.premoves.length - 1].promotion = promotePiece;
       const pos = new ChessHelper.Position(game.premovesFen);
       pos.set(target, { type: promotePiece as ChessHelper.Piece['type'], color: color === 'white' ? 'w' : 'b'});
