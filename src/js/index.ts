@@ -3366,10 +3366,10 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
 
   const squareClasses = new Map();
 
-  if((setBoard || game.setupBoard) && game.element.find('.promotion-panel').is(':visible')) {
+  /*if((setBoard || game.setupBoard) && game.element.find('.promotion-panel').is(':visible')) {
     game.board.cancelPremove();
     hidePromotionPanel(game);
-  }
+  }*/
 
   if(setBoard && !game.setupBoard) {   
     // Display premoves (when multiple premoves setting enabled)
@@ -3778,6 +3778,7 @@ function checkPremoves(game: Game, fen: string) {
       game.premoves.splice(i);
       if(!game.premoves.length)
         cancelMultiplePremoves(game);
+      hidePromotionPanel(game);
       break;
     }
     fen = moveFen.fen;
