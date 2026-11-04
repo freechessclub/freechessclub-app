@@ -6891,6 +6891,9 @@ async function showExplorerPosition(game: Game) {
 
   if(fen === explorerLastFen) // Already showing current position
     return;
+
+  $('#explorer')[0].scrollTop = 0;
+
   explorerLastFen = fen;
 
   let position: ExplorerPosition | undefined;
