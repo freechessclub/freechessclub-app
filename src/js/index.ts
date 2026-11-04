@@ -3725,7 +3725,7 @@ function preMovePiece(source: any, target: any, metadata: any) {
     game.movePieceMetadata = metadata;
     showPromotionPanel(game);
 
-    if(settings.multiplePremovesToggle) {   
+    /*if(settings.multiplePremovesToggle) {   
       // Temporarily make premove on the board while waiting for user to select piece from promotion panel
       game.board.set({ animation: { enabled: false }});
       game.board.setPieces([
@@ -3733,13 +3733,13 @@ function preMovePiece(source: any, target: any, metadata: any) {
         [target, sourcePiece]
       ]);
       game.board.set({ animation: { enabled: true } });
-    }
+    }*/
   }
-  else if(settings.multiplePremovesToggle) {     
+  if(settings.multiplePremovesToggle) {     
     const move = {
       from: source,
       to: target,
-      promotion: promote && settings.autoPromoteToggle ? 'q' : null
+      promotion: promote ? 'q' : null
     }
     addPremove(game, move);
   }
@@ -3796,7 +3796,7 @@ function playPremove(game: Game) {
     if(currentGameMove(game).turnColor === game.color) {
       const premove = game.premoves.shift();
       if(premove) {
-        if(!game.premoves.length && !game.element.find('.promotion-panel').length) 
+        if(!game.premoves.length) 
           cancelMultiplePremoves(game);
         else
           $('.premove-target').each(function() { 
@@ -3995,8 +3995,16 @@ function showPromotionPanel(game: Game) {
     const premove = game.isPlaying() && game.color !== game.turn;
     if(!premove)
       movePiece(source, target, metadata, 'p', promotePiece);
-    else if(settings.multiplePremovesToggle) 
-      addPremove(game, {from: source, to: target, promotion: promotePiece});
+    else if(settings.multiplePremovesToggle) {
+      //addPremove(game, {from: source, to: target, promotion: promotePiece});
+      game.premoves[game.premoves.length - 1].promotion = promotePiece;
+      const pos = new ChessHelper.Position(game.premovesFen);
+      pos.set(target, { type: promotePiece as ChessHelper.Piece['type'], color: color === 'white' ? 'w' : 'b'});
+      const parts = game.premovesFen.split(' ');
+      parts[0] = pos.toFEN();
+      game.premovesFen = parts.join(' ');
+      updateBoard(game, false, true, false);
+    }
   });
 }
 

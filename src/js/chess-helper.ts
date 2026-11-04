@@ -73,6 +73,32 @@ export class Position {
   public remove(square: string) {
     this.set(square, null);
   }
+
+  public toFEN(): string {
+    return this.board.map(row => {
+      let fenRow = '';
+      let emptyCount = 0;
+
+      for (const piece of row) {
+        if (!piece) {
+          emptyCount++;
+        } else {
+          if (emptyCount > 0) {
+            fenRow += emptyCount;
+            emptyCount = 0;
+          }
+
+          const char = piece.type;
+          fenRow += piece.color === 'w' ? char.toUpperCase() : char;
+        }
+      }
+
+      if (emptyCount > 0)
+        fenRow += emptyCount;
+
+      return fenRow;
+    }).join('/');
+  }
 }
 
 export function legalEnPassant(fen: string): boolean {
