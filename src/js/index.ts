@@ -3593,12 +3593,6 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   if(pieceRole === 'p' && !isSourcePieceName && target.charAt(1) === (pieceColor === 'w' ? '8' : '1')) 
     promote = true;
 
-  console.log('pieceRole:', pieceRole);
-  console.log('target:', target.charAt(1));
-  console.log('pieceColor:', pieceColor);
-  console.log('issource:', isSourcePieceName);
-  console.log('promote:', promote);
-
   const inMove = {
     from: (!isSourcePieceName ? source : ''),
     to: target,
@@ -3805,12 +3799,10 @@ function playPremove(game: Game) {
       if(premove) {
         if(!game.premoves.length) {
           const unfinishedPromotion = game.element.find('.promotion-panel').length;
-          if(unfinishedPromotion) {
-            premove.piece = 'p';
-            premove.promotion = null;
-          }
-          game.keepPromotionPanel = true;
+          if(unfinishedPromotion) 
+            game.keepPromotionPanel = true;
           cancelMultiplePremoves(game);
+          return;
         }
         else
           $('.premove-target').each(function() { 
@@ -3867,10 +3859,11 @@ function cancelPremove() {
   if(promotionPanel.length) {
     game.premoves.pop();
     game.premovesFen = game.prevPremovesFen;
-    if(!game.keepPromotionPanel)
+    if(!game.keepPromotionPanel) {
       hidePromotionPanel(game);
+      updateBoard(game, false, true, false);    
+    }
     game.keepPromotionPanel = false;
-    updateBoard(game, false, true, false);
   } 
 }
 
