@@ -581,7 +581,7 @@ async function onDeviceReady() {
   }
   else {
     Utils.createTooltips();
-    showAnalyzeButton();
+    hideShowAnalyzeButton();
     $('#pills-play-tab').tab('show');
     $('#collapse-menus').removeClass('collapse-init');
     $('#collapse-chat').removeClass('collapse-init');
@@ -4223,7 +4223,7 @@ function updateHistory(game: Game, move?: any, fen?: string, serverIssued = true
   if(!sameMove)
     updateEngine();
   if(game === games.focused && game.role === Role.NONE)
-    showAnalyzeButton();
+    hideShowAnalyzeButton();
 }
 
 /** ***************
@@ -8736,8 +8736,6 @@ function initStatusPanel() {
     }
     else
       hideAnalysis();
-
-    showAnalyzeButton();
   }
 
   hideShowStatusPanel();
@@ -8943,13 +8941,17 @@ async function showOpeningName(game: Game) {
 /** ANALYSIS FUNCTIONS **/
 
 (window as any).analyze = () => {
-  if(!canAnalyzeGame(games.focused))
+  if(!canAnalyzeGame(games.focused)) {
+    hideHeaderFooterButton($('#analyze-btn'));
     return;
+  }
 
   showAnalysis();
   expandStatusPanel();
   scrollToLeftPanelBottom();
 };
+
+$('#analyze-btn').on('click', (window as any).analyze);
 
 function showAnalysis() {
   const game = games.focused;
@@ -8967,7 +8969,10 @@ function showAnalysis() {
 
   if(currentStatusTab && currentStatusTab.attr('id') !== 'eval-graph-tab')
     currentStatusTab.tab('show');
+
+  hideShowAnalyzeButton();
 }
+
 
 function hideAnalysis() {
   removeAutoShape(games.focused, prevBestMoveBrush);
@@ -8976,8 +8981,8 @@ function hideAnalysis() {
   removeMoveRatingIcon(games.focused);
   closeLeftBottomTab($('#engine-tab'));
   closeLeftBottomTab($('#eval-graph-tab'));
-  showAnalyzeButton();
   games.focused.analyzing = false;
+  hideShowAnalyzeButton();
   $('#left-panel-bottom').removeClass('analyzing');
   hideShowStatusPanel();
   games.focused.currentStatusTab = null;
@@ -8990,7 +8995,7 @@ function initAnalysis(game: Game) {
 
     if(game.category) {
       if(Engine.categorySupported(game.category)) 
-        showAnalyzeButton();
+        hideShowAnalyzeButton();
       else
         hideAnalysis();
     }
@@ -9425,20 +9430,8 @@ function removeAutoShape(game: Game, brush: string) {
 
 /** STATUS PANEL SHOW/HIDE BUTTON **/
 
-$('#analyze-btn').on('click', () => {
-  if(!canAnalyzeGame(games.focused)) {
-    hideHeaderFooterButton($('#analyze-btn'));
-    return;
-  }
-
-  showAnalysis();
-  expandStatusPanel();
-  hideHeaderFooterButton($('#analyze-btn'));
-  scrollToLeftPanelBottom();
-});
-
-function showAnalyzeButton() {
-  if(!$('#engine-tab').is(':visible') && canAnalyzeGame(games.focused))
+function hideShowAnalyzeButton() {
+  if(!games.focused.analyzing && canAnalyzeGame(games.focused))
     showHeaderFooterButton($('#analyze-btn'));
   else 
     hideHeaderFooterButton($('#analyze-btn'));
