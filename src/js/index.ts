@@ -3799,10 +3799,12 @@ function playPremove(game: Game) {
       if(premove) {
         if(!game.premoves.length) {
           const unfinishedPromotion = game.element.find('.promotion-panel').length;
-          if(unfinishedPromotion) 
+          if(unfinishedPromotion) {
             game.keepPromotionPanel = true;
+            cancelMultiplePremoves(game);
+            return;
+          }
           cancelMultiplePremoves(game);
-          return;
         }
         else
           $('.premove-target').each(function() { 
