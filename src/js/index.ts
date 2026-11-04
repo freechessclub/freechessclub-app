@@ -2013,24 +2013,30 @@ function handleOffers(offers: any[]) {
   const removals = offers.filter((item) => item.type === 'pr' || item.type === 'sr');
   removals.forEach((item) => {
     item.ids.forEach((id) => {
-      removeAndroidOfferNotification(+id);
-      if(activeInvite && activeInvite.seekId && +id === activeInvite.seekId) {
-        activeInvite = null;
-        activeInviteLink = null;
-        if(inviteExpiryTimer) {
-          clearTimeout(inviteExpiryTimer);
-          inviteExpiryTimer = null;
+      if(item.type === 'sr') {
+        if(activeInvite && activeInvite.seekId && +id === activeInvite.seekId) {
+          activeInvite = null;
+          activeInviteLink = null;
+          if(inviteExpiryTimer) {
+            clearTimeout(inviteExpiryTimer);
+            inviteExpiryTimer = null;
+          }
+          $('#show-invite-link').remove();
+          if(activeInviteDialog) {
+            activeInviteDialog.toast('hide');
+            activeInviteDialog = null;
+          }
         }
-        $('#show-invite-link').remove();
-        if(activeInviteDialog) {
-          activeInviteDialog.toast('hide');
-          activeInviteDialog = null;
-        }
+
+        lobbyEntries = lobbyEntries.filter(l => l.id !== id);
+        $(`.sent-offer[data-offer-id="${id}"][data-offer-type="sn"]`).remove(); // Remove our own seek from the Play pane
       }
-      Dialogs.removeNotification($(`.notification[data-offer-id="${id}"]`)); // If match request was not ours, remove the Notification
-      $(`.game-dialog[data-offer-id="${id}"]`).toast('hide'); // if in-game request, hide the dialog
-      $(`.sent-offer[data-offer-id="${id}"]`).remove(); // If offer, match request or seek was sent by us, remove it from the Play pane
-      lobbyEntries = lobbyEntries.filter(l => l.id !== id);
+      else {
+        removeAndroidOfferNotification(+id);
+        Dialogs.removeNotification($(`.notification[data-offer-id="${id}"]`)); // If match request was not ours, remove the Notification
+        $(`.game-dialog[data-offer-id="${id}"]`).toast('hide'); // if in-game request, hide the dialog
+        $(`.sent-offer[data-offer-id="${id}"][data-offer-type="pt"]`).remove(); // Remove offer from the Play pane
+      }
     });
     
     if(item.type === 'sr' && !item.ids.length) // remove all seeks
