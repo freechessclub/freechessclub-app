@@ -3796,7 +3796,7 @@ function playPremove(game: Game) {
     if(currentGameMove(game).turnColor === game.color) {
       const premove = game.premoves.shift();
       if(premove) {
-        if(!game.premoves.length) 
+        if(!game.premoves.length && !game.element.find('.promotion-panel').length) 
           cancelMultiplePremoves(game);
         else
           $('.premove-target').each(function() { 
@@ -3956,7 +3956,6 @@ function showPromotionPanel(game: Game) {
   const target = game.movePieceTarget;
   const metadata = game.movePieceMetadata;
   const showKing = !SupportedCategories.includes(game.category) && game.category !== 'atomic';
-  const premove = game.isPlaying() && game.color !== game.turn;
 
   const orientation = game.board.state.orientation;
   const color = (target.charAt(1) === '8' ? 'white' : 'black');
@@ -3993,6 +3992,7 @@ function showPromotionPanel(game: Game) {
   $('.promotion-piece').on('click', (event) => {
     hidePromotionPanel();
     const promotePiece = $(event.target).attr('data-piece');
+    const premove = game.isPlaying() && game.color !== game.turn;
     if(!premove)
       movePiece(source, target, metadata, 'p', promotePiece);
     else if(settings.multiplePremovesToggle) 
