@@ -3593,6 +3593,12 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   if(pieceRole === 'p' && !isSourcePieceName && target.charAt(1) === (pieceColor === 'w' ? '8' : '1')) 
     promote = true;
 
+  console.log('pieceRole:', pieceRole);
+  console.log('target:', target.charAt(1));
+  console.log('pieceColor:', pieceColor);
+  console.log('issource:', isSourcePieceName);
+  console.log('promote:', promote);
+
   const inMove = {
     from: (!isSourcePieceName ? source : ''),
     to: target,
@@ -3799,15 +3805,17 @@ function playPremove(game: Game) {
       if(premove) {
         if(!game.premoves.length) {
           const unfinishedPromotion = game.element.find('.promotion-panel').length;
-          if(unfinishedPromotion)
+          if(unfinishedPromotion) {
+            premove.piece = 'p';
             premove.promotion = null;
-          cancelMultiplePremoves(game);
+          }
+          //cancelMultiplePremoves(game);
         }
         else
           $('.premove-target').each(function() { 
             assignPremoveOrder(game, this) // Update premove order numbers on squares
           });
-           
+
         movePiece(premove.from || ChessHelper.shortToLongPieceName(premove.piece), premove.to, null, premove.piece, premove.promotion);
       }
     }
