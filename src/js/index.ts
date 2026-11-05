@@ -3956,6 +3956,7 @@ function showPromotionPanel(game: Game) {
   const source = game.movePieceSource;
   const target = game.movePieceTarget;
   const metadata = game.movePieceMetadata;
+  game.movePiecePromotion = null;
   const showKing = !SupportedCategories.includes(game.category) && game.category !== 'atomic';
 
   const orientation = game.board.state.orientation;
