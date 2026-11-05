@@ -3365,11 +3365,6 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
 
   const squareClasses = new Map();
 
-  /*if((setBoard || game.setupBoard) && game.element.find('.promotion-panel').is(':visible')) {
-    game.board.cancelPremove();
-    hidePromotionPanel(game);
-  }*/
-
   if(setBoard && !game.setupBoard) {   
     // Display premoves (when multiple premoves setting enabled)
     if(game.premoves.length && game.history.current() === game.history.last()) {
@@ -3387,7 +3382,16 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
     if(!animate)
       game.board.set({ animation: { enabled: false }});
   
-    game.board.set({ fen });
+    if(animate && playMove && ChessHelper.isPromotion(game.history.prev().fen, move.from, move.to)) {
+      game.board.move(move.from, move.to);
+      setTimeout(() => {
+        game.board.set({ animation: { enabled: false }});
+        game.board.set({ fen });  
+        game.board.set({ animation: { enabled: true }});        
+      }, game.board.state.animation.duration);
+    }
+    else
+      game.board.set({ fen });
   
     if(!animate)
       game.board.set({ animation: { enabled: true }});
