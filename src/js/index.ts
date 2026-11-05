@@ -3339,6 +3339,7 @@ function createBoard(element: any): any {
     premovable: {
       events: {
         set: preMovePiece,
+        unset: unsetPremove,
       }
     },
     predroppable: {
@@ -3605,7 +3606,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     promote = true;
 
   if(!promotePiece)
-    promotePiece = game.movePiecePromotion;
+    promotePiece = game.premovePromotionPiece;
 
   const inMove = {
     from: (!isSourcePieceName ? source : ''),
@@ -3866,6 +3867,10 @@ function cancelPromotion(game: Game) {
   updateBoard(game, false, true, false);    
 }
 
+function unsetPremove() {
+  setTimeout(() => { games.focused.premovePromotionPiece = ''; }, 0);
+}
+
 /**
  * Cancels all premoves when multiple premoves mode is enabled 
  * Triggered by right mouse click or long press on touch screen
@@ -3968,7 +3973,6 @@ function showPromotionPanel(game: Game) {
   const source = game.movePieceSource;
   const target = game.movePieceTarget;
   const metadata = game.movePieceMetadata;
-  game.movePiecePromotion = null;
   const showKing = !SupportedCategories.includes(game.category) && game.category !== 'atomic';
 
   const orientation = game.board.state.orientation;
@@ -4024,7 +4028,7 @@ function showPromotionPanel(game: Game) {
       updateBoard(game, false, true, false);
     }
     else
-      game.movePiecePromotion = promotePiece;
+      game.premovePromotionPiece = promotePiece;
   });
 }
 

@@ -72,6 +72,7 @@ export class Game extends GameData {
   
   // Smart move and premove state flags
   premoves: any = []; // List of premoves for multiple premoves mode
+  premovePromotionPiece: string = ''; // The piece to promote to when premoving
   premovesFen: string = ''; // The position after the final premove (multiple premoves)
   prevPremovesFen: string = ''; // The position before the final premove (multiple premoves)
   premovesObserver: any; // MutationObserver for adding numbers to premove squares (multiple premoves)
