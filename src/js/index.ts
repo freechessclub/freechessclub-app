@@ -3380,30 +3380,7 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
       }
     }   
 
-    if(!animate)
-      game.board.set({ animation: { enabled: false }});
-  
-    const boardFen = game.board.getFen();
-    if(animate && ChessHelper.isPromotionFromFENDiff(boardFen, fen)) {
-      game.board.move(move.from, move.to);
-      setTimeout(() => {
-        game.board.set({ animation: { enabled: false }});
-        game.board.set({ fen });  
-        game.board.set({ animation: { enabled: true }});        
-      }, game.board.state.animation.duration / 2);
-    }
-    else if(animate && ChessHelper.isPromotionFromFENDiff(fen, boardFen)) {
-      const toSquare = ChessHelper.getMoveFromFENDiff(fen, boardFen).to;
-      game.board.setPieces(new Map([
-        [toSquare, { role: 'pawn', color }]
-      ]));
-      game.board.set({ fen });
-    }
-    else
-      game.board.set({ fen });
-  
-    if(!animate)
-      game.board.set({ animation: { enabled: true }});
+    setChessgroundBoard(game, fen, animate);
 
     updateExplorer(game);
   }
@@ -3487,6 +3464,35 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
     else
       $('#exit-subvariation').addClass('disabled');
   }
+}
+
+function setChessgroundBoard(game: Game, fen: string, animate = true) {
+  if(!animate)
+    game.board.set({ animation: { enabled: false }});
+
+  const boardFen = game.board.getFen();
+  if(animate && ChessHelper.isPromotionFromFENDiff(boardFen, fen)) {
+    const move = ChessHelper.getMoveFromFENDiff(boardFen, fen);
+    game.board.move(move.from, move.to);
+    setTimeout(() => {
+      game.board.set({ animation: { enabled: false }});
+      game.board.set({ fen });  
+      game.board.set({ animation: { enabled: true }});        
+    }, game.board.state.animation.duration / 2);
+  }
+  else if(animate && ChessHelper.isPromotionFromFENDiff(fen, boardFen)) {
+    const color = (ChessHelper.getTurnColorFromFEN(fen) === 'w' ? 'white' : 'black');
+    const toSquare = ChessHelper.getMoveFromFENDiff(fen, boardFen).to;
+    game.board.setPieces(new Map([
+      [toSquare, { role: 'pawn', color }]
+    ]));
+    game.board.set({ fen });
+  }
+  else
+    game.board.set({ fen });
+
+  if(!animate)
+    game.board.set({ animation: { enabled: true }});
 }
 
 function boardChanged() {
