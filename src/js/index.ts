@@ -3388,6 +3388,8 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
       game.board.set({ animation: { enabled: false }});
   
     game.board.set({ fen });
+    console.log(fen);
+    console.trace();
   
     if(!animate)
       game.board.set({ animation: { enabled: true }});
@@ -3762,7 +3764,7 @@ function addPremove(game: Game, move: any) {
  * @fen the starting position that premoves are checked from
  */
 function checkPremoves(game: Game, fen: string) {
-  if(currentGameMove(game).turnColor !== game.color) // Only check premoves after the opponent moves
+  if(currentGameMove(game).turnColor === game.color) // Only check premoves after the opponent moves
     return;
 
   for(let i = 0; i < game.premoves.length; i++) {
@@ -3861,7 +3863,6 @@ function cancelMultiplePremoves(game: Game, keepPromotionPanel = false) {
   game.premovesObserver = null;
   game.board.cancelPremove();
   game.board.cancelPredrop();
-  //game.board.cancelMove();
   if(!keepPromotionPanel) {
     hidePromotionPanel(game);
     updateBoard(game, false, true, false); 
