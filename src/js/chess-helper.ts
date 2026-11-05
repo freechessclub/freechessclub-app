@@ -1274,17 +1274,97 @@ export function isCapture(fen: string, src: string, dest: string) {
   return (destPiece && srcPiece.color !== destPiece.color) || (srcPiece.type === 'p' && src[0] !== dest[0])
 }
 
-export function isPromotion(fen: string, from: string, to: string): boolean { 
+export function isPromotion(fen: string, from: string, to: string | null): boolean { 
   if(!from)
     return false;
 
   const turnColor = getTurnColorFromFEN(fen);
-  if(from.charAt(1) === (turnColor === 'w' ? '7' : '2') && (!to || to.charAt(1) === (turnColor === 'w' ? '8' : '1'))) {
+  const fromRank = +from.charAt(1);
+  const fromFile = from.charCodeAt(0) - 'a'.charCodeAt(0) + 1;
+  const toRank = to == null ? null : +to.charAt(1);
+  const toFile = to == null ? null : to.charCodeAt(0) - 'a'.charCodeAt(0) + 1;
+  if(fromRank === (turnColor === 'w' ? 7 : 2) && (!to || (toRank === (turnColor === 'w' ? 8 : 1)
+      && Math.abs(fromFile - toFile) <= 1))) {
     const pos = new Position(fen);
-    return pos.get(from)?.type === 'p';
+    return pos.get(from)?.type === 'p' && pos.get(from)?.color === turnColor;
   }
   return false;
 }; 
+
+/**
+ * Compares two FENs and returns true if the transition from oldFen->newFen represents
+ * a pawn promotion, otherwise false
+ */
+export function isPromotionFromFENDiff(oldFen: string, newFen: string) {
+  const oldParts = oldFen.split(' ');
+  const newParts = newFen.split(' ');
+
+  if(oldParts.length === 1 && newParts.length === 1) {
+    oldFen += ' w KQkq - 0 1';
+    newFen += ' b KQkq - 0 1';
+  }
+  else if(oldParts.length === 1) {
+    const newTurn = newParts[1];
+    oldFen += ` ${newTurn === 'w' ? 'b' : 'w'} ${newParts.slice(2).join(' ')}`;
+  }
+  else if(newParts.length === 1) {
+    const oldTurn = oldParts[1];
+    newFen += ` ${oldTurn === 'w' ? 'b' : 'w'} ${oldParts.slice(2).join(' ')}`;
+  }
+
+  const move = getMoveFromFENDiff(oldFen, newFen);
+  if(!move)
+    return false;
+
+  return isPromotion(oldFen, move.from, move.to);
+}
+
+/** 
+ * Very basic function which compares two FENs to see if a single piece was moved and returns
+ * the from and to squares of the moved piece. Does not support en passant or castling.
+ * @returns an object in the form { from, to } or null if no piece or too many pieces moved or changed
+ */
+export function getMoveFromFENDiff(oldFen: string, newFen: string) {
+  oldFen = oldFen.split(' ')[0];
+  const oldPos = new Position(oldFen);
+
+  newFen = newFen.split(' ')[0];
+  const newPos = new Position(newFen);
+
+  let from: string = null;
+  let fromPiece: Piece = null;
+  let to: string = null;
+  let toPiece: Piece = null;
+
+  for(const sq of Position.SQUARES) {
+    const oldPiece = oldPos.get(sq);
+    const newPiece = newPos.get(sq);
+
+    if(oldPiece && !newPiece) {
+      if(from)
+        return null; // Too many squares changed
+      from = sq;
+      fromPiece = oldPiece;
+    }
+    else if(!oldPiece && newPiece) { // piece moved
+      if(to)
+        return null // Too many squares changed
+      to = sq;
+      toPiece = newPiece;
+    }
+    else if(oldPiece && newPiece && oldPiece.color !== newPiece.color) { // piece captured
+      if(to)
+        return null // Too many squares changed
+      to = sq;
+      toPiece = newPiece;
+    }
+  }
+
+  if(!from || !to || fromPiece.color !== toPiece.color) // No real move
+    return null;
+
+  return { from, to };
+}
 
 /**
  * Get the number of legal moves in the position specified by fen, including unique promotions and piece placements for crazyhouse/bughouse

@@ -3382,13 +3382,21 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
     if(!animate)
       game.board.set({ animation: { enabled: false }});
   
-    if(animate && playMove && ChessHelper.isPromotion(game.history.prev().fen, move.from, move.to)) {
+    const boardFen = game.board.getFen();
+    if(animate && ChessHelper.isPromotionFromFENDiff(boardFen, fen)) {
       game.board.move(move.from, move.to);
       setTimeout(() => {
         game.board.set({ animation: { enabled: false }});
         game.board.set({ fen });  
         game.board.set({ animation: { enabled: true }});        
-      }, game.board.state.animation.duration);
+      }, game.board.state.animation.duration / 2);
+    }
+    else if(animate && ChessHelper.isPromotionFromFENDiff(fen, boardFen)) {
+      const toSquare = ChessHelper.getMoveFromFENDiff(fen, boardFen).to;
+      game.board.setPieces(new Map([
+        [toSquare, { role: 'pawn', color }]
+      ]));
+      game.board.set({ fen });
     }
     else
       game.board.set({ fen });
