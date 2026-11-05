@@ -3388,8 +3388,6 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
       game.board.set({ animation: { enabled: false }});
   
     game.board.set({ fen });
-    console.log(fen);
-    console.trace();
   
     if(!animate)
       game.board.set({ animation: { enabled: true }});
@@ -3593,6 +3591,9 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   let promote = false;
   if(pieceRole === 'p' && !isSourcePieceName && target.charAt(1) === (pieceColor === 'w' ? '8' : '1')) 
     promote = true;
+
+  if(!promotePiece)
+    promotePiece = game.movePiecePromotion;
 
   const inMove = {
     from: (!isSourcePieceName ? source : ''),
@@ -4009,6 +4010,8 @@ function showPromotionPanel(game: Game) {
       game.premovesFen = parts.join(' ');
       updateBoard(game, false, true, false);
     }
+    else
+      game.movePiecePromotion = promotePiece;
   });
 }
 
