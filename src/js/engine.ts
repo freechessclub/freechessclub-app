@@ -774,6 +774,9 @@ export class EvalEngine extends Engine {
    * See scoreMove for more info.
    */
   public static rateMove(evaluation: string, reference: string, turnColor: string) {
+    if(this.compareEvals(evaluation, reference, turnColor) >= 0)
+      return 'best';
+    
     const score = this.scoreMove(evaluation, reference, turnColor);
 
     if(score < -3)
@@ -784,6 +787,33 @@ export class EvalEngine extends Engine {
       return 'inaccuracy';
     else 
       return 'ok';
+  }
+
+  /**
+   * Compare engine evals and return a positive value if eval1 is better than eval2,
+   * negative if it's worse, or 0 if they're the same.
+   * @param eval1 an eval string, e.g. 2.52 (white is 2.52 ahead), -#0 (black has mate in 0) etc.
+   * @param eval2 
+   * @param turnColor 'w' or 'b'. The perspective to assess 'better' from
+   * @returns comparison value
+   */
+  public static compareEvals(eval1: string, eval2: string, turnColor: string) {
+    const sign = turnColor === 'w' ? 1 : -1;
+
+    const parseEval = (value: string): number => {
+      value = value.replace(/^=/, '');
+
+      const mate = value.match(/^(-?)#(\d+)$/);
+      if(mate) {
+        const distance = +mate[2];
+        const mateScore = 1000000;
+        return mate[1] ? -mateScore + distance : mateScore - distance;
+      }
+
+      return +value;
+    };
+
+    return sign * (parseEval(eval1) - parseEval(eval2));
   }
 }
 

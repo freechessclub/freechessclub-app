@@ -9400,9 +9400,9 @@ async function updateMoveRatingIcon(game: Game) {
       rating = 'book';
     else {
       const mv = curr.move.san[1] === '@' ? curr.move.san : `${curr.move.from}${curr.move.to}${curr.move.promotion || ''}`;
-      rating = (mv === prev.evalBestMove)
+      rating = (mv === prev.evalBestMove || EvalEngine.compareEvals(curr.eval, prev.eval, prev.turnColor) >= 0) // blah
         ? 'best'
-        : EvalEngine.rateMove(curr.eval, prev.eval, ChessHelper.swapColor(curr.turnColor));
+        : EvalEngine.rateMove(curr.eval, prev.eval, prev.turnColor);
     }
 
     // If the current move changed while we were looking up the opening book then bail out.
