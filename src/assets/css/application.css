@@ -828,6 +828,9 @@ html, body {
   border: 1px solid transparent;
 }
 
+#pills-card {
+  padding: 0;
+}
 #pills-tab .nav-link {
   white-space: nowrap;
   padding-inline: 0;
@@ -1443,6 +1446,14 @@ input[type="number"]:focus {
 
 #users-modal {
   --bs-modal-width: 600px;
+}
+
+#users-modal .modal-dialog {
+  min-height: 200px;
+  height: calc(100% - var(--bs-modal-margin) * 2);
+}
+#users-modal .modal-content {
+  height: min(800px, 100%);
 }
 
 .users-table {

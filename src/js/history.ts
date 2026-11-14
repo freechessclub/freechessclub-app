@@ -8,7 +8,7 @@ import { Reason } from './parser';
 import { storage } from './storage';
 import { settings } from './settings';
 import { setCaretToEnd, initContentEditable, BitWriter, BitReader, zigzagEncode, zigzagDecode, logError, StickyBottomScroller } from './utils';
-import { getPlyFromFEN, getMoveNoFromFEN, getTurnColorFromFEN, updateVariantMoveData, VariantData, toDests, parseMove, getNumLegalMoves, moveToLegalMoveIndex, legalMoveIndexToMove } from './chess-helper';
+import { getPlyFromFEN, getMoveNoFromFEN, getTurnColorFromFEN, updateVariantMoveData, VariantData, toDests, parseMove, getNumLegalMoves, moveToLegalMoveIndex, legalMoveIndexToMove, splitFEN, legalEnPassant } from './chess-helper';
 import { Clock } from './clock';
 import { Game } from './game';
 
@@ -1734,16 +1734,14 @@ export class History {
       await fetch(inputFilePath)
         .then(response => response.text())
         .then(data => {
-          const rows = data.split('\n');
+          const rows = data.split('\n').slice(1);
           for(const row of rows) {
             const cols = row.split('\t');
-            if(cols.length === 4 && cols[2].startsWith('1.')) {
+            if(cols.length === 3) {
               const eco = cols[0];
               const name = cols[1];
-              const moves = cols[2];
-              const fen = cols[3];
-              const fenNoPlyCounts = fen.split(' ').slice(0, -2).join(' ');
-              History.openings.set(fenNoPlyCounts, {eco, name, moves});
+              const fen = cols[2];
+              History.openings.set(fen, {eco, name});
             }
           }
         })
@@ -1757,7 +1755,10 @@ export class History {
     }
     await History.fetchOpeningsPromise;
   
-    const shortFen = hEntry.fen.split(' ').slice(0, -2).join(' '); // Remove ply counts
+    const fenWords = splitFEN(hEntry.fen);
+    if(!legalEnPassant(hEntry.fen))
+      fenWords.enPassant = '-';
+    const shortFen = `${fenWords.board} ${fenWords.color} ${fenWords.castlingRights} ${fenWords.enPassant}`;      
     const opening = ['blitz', 'lightning', 'untimed', 'standard', 'nonstandard'].includes(this.game.category)
       ? History.openings.get(shortFen) : null;
     hEntry.opening = opening;

@@ -65,11 +65,11 @@
                     <button type="button" id="cancel-setup" class="btn btn-outline-secondary btn-md" title="Cancel Setup"><span class="fa-solid fa-circle-xmark me-2" aria-hidden="false"></span>Cancel Setup</button>
                   </div>
                 </div>
-                <div id="left-panel-header-2" class="card-header top-panel center gap-1" style="display: none">
+                <div id="left-panel-header-2" class="card-header top-panel center gap-1 button-toolbar" style="display: none">
                   <button type="button" id="stop-observing" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Observing">Stop Observing</button>
                   <button type="button" id="stop-examining" style="display: none" class="btn btn-outline-secondary btn-md" title="Stop Examining">Stop Examining</button>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body" id="pills-card">
                   <ul class="nav nav-pills nav-fill user-select-none flex-nowrap" id="pills-tab" role="tablist">
                     <li class="nav-item" role="presentation">
                       <button class="nav-link py-2" id="pills-play-tab" data-bs-toggle="pill" data-bs-target="#pills-play" type="button" role="tab" aria-controls="pills-play" aria-selected="true">Play</button>
@@ -842,7 +842,7 @@
               </div>
             </div>
           </div>
-          <div id="mid-col" class="main-col col-sm-12 col-md-auto position-relative align-self-center">
+          <div id="mid-col" class="main-col col-sm-12 col-md-auto position-relative">
             <div class="toast-container dialog-container"></div>
             <div id="main-board-area">
               <div class="card game-card bg-transparent">
@@ -984,8 +984,9 @@
                   <button id="users-btn" class="btn btn-outline-secondary btn-md" type="button" aria-label="Users" data-bs-toggle="tooltip" data-fallback-placements="left, right" title="Users">
                     <span id="users-icon" class="fa-solid fa-users" aria-hidden="false"></span>
                   </button>
-                  <div id="settings-dropdown" class="dropdown" data-bs-toggle="tooltip" data-bs-placement="left" title="Settings">
+                  <div id="settings-dropdown" class="dropdown">
                     <button class="btn btn-outline-secondary btn-md dropdown-toggle hide-caret" type="button" id="settingsButton" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Settings">
+                      <div class="tooltip-overlay" data-bs-toggle="tooltip" data-bs-placement="left" title="Settings"></div>
                       <span class="fa-solid fa-gear" aria-hidden="false"></span>
                     </button>
                     <div class="dropdown-menu dropdown-menu-right" aria-labelledby="settingsButton">
@@ -1067,12 +1068,12 @@
                 </div>
                 <div class="modal fade" id="users-modal" tabindex="-1" aria-labelledby="users-modal-label" aria-hidden="true">
                   <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
+                    <div class="modal-content h-100 d-flex flex-column">
                       <div class="modal-header">
                         <h5 class="modal-title" id="users-modal-label"><span class="fa-solid fa-users me-2" aria-hidden="false"></span><span id="users-title-text">Users</span></h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                       </div>
-                      <div class="modal-body">
+                      <div class="modal-body d-flex flex-column flex-grow-1" style="min-height: 0;">
                         <ul class="nav nav-tabs nav-justified">
                           <li class="nav-item" role="presentation">
                             <button class="nav-link active" id="friends-tab" data-bs-toggle="tab" data-bs-target="#friends-panel" type="button" role="tab" aria-controls="friends-panel" aria-selected="true">Friends</button>
@@ -1087,7 +1088,7 @@
                             <button class="nav-link" id="user-lists-tab" data-bs-toggle="tab" data-bs-target="#user-lists-panel" type="button" role="tab" aria-controls="user-lists-panel" aria-selected="true">Lists</button>
                           </li>
                         </ul>
-                        <div class="tab-content" id="users-content" style="height: 500px;">
+                        <div class="tab-content flex-grow-1" id="users-content" style="min-height: 0;">
                           <div class="tab-pane fade show active h-100 pt-3" id="friends-panel" role="tabpanel" aria-labelledby="friends-tab">
                             <div class="d-flex flex-column h-100">
                               <form id="add-friend">
@@ -1510,7 +1511,8 @@
                   <legend class="col-form-label">Themes</legend>
                   <button id="themes-button" class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" style="width: 200px" aria-expanded="false"></button>
                   <ul class="dropdown-menu" id="themes-menu">
-                    <li class="dropdown-item noselect" id="theme-default"><div class="color-box" style="border: 1px solid currentColor; background-color: #DDE3E6"></div>Arctic Blue</li>
+                    <li class="dropdown-item noselect" id="theme-clubhouse"><div class="color-box" style="border: 1px solid #c8f36a; background: linear-gradient(135deg, #192522 50%, #c8f36a 50%)"></div>Clubhouse</li>
+                    <li class="dropdown-item noselect" id="theme-blue"><div class="color-box" style="border: 1px solid currentColor; background-color: #DDE3E6"></div>Arctic Blue</li>
                     <li class="dropdown-item noselect" id="theme-green"><div class="color-box" style="border: 1px solid currentColor; background-color: #E6FFEC"></div>Green Bean</li>
                     <li class="dropdown-item noselect" id="theme-yellow"><div class="color-box" style="border: 1px solid currentColor; background-color: #F5EDE2"></div>Coffee & Cream</li>
                     <li class="dropdown-item noselect" id="theme-gray"><div class="color-box" style="border: 1px solid currentColor; background-color: #424242"></div>Space Gray</li>
@@ -1519,7 +1521,6 @@
                     <li class="dropdown-item noselect" id="theme-newspaper"><div class="color-box" style="border: 1px solid currentColor; background-color: #DCDCDC"></div>Pressroom</li>
                     <li class="dropdown-item noselect" id="theme-brown"><div class="color-box" style="border: 1px solid currentColor; background-color: #f0d9b5"></div>Brownie</li>
                     <li class="dropdown-item noselect" id="theme-red"><div class="color-box" style="border: 1px solid currentColor; background-color: #ffc8c8"></div>Red Velvet</li>
-                    <li class="dropdown-item noselect" id="theme-clubhouse"><div class="color-box" style="border: 1px solid #c8f36a; background: linear-gradient(135deg, #192522 50%, #c8f36a 50%)"></div>Clubhouse</li>
                   </ul>
                   </div>
                 </div>

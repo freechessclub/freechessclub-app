@@ -328,7 +328,7 @@ p.paragraph {
   color: #ffffff;
 }
 
-.site-btn-playstore {
+.site-page .site-btn-playstore {
   background: #ffffff;
   box-shadow: 0 8px 20px rgba(16, 21, 18, 0.08);
   color: var(--site-primary-dark);
