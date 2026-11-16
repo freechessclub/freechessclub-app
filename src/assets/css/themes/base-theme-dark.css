@@ -4,6 +4,7 @@
   --color-scheme: dark;
   --bg-color: #424242;
   --fg-color: whitesmoke;
+  --fg-color-muted: color-mix(in srgb, currentColor 90%, black 10%);
   --bs-body-color: var(--fg-color);
   --bs-body-bg: var(--bg-color);
   --bs-body-color-rgb: 245, 245, 245;
@@ -254,15 +255,20 @@ a {
   --bracket-color: #ffb1bb;
   border-color: var(--bracket-color);
 }
+
+#move-table {
+  --subvariation-base: var(--bs-table-bg);
+}
 #move-table > tbody > .subvariation {
-  --bs-table-bg: rgba(255, 255, 255, 0.05);
+  --bs-table-bg: color-mix(in srgb, var(--subvariation-base), white 5%);
 }
 #move-table .subvariation .selectable:hover {
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: color-mix(in srgb, var(--bs-table-bg), black 20%);
 }
 #move-table .subvariation .selected {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: color-mix(in srgb, var(--bs-table-bg), white 20%);
 }
+
 #move-table .subvariation .move {
   color: #DDDDDD;
 }
@@ -347,7 +353,7 @@ a {
   fill: red;
 }
 .eval-axis .tick line {
-  stroke: #555555;
+  stroke: color-mix(in srgb, var(--bg-color), white 10%);
 }
 .eval-circle {
   stroke: #af9358;
@@ -381,13 +387,15 @@ a {
   --bs-toast-header-color: #B4C9D2;
 }
 
-.notification-panel {
-  --bs-toast-bg: #333333;
-  --bs-toast-border-color: #303030;
+.toast.notification-panel {
+  --notification-bg: #333333;
+  --bs-toast-bg: var(--notification-bg);
+  --bs-toast-header-bg: var(--notification-bg);
+  --bs-toast-border-color: color-mix(in srgb, var(--notification-bg), black 6%);
   --bs-toast-header-border-color: rgba(0, 0, 0, 0.05);
 }
 #notifications-header {
-  --bs-toast-bg: #383838;
+  --bs-toast-bg: color-mix(in srgb, var(--notification-bg), white 3%);
 }
 #notifications-close-icon {
   color: #060600;
