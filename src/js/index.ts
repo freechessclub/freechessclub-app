@@ -8997,8 +8997,9 @@ function initAnalysis(game: Game) {
   }
 }
 
-$('#start-engine').on('click', () => {
-  if(!engine)
+$('#start-engine').on('change', (e) => {
+  const btn = e.currentTarget as HTMLInputElement;
+  if(btn.checked)
     startEngine();
   else
     stopEngine();
@@ -9008,7 +9009,8 @@ function startEngine() {
   const game = games.focused;
 
   if(Engine.categorySupported(game.category)) {
-    $('#start-engine').text('Stop');
+    $('#start-engine-label').text('Stop');
+    $('#start-engine').prop('checked', true);
 
     $('#engine-pvs').empty();
     for(let i = 0; i < settings.engineLines; i++)
@@ -9053,7 +9055,8 @@ function startEngine() {
 function stopEngine(temporary = false) {
   const game = games.focused;
 
-  $('#start-engine').text('Go');
+  $('#start-engine-label').text('Go');
+  $('#start-engine').prop('checked', false);
 
   if(engine) {
     // For engines that support the 'stop' command we send it. Otherwise (e.g. single threaded engines) 
@@ -9150,6 +9153,30 @@ function displayEnginePV(game: Game, pvNum: number, pvEval: string, pvMoves: str
     updateEvalBar(game, pvEval);
   }
 }
+
+$('#engine-play-btn').on('change', (e) => {
+  const btn = e.currentTarget as HTMLInputElement;
+  if(btn.checked)
+    startEnginePlay();
+  else
+    stopEnginePlay();
+});
+
+function startEnginePlay() {
+  $('#engine-play-text').text('Stop');  
+  $('#engine-play-icon').removeClass('fa-play');
+  $('#engine-play-icon').addClass('fa-stop');
+}
+
+function stopEnginePlay() {
+  $('#engine-play-text').text('Play');  
+  $('#engine-play-icon').removeClass('fa-stop');
+  $('#engine-play-icon').addClass('fa-play');
+}
+
+$('input[name="engine-play-type"]').on('change', function() {
+  const value = (this as HTMLInputElement).value;
+});
 
 /** Engine Settings button in engine panel */
 $('#engine-settings-btn').on('click', () => {
