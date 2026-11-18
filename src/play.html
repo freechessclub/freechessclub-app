@@ -659,6 +659,15 @@
                               <label class="btn btn-outline-secondary btn-sm btn-transparent" for="game-edit-mode" data-bs-toggle="tooltip" data-bs-placement="top" title="Edit Mode" data-description="Add multiple sub-variations and annotations.">
                                 <span class="fa-solid fa-pen-to-square" aria-hidden="false"></span>
                               </label>
+                              <div class="btn-group">
+                                <button class="btn btn-outline-secondary btn-sm btn-transparent" id="game-tools-clone" data-bs-toggle="tooltip" data-bs-placement="top" data-fallback-placements="left,right" title="Clone Board" data-description="Duplicate the current position onto a second board.">
+                                  <span class="fa-solid fa-clone" aria-hidden="false"></span>
+                                </button>
+                                <input type="checkbox" class="btn-check" id="game-link-boards" autocomplete=" aria-checked="false">
+                                <label class="btn btn-outline-secondary btn-sm btn-transparent" for="game-link-boards" data-bs-toggle="tooltip" data-bs-placement="top" data-fallback-placements="right,left" title="Link Boards" data-description="Links two open boards. When a move is made on one board it is automatically made on the other. Engine visuals will be shown for both boards simultaneously. This is an analysis tool for comparing similar lines.">
+                                  <span class="fa-solid fa-link" aria-hidden="false"></span>
+                                </label>
+                              </div>
                               <input type="checkbox" class="btn-check" id="game-preserved" autocomplete="off" aria-checked="false">
                               <label class="btn btn-outline-secondary btn-sm btn-transparent" for="game-preserved" data-bs-toggle="tooltip" data-bs-placement="top" title="Preserve Game" data-description="Stop this game being over-written when starting a new game.">
                                 <span class="fa-solid fa-unlock" aria-hidden="false"></span>
@@ -686,7 +695,6 @@
                                   <li><a class="dropdown-item noselect" id="game-tools-save-game" data-bs-toggle="modal" data-bs-target="#save-game-modal"><span class="menu-icon fa-solid fa-file-export dropdown-icon" aria-hidden="false"></span>Save Game (PGN/FEN)</a></li>
                                   <li><hr class="dropdown-divider"></li>
                                   <li><a class="dropdown-item noselect" id="game-tools-flip-board"><span class="menu-icon fa-solid fa-arrows-rotate dropdown-icon" aria-hidden="false"></span>Flip Board</a></li>
-                                  <li><a class="dropdown-item noselect" id="game-tools-clone"><span class="menu-icon fa-solid fa-copy dropdown-icon" aria-hidden="false"></span>Duplicate Game</a></li>
                                   <li><a class="dropdown-item noselect" id="game-tools-examine"><span class="menu-icon fa-solid fa-user-group dropdown-icon" aria-hidden="false"></span>Examine Mode (Shared)</a></li>
                                   <li><a class="dropdown-item noselect" id="game-tools-setup-board"><span class="menu-icon fa-solid fa-chess-board dropdown-icon" aria-hidden="false"></span>Setup Board</a></li>
                                   <li><hr class="dropdown-divider"></li>
@@ -767,18 +775,10 @@
                                 <li><a class="dropdown-item" href="#">Play Black Solo</a></li>
                               </ul>
                             </div>
-                            <div id="clone-link-button-group" class="btn-group">
-                              <button type="button" id="engine-clone-board" class="btn btn-engine btn-outline-secondary btn-sm py-0" title="Clone Board">
-                                <span id="engine-clone-board-icon" class="fa-solid fa-clone btn-engine-icon" aria-hidden="false"></span>
-                              </button>
-                              <button type="button" id="engine-link-boards" class="btn btn-engine btn-outline-secondary btn-sm py-0" title="Link Boards">
-                                <span id="engine-link-boards-icon" class="fa-solid fa-link btn-engine-icon" aria-hidden="false"></span>
-                              </button>
-                            </div>
-                            <div class="d-flex flex-grow-1 ms-auto align-items-center justify-content-between" style="max-width: 280px;">
+                            <div class="d-flex flex-grow-1 align-items-center justify-content-end">
                               <div class="eye-toggle">
                                 <input type="checkbox" class="btn-check" id="engine-board-visuals-toggle" autocomplete="off">
-                                <label class="btn btn-default ms-1 py-1 px-1 border-0" style="display: block; line-height: 1;" for="engine-board-visuals-toggle">
+                                <label class="btn btn-default me-2 py-1 px-1 border-0" style="display: block; line-height: 1;" for="engine-board-visuals-toggle">
                                   <span id="engine-board-visuals-toggle-icon" class="fa-regular fa-eye eye-toggle-icon" aria-hidden="false"></span>Board Visuals
                                 </label>
                               </div>
