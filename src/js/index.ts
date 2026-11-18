@@ -3526,9 +3526,7 @@ export function scrollToBoard(game?: Game, smooth = true) {
   }
 }
 
-export function movePiece(source: any, target: any, metadata: any, pieceRole?: string, promotePiece?: string) {
-  const game = games.focused;
-
+export function movePiece(source: any, target: any, metadata: any, pieceRole?: string, promotePiece?: string, game = games.focused) {
   if(game.isPlaying() && game.history.current() !== game.history.last()) {
     game.history.display(game.history.last(), false);
     return;
@@ -3769,7 +3767,7 @@ function playPremove(game: Game) {
             assignPremoveOrder(game, this) // Update premove order numbers on squares
           });
 
-        movePiece(premove.from || ChessHelper.shortToLongPieceName(premove.piece), premove.to, null, premove.piece, premove.promotion);
+        movePiece(premove.from || ChessHelper.shortToLongPieceName(premove.piece), premove.to, null, premove.piece, premove.promotion, game);
       }
     }
   }
@@ -4204,7 +4202,7 @@ function updateHistory(game: Game, move?: any, fen?: string, serverIssued = true
   }
 
   game.history.display(hEntry, move && !sameMove);
-  if(!sameMove)
+  if(!sameMove && game === games.focused)
     updateEngine();
 
   analyzeDisabled = false;
@@ -4359,13 +4357,10 @@ function initGameControls(game: Game) {
   game.statusElement.find('.trainingbot-status').hide();
   game.statusElement.find('.game-status-outer').show();
   game.statusElement.find('.game-watchers').toggle(!!game.statusElement.find('.game-watchers').html());
-  const endgameBotTraining = isEndgameBotTraining(game);
-  $('#fast-backward, #forward, #fast-forward').prop('disabled', endgameBotTraining);
-  game.moveTableElement.add(game.moveListElement)
-    .toggleClass('pe-none', endgameBotTraining)
-    .attr('aria-disabled', endgameBotTraining ? 'true' : null);
 
-  if(endgameBotTraining) {
+  updateTrainingBotNavigation(game);
+
+  if(game.trainingBot?.kind === 'endgame' && game.isExamining()) {
     Utils.hideWithPoppers($('#playing-game-buttons'));
     Utils.hideWithPoppers($('#viewing-game-buttons'));
     updateTrainingBotControls(game);
@@ -4600,7 +4595,7 @@ function cleanupGame(game: Game) {
  ************************/
 
 function isEndgameBotTraining(game: Game): game is Game & { trainingBot: EndgameBotState } {
-  return game?.trainingBot instanceof EndgameBotState && game.isExamining();
+  return game?.trainingBot instanceof EndgameBotState && game.isExamining() && !game.trainingBot.ended;
 }
 
 $('#fast-backward').off('click');
@@ -4610,8 +4605,10 @@ $('#fast-backward').on('click', () => {
 
 function fastBackward() {
   const game = games.focused;
-  if(isEndgameBotTraining(game))
+  if(isEndgameBotTraining(game)) {
+    endgameBackward(999);
     return;
+  }
 
   gotoMove(game.history.first());
   if(!SupportedCategories.includes(game.category) && game.isExamining())
@@ -4624,13 +4621,20 @@ $('#backward').on('click', () => {
   backward();
 });
 
-function backward() {
+function endgameBackward(backNum = 1) {
   const game = games.focused;
   if(isEndgameBotTraining(game)) {
     game.trainingBot.takeBack();
     updateTrainingBotControls(game);
     updateTrainingBotStatus(game);
-    sendEndgameBotCommand('back');
+    sendEndgameBotCommand(`back ${backNum}`);
+  }
+}
+
+function backward() {
+  const game = games.focused;
+  if(isEndgameBotTraining(game)) {
+    endgameBackward();
     return;
   }
 
@@ -6215,6 +6219,16 @@ function updateTrainingBotControls(game: Game) {
   $('#endgamebot-new')
     .toggleClass('btn-success', ended)
     .toggleClass('btn-outline-secondary', !ended);
+
+  updateTrainingBotNavigation(game);
+}
+
+function updateTrainingBotNavigation(game: Game) {
+  const endgameBotTraining = isEndgameBotTraining(game);
+  $('#forward, #fast-forward').prop('disabled', endgameBotTraining);
+  game.moveTableElement.add(game.moveListElement)
+    .toggleClass('pe-none', endgameBotTraining)
+    .attr('aria-disabled', endgameBotTraining ? 'true' : null);
 }
 
 function updateTrainingBotStatus(game: Game) {

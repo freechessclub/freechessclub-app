@@ -835,21 +835,21 @@ export class EvalEngine extends Engine {
   }
 
   /**
-   * Compare engine evals and return a positive value if eval1 is better than eval2,
-   * negative if it's worse, or 0 if they're the same.
-   * @param eval1 an eval string, e.g. 2.52 (white is 2.52 ahead), -#0 (black has mate in 0) etc.
-   * @param eval2 
-   * @param turnColor 'w' or 'b'. The perspective to assess 'better' from
+   * Compare engine evals between a current and previous turn and return a positive value if currEval 
+   * is better than prevEval, negative if it's worse, or 0 if they're the same.
+   * @param currEval the current eval string, e.g. 2.52, #2, -#3
+   * @param prevEval the previous eval string
+   * @param turnColor the colour that made the move ('w' or 'b')
    * @returns comparison value
    */
-  public static compareEvals(eval1: string, eval2: string, turnColor: string) {
+  public static compareEvals(currEval: string, prevEval: string, turnColor: string) {
     const sign = turnColor === 'w' ? 1 : -1;
 
     const parseEval = (value: string): number => {
       value = value.replace(/^=/, '');
 
       const mate = value.match(/^(-?)#(\d+)$/);
-      if(mate) {
+      if (mate) {
         const distance = +mate[2];
         const mateScore = 1000000;
         return mate[1] ? -mateScore + distance : mateScore - distance;
@@ -858,7 +858,19 @@ export class EvalEngine extends Engine {
       return +value;
     };
 
-    return sign * (parseEval(eval1) - parseEval(eval2));
+    const curr = parseEval(currEval);
+    let prev = parseEval(prevEval);
+
+    // Adjust the previous mate score for the move that was played.
+    // e.g. #3 on the previous move is equivalent to #2 on the current move
+    if (Math.abs(prev) > 900000) {
+      if ((prev > 0 && turnColor === 'w') ||
+          (prev < 0 && turnColor === 'b')) {
+        prev++;
+      }
+    }
+
+    return sign * (curr - prev);
   }
 }
 
