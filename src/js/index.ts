@@ -8307,6 +8307,12 @@ $('#game-tools-clone').on('click', () => {
  * The clone will not be in examine or observe mode, regardless of the original.
  */
 function cloneGame(game: Game): Game {
+  /*game = games.findGame(+match[2]);
+  if(!game)
+    game = games.getFreeGame();
+  if(!game)
+    game = createGame();*/
+
   const clonedGame = createGame();
 
   // Copy GameData properties
