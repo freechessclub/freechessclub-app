@@ -9048,8 +9048,10 @@ function startEngine() {
 
     game.engineRunning = true;
   }
-  else 
+  else {
     game.engineRunning = false;
+    $('#start-engine').prop('checked', false);
+  }
 }
 
 function stopEngine(temporary = false) {
