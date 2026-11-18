@@ -952,6 +952,7 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
 
   const cleanupMenu = () => {
     if(borrowed) {
+      menu.find('.dropdown-item').off('click.itemSelected contextmenu.itemSelected');
       menu.css({'position': '', 'display': '', 'z-index': ''});
       if(originalNextSibling.length) 
         menu.insertBefore(originalNextSibling);
@@ -965,9 +966,9 @@ export function createContextMenu(menu: JQuery<HTMLElement>, x: number, y: numbe
   }
 
   /** Triggered when menu item is selected */
-  menu.find('.dropdown-item').on('click contextmenu', (event) => {
+  menu.find('.dropdown-item').on('click.itemSelected contextmenu.itemSelected', (event) => {
     // Allow native context menu to be displayed when right clicking with modifier key
-    if(event.type === 'contextmenu' && ((event.button === 2 && event.ctrlKey)
+    if((event.type as string) === 'contextmenu' && ((event.button === 2 && event.ctrlKey)
         || event.shiftKey || event.altKey || event.metaKey))
       return;
 
