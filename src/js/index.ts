@@ -7300,8 +7300,8 @@ function initGameTools(game: Game) {
 
     $('#game-share').prop('disabled', !SupportedCategories.includes(game.category));
 
-    $('#game-tools-clone').parent().toggle(settings.multiboardToggle); // Only show 'Duplicate GAme' option in multiboard mode
-    $('#game-tools-clone').toggleClass('disabled', game.isPlaying()); // Don't allow cloning of a game while playing (could allow cheating)
+    $('#game-tools-clone, #game-clone').parent().toggle(settings.multiboardToggle); // Only show 'Duplicate Game' option in multiboard mode
+    $('#game-tools-clone, #game-clone-and-link .btn').toggleClass('disabled', game.isPlaying()); // Don't allow cloning of a game while playing (could allow cheating)
 
     const mainGame = games.getPlayingExaminingGame();
     $('#game-tools-examine').toggleClass('disabled', (mainGame && mainGame.isPlayingOnline()) || game.isPlaying() || game.isExamining()
@@ -8298,7 +8298,7 @@ function savePGN(game: Game, pgn: string) {
 }
 
 /** Triggered when the 'Duplicate Game' menu option is selected */
-$('#game-tools-clone').on('click', () => {
+$('#game-clone, #game-tools-clone').on('click', () => {
   cloneGame(games.focused);
 });
 
