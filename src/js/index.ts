@@ -9039,7 +9039,7 @@ function startEngine() {
       engine.move(game.history.current());
 
     const evalBarElem = game.element.find('.eval-bar');
-    if(settings.evalBarToggle && !evalBarElem.is(':visible')) {
+    if(settings.evalBarToggle && settings.engineBoardVisualsToggle && !evalBarElem.is(':visible')) {
       game.element.find('.eval-bar').css('display', 'flex');
       setPanelSizes();
     }
@@ -9702,9 +9702,9 @@ function initSettings() {
   setting = storage.get('evalbar');
   if(setting != null)
     settings.evalBarToggle = (setting === 'true');
-  $('#engine-panel-eval-bar-toggle, #eval-bar-toggle').prop('checked', settings.evalBarToggle);
-  $('#engine-panel-eval-bar-toggle-icon, #eval-bar-toggle-icon').toggleClass('fa-eye', settings.evalBarToggle);
-  $('#engine-panel-eval-bar-toggle-icon, #eval-bar-toggle-icon').toggleClass('fa-eye-slash', !settings.evalBarToggle);
+  $('#eval-bar-toggle').prop('checked', settings.evalBarToggle);
+  $('#eval-bar-toggle-icon').toggleClass('fa-eye', settings.evalBarToggle);
+  $('#eval-bar-toggle-icon').toggleClass('fa-eye-slash', !settings.evalBarToggle);
 
   setting = storage.get('moveratingicon');
   if(setting != null)
@@ -9845,15 +9845,15 @@ $('#smartmove-toggle').on('click', () => {
   storage.set('smartmove', String(settings.smartmoveToggle));
 });
 
-$('#engine-panel-eval-bar-toggle, #eval-bar-toggle').on('change', () => {
+$('#eval-bar-toggle').on('change', () => {
   settings.evalBarToggle = !settings.evalBarToggle;
 
-  $('#engine-panel-eval-bar-toggle-icon, #eval-bar-toggle-icon').toggleClass('fa-eye');
-  $('#engine-panel-eval-bar-toggle-icon, #eval-bar-toggle-icon').toggleClass('fa-eye-slash');
+  $('#eval-bar-toggle-icon').toggleClass('fa-eye');
+  $('#eval-bar-toggle-icon').toggleClass('fa-eye-slash');
 
   const game = games.focused;
   if(game.engineRunning) {
-    if(settings.evalBarToggle)
+    if(settings.evalBarToggle && settings.engineBoardVisualsToggle)
       game.element.find('.eval-bar').css('display', 'flex');
     else
       game.element.find('.eval-bar').hide();
@@ -9923,9 +9923,18 @@ $('#engine-board-visuals-toggle').on('change', () => {
     }
   }
 
+  const game = games.focused;
+  if(game.engineRunning) {
+    if(settings.evalBarToggle && settings.engineBoardVisualsToggle)
+      game.element.find('.eval-bar').css('display', 'flex');
+    else
+      game.element.find('.eval-bar').hide();
+    setPanelSizes();
+  }
+
   if(settings.bestMoveArrowToggle) 
     updateEngine();
-  else if(games.focused.engineRunning) 
+  else if(game.engineRunning) 
     removeAutoShape(games.focused, bestMoveBrush);  
 
   storage.set('engineboardvisuals', String(settings.engineBoardVisualsToggle));
