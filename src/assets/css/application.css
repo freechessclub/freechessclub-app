@@ -917,6 +917,10 @@ html, body {
 .btn-engine {
   font-family: monospace;
   font-weight: bold;
+  white-space: nowrap;
+}
+.btn-engine-icon {
+  font-size: 0.75rem;
 }
 
 .pane-status {
