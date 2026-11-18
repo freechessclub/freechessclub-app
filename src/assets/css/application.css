@@ -923,6 +923,20 @@ html, body {
   font-size: 0.75rem;
 }
 
+#play-engine-menu .dropdown-item input[type="radio"] {
+    display: none;
+}
+#play-engine-menu .dropdown-item:has(input:checked)::before {
+    content: "✓";
+    display: inline-block;
+    width: 1.5rem;
+}
+#play-engine-menu .dropdown-item:not(:has(input:checked))::before {
+    content: "";
+    display: inline-block;
+    width: 1.5rem;
+}
+
 .pane-status {
   padding: 10px;
   text-align: center;
