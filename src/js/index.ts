@@ -4703,11 +4703,17 @@ export function gotoMove(to: HEntry, playSound = false) {
   if(!to && to !== game.history.current())
     return;
 
-  if(game.isExamining() && !game.setupBoard) {
+  const linkedGame = game.linkedGame;
+  let linkedCurr = linkedGame ? linkedGame.history.current() : null;
+
+  if((game.isExamining() || linkedGame) && !game.setupBoard) {
     let from = game.history.current();
 
     if(!game.pendingMoves.length)
       game.restoreMove = from;
+
+    if(linkedGame && linkedGame.isExamining() && !linkedGame.pendingMoves.length)
+      linkedGame.restoreMove = linkedCurr;
     
     let curr = from;
     let index = 0;
@@ -4725,8 +4731,21 @@ export function gotoMove(to: HEntry, playSound = false) {
 
     const backNum = curr.visited;
     if(backNum > 0) {
-      session.send(`back ${backNum}`);
-      game.pendingMoves.push(curr);
+      if(game.isExamining()) {
+        session.send(`back ${backNum}`);
+        game.pendingMoves.push(curr);
+      }
+      if(linkedGame) {
+        let linkedBackNum = 0;
+        while(linkedBackNum < backNum && linkedCurr.prev) {
+          linkedCurr = linkedCurr.prev;
+          linkedBackNum++;
+        }
+        if(linkedGame.isExamining()) {
+          session.send(`back ${linkedBackNum}`);
+          linkedGame.pendingMoves.push(linkedCurr);  
+        }
+      }
     }
 
     while(from) {
@@ -4735,7 +4754,7 @@ export function gotoMove(to: HEntry, playSound = false) {
     }
 
     let forwardNum = 0;
-    if(!game.history.scratch()) {
+    if(!game.history.scratch() || linkedGame) {
       for(let i = path.length - 1; i >= 0; i--) {
         if(path[i].isSubvariation())
           break;
@@ -4743,18 +4762,63 @@ export function gotoMove(to: HEntry, playSound = false) {
         forwardNum++;
       }
       if(forwardNum > 0) {
-        session.send(`for ${forwardNum}`);
-        game.pendingMoves.push(curr);
+        if(game.isExamining() && !game.history.scratch()) {
+          session.send(`for ${forwardNum}`);
+          game.pendingMoves.push(curr);
+        }
+        if(linkedGame) {
+          let linkedForwardNum = 0;
+          while(linkedForwardNum < forwardNum && linkedCurr.next) {
+            linkedCurr = linkedCurr.next;
+            linkedForwardNum++;
+          }
+          if(linkedGame.isExamining() && !linkedGame.history.scratch()) {
+            session.send(`for ${linkedForwardNum}`);
+            linkedGame.pendingMoves.push(linkedCurr);  
+          }
+        }
       }
     }
 
     for(let i = path.length - forwardNum - 1; i >= 0; i--) {
-      sendMove(path[i].move);
-      game.pendingMoves.push(path[i]);
+      if(linkedGame) {
+        let matchingMoves = (move1, move2): boolean => {
+          if(!move1 || !move2)
+            return false;
+
+          return move1.from === move2.from && move1.to === move2.to && move1.promotion === move2.promotion;
+        }
+
+        let matchingEntry: HEntry = null;
+        if(matchingMoves(linkedCurr.next?.move, path[i].move)) 
+          matchingEntry = linkedCurr.next;
+        else {
+          for(let subVar of linkedCurr.subvariations) {
+            if(matchingMoves(subVar.move, path[i].move)) {
+              matchingEntry = subVar;
+              break;
+            }
+          }
+        }
+        if(matchingEntry) {
+          linkedCurr = matchingEntry;
+          if(linkedGame.isExamining()) {
+            sendMove(linkedCurr.move);
+            linkedGame.pendingMoves.push(linkedCurr);
+          }
+        }
+      }
+      
+      if(game.isExamining()) {
+        sendMove(path[i].move);
+        game.pendingMoves.push(path[i]);
+      }
     }
   }
 
   game.history.display(to, playSound);
+  if(linkedGame)
+    linkedGame.history.display(linkedCurr);
   updateEngine();
   if(game.setupBoard)
     updateSetupBoard(game);
