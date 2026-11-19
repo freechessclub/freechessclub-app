@@ -3637,7 +3637,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
       game.pendingMoves.push(game.history.current());
 
     if(game.linkedGame && !linkedMove) 
-      movePiece(move.from, move.to, null, move.piece, move.promotion, game.linkedGame, true);
+      movePiece(parsedMove.move.from, parsedMove.move.to, null, parsedMove.move.piece, parsedMove.move.promotion, game.linkedGame, true);
   }
 
   if(game.role === Role.PLAYING_COMPUTER) // Send move to engine in Play Computer mode
@@ -4203,7 +4203,7 @@ function updateHistory(game: Game, move?: any, fen?: string, serverIssued = true
   }
 
   game.history.display(hEntry, move && !sameMove);
-  if(!sameMove)
+  if(!sameMove && game === games.focused)
     updateEngine();
 
   analyzeDisabled = false;
@@ -8338,7 +8338,7 @@ $('#game-tools-examine').on('click', () => {
   session.send('ex');
 });
 
-$('#game-link-mode').on('change', (e) => {
+$('#game-link-boards').on('change', (e) => {
   const btn = e.currentTarget as HTMLInputElement;
   if(btn.checked) 
     linkGame(games.focused);
@@ -8348,21 +8348,19 @@ $('#game-link-mode').on('change', (e) => {
 
 function linkGame(game: Game) {
   const otherGame = games.getFreeGame(true, game.category);
-  $('#game-link-mode').prop('checked', !!otherGame);
+  $('#game-link-boards').prop('checked', !!otherGame);
   if(!otherGame)
     return false;
 
   game.linkedGame = otherGame;
   otherGame.linkedGame = game;
-
-  return true;
 }
 
 function unlinkGame(game: Game) {
   if(!game.linkedGame)
     return;
 
-  $('#game-link-mode').prop('checked', false);
+  $('#game-link-boards').prop('checked', false);
   game.linkedGame.linkedGame = null;
   game.linkedGame = null;
 }
