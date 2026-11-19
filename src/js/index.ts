@@ -8361,7 +8361,7 @@ function unlinkGame(game: Game) {
     return;
 
   $('#game-link-boards').prop('checked', false);
-  game.linkedGame?.linkedGame = null;
+  game.linkedGame.linkedGame = null;
   game.linkedGame = null;
 }
 
