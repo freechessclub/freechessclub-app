@@ -107,6 +107,7 @@ export class Game extends GameData {
   gameStatusRequested = false;         // Sends the 'moves' command in order to retrieve the game info to display in teh status panel
   lastComputerMoveEval: string = null; // Keeps track of the current eval for a game against the Computer. Used for draw offers
   partnerGameId: number = null;        // bughouse partner's game id
+  linkedGame: Game = null;             // Used for Linked Mode analysis
   newVariationMode = NewVariationMode.ASK;
   preserved = false;                   // if true, prevents a game/board from being overwritten
   trainingBot: TrainingBotState = null; // state for a board opened by a training bot
@@ -175,12 +176,12 @@ export class GameList {
     return this.gamelist.find(g => g.isPlayingOnline() || g.isExamining());
   }
 
-  public getFreeGame(excludeFocused = false): Game {
+  public getFreeGame(excludeFocused = false, category?: string): Game {
     const game = this.getMainGame();
-    if((!excludeFocused || (game !== games.focused)) && game.role === Role.NONE && !game.preserved && !game.history?.editMode && !game.setupBoard)
+    if((!excludeFocused || (game !== games.focused)) && (!category || game.category === category) && game.role === Role.NONE && !game.preserved && !game.history?.editMode && !game.setupBoard)
       return game;
 
-    return this.gamelist.find(g => (!excludeFocused || (g !== games.focused)) && g.role === Role.NONE && !g.preserved && !g.history?.editMode && !g.setupBoard);
+    return this.gamelist.find(g => (!excludeFocused || (g !== games.focused)) && (!category || g.category === category) && g.role === Role.NONE && !g.preserved && !g.history?.editMode && !g.setupBoard);
   }
 
   public getComputerGame(): Game {

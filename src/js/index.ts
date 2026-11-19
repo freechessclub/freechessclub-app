@@ -1675,36 +1675,34 @@ function gameStart(game: Game) {
 
   openAssociatedChatTab(game);
 
-  if(game.isPlaying() || game.isObserving()) {
-    // Adjust settings for game category (variant)
-    // When examining we do this after requesting the movelist (since the category is told to us by the 'moves' command)
-    if(game.isPlaying()) {
-      if(settings.soundToggle) {
-        Sounds.startSound.play();
-      }
+  if(game.isPlaying()) {
+    unlinkGame(game);
 
-      if(game.role === Role.PLAYING_COMPUTER) { // Play Computer mode
-        if(game.engine === 'Maia') 
-          playEngine = new MaiaEngine(game, playMaiaMove, playEngineError, downloadMaiaProgress, { eloSelf: game.difficulty, eloOppo: game.difficulty });
-        else {
-          const options = getPlayComputerEngineOptions(game);
+    if(settings.soundToggle) {
+      Sounds.startSound.play();
+    }
 
-          const engineName = options.hasOwnProperty('UCI_Variant')
-            ? settings.variantsEngineName
-            : settings.playEngineName;    
-
-          playEngine = new Engine(game, playComputerBestMove, null, playEngineError, engineName, options, getPlayComputerMoveParams(game));
-        }
-
-        if(game.turn !== game.color)
-          getComputerMove(game);
-      }
+    if(game.role === Role.PLAYING_COMPUTER) { // Play Computer mode
+      if(game.engine === 'Maia') 
+        playEngine = new MaiaEngine(game, playMaiaMove, playEngineError, downloadMaiaProgress, { eloSelf: game.difficulty, eloOppo: game.difficulty });
       else {
-        $('#play-computer').prop('disabled', true);
-        if(game.category === 'bughouse' && partnerGameId !== null) {
-          game.partnerGameId = partnerGameId;
-          partnerGameId = null;
-        }
+        const options = getPlayComputerEngineOptions(game);
+
+        const engineName = options.hasOwnProperty('UCI_Variant')
+          ? settings.variantsEngineName
+          : settings.playEngineName;    
+
+        playEngine = new Engine(game, playComputerBestMove, null, playEngineError, engineName, options, getPlayComputerMoveParams(game));
+      }
+
+      if(game.turn !== game.color)
+        getComputerMove(game);
+    }
+    else {
+      $('#play-computer').prop('disabled', true);
+      if(game.category === 'bughouse' && partnerGameId !== null) {
+        game.partnerGameId = partnerGameId;
+        partnerGameId = null;
       }
     }
   }
@@ -3526,9 +3524,7 @@ export function scrollToBoard(game?: Game, smooth = true) {
   }
 }
 
-export function movePiece(source: any, target: any, metadata: any, pieceRole?: string, promotePiece?: string) {
-  const game = games.focused;
-
+export function movePiece(source: any, target: any, metadata: any, pieceRole?: string, promotePiece?: string, game = games.focused, linkedMove = false) {
   if(game.isPlaying() && game.history.current() !== game.history.last()) {
     game.history.display(game.history.last(), false);
     return;
@@ -3639,6 +3635,9 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     movePieceAfter(game, move, fen, false);
     if(game.isExamining()) 
       game.pendingMoves.push(game.history.current());
+
+    if(game.linkedGame && !linkedMove) 
+      movePiece(move.from, move.to, null, move.piece, move.promotion, game.linkedGame, true);
   }
 
   if(game.role === Role.PLAYING_COMPUTER) // Send move to engine in Play Computer mode
@@ -4501,6 +4500,8 @@ function removeGame(game: Game) {
     setGameWithFocus(games.getMainGame());
 
   cleanupGame(game);
+
+  unlinkGame(game);
 
   // Remove game's html elements from the DOM
   game.element.remove();
@@ -8336,6 +8337,35 @@ $('#game-tools-examine').on('click', () => {
     session.send('unex');
   session.send('ex');
 });
+
+$('#game-link-mode').on('change', (e) => {
+  const btn = e.currentTarget as HTMLInputElement;
+  if(btn.checked) 
+    linkGame(games.focused);
+  else 
+    unlinkGame(games.focused);
+});
+
+function linkGame(game: Game) {
+  const otherGame = games.getFreeGame(true, game.category);
+  $('#game-link-mode').prop('checked', !!otherGame);
+  if(!otherGame)
+    return false;
+
+  game.linkedGame = otherGame;
+  otherGame.linkedGame = game;
+
+  return true;
+}
+
+function unlinkGame(game: Game) {
+  if(!game.linkedGame)
+    return;
+
+  $('#game-link-mode').prop('checked', false);
+  game.linkedGame.linkedGame = null;
+  game.linkedGame = null;
+}
 
 /**
  * Convert a game to examine mode by using bsetup and then commiting the movelist
