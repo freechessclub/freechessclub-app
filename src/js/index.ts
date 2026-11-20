@@ -4708,115 +4708,112 @@ export function gotoLinkedMove(to: HEntry) {
     return;
 
   let linkedCurr = linkedGame ? linkedGame.history.current() : null;
+  let from = game.history.current();
 
-  if(linkedGame && !game.setupBoard) {
-    let from = game.history.current();
+  if(linkedGame && linkedGame.isExamining() && !linkedGame.pendingMoves.length)
+    linkedGame.restoreMove = linkedCurr;
+  
+  let curr = from;
+  let index = 0;
+  while(curr) {
+    curr.visited = index;
+    curr = curr.prev;
+    index++;
+  }
+  const path = [];
+  curr = to;
+  while(curr && curr.visited === undefined) {
+    path.push(curr);
+    curr = curr.prev;
+  }
 
-    if(linkedGame && linkedGame.isExamining() && !linkedGame.pendingMoves.length)
-      linkedGame.restoreMove = linkedCurr;
-    
-    let curr = from;
-    let index = 0;
-    while(curr) {
-      curr.visited = index;
-      curr = curr.prev;
-      index++;
+  const backNum = curr.visited;
+  if(backNum > 0) {
+    let linkedBackNum = 0;
+    while(linkedBackNum < backNum && linkedCurr.prev) {
+      linkedCurr = linkedCurr.prev;
+      linkedBackNum++;
     }
-    const path = [];
-    curr = to;
-    while(curr && curr.visited === undefined) {
-      path.push(curr);
-      curr = curr.prev;
+    if(linkedGame.isExamining()) {
+      session.send(`back ${linkedBackNum}`);
+      linkedGame.pendingMoves.push(linkedCurr);  
+    }
+  }
+
+  while(from) {
+    from.visited = undefined;
+    from = from.prev;
+  }
+
+  let findNextEntry = (item: HEntry, target: HEntry) => {)
+    let isMatching = (entry1, entry2): boolean => {
+      const move1 = entry1?.move;
+      const move2 = entry2?.move;
+
+      if(!move1 || !move2)
+        return false;
+
+      return move1.from === move2.from && move1.to === move2.to && move1.promotion === move2.promotion;
     }
 
-    const backNum = curr.visited;
-    if(backNum > 0) {
-      let linkedBackNum = 0;
-      while(linkedBackNum < backNum && linkedCurr.prev) {
-        linkedCurr = linkedCurr.prev;
-        linkedBackNum++;
-      }
-      if(linkedGame.isExamining()) {
-        session.send(`back ${linkedBackNum}`);
-        linkedGame.pendingMoves.push(linkedCurr);  
-      }
-    }
-
-    while(from) {
-      from.visited = undefined;
-      from = from.prev;
-    }
-
-    let findNextEntry = (item: HEntry, target: HEntry) => {)
-      let isMatching = (entry1, entry2): boolean => {
-        const move1 = entry1?.move;
-        const move2 = entry2?.move;
-
-        if(!move1 || !move2)
-          return false;
-
-        return move1.from === move2.from && move1.to === move2.to && move1.promotion === move2.promotion;
-      }
-
-      let findMatching = () => {
-        if(isMatching(item.next, target)) 
-          return item.next;
-        else {
-          // Check whether the move is in a subvariation directly following the current move
-          if(this.item.next) {
-            for(const s of this.item.next.subvariations) {
-              if(!s.isContinuation() && isMatching(s, target)) 
-                return s;
-            }
-          }
-
-          // Check whether the move is a continuation following the current move
-          for(const s of this.item.subvariations) {
-            if(s.isContinuation() && isMatching(s, target))
+    let findMatching = () => {
+      if(isMatching(item.next, target)) 
+        return item.next;
+      else {
+        // Check whether the move is in a subvariation directly following the current move
+        if(this.item.next) {
+          for(const s of this.item.next.subvariations) {
+            if(!s.isContinuation() && isMatching(s, target)) 
               return s;
           }
         }
-        return null;
+
+        // Check whether the move is a continuation following the current move
+        for(const s of this.item.subvariations) {
+          if(s.isContinuation() && isMatching(s, target))
+            return s;
+        }
       }
-
-      let nextEntry = findMatching();
-      if(nextEntry)
-        return nextEntry;
-
-      return item.next;
+      return null;
     }
 
-    let linkedPath = [];
-    for(let i = path.length - 1; i >= 0; i--) {
-      const nextEntry = findNextEntry(linkedCurr, path[i]);
-      if(!nextEntry)
+    let nextEntry = findMatching();
+    if(nextEntry)
+      return nextEntry;
+
+    return item.next;
+  }
+
+  let linkedPath = [];
+  for(let i = path.length - 1; i >= 0; i--) {
+    const nextEntry = findNextEntry(linkedCurr, path[i]);
+    if(!nextEntry)
+      break;
+
+    linkedCurr = nextEntry;
+    linkedPath.push(linkedCurr);
+  }
+  linkedPath = linkedPath.reverse();
+
+  let forwardNum = 0;
+  if(linkedGame.isExamining() && !linkedGame.history.scratch()) {
+    for(let i = linkedPath.length - 1; i >= 0; i--) {
+      if(linkedPath[i].isSubvariation())
         break;
-
-      linkedCurr = nextEntry;
-      linkedPath.push(linkedCurr);
-    }
-    linkedPath = linkedPath.reverse();
-
-    let forwardNum = 0;
-    if(linkedGame.isExamining() && !linkedGame.history.scratch()) {
-      for(let i = linkedPath.length - 1; i >= 0; i--) {
-        if(linkedPath[i].isSubvariation())
-          break;
-        linkedCurr = linkedPath[i];
-        forwardNum++;
-      }
-      if(forwardNum > 0) {
-        session.send(`for ${forwardNum}`);
-        linkedGame.pendingMoves.push(linkedCurr);  
-      }
-    }
-
-    for(let i = linkedPath.length - forwardNum - 1; i >= 0; i--) {
       linkedCurr = linkedPath[i];
-      if(linkedGame.isExamining()) {
-        sendMove(linkedCurr.move);
-        linkedGame.pendingMoves.push(linkedCurr);
-      }
+      forwardNum++;
+    }
+    if(forwardNum > 0) {
+      session.send(`for ${forwardNum}`);
+      linkedGame.pendingMoves.push(linkedCurr);  
+    }
+  }
+
+  for(let i = linkedPath.length - forwardNum - 1; i >= 0; i--) {
+    linkedCurr = linkedPath[i];
+    if(linkedGame.isExamining()) {
+      sendMove(linkedCurr.move);
+      linkedGame.pendingMoves.push(linkedCurr);
     }
   }
 
