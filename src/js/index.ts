@@ -4782,6 +4782,9 @@ export function gotoLinkedMove(to: HEntry) {
     linkedGame.restoreMove = linkedCurr;
   
   let curr = from;
+
+  let differentColorToMove = curr.turnColor !== linkedCurr.turnColor; 
+
   let index = 0;
   while(curr) {
     curr.visited = index;
@@ -4795,7 +4798,7 @@ export function gotoLinkedMove(to: HEntry) {
     curr = curr.prev;
   }
 
-  const backNum = curr.visited;
+  const backNum = differentColorToMove ? curr.visited - 1 : curr.visited;
   if(backNum > 0) {
     let linkedBackNum = 0;
     while(linkedBackNum < backNum && linkedCurr.prev) {
@@ -4849,19 +4852,19 @@ export function gotoLinkedMove(to: HEntry) {
     if(nextEntry)
       return nextEntry;
 
-    console.log(item.next);
-
     return item.next;
   }
 
+  differentColorToMove = curr.turnColor !== linkedCurr.turnColor; 
+  if(differentColorToMove) 
+    path.pop();
+   
   let linkedPath = [];
   for(let i = path.length - 1; i >= 0; i--) {
-    console.log('linkedCurr:', linkedCurr);
     const nextEntry = findNextEntry(linkedCurr, path[i]);
     if(!nextEntry)
       break;
 
-    console.log('nextEntry:', nextEntry);
     linkedCurr = nextEntry;
     linkedPath.push(linkedCurr);
   }
