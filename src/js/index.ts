@@ -4072,8 +4072,8 @@ function flipBoard(game: Game) {
 
 /** Wrapper function for parseMove */
 function parseGameMove(game: Game, fen: string, move: any, premove = false) {
-  if(premove) 
-    fen = ChessHelper.setFENTurnColor(fen, ChessHelper.swapColor(ChessHelper.getTurnColorFromFEN(fen)));
+  if(premove)
+    fen = ChessHelper.setFENTurnColor(fen, move.color || game.color);
   
   return ChessHelper.parseMove(fen, move, game.category, game.history.first().fen, game.history.current().variantData, premove);
 }
