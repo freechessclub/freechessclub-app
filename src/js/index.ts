@@ -3560,6 +3560,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     to: target,
     promotion: promotePiece || (promote ? 'q' : ''),
     piece: isSourcePieceName ? pieceRole : undefined,
+    color: null,
   };
 
   const parsedMove = parseGameMove(game, prevHEntry.fen, inMove);
@@ -3569,6 +3570,10 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   if(!parsedMove && SupportedCategories.includes(game.category)) {
     if(premove)
       cancelMultiplePremoves(game);
+    if(linkedMove) {
+      inMove.color = ChessHelper.swapColor(currentGameMove(game.linkedGame).turnColor);
+      addPremove(game, inMove); 
+    }
     updateBoard(game, false, true, false);
     return;
   }
@@ -3637,15 +3642,8 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     if(game.isExamining()) 
       game.pendingMoves.push(game.history.current());
 
-    if(game.linkedGame && !linkedMove) {
-      console.log('link');
-      if(prevHEntry.turnColor !== game.linkedGame.history.current().turnColor) {
-        console.log('add premove:', move);
-        addPremove(game.linkedGame, move);
-      }
-      else 
-        movePiece(parsedMove.move.from, parsedMove.move.to, null, parsedMove.move.piece, parsedMove.move.promotion, game.linkedGame, true);
-    }
+    if(game.linkedGame && !linkedMove) 
+      movePiece(parsedMove.move.from, parsedMove.move.to, null, parsedMove.move.piece, parsedMove.move.promotion, game.linkedGame, true);
   }
 
   if(game.role === Role.PLAYING_COMPUTER) // Send move to engine in Play Computer mode
@@ -3728,7 +3726,6 @@ function addPremove(game: Game, move: any) {
 
     game.prevPremovesFen = game.premovesFen;
     game.premovesFen = moveFen.fen; // Update final premove FEN position
-    move.color = ChessHelper.swapColor(ChessHelper.getTurnColorFromFEN(moveFen.fen));
     game.premoves.push(move);
     console.log('add premove 2:', move);
   }
