@@ -3736,7 +3736,7 @@ function addPremove(game: Game, move: any) {
  * @fen the starting position that premoves are checked from
  */
 function checkPremoves(game: Game, fen: string) {
-  if(currentGameMove(game).turnColor === game.color) // Only check premoves after the opponent moves
+  if(game.isPlaying() && currentGameMove(game).turnColor === game.color) // Only check premoves after the opponent moves
     return;
 
   for(let i = 0; i < game.premoves.length; i++) {
