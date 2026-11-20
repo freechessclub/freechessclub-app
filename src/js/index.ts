@@ -4694,6 +4694,74 @@ function exitSubvariation() {
   showExplorerOrGameTab();
 }
 
+export function gotoMove(to: HEntry, playSound = false) {
+  const game = games.focused;
+
+  if(isEndgameBotTraining(game))
+    return;
+
+  if(!to && to !== game.history.current())
+    return;
+
+  gotoLinkedMove(to);
+
+  if(game.isExamining() && !game.setupBoard) {
+    let from = game.history.current();
+
+    if(!game.pendingMoves.length)
+      game.restoreMove = from;
+    
+    let curr = from;
+    let index = 0;
+    while(curr) {
+      curr.visited = index;
+      curr = curr.prev;
+      index++;
+    }
+    const path = [];
+    curr = to;
+    while(curr && curr.visited === undefined) {
+      path.push(curr);
+      curr = curr.prev;
+    }
+
+    const backNum = curr.visited;
+    if(backNum > 0) {
+      session.send(`back ${backNum}`);
+      game.pendingMoves.push(curr);
+    }
+
+    while(from) {
+      from.visited = undefined;
+      from = from.prev;
+    }
+
+    let forwardNum = 0;
+    if(!game.history.scratch()) {
+      for(let i = path.length - 1; i >= 0; i--) {
+        if(path[i].isSubvariation())
+          break;
+        curr = path[i];
+        forwardNum++;
+      }
+      if(forwardNum > 0) {
+        session.send(`for ${forwardNum}`);
+        game.pendingMoves.push(curr);
+      }
+    }
+
+    for(let i = path.length - forwardNum - 1; i >= 0; i--) {
+      sendMove(path[i].move);
+      game.pendingMoves.push(path[i]);
+    }
+  }
+
+  game.history.display(to, playSound);
+  updateEngine();
+  if(game.setupBoard)
+    updateSetupBoard(game);
+}
+
 export function gotoLinkedMove(to: HEntry) {
   const game = games.focused;
   const linkedGame = game.linkedGame;
@@ -4745,7 +4813,7 @@ export function gotoLinkedMove(to: HEntry) {
     from = from.prev;
   }
 
-  let findNextEntry = (item: HEntry, target: HEntry) => {)
+  let findNextEntry = (item: HEntry, target: HEntry) => {
     let isMatching = (entry1, entry2): boolean => {
       const move1 = entry1?.move;
       const move2 = entry2?.move;
@@ -4761,15 +4829,15 @@ export function gotoLinkedMove(to: HEntry) {
         return item.next;
       else {
         // Check whether the move is in a subvariation directly following the current move
-        if(this.item.next) {
-          for(const s of this.item.next.subvariations) {
+        if(item.next) {
+          for(const s of item.next.subvariations) {
             if(!s.isContinuation() && isMatching(s, target)) 
               return s;
           }
         }
 
         // Check whether the move is a continuation following the current move
-        for(const s of this.item.subvariations) {
+        for(const s of item.subvariations) {
           if(s.isContinuation() && isMatching(s, target))
             return s;
         }
@@ -4781,15 +4849,19 @@ export function gotoLinkedMove(to: HEntry) {
     if(nextEntry)
       return nextEntry;
 
+    console.log(item.next);
+
     return item.next;
   }
 
   let linkedPath = [];
   for(let i = path.length - 1; i >= 0; i--) {
+    console.log('linkedCurr:', linkedCurr);
     const nextEntry = findNextEntry(linkedCurr, path[i]);
     if(!nextEntry)
       break;
 
+    console.log('nextEntry:', nextEntry);
     linkedCurr = nextEntry;
     linkedPath.push(linkedCurr);
   }
@@ -4817,7 +4889,7 @@ export function gotoLinkedMove(to: HEntry) {
     }
   }
 
-  game.history.display(linkedCurr);
+  linkedGame.history.display(linkedCurr);
 }
 
 function sendMove(move: any) {
