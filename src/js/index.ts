@@ -4694,16 +4694,15 @@ function exitSubvariation() {
   showExplorerOrGameTab();
 }
 
-export function gotoMove(to: HEntry, playSound = false) {
-  const game = games.focused;
-
+export function gotoMove(to: HEntry, playSound = false, game = games.focused, linked = false) {
   if(isEndgameBotTraining(game))
     return;
 
   if(!to && to !== game.history.current())
     return;
 
-  gotoLinkedMove(to);
+  if(!linked)
+    gotoLinkedMove(to);
 
   if(game.isExamining() && !game.setupBoard) {
     let from = game.history.current();
@@ -4757,65 +4756,13 @@ export function gotoMove(to: HEntry, playSound = false) {
   }
 
   game.history.display(to, playSound);
-  updateEngine();
+  if(game === games.focused)
+    updateEngine();
   if(game.setupBoard)
     updateSetupBoard(game);
 }
 
 export function gotoLinkedMove(to: HEntry) {
-  const game = games.focused;
-  const linkedGame = game.linkedGame;
-
-  if(!linkedGame)
-    return;
-  
-  if(isEndgameBotTraining(linkedGame))
-    return;
-
-  if(!to && to !== game.history.current())
-    return;
-
-  let linkedCurr = linkedGame ? linkedGame.history.current() : null;
-  let from = game.history.current();
-
-  if(linkedGame && linkedGame.isExamining() && !linkedGame.pendingMoves.length)
-    linkedGame.restoreMove = linkedCurr;
-  
-  let curr = from;
-
-  let differentColorToMove = curr.turnColor !== linkedCurr.turnColor; 
-
-  let index = 0;
-  while(curr) {
-    curr.visited = index;
-    curr = curr.prev;
-    index++;
-  }
-  const path = [];
-  curr = to;
-  while(curr && curr.visited === undefined) {
-    path.push(curr);
-    curr = curr.prev;
-  }
-
-  const backNum = differentColorToMove ? curr.visited - 1 : curr.visited;
-  if(backNum > 0) {
-    let linkedBackNum = 0;
-    while(linkedBackNum < backNum && linkedCurr.prev) {
-      linkedCurr = linkedCurr.prev;
-      linkedBackNum++;
-    }
-    if(linkedGame.isExamining()) {
-      session.send(`back ${linkedBackNum}`);
-      linkedGame.pendingMoves.push(linkedCurr);  
-    }
-  }
-
-  while(from) {
-    from.visited = undefined;
-    from = from.prev;
-  }
-
   let findNextEntry = (item: HEntry, target: HEntry) => {
     let isMatching = (entry1, entry2): boolean => {
       const move1 = entry1?.move;
@@ -4855,44 +4802,66 @@ export function gotoLinkedMove(to: HEntry) {
     return item.next;
   }
 
+  const game = games.focused;
+  const linkedGame = game.linkedGame;
+
+  if(!linkedGame)
+    return;
+  
+  if(isEndgameBotTraining(linkedGame))
+    return;
+
+  if(!to && to !== game.history.current())
+    return;
+
+  let linkedCurr = linkedGame ? linkedGame.history.current() : null;
+  let from = game.history.current();
+
+  
+  let curr = from;
+
+  let differentColorToMove = curr.turnColor !== linkedCurr.turnColor; 
+
+  let index = 0;
+  while(curr) {
+    curr.visited = index;
+    curr = curr.prev;
+    index++;
+  }
+  const path = [];
+  curr = to;
+  while(curr && curr.visited === undefined) {
+    path.push(curr);
+    curr = curr.prev;
+  }
+
+  const backNum = differentColorToMove ? curr.visited - 1 : curr.visited;
+  if(backNum > 0) {
+    let linkedBackNum = 0;
+    while(linkedBackNum < backNum && linkedCurr.prev) {
+      linkedCurr = linkedCurr.prev;
+      linkedBackNum++;
+    }
+  }
+
+  while(from) {
+    from.visited = undefined;
+    from = from.prev;
+  }
+
   differentColorToMove = curr.turnColor !== linkedCurr.turnColor; 
   if(differentColorToMove) 
     path.pop();
-   
-  let linkedPath = [];
+
   for(let i = path.length - 1; i >= 0; i--) {
     const nextEntry = findNextEntry(linkedCurr, path[i]);
     if(!nextEntry)
       break;
 
     linkedCurr = nextEntry;
-    linkedPath.push(linkedCurr);
   }
-  linkedPath = linkedPath.reverse();
-
-  let forwardNum = 0;
-  if(linkedGame.isExamining() && !linkedGame.history.scratch()) {
-    for(let i = linkedPath.length - 1; i >= 0; i--) {
-      if(linkedPath[i].isSubvariation())
-        break;
-      linkedCurr = linkedPath[i];
-      forwardNum++;
-    }
-    if(forwardNum > 0) {
-      session.send(`for ${forwardNum}`);
-      linkedGame.pendingMoves.push(linkedCurr);  
-    }
-  }
-
-  for(let i = linkedPath.length - forwardNum - 1; i >= 0; i--) {
-    linkedCurr = linkedPath[i];
-    if(linkedGame.isExamining()) {
-      sendMove(linkedCurr.move);
-      linkedGame.pendingMoves.push(linkedCurr);
-    }
-  }
-
-  linkedGame.history.display(linkedCurr);
+  
+  gotoMove(linkedCurr, false, linkedGame, true);
 }
 
 function sendMove(move: any) {
