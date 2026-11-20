@@ -3312,14 +3312,14 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
   if(setBoard && !game.setupBoard) {   
     // Display premoves (when multiple premoves setting enabled)
     if(game.premoves.length && game.history.current() === game.history.last()) {
-      fen = game.premovesFen;
+      fen = game.premoves[game.premoves.length - 1];
 
       for(let i = 0; i < game.premoves.length; i++) {
         const premove = game.premoves[i];
         // Set premove square highlighting and numbering classes
-        if(premove.from && !squareClasses.get(premove.from))
-          squareClasses.set(premove.from, 'current-premove');
-        squareClasses.set(premove.to, `current-premove premove-target premove-square-${premove.to}`);
+        if(premove.move.from && !squareClasses.get(premove.move.from))
+          squareClasses.set(premove.move.from, 'current-premove');
+        squareClasses.set(premove.move.to, `current-premove premove-target premove-square-${premove.move.to}`);
       }
     }   
 
@@ -3560,7 +3560,6 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     to: target,
     promotion: promotePiece || (promote ? 'q' : ''),
     piece: isSourcePieceName ? pieceRole : undefined,
-    color: null,
   };
 
   const parsedMove = parseGameMove(game, prevHEntry.fen, inMove);
@@ -3571,8 +3570,8 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     if(premove)
       cancelMultiplePremoves(game);
     if(linkedMove) {
-      inMove.color = ChessHelper.swapColor(currentGameMove(game.linkedGame).turnColor);
-      addPremove(game, inMove); 
+      const linkedMoveColor = ChessHelper.swapColor(currentGameMove(game.linkedGame).turnColor);
+      addPremove(game, inMove, linkedMoveColor); 
     }
     updateBoard(game, false, true, false);
     return;
@@ -3717,16 +3716,21 @@ function preMovePiece(source: any, target: any, metadata: any) {
  * Update the final premove FEN and display it on the board
  * @move a move object (with to, from, piece, promotion etc)
  */
-function addPremove(game: Game, move: any) {
-  const fen = game.premoves.length ? game.premovesFen : currentGameMove(game).fen;
+function addPremove(game: Game, move: any, color?: string) {
+  if(!color)
+    color = game.color;
+
+  let fen = game.premoves.length ? game.premoves[game.premoves.length - 1] : currentGameMove(game).fen;
+  fen = ChessHelper.setFENTurnColor(fen, color);
+
   let moveFen = parseGameMove(game, fen, move, true);
   if(moveFen) { 
     if(!game.premoves.length) 
       createPremovesObserver(game); // Tracks chessground square DOM elements to add premove numbers to the squares
 
-    game.prevPremovesFen = game.premovesFen;
-    game.premovesFen = moveFen.fen; // Update final premove FEN position
-    game.premoves.push(move);
+    //game.prevPremovesFen = game.premovesFen;
+    //const premovesFen = moveFen.fen; // Update final premove FEN position
+    game.premoves.push({move: moveFen.move, fen: moveFen.fen, color });
   }
   updateBoard(game, false, true, false);
 }
@@ -3741,7 +3745,8 @@ function checkPremoves(game: Game, fen: string) {
 
   for(let i = 0; i < game.premoves.length; i++) {
     const premove = game.premoves[i];
-    let moveFen = parseGameMove(game, fen, premove, true);
+    fen = ChessHelper.setFENTurnColor(fen, premove.color);
+    let moveFen = parseGameMove(game, fen, premove.move, true);
     if(!moveFen) { // Remove impossible premove and all following premoves
       game.premoves.splice(i);
       if(!game.premoves.length)
@@ -3752,8 +3757,8 @@ function checkPremoves(game: Game, fen: string) {
     fen = moveFen.fen;
   }
 
-  if(game.premoves.length)
-    game.premovesFen = fen; // Update final premove FEN
+  //if(game.premoves.length)
+  //  game.premovesFen = fen; // Update final premove FEN
 }
 
 /**
@@ -3761,14 +3766,16 @@ function checkPremoves(game: Game, fen: string) {
  */
 function playPremove(game: Game) {
   if(settings.multiplePremovesToggle || game.linkedGame) {
-    if(currentGameMove(game).turnColor === game.premoves[0]?.color) {
+    if(!game.isPlaying() || currentGameMove(game).turnColor === game.color) {
       const premove = game.premoves.shift();
       if(premove) {
+        const move = premove.move;
+
         if(!game.premoves.length) {
           const unfinishedPromotion = game.element.find('.promotion-panel').length;
           if(unfinishedPromotion) {
-            premove.piece = 'p';
-            premove.promotion = null;
+            move.piece = 'p';
+            move.promotion = null;
           }
           cancelMultiplePremoves(game, unfinishedPromotion);
         }
@@ -3777,7 +3784,7 @@ function playPremove(game: Game) {
             assignPremoveOrder(game, this) // Update premove order numbers on squares
           });
 
-        movePiece(premove.from || ChessHelper.shortToLongPieceName(premove.piece), premove.to, null, premove.piece, premove.promotion, game, true, true);
+        movePiece(move.from || ChessHelper.shortToLongPieceName(move.piece), move.to, null, move.piece, move.promotion, game, true, true);
       }
     }
   }
@@ -3811,7 +3818,7 @@ function createPremovesObserver(game: Game) {
  */
 function assignPremoveOrder(game: Game, elem: any) {
   for(let i = 0; i < game.premoves.length; i++) {   
-    if(game.premoves[i].to === elem.cgKey) {
+    if(game.premoves[i].move.to === elem.cgKey) {
       $(elem).attr('data-order', i + 1);
       break;  
     }
@@ -3820,7 +3827,7 @@ function assignPremoveOrder(game: Game, elem: any) {
 
 function cancelPromotion(game: Game) {
   game.premoves.pop();
-  game.premovesFen = game.prevPremovesFen;
+  //game.premovesFen = game.prevPremovesFen;
   hidePromotionPanel(game);
   updateBoard(game, false, true, false);    
 }
@@ -3856,7 +3863,7 @@ function setPremoveDests(game: Game, square: string) {
     const piece = pieces.get(square);
     if(piece && piece.role === 'king' && piece.color[0] === game.color) {
       // If there are multiple premoves, use the final premove position 
-      let fen = (game.premoves.length ? game.premovesFen : currentGameMove(game).fen);
+      let fen = (game.premoves.length ? game.premoves[game.premoves.length - 1].fen : currentGameMove(game).fen);
       fen = ChessHelper.setFENTurnColor(fen, game.color);
       let kingDests = game.board.state.premovable.dests;
       kingDests = ChessHelper.adjustKingDests(kingDests, fen, game.history.first().fen, game.category, true);
@@ -3893,7 +3900,7 @@ function playSmartMove(game: Game, square: string) {
 
   // If there are multiple premoves, check valid premoves from the final premove position
   // Note the new premoves are checked as regualar moves (full validation) 
-  let fen = (game.premoves.length ? game.premovesFen : currentGameMove(game).fen);
+  let fen = (game.premoves.length ? game.premoves[game.premoves.length - 1].fen : currentGameMove(game).fen);
   if(game.isPlaying() && ChessHelper.getTurnColorFromFEN(fen) !== game.color) {
     const fenWords = ChessHelper.splitFEN(fen);
     fenWords.color = game.color; // Check the move from the perspective of the player's color
@@ -3977,12 +3984,13 @@ function showPromotionPanel(game: Game) {
     if(!premove)
       movePiece(source, target, metadata, 'p', promotePiece);
     else if(settings.multiplePremovesToggle) {
-      game.premoves[game.premoves.length - 1].promotion = promotePiece;
-      const pos = new ChessHelper.Position(game.premovesFen);
+      const lastPremove = game.premoves[game.premoves.length - 1];
+      lastPremove.move.promotion = promotePiece;
+      const pos = new ChessHelper.Position(lastPremove.fen);
       pos.set(target, { type: promotePiece as ChessHelper.Piece['type'], color: color === 'white' ? 'w' : 'b'});
-      const parts = game.premovesFen.split(' ');
+      const parts = lastPremove.fen.split(' ');
       parts[0] = pos.toFEN();
-      game.premovesFen = parts.join(' ');
+      lastPremove.fen = parts.join(' ');
       updateBoard(game, false, true, false);
     }
     else
@@ -4066,10 +4074,7 @@ function flipBoard(game: Game) {
  **************************/
 
 /** Wrapper function for parseMove */
-function parseGameMove(game: Game, fen: string, move: any, premove = false) {
-  if(premove)
-    fen = ChessHelper.setFENTurnColor(fen, move.color || game.color);
-  
+function parseGameMove(game: Game, fen: string, move: any, premove = false) { 
   return ChessHelper.parseMove(fen, move, game.category, game.history.first().fen, game.history.current().variantData, premove);
 }
 
