@@ -3642,8 +3642,11 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     if(game.isExamining()) 
       game.pendingMoves.push(game.history.current());
 
-    if(game.linkedGame && !linkedMove) 
-      movePiece(parsedMove.move.from, parsedMove.move.to, null, parsedMove.move.piece, parsedMove.move.promotion, game.linkedGame, true);
+    if(game.linkedGame && !linkedMove) {
+      const equivLinkedMove = findEquivalentLinkedMove(prevHEntry.fen, currentGameMove(game.linkedGame).fen, parsedMove.move);
+      if(equivLinkedMove)
+        movePiece(equivLinkedMove.from, equivLinkedMove.to, null, equivLinkedMove.piece, equivLinkedMove.promotion, game.linkedGame, true);
+    }
   }
 
   if(game.role === Role.PLAYING_COMPUTER) // Send move to engine in Play Computer mode
@@ -3717,9 +3720,6 @@ function preMovePiece(source: any, target: any, metadata: any) {
 function addPremove(game: Game, move: any) {
   const fen = game.premoves.length ? game.premovesFen : currentGameMove(game).fen;
   let moveFen = parseGameMove(game, fen, move, true);
-  console.log('moveFen:', moveFen);
-  console.log('fen:', fen);
-  console.log('move:', move);
   if(moveFen) { 
     if(!game.premoves.length) 
       createPremovesObserver(game); // Tracks chessground square DOM elements to add premove numbers to the squares
@@ -3727,7 +3727,6 @@ function addPremove(game: Game, move: any) {
     game.prevPremovesFen = game.premovesFen;
     game.premovesFen = moveFen.fen; // Update final premove FEN position
     game.premoves.push(move);
-    console.log('add premove 2:', move);
   }
   updateBoard(game, false, true, false);
 }
@@ -3835,7 +3834,6 @@ function unsetPremove() {
  * Triggered by right mouse click or long press on touch screen
  */
 function cancelMultiplePremoves(game: Game, keepPromotionPanel = false) {
-  console.trace();
   game.premoves = [];
   game.premovesObserver?.disconnect();
   game.premovesObserver = null;
@@ -4873,6 +4871,36 @@ export function gotoLinkedMove(to: HEntry) {
   }
   
   gotoMove(linkedCurr, false, linkedGame, true);
+}
+
+function findEquivalentLinkedMove(origFen: string, linkedFen: string, move: any): any { 
+  const origPos = new ChessHelper.Position(origFen);
+  const from = move.from;
+  const to = move.to;
+  const linkedPos = new ChessHelper.Position(linkedFen);
+  const origPiece = origPos.get(move.from);
+
+  const linkedPiece = linkedPos.get(move.from);
+  if(linkedPiece && linkedPiece.type === origPiece.type && linkedPiece.color === origPiece.color)
+    return move;
+
+  for(const sq of ChessHelper.Position.SQUARES) {
+    const piece = linkedPos.get(sq);
+    if(!piece || piece.type !== origPiece.type || piece.color !== origPiece.color)
+      continue;
+
+    const op = origPos.get(sq);
+    if(op && op.type == piece.type && op.color === piece.color)
+      continue;
+
+    if(ChessHelper.isReachable(sq, to, piece.type, piece.color)) {
+      const equivMove = { ...move };
+      equivMove.from = sq;
+      return equivMove;
+    }
+  }
+
+  return null;
 }
 
 function sendMove(move: any) {
