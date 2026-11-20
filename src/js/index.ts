@@ -3524,7 +3524,7 @@ export function scrollToBoard(game?: Game, smooth = true) {
   }
 }
 
-export function movePiece(source: any, target: any, metadata: any, pieceRole?: string, promotePiece?: string, game = games.focused, linkedMove = false) {
+export function movePiece(source: any, target: any, metadata: any, pieceRole?: string, promotePiece?: string, game = games.focused, linkedMove = false, premove = false) {
   if(game.isPlaying() && game.history.current() !== game.history.last()) {
     game.history.display(game.history.last(), false);
     return;
@@ -3567,7 +3567,8 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   const move = parsedMove ? parsedMove.move : inMove;
 
   if(!parsedMove && SupportedCategories.includes(game.category)) {
-    cancelMultiplePremoves(game);
+    if(premove)
+      cancelMultiplePremoves(game);
     updateBoard(game, false, true, false);
     return;
   }
@@ -3636,8 +3637,12 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     if(game.isExamining()) 
       game.pendingMoves.push(game.history.current());
 
-    if(game.linkedGame && !linkedMove) 
-      movePiece(parsedMove.move.from, parsedMove.move.to, null, parsedMove.move.piece, parsedMove.move.promotion, game.linkedGame, true);
+    if(game.linkedGame && !linkedMove) {
+      if(prevHEntry.turnColor !== game.linkedGame.history.current().turnColor)
+        addPremove(game.linkedGame, move);
+      else 
+        movePiece(parsedMove.move.from, parsedMove.move.to, null, parsedMove.move.piece, parsedMove.move.promotion, game.linkedGame, true);
+    }
   }
 
   if(game.role === Role.PLAYING_COMPUTER) // Send move to engine in Play Computer mode
@@ -3717,6 +3722,7 @@ function addPremove(game: Game, move: any) {
 
     game.prevPremovesFen = game.premovesFen;
     game.premovesFen = moveFen.fen; // Update final premove FEN position
+    move.color = ChessHelper.swapColor(ChessHelper.getTurnColorFromFEN(moveFen.fen));
     game.premoves.push(move);
   }
   updateBoard(game, false, true, false);
@@ -3751,8 +3757,9 @@ function checkPremoves(game: Game, fen: string) {
  * Play a premove
  */
 function playPremove(game: Game) {
-  if(settings.multiplePremovesToggle) {
-    if(currentGameMove(game).turnColor === game.color) {
+  if(settings.multiplePremovesToggle || game.linkedGame) {
+    if(currentGameMove(game).turnColor === game.premoves[0]?.color) {
+      console.log('playing premove');
       const premove = game.premoves.shift();
       if(premove) {
         if(!game.premoves.length) {
@@ -3768,7 +3775,7 @@ function playPremove(game: Game) {
             assignPremoveOrder(game, this) // Update premove order numbers on squares
           });
 
-        movePiece(premove.from || ChessHelper.shortToLongPieceName(premove.piece), premove.to, null, premove.piece, premove.promotion);
+        movePiece(premove.from || ChessHelper.shortToLongPieceName(premove.piece), premove.to, null, premove.piece, premove.promotion, game, true, true);
       }
     }
   }
