@@ -3567,11 +3567,15 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   const move = parsedMove ? parsedMove.move : inMove;
 
   if(!parsedMove && SupportedCategories.includes(game.category)) {
-    if(linkedMove && !premove) {
+    if(linkedMove) {
+      if(premove)
+        return;
+
       const linkedMoveColor = ChessHelper.swapColor(currentGameMove(game.linkedGame).turnColor);
       addPremove(game, inMove, linkedMoveColor); 
     }
-    if(premove && !linkedMove)
+    
+    if(premove)
       cancelMultiplePremoves(game);
     updateBoard(game, false, true, false);
     return false;
@@ -3783,10 +3787,11 @@ function playPremove(game: Game) {
           }
           cancelMultiplePremoves(game, unfinishedPromotion);
         }
-        else
+        else {
           $('.premove-target').each(function() { 
             assignPremoveOrder(game, this) // Update premove order numbers on squares
           });
+        }
       }
     }
   }
@@ -3843,7 +3848,6 @@ function unsetPremove() {
  * Triggered by right mouse click or long press on touch screen
  */
 function cancelMultiplePremoves(game: Game, keepPromotionPanel = false) {
-  console.trace();
   game.premoves = [];
   game.premovesObserver?.disconnect();
   game.premovesObserver = null;
