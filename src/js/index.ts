@@ -3524,14 +3524,14 @@ export function scrollToBoard(game?: Game, smooth = true) {
   }
 }
 
-export function movePiece(source: any, target: any, metadata: any, pieceRole?: string, promotePiece?: string, game = games.focused, linkedMove = false, premove = false) {
+export function movePiece(source: any, target: any, metadata: any, pieceRole?: string, promotePiece?: string, game = games.focused, linkedMove = false, premove = false): boolean {
   if(game.isPlaying() && game.history.current() !== game.history.last()) {
     game.history.display(game.history.last(), false);
     return;
   }
 
   if(game.setupBoard)
-    return;
+    return false;
 
   const prevHEntry = game.isPlaying() ? game.history.last() : game.history.current(); 
   const pieces = game.board.state.pieces;
@@ -3567,14 +3567,14 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
   const move = parsedMove ? parsedMove.move : inMove;
 
   if(!parsedMove && SupportedCategories.includes(game.category)) {
-    if(premove)
-      cancelMultiplePremoves(game);
-    if(linkedMove) {
+    if(linkedMove && !premove) {
       const linkedMoveColor = ChessHelper.swapColor(currentGameMove(game.linkedGame).turnColor);
       addPremove(game, inMove, linkedMoveColor); 
     }
+    if(premove && !linkedMove)
+      cancelMultiplePremoves(game);
     updateBoard(game, false, true, false);
-    return;
+    return false;
   }
 
   game.movePieceSource = source;
@@ -3587,7 +3587,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
       && (game.category !== 'atomic' || !ChessHelper.isCapture(prevHEntry.fen, source, target))) { // Don't show promotion panel when capturing in Atomic, since the piece will explode immediately anyway.
     showPromotionPanel(game);
     game.board.set({ movable: { color: undefined } });
-    return;
+    return false;
   }
 
   if(parsedMove) {
@@ -3599,7 +3599,7 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
       }
       if(nextMove.fen !== fen && !subFound) {
         createNewVariationMenu(game);
-        return;
+        return false;
       }
     }
   }
@@ -3652,6 +3652,8 @@ export function movePiece(source: any, target: any, metadata: any, pieceRole?: s
     getComputerMove(game);
 
   showExplorerOrGameTab();
+
+  return true;
 }
 
 function movePieceAfter(game: Game, move: any, fen: string, serverIssued: boolean) { 
@@ -3728,8 +3730,6 @@ function addPremove(game: Game, move: any, color?: string) {
     if(!game.premoves.length) 
       createPremovesObserver(game); // Tracks chessground square DOM elements to add premove numbers to the squares
 
-    //game.prevPremovesFen = game.premovesFen;
-    //const premovesFen = moveFen.fen; // Update final premove FEN position
     game.premoves.push({move: moveFen.move, fen: moveFen.fen, color });
   }
   updateBoard(game, false, true, false);
@@ -3756,9 +3756,6 @@ function checkPremoves(game: Game, fen: string) {
     }
     fen = moveFen.fen;
   }
-
-  //if(game.premoves.length)
-  //  game.premovesFen = fen; // Update final premove FEN
 }
 
 /**
@@ -3773,6 +3770,10 @@ function playPremove(game: Game) {
         const premove = game.premoves.splice(premoveIndex, 1)[0];
         const move = premove.move;
 
+        const pieceMoved = movePiece(move.from || ChessHelper.shortToLongPieceName(move.piece), move.to, null, move.piece, move.promotion, game, true, true);
+        if(!pieceMoved)
+          game.premoves.splice(premoveIndex, 0, premove);
+
         if(!game.premoves.length) {
           const unfinishedPromotion = game.element.find('.promotion-panel').length;
           if(unfinishedPromotion) {
@@ -3785,10 +3786,6 @@ function playPremove(game: Game) {
           $('.premove-target').each(function() { 
             assignPremoveOrder(game, this) // Update premove order numbers on squares
           });
-
-        movePiece(move.from || ChessHelper.shortToLongPieceName(move.piece), move.to, null, move.piece, move.promotion, game, true, true);
-      
-        // game.premoves.splice(premoveIndex, 0, premove);
       }
     }
   }
@@ -3845,6 +3842,7 @@ function unsetPremove() {
  * Triggered by right mouse click or long press on touch screen
  */
 function cancelMultiplePremoves(game: Game, keepPromotionPanel = false) {
+  console.trace();
   game.premoves = [];
   game.premovesObserver?.disconnect();
   game.premovesObserver = null;
