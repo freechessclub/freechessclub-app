@@ -3312,7 +3312,7 @@ export function updateBoard(game: Game, playMove = false, setBoard = true, anima
   if(setBoard && !game.setupBoard) {   
     // Display premoves (when multiple premoves setting enabled)
     if(game.premoves.length && game.history.current() === game.history.last()) {
-      fen = game.premoves[game.premoves.length - 1];
+      fen = game.premoves[game.premoves.length - 1].fen;
 
       for(let i = 0; i < game.premoves.length; i++) {
         const premove = game.premoves[i];
@@ -3720,7 +3720,7 @@ function addPremove(game: Game, move: any, color?: string) {
   if(!color)
     color = game.color;
 
-  let fen = game.premoves.length ? game.premoves[game.premoves.length - 1] : currentGameMove(game).fen;
+  let fen = game.premoves.length ? game.premoves[game.premoves.length - 1].fen : currentGameMove(game).fen;
   fen = ChessHelper.setFENTurnColor(fen, color);
 
   let moveFen = parseGameMove(game, fen, move, true);
@@ -3766,9 +3766,11 @@ function checkPremoves(game: Game, fen: string) {
  */
 function playPremove(game: Game) {
   if(settings.multiplePremovesToggle || game.linkedGame) {
+    const turnColor = currentGameMove(game).turnColor;
     if(!game.isPlaying() || currentGameMove(game).turnColor === game.color) {
-      const premove = game.premoves.shift();
-      if(premove) {
+      const premoveIndex = game.premoves.findIndex(p => p.color === turnColor);
+      if(premoveIndex !== -1) {
+        const premove = game.premoves.splice(premoveIndex, 1)[0];
         const move = premove.move;
 
         if(!game.premoves.length) {
@@ -3785,6 +3787,8 @@ function playPremove(game: Game) {
           });
 
         movePiece(move.from || ChessHelper.shortToLongPieceName(move.piece), move.to, null, move.piece, move.promotion, game, true, true);
+      
+        // game.premoves.splice(premoveIndex, 0, premove);
       }
     }
   }
