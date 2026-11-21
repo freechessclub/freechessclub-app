@@ -3755,6 +3755,7 @@ function checkPremoves(game: Game, fen: string) {
       break;
     }
     fen = moveFen.fen;
+    premove.fen = fen;
   }
 }
 
